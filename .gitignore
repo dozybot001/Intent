@@ -1,0 +1,21 @@
+# Historical materials not meant for the main repo
+backup/
+
+# Local Intent workspace metadata
+.intent/
+
+# Editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs and temp files
+*.log
+*.tmp
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
