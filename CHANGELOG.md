@@ -4,9 +4,7 @@ English | [简体中文](CHANGELOG.CN.md)
 
 All notable project changes should be recorded here.
 
-This project does not have a public release yet. The entries below describe the current release baseline under preparation.
-
-## 0.1.0 - Unreleased
+## 0.1.0 - 2026-03-17
 
 ### Added
 
@@ -23,8 +21,9 @@ This project does not have a public release yet. The entries below describe the 
 - documentation was reorganized into bilingual EN/CN trees under `docs/`
 - README now includes local install and validation entry points
 - core CLI modules were split into smaller files for constants, errors, git helpers, helpers, and rendering
+- release baseline docs now include a stable release-notes template
 
 ### Notes
 
 - the package version is currently `0.1.0`
-- this changelog entry is the release baseline, not a tagged release announcement
+- this is the first tagged release for the repository

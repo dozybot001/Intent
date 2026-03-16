@@ -4,9 +4,7 @@
 
 这里记录项目的重要变更。
 
-项目目前还没有正式 public release，下面这条主要用于描述正在收尾中的当前发布基线。
-
-## 0.1.0 - Unreleased
+## 0.1.0 - 2026-03-17
 
 ### 新增
 
@@ -23,8 +21,9 @@
 - 文档重组为 `docs/` 下的 EN/CN 双语目录
 - README 补上了本地安装和验证入口
 - CLI 核心模块拆分出 constants、errors、git helpers、helpers、render 等更小文件
+- 发布基线文档现在包含稳定的 release notes 模板
 
 ### 说明
 
 - 当前 package 版本仍是 `0.1.0`
-- 这一条 changelog 代表发布基线，不是已打 tag 的正式 release 公告
+- 这是仓库的第一个已打 tag 版本

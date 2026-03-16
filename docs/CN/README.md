@@ -13,6 +13,7 @@
 | [CLI 统一设计文档](cli.md) | Intent CLI 的项目边界、命令语义与实现 contract | 更长期的平台问题 |
 | [Demo](demo.md) | 如何快速复现 `itt log` 与 `git log` 的对比 | CLI contract 定义、长期路线 |
 | [发布基线](release.md) | 阶段性 release 前至少需要检查什么 | CLI contract 细节、长期路线 |
+| [Release Notes 模板](release-notes-template.md) | release notes 应保持什么固定结构 | release 检查项、CLI contract 细节 |
 | [路线图](roadmap.md) | CLI 初版之后接下来最值得做什么 | 当前 CLI contract 定义 |
 | [文档国际化规范](i18n.md) | 中英文文档如何组织与维护 | CLI contract 细节、实现路线 |
 
@@ -21,6 +22,7 @@
 - 第一次了解项目：先看 [术语表](glossary.md)，再看 [愿景与问题定义](vision.md)
 - 想快速看一个可运行示例：看 [Demo](demo.md)
 - 想做一次阶段性 release 检查：看 [发布基线](release.md)
+- 想保持 release notes 结构稳定：看 [Release Notes 模板](release-notes-template.md)
 - 想讨论中英文文档如何组织：看 [文档国际化规范](i18n.md)
 - 想讨论命令、交互或准备实现：直接看 [CLI 统一设计文档](cli.md)
 - 想讨论下一阶段实现优先级：看 [路线图](roadmap.md)

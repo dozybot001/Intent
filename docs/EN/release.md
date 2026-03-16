@@ -23,6 +23,7 @@ Before creating a GitHub release, confirm that the repository is:
 - GitHub Actions CI is green
 - the package still builds as sdist and wheel
 - the built wheel can be installed into a clean environment and the `itt` entry point still runs
+- the release notes draft follows [release-notes-template.md](release-notes-template.md)
 
 ## Local Commands
 
@@ -40,6 +41,10 @@ For the current stage, release notes should cover:
 - machine-readable agent entry points
 - `run` and `decision` support
 - demos, CI, and validation baseline
+
+Use [release-notes-template.md](release-notes-template.md) as the stable shape.
+
+For GitHub releases, keep the release title separate and use the template only for the release body.
 
 ## Out of Scope
 
