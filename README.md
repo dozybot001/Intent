@@ -142,6 +142,7 @@ README 只保留总览，更完整的说明在 `docs/`：
 - [术语表](docs/glossary.md)
 - [愿景与问题定义](docs/vision.md)
 - [CLI 统一设计文档](docs/cli.md)
+- [Demo](docs/demo.md)
 - [路线图](docs/roadmap.md)
 
 更多背景见：[愿景与问题定义](docs/vision.md)。

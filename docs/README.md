@@ -9,11 +9,13 @@
 | [术语表](glossary.md) | 这些核心名词分别是什么意思 | 产品论证、命令设计、实现细节 |
 | [愿景与问题定义](vision.md) | 为什么 agent 时代需要 Intent | 具体命令语法、JSON schema |
 | [CLI 统一设计文档](cli.md) | Intent CLI 的产品边界、命令语义与实现 contract | 更长期的平台问题 |
+| [Demo](demo.md) | 如何快速复现 `itt log` 与 `git log` 的对比 | CLI contract 定义、长期路线 |
 | [路线图](roadmap.md) | CLI 初版之后接下来最值得做什么 | 当前 CLI contract 定义 |
 
 ## 推荐阅读路径
 
 - 第一次了解项目：先看 [术语表](glossary.md)，再看 [愿景与问题定义](vision.md)
+- 想快速看一个可运行示例：看 [Demo](demo.md)
 - 想讨论命令、交互或准备实现：直接看 [CLI 统一设计文档](cli.md)
 - 想讨论下一阶段实现优先级：看 [路线图](roadmap.md)
 

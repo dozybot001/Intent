@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CLI = ROOT / "itt"
 SMOKE = ROOT / "scripts" / "smoke.sh"
+DEMO = ROOT / "scripts" / "demo_log.sh"
 
 
 def run_cli(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -451,6 +452,18 @@ class IntentCliTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertIn("Smoke test passed", result.stdout)
+
+    def test_demo_log_script_runs(self) -> None:
+        result = subprocess.run(
+            [str(DEMO)],
+            cwd=str(ROOT),
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertIn("== git log --oneline ==", result.stdout)
+        self.assertIn("== itt log ==", result.stdout)
 
 
 if __name__ == "__main__":
