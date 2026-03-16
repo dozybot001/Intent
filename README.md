@@ -38,6 +38,17 @@ Intent 想补上的，就是这层历史。
 - 开发者容易集成的接口
 - agent 能稳定读取和操作的对象
 
+## 为什么不直接用 issue / ADR / commit message
+
+现有工具当然有价值，但它们没有把“采纳历史”本身做成稳定对象。
+
+| 方式 | 擅长什么 | 不足在哪里 |
+| --- | --- | --- |
+| commit message | 解释一次代码提交 | 不稳定回答“当前 intent 是什么”“试过哪些候选”“最终采纳了什么” |
+| issue / PR | 承载讨论和上下文 | 信息容易分散，对 agent 缺少稳定对象边界和固定读取入口 |
+| ADR / docs | 沉淀长期决策 | 对高频 `start -> snap -> adopt` 过重，不适合作为每次候选采纳的默认路径 |
+| Intent | 记录语义对象与采纳历史 | 当前仍在用最小 CLI 闭环验证自己 |
+
 ## 核心闭环
 
 Intent 先把最重要的 3 个动作做成正式对象：
@@ -82,6 +93,15 @@ itt log
 - Git 还在正常管理代码
 - Intent 额外记录了这次工作的语义历史
 - `itt log` 比 commit history 更接近“这次到底采纳了什么决策”
+
+## 现在要证明的不是概念，而是两个 demo
+
+Intent 现在最重要的不是继续扩张对象，而是证明这条本地闭环真的比“散落在别处的说明”更有用。
+
+- 给人看的 demo：`itt log` 比 `git log` 更像采纳历史
+- 给 agent 看的 demo：agent 先读 `itt inspect --json`，再准确执行下一步动作，而不是从长 prose 里猜状态
+
+只要这两个 demo 成立，Intent 就不只是一个好听的抽象。
 
 ## 首页先记住这 6 个命令
 
@@ -129,6 +149,8 @@ Intent 首页的设计原则很简单：
 - `init -> start -> snap -> adopt -> log`
 - `status --json` / `inspect --json` 这类 agent-friendly contract
 - 让同一套语义既适合人使用，也适合 agent 使用
+
+这也意味着现在不应该过早展开远端平台叙事。只有当本地 semantic layer 被持续使用、能稳定 demo、能让 agent 真正受益时，更远的协作层才值得继续长出来。
 
 ## 文档
 

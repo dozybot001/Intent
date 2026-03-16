@@ -25,6 +25,7 @@
 
 - 优先补会提升可靠性和可用性的能力
 - 优先补会让人和 agent 都更容易接入的能力
+- 优先补能尽快形成 demo 证据的能力，而不是继续扩张概念
 - 暂不为了“对象完整性”提前实现低频能力
 - 暂不进入远端同步、平台化协作、复杂筛选器
 
@@ -38,6 +39,7 @@
 - 补充基础列表命令：`intent list`、`checkpoint list`、`adoption list`
 - 为 `config.json` 提供最小读写入口，例如 `itt config show`
 - 增加一个官方 smoke script，方便快速验证主路径
+- 做一个 human demo，证明 `itt log` 比 `git log` 更接近采纳历史
 - 把 human 输出进一步对齐文档中的文案基线
 - 补充更多错误分支测试和 JSON contract 测试
 
@@ -55,6 +57,7 @@
 
 - 补全 canonical CLI 的最低只读能力
 - 让 `inspect --json` 在冲突、空状态、revert 后场景更丰富
+- 做一个 agent demo，证明 agent 可以先读 `inspect --json` 再执行正确下一步动作
 - 为写命令补更多 machine-friendly 字段，例如更一致的 `next_action`
 - 增加 `--id-only` 和 `--json` 的回归测试矩阵
 - 增加可复用的 fixture / helper，降低未来测试维护成本
@@ -106,7 +109,7 @@
 - 增加 CI，自动运行测试
 - 补使用示例、演示脚本和发布说明
 - 结合真实 repo 做 dogfooding
-- 评估更后续的 Skill / IntHub 接入点
+- 在本地 layer 被证明后，再评估 Skill / IntHub 接入点
 
 完成标志：
 
@@ -117,8 +120,8 @@
 
 如果只做一轮最值得的实现，建议按这个顺序：
 
-1. `show/list` 只读能力
-2. `config show` 与 smoke script
+1. human demo：`itt log` 对比 `git log`
+2. agent demo：`inspect --json` 驱动下一步动作
 3. 更完整的 JSON / error 测试
 4. `run start/end`
 

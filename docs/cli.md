@@ -96,7 +96,7 @@ Git 前提：
 - 把更多对象塞进首页主路径
 - 在第一版就把平台叙事做得比本地 contract 更重
 - 把 CLI 扩成完整对象浏览器
-- 在 V1 冻结 `log --json`、对象级 `list/show` 全家桶或复杂过滤器
+- 在 V1 冻结 `log --json`、复杂过滤器、分页或完整对象浏览器语义
 - 支持在非 Git 目录中初始化或运行 Intent
 
 ## 3. 首页主路径
@@ -204,7 +204,7 @@ itt inspect
 - 为 Surface CLI 提供稳定映射
 - 为后续扩展 `list/show/switch` 预留一致对象空间
 
-V1 的对外公开命令承诺，到这里为止。下面这些对象命令属于保留方向，不进入首版支持矩阵：
+V1 的对外公开命令承诺，核心仍然到这里为止。下面这些对象命令主要属于保留方向，不进入首页承诺矩阵：
 
 ```bash
 itt intent list
@@ -231,7 +231,8 @@ itt run show
 
 - 内部 handler 优先围绕 canonical action 组织
 - Surface CLI 只做参数预填和 UX 包装
-- V1 不要求把保留方向里的对象子命令做成用户承诺
+- 即使实现中提供了少量 `list/show` 辅助命令，它们也不应盖过 `init -> start -> snap -> adopt -> log` 这条主路径
+- V1 不要求把保留方向里的对象子命令做成首页承诺或长期兼容承诺
 
 ### 5.3 Surface 与 Canonical 映射
 

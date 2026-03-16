@@ -1,10 +1,11 @@
-# Intent 愿景与问题定义 v3
+# Intent 愿景与问题定义 v4
 
 ## 这篇文档回答什么
 
 - 为什么 agent 时代需要一层新的 semantic history
 - Intent 补的是哪一层，而不是替代什么
 - Intent CLI、Skill 与 IntHub 各自处在什么位置
+- 当前应该如何判断这件事是否成立
 
 ## 这篇文档不回答什么
 
@@ -151,7 +152,24 @@ Intent 的第一阶段不是平台，而是本地 CLI。
 
 如果本地这层不成立，后面的远端协作、可视化历史和平台化表达都会漂浮。
 
-## 8. 长期结构
+## 8. 现在如何判断 Intent 是否成立
+
+Intent 当前还不是一个已经自证价值的产品，更像一个正在被验证的本地 semantic layer。
+
+因此，现阶段最重要的不是继续扩张叙事，而是回答三个更硬的问题：
+
+- `start -> snap -> adopt` 是否真的顺手
+- `itt log` 是否真的比 `git log` 更接近采纳历史
+- `itt inspect --json` 是否真的能让 agent 少猜当前状态
+
+这三个问题可以先通过两个 demo 来证明：
+
+- human demo：同一轮工作里，`itt log` 比 commit history 更清楚地回答“最终采纳了什么”
+- agent demo：agent 先读 `itt inspect --json`，再执行正确下一步动作，而不是从 issue、聊天和文档里拼状态
+
+如果这两个 demo 还没有成立，那么 Intent 更应该继续打磨本地闭环，而不是提前扩到平台层。
+
+## 9. 长期结构
 
 Intent 的长期结构可以分成三层：
 
@@ -165,7 +183,9 @@ Intent 的长期结构可以分成三层：
 
 **先把本地 semantic layer 做成立，再让远端协作层自然长出来。**
 
-## 9. 一句话定义
+这也意味着 IntHub 目前只是一个更后续的组织与协作层，不应该在本地 contract 还未被证明前占据设计中心。
+
+## 10. 一句话定义
 
 ### 中文
 
@@ -175,7 +195,7 @@ Intent 是一个构建在 Git 之上的高层语义版本层，用来记录 agen
 
 Intent is a Git-compatible semantic history layer for agent-driven software development.
 
-## 10. 结论
+## 11. 结论
 
 Intent 不是在和 Git 竞争“谁来管理代码版本”。
 
