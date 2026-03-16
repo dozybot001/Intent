@@ -1,6 +1,4 @@
-[English](demo.EN.md) | 简体中文
-
-配对文件：[demo.EN.md](demo.EN.md)
+[English](../EN/demo.md) | 简体中文
 
 # Intent Demo
 

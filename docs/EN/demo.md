@@ -1,6 +1,4 @@
-English | [简体中文](demo.CN.md)
-
-Paired file: [demo.CN.md](demo.CN.md)
+English | [简体中文](../CN/demo.md)
 
 # Intent Demo
 

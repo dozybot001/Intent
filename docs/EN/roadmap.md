@@ -1,6 +1,4 @@
-English | [简体中文](roadmap.CN.md)
-
-Paired file: [roadmap.CN.md](roadmap.CN.md)
+English | [简体中文](../CN/roadmap.md)
 
 # Intent Roadmap
 

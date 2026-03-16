@@ -139,12 +139,12 @@ Current priorities:
 
 The root README stays lightweight. More detailed material lives in `docs/`.
 
-- [Documentation index](docs/README.EN.md)
-- [Glossary](docs/glossary.EN.md)
-- [Vision and problem definition](docs/vision.EN.md)
-- [Unified CLI spec](docs/cli.EN.md)
-- [Demo](docs/demo.EN.md)
-- [Roadmap](docs/roadmap.EN.md)
-- [Documentation i18n plan](docs/i18n.EN.md)
+- [Documentation index](docs/EN/README.md)
+- [Glossary](docs/EN/glossary.md)
+- [Vision and problem definition](docs/EN/vision.md)
+- [Unified CLI spec](docs/EN/cli.md)
+- [Demo](docs/EN/demo.md)
+- [Roadmap](docs/EN/roadmap.md)
+- [Documentation i18n plan](docs/EN/i18n.md)
 
-For more background, start with [Vision and problem definition](docs/vision.EN.md).
+For more background, start with [Vision and problem definition](docs/EN/vision.md).

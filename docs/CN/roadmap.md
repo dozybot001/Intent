@@ -1,6 +1,4 @@
-[English](roadmap.EN.md) | 简体中文
-
-配对文件：[roadmap.EN.md](roadmap.EN.md)
+[English](../EN/roadmap.md) | 简体中文
 
 # Intent 路线图
 

@@ -1,6 +1,4 @@
-[English](glossary.EN.md) | 简体中文
-
-配对文件：[glossary.EN.md](glossary.EN.md)
+[English](../EN/glossary.md) | 简体中文
 
 # Intent 术语表
 

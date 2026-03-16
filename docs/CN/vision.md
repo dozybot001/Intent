@@ -1,6 +1,4 @@
-[English](vision.EN.md) | 简体中文
-
-配对文件：[vision.EN.md](vision.EN.md)
+[English](../EN/vision.md) | 简体中文
 
 # Intent 愿景与问题定义
 
@@ -19,8 +17,8 @@
 
 ## 与其他文档的边界
 
-- 术语定义以 [术语表](glossary.CN.md) 为准
-- CLI 命令语义、状态机与机器可读 contract 以 [CLI 统一设计文档](cli.CN.md) 为准
+- 术语定义以 [术语表](glossary.md) 为准
+- CLI 命令语义、状态机与机器可读 contract 以 [CLI 统一设计文档](cli.md) 为准
 
 ## 1. 核心判断
 

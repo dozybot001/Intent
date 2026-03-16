@@ -140,12 +140,12 @@ Intent 的接口分成两层：
 
 README 只保留总览，更完整的说明在 `docs/`：
 
-- [文档索引](docs/README.CN.md)
-- [术语表](docs/glossary.CN.md)
-- [愿景与问题定义](docs/vision.CN.md)
-- [CLI 统一设计文档](docs/cli.CN.md)
-- [Demo](docs/demo.CN.md)
-- [路线图](docs/roadmap.CN.md)
-- [文档国际化方案](docs/i18n.CN.md)
+- [文档索引](docs/CN/README.md)
+- [术语表](docs/CN/glossary.md)
+- [愿景与问题定义](docs/CN/vision.md)
+- [CLI 统一设计文档](docs/CN/cli.md)
+- [Demo](docs/CN/demo.md)
+- [路线图](docs/CN/roadmap.md)
+- [文档国际化方案](docs/CN/i18n.md)
 
-更多背景见：[愿景与问题定义](docs/vision.CN.md)。
+更多背景见：[愿景与问题定义](docs/CN/vision.md)。

@@ -1,6 +1,4 @@
-English | [简体中文](cli.CN.md)
-
-Paired file: [cli.CN.md](cli.CN.md)
+English | [简体中文](../CN/cli.md)
 
 # Unified Intent CLI Specification
 
@@ -15,14 +13,14 @@ Purpose: serve as the single source of truth for Intent CLI. This document defin
 
 ## What This Document Does Not Answer
 
-- why the agent era needs Intent: see [Vision and problem definition](vision.EN.md)
+- why the agent era needs Intent: see [Vision and problem definition](vision.md)
 - longer-term remote collaboration and platform direction
 - later concerns such as UI, Hub, or sync protocols
 
 ## Boundary with Other Documents
 
-- terminology is defined in [Glossary](glossary.EN.md)
-- why Intent is needed, and the long-term relationship among Intent CLI / Skill / IntHub, is defined in [Vision and problem definition](vision.EN.md)
+- terminology is defined in [Glossary](glossary.md)
+- why Intent is needed, and the long-term relationship among Intent CLI / Skill / IntHub, is defined in [Vision and problem definition](vision.md)
 - CLI design, command semantics, and implementation contract are defined here
 
 ## 1. Design Goals

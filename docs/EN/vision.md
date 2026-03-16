@@ -1,6 +1,4 @@
-English | [简体中文](vision.CN.md)
-
-Paired file: [vision.CN.md](vision.CN.md)
+English | [简体中文](../CN/vision.md)
 
 # Intent Vision and Problem Definition
 
@@ -19,8 +17,8 @@ Paired file: [vision.CN.md](vision.CN.md)
 
 ## Boundary with Other Documents
 
-- terminology is defined in [Glossary](glossary.EN.md)
-- command semantics, state machines, and machine-readable contracts are defined in [Unified CLI spec](cli.CN.md)
+- terminology is defined in [Glossary](glossary.md)
+- command semantics, state machines, and machine-readable contracts are defined in [Unified CLI spec](cli.md)
 
 ## 1. Core Judgment
 

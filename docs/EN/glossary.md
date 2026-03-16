@@ -1,6 +1,4 @@
-English | [简体中文](glossary.CN.md)
-
-Paired file: [glossary.CN.md](glossary.CN.md)
+English | [简体中文](../CN/glossary.md)
 
 # Intent Glossary
 

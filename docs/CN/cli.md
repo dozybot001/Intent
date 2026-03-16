@@ -1,6 +1,4 @@
-[English](cli.EN.md) | 简体中文
-
-配对文件：[cli.EN.md](cli.EN.md)
+[English](../EN/cli.md) | 简体中文
 
 # Intent CLI 统一设计文档
 
@@ -15,14 +13,14 @@
 
 ## 这篇文档不回答什么
 
-- 为什么 agent 时代需要 Intent：见 [愿景与问题定义](vision.CN.md)
+- 为什么 agent 时代需要 Intent：见 [愿景与问题定义](vision.md)
 - 长期远端协作和平台化路线
 - UI、Hub、同步协议等更后续的问题
 
 ## 与其他文档的边界
 
-- 术语定义以 [术语表](glossary.CN.md) 为准
-- 为什么需要 Intent、Intent CLI / Skill / IntHub 的长期关系，以 [愿景与问题定义](vision.CN.md) 为准
+- 术语定义以 [术语表](glossary.md) 为准
+- 为什么需要 Intent、Intent CLI / Skill / IntHub 的长期关系，以 [愿景与问题定义](vision.md) 为准
 - CLI 的设计、命令语义和实现 contract，以本文为准
 
 ## 1. 设计目标
