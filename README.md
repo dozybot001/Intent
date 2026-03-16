@@ -1,39 +1,44 @@
-# Intent CLI
+# Intent
 
-> 一个构建在 Git 之上的 semantic history layer，用来记录当前想解决什么问题、形成过哪些候选结果，以及最终正式采纳了什么、为什么采纳。
+> Git 记录代码变化，Intent 记录采纳历史。
 
-Intent 不是 Git 的替代品。
-它补的是 Git 天然不擅长承载的那一层高阶语义历史。
+Intent 是一个构建在 Git 之上的新层，用来记录软件开发里更高层的信息：
 
-一句话概括：
+- 现在想解决什么问题
+- 试过哪些候选方案
+- 最后正式采纳了什么
+- 为什么采纳它
 
-> **Git 管代码变化，Intent 管采纳历史。**
+它不替代 Git。  
+它补的是 Git 通常不会清楚保存的那部分历史。
 
-## 为什么是 Intent
+如果用一句更技术的话说，Intent 是一个面向 agent 时代的 Git-compatible semantic history layer。当前第一步先以 `Intent CLI` 的形式落地。
 
-在 agent-driven development 里，真正重要的信息并不稀缺，而是分散。
+## 30 秒理解
 
-- 问题目标可能在 issue 里
-- 候选方案可能在对话、草稿或临时提交里
-- 最终选择和取舍理由可能只留在某次讨论中
+在 agent-driven development 里，代码可以生成得很快，但决策过程往往是散的：
 
-这些信息可以阅读，但通常不是稳定对象，也不容易被持续追踪、比较、采纳或让 agent 可靠调用。
+- 目标在 issue 里
+- 候选方案在对话或草稿里
+- 最终选择和理由在某次讨论里
 
-Intent 想解决的是这个问题：
+Git 很擅长回答“代码怎么变了”，但不擅长回答“我们最后决定了什么”。
 
-- 把高层语义从零散说明，变成正式对象
-- 把“生成过什么”推进到“最终采纳了什么”
-- 在 Git 之上补一层可追溯的 semantic history
+Intent 想补上的，就是这层历史。
 
-## 核心工作流
+## 核心闭环
 
-首页只需要先理解 3 个动作：
+Intent 先把最重要的 3 个动作做成正式对象：
 
 - `start`：开始处理一个问题
 - `snap`：保存一个候选结果
 - `adopt`：正式采纳一个候选结果
 
-对应的最小闭环是：
+也就是这条最小路径：
+
+`问题 -> 候选 -> 采纳`
+
+## 最小示例
 
 ```bash
 itt init
@@ -45,7 +50,13 @@ itt adopt -m "Adopt progressive disclosure layout"
 itt log
 ```
 
-如果只看首屏，建议先记住这 6 个命令：
+跑完这条路径后，用户应该立刻理解三件事：
+
+- Git 还在正常管理代码
+- Intent 额外记录了这次工作的语义历史
+- `itt log` 比 commit history 更接近“这次到底采纳了什么决策”
+
+## 首页先记住这 6 个命令
 
 ```bash
 itt init
@@ -56,66 +67,30 @@ itt adopt
 itt log
 ```
 
-## 这个项目不做什么
+## Intent 不是什么
 
-Intent 不打算：
+- 不是 Git 的替代品
+- 不是 issue、PR 或 docs 系统的替代品
+- 不是“什么都记录”的日志归档工具
 
-- 替代 Git 的版本控制
-- 替代 issue、PR 或 docs 系统
-- 成为“什么都记录”的日志归档工具
-- 在第一阶段就扩展成完整远端平台
+Intent 只关心那些值得被正式追踪的语义节点，例如意图、候选、采纳、撤销与决策。
 
-第一阶段更关心的是先把本地 semantic workflow 做成立。
+## 当前阶段
 
-## 文档导航
+项目还在早期阶段，当前重点不是铺开大而全的能力，而是先把本地最小闭环做稳。
 
-更完整的说明已经拆到 `docs/`，README 只保留总览。
-建议先从 [文档索引](docs/README.md) 进入。
-
-- [文档索引](docs/README.md)：推荐入口，包含阅读顺序、文档定位与当前参考优先级
-- [产品愿景](docs/intent_vision_notes_v_3_cn.md)：为什么 agent 时代需要 semantic history，以及 Intent 解决的核心问题
-- [CLI 设计文档](docs/intent_cli_design_spec_v_0_4_cn.md)：产品定位、对象模型、命令设计、主路径与交互原则
-- [实现约束文档](docs/intent_cli_implementation_contract_v_0.md)：本地目录结构、schema、状态机、JSON contract、错误模型与实现边界
-
-推荐阅读顺序：
-
-1. 先看愿景文档，理解项目为什么存在
-2. 再看设计文档，理解 CLI 怎么组织
-3. 最后看实现约束，理解首版应该冻结什么
-
-## 项目状态
-
-项目目前仍处于早期阶段，重点不是扩展功能面，而是尽快冻结首版的最小闭环与 contract。
-
-当前仓库也仍以产品定义与实现约束收敛为主，尚未发布正式安装包或稳定可用版本。
-
-当前更优先稳定的是：
+当前优先级是：
 
 - `.intent/` 本地对象层
-- `state.json` 与状态流转
-- `intent / checkpoint / adoption` 的基础 schema
-- `status --json` / `inspect --json` 等机器可读 contract
-- `init -> start -> snap -> adopt -> log` 这条最小路径
+- `init -> start -> snap -> adopt -> log`
+- `status --json` / `inspect --json` 这类 agent-friendly contract
 
-## 贡献
+## 文档
 
-如果你对以下方向感兴趣，欢迎通过 Issue、Discussion 或 PR 参与：
+README 只保留总览，更完整的说明在 `docs/`：
 
-- CLI 命令命名与交互体验收敛
-- 对象 schema 与状态机设计审查
-- `status --json` / `inspect --json` 等 contract 设计
-- 错误模型、幂等语义与 non-interactive 行为
-- Git linkage policy 与最小工作流验证
-
-## 项目方向
-
-Intent 的长期方向不是替代 Git，而是补全 agent 时代的软件历史表达方式：
-
-- 代码怎么变，由 Git 负责
-- 为什么这样演化、最后采纳了什么，由 Intent 负责
-
-未来结构会更清晰地分成三层：
-
-- **Intent CLI**：本地 semantic history 操作层
-- **Skill / agent workflow**：agent 执行与集成层
-- **IntHub**：远端组织、协作与展示层
+- [文档索引](docs/README.md)
+- [术语表](docs/glossary.md)
+- [愿景与问题定义](docs/vision.md)
+- [CLI 设计说明](docs/cli-design.md)
+- [实现约束](docs/cli-contract.md)
