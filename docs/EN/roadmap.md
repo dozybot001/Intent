@@ -13,8 +13,12 @@ The current implementation already covers the minimum local loop:
 - `status --json` / `inspect --json`
 - the surface CLI and the minimum canonical actions
 - Git prerequisites, the error model, and baseline tests
+- baseline read-side commands
+- demo scripts for human and agent flows
+- the initial `run` lifecycle and minimum `decision` support
+- baseline CI, local install instructions, and package build verification
 
-The next stage should continue in this order:
+The next stage should continue by strengthening this implementation in this order:
 
 1. stabilize the v1 CLI for practical use
 2. strengthen read paths and agent entry points

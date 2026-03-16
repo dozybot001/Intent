@@ -6,16 +6,12 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from .core import (
-    EXIT_SUCCESS,
-    IntentError,
-    IntentRepository,
-    build_git_context,
-    cli_action,
-    object_brief,
-    summarize_git,
-    write_result,
-)
+from . import __version__
+from .constants import EXIT_SUCCESS
+from .core import IntentRepository
+from .errors import IntentError
+from .git import build_git_context, summarize_git
+from .helpers import cli_action, write_result
 
 
 def emit_json(payload: Dict[str, Any]) -> None:
@@ -61,79 +57,110 @@ def base_read_parser() -> argparse.ArgumentParser:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="itt")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    parser = argparse.ArgumentParser(
+        prog="itt",
+        description="Intent CLI records semantic history on top of Git.",
+    )
+    parser.add_argument("--version", action="version", version=f"intent-cli {__version__}")
+    subparsers = parser.add_subparsers(dest="command", required=True, title="commands")
 
-    init_parser = subparsers.add_parser("init")
+    version_parser = subparsers.add_parser("version", help="Show the CLI version")
+    version_parser.add_argument("--json", action="store_true")
+
+    init_parser = subparsers.add_parser("init", help="Initialize Intent in the current Git repository")
     init_parser.add_argument("--json", action="store_true")
     init_parser.add_argument("--no-interactive", action="store_true")
 
-    start_parser = subparsers.add_parser("start", parents=[base_write_parser("start", "Emit machine-readable JSON")])
+    start_parser = subparsers.add_parser(
+        "start",
+        parents=[base_write_parser("start", "Emit machine-readable JSON")],
+        help="Create and activate an intent",
+    )
     start_parser.add_argument("title")
 
-    snap_parser = subparsers.add_parser("snap", parents=[base_write_parser("snap", "Emit machine-readable JSON")])
+    snap_parser = subparsers.add_parser(
+        "snap",
+        parents=[base_write_parser("snap", "Emit machine-readable JSON")],
+        help="Create and select a candidate checkpoint",
+    )
     snap_parser.add_argument("title")
 
-    adopt_parser = subparsers.add_parser("adopt", parents=[base_write_parser("adopt", "Emit machine-readable JSON")])
+    adopt_parser = subparsers.add_parser(
+        "adopt",
+        parents=[base_write_parser("adopt", "Emit machine-readable JSON")],
+        help="Create an adoption record for a checkpoint",
+    )
     adopt_parser.add_argument("-m", "--message")
     adopt_parser.add_argument("--because", default="")
     adopt_parser.add_argument("--checkpoint")
     adopt_parser.add_argument("--if-not-adopted", action="store_true")
     adopt_parser.add_argument("--link-git")
 
-    revert_parser = subparsers.add_parser("revert", parents=[base_write_parser("revert", "Emit machine-readable JSON")])
+    revert_parser = subparsers.add_parser(
+        "revert",
+        parents=[base_write_parser("revert", "Emit machine-readable JSON")],
+        help="Record a revert against the latest active adoption",
+    )
     revert_parser.add_argument("-m", "--message")
     revert_parser.add_argument("--because", default="")
 
-    status_parser = subparsers.add_parser("status")
+    status_parser = subparsers.add_parser("status", help="Show the current workspace summary")
     status_parser.add_argument("--json", action="store_true")
 
-    inspect_parser = subparsers.add_parser("inspect")
+    inspect_parser = subparsers.add_parser("inspect", help="Return a machine-readable workspace snapshot")
     inspect_parser.add_argument("--json", action="store_true")
 
-    log_parser = subparsers.add_parser("log")
+    log_parser = subparsers.add_parser("log", help="Show semantic history for humans")
 
-    config_parser = subparsers.add_parser("config")
-    config_subparsers = config_parser.add_subparsers(dest="config_command", required=True)
-    config_subparsers.add_parser("show", parents=[base_read_parser()])
+    config_parser = subparsers.add_parser("config", help="Read workspace configuration")
+    config_subparsers = config_parser.add_subparsers(dest="config_command", required=True, title="config commands")
+    config_subparsers.add_parser("show", parents=[base_read_parser()], help="Show the current config")
 
-    checkpoint_parser = subparsers.add_parser("checkpoint")
-    checkpoint_subparsers = checkpoint_parser.add_subparsers(dest="checkpoint_command", required=True)
-    checkpoint_subparsers.add_parser("list", parents=[base_read_parser()])
-    checkpoint_show_parser = checkpoint_subparsers.add_parser("show", parents=[base_read_parser()])
+    checkpoint_parser = subparsers.add_parser("checkpoint", help="Read or manage checkpoints")
+    checkpoint_subparsers = checkpoint_parser.add_subparsers(
+        dest="checkpoint_command", required=True, title="checkpoint commands"
+    )
+    checkpoint_subparsers.add_parser("list", parents=[base_read_parser()], help="List checkpoints")
+    checkpoint_show_parser = checkpoint_subparsers.add_parser("show", parents=[base_read_parser()], help="Show a checkpoint")
     checkpoint_show_parser.add_argument("checkpoint_id")
     checkpoint_create_parser = checkpoint_subparsers.add_parser(
         "create",
         parents=[base_write_parser("checkpoint create", "Emit machine-readable JSON")],
+        help="Create a checkpoint",
     )
     checkpoint_create_parser.add_argument("--title", required=True)
     checkpoint_create_parser.add_argument("--select", action="store_true")
     select_parser = checkpoint_subparsers.add_parser(
         "select",
         parents=[base_write_parser("checkpoint select", "Emit machine-readable JSON")],
+        help="Select the current checkpoint",
     )
     select_parser.add_argument("checkpoint_id")
 
-    intent_parser = subparsers.add_parser("intent")
-    intent_subparsers = intent_parser.add_subparsers(dest="intent_command", required=True)
-    intent_subparsers.add_parser("list", parents=[base_read_parser()])
-    intent_show_parser = intent_subparsers.add_parser("show", parents=[base_read_parser()])
+    intent_parser = subparsers.add_parser("intent", help="Read or manage intents")
+    intent_subparsers = intent_parser.add_subparsers(dest="intent_command", required=True, title="intent commands")
+    intent_subparsers.add_parser("list", parents=[base_read_parser()], help="List intents")
+    intent_show_parser = intent_subparsers.add_parser("show", parents=[base_read_parser()], help="Show an intent")
     intent_show_parser.add_argument("intent_id")
     intent_create_parser = intent_subparsers.add_parser(
         "create",
         parents=[base_write_parser("intent create", "Emit machine-readable JSON")],
+        help="Create an intent",
     )
     intent_create_parser.add_argument("--title", required=True)
     intent_create_parser.add_argument("--activate", action="store_true")
 
-    adoption_parser = subparsers.add_parser("adoption")
-    adoption_subparsers = adoption_parser.add_subparsers(dest="adoption_command", required=True)
-    adoption_subparsers.add_parser("list", parents=[base_read_parser()])
-    adoption_show_parser = adoption_subparsers.add_parser("show", parents=[base_read_parser()])
+    adoption_parser = subparsers.add_parser("adoption", help="Read or manage adoptions")
+    adoption_subparsers = adoption_parser.add_subparsers(
+        dest="adoption_command", required=True, title="adoption commands"
+    )
+    adoption_subparsers.add_parser("list", parents=[base_read_parser()], help="List adoptions")
+    adoption_show_parser = adoption_subparsers.add_parser("show", parents=[base_read_parser()], help="Show an adoption")
     adoption_show_parser.add_argument("adoption_id")
     adoption_create_parser = adoption_subparsers.add_parser(
         "create",
         parents=[base_write_parser("adoption create", "Emit machine-readable JSON")],
+        help="Create an adoption",
     )
     adoption_create_parser.add_argument("--title")
     adoption_create_parser.add_argument("--because", default="")
@@ -143,18 +170,52 @@ def build_parser() -> argparse.ArgumentParser:
     adoption_revert_parser = adoption_subparsers.add_parser(
         "revert",
         parents=[base_write_parser("adoption revert", "Emit machine-readable JSON")],
+        help="Create a revert adoption record",
     )
     adoption_revert_parser.add_argument("--title")
     adoption_revert_parser.add_argument("--because", default="")
 
-    run_parser = subparsers.add_parser("run")
-    run_subparsers = run_parser.add_subparsers(dest="run_command", required=True)
+    run_parser = subparsers.add_parser("run", help="Read or manage runs")
+    run_subparsers = run_parser.add_subparsers(dest="run_command", required=True, title="run commands")
+    run_subparsers.add_parser("list", parents=[base_read_parser()], help="List runs")
+    run_show_parser = run_subparsers.add_parser("show", parents=[base_read_parser()], help="Show a run")
+    run_show_parser.add_argument("run_id")
     run_start_parser = run_subparsers.add_parser(
         "start",
         parents=[base_write_parser("run start", "Emit machine-readable JSON")],
+        help="Start a run",
     )
     run_start_parser.add_argument("--title")
-    run_subparsers.add_parser("end", parents=[base_write_parser("run end", "Emit machine-readable JSON")])
+    run_subparsers.add_parser(
+        "end",
+        parents=[base_write_parser("run end", "Emit machine-readable JSON")],
+        help="End the active run",
+    )
+
+    decide_parser = subparsers.add_parser(
+        "decide",
+        parents=[base_write_parser("decide", "Emit machine-readable JSON")],
+        help="Record a decision",
+    )
+    decide_parser.add_argument("title")
+    decide_parser.add_argument("--because", default="")
+    decide_parser.add_argument("--adoption")
+
+    decision_parser = subparsers.add_parser("decision", help="Read or manage decisions")
+    decision_subparsers = decision_parser.add_subparsers(
+        dest="decision_command", required=True, title="decision commands"
+    )
+    decision_subparsers.add_parser("list", parents=[base_read_parser()], help="List decisions")
+    decision_show_parser = decision_subparsers.add_parser("show", parents=[base_read_parser()], help="Show a decision")
+    decision_show_parser.add_argument("decision_id")
+    decision_create_parser = decision_subparsers.add_parser(
+        "create",
+        parents=[base_write_parser("decision create", "Emit machine-readable JSON")],
+        help="Create a decision",
+    )
+    decision_create_parser.add_argument("--title", required=True)
+    decision_create_parser.add_argument("--because", default="")
+    decision_create_parser.add_argument("--adoption")
 
     return parser
 
@@ -181,6 +242,21 @@ def handle_init(repo: IntentRepository, args: argparse.Namespace) -> int:
     print("Initialized Intent in .intent/")
     print(f"Git: {summarize_git(git_context)}")
     print('Next: itt start "Describe the problem"')
+    return EXIT_SUCCESS
+
+
+def handle_version(args: argparse.Namespace) -> int:
+    if args.json:
+        emit_json(
+            {
+                "ok": True,
+                "object": "version",
+                "version": __version__,
+            }
+        )
+        return EXIT_SUCCESS
+
+    print(f"intent-cli {__version__}")
     return EXIT_SUCCESS
 
 
@@ -382,6 +458,36 @@ def handle_run_end(repo: IntentRepository, args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def handle_decide(repo: IntentRepository, args: argparse.Namespace) -> int:
+    decision, _, warnings = repo.create_decision(args.title, args.because, args.adoption)
+    if args.id_only:
+        print(decision["id"])
+        return EXIT_SUCCESS
+    if args.json:
+        workspace_fields = workspace_result_fields(repo)
+        emit_json(
+            write_result(
+                "decision",
+                "create",
+                decision["id"],
+                decision,
+                warnings,
+                next_action=current_machine_next_action(repo),
+                **workspace_fields,
+            )
+        )
+        return EXIT_SUCCESS
+
+    print(f"Recorded decision {decision['id']}")
+    print(f"Title: {decision['title']}")
+    if decision.get("adoption_id"):
+        print(f"Adoption: {decision['adoption_id']}")
+    next_action = current_machine_next_action(repo)
+    if next_action:
+        print(f"Next: {next_action['command']}")
+    return EXIT_SUCCESS
+
+
 def handle_status(repo: IntentRepository, args: argparse.Namespace) -> int:
     if args.json:
         emit_json(repo.status_json())
@@ -475,6 +581,11 @@ def normalize_canonical_args(args: argparse.Namespace) -> argparse.Namespace:
         args.message = args.title
         return args
 
+    if args.command == "decision" and args.decision_command == "create":
+        args.command = "decide"
+        args.title = args.title
+        return args
+
     return args
 
 
@@ -515,6 +626,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     wants_json = bool(getattr(args, "json", False))
 
     try:
+        if args.command == "version":
+            return handle_version(args)
         if args.command == "init":
             return handle_init(repo, args)
         if args.command == "start":
@@ -529,6 +642,16 @@ def main(argv: Optional[list[str]] = None) -> int:
             return handle_run_start(repo, args)
         if args.command == "run" and args.run_command == "end":
             return handle_run_end(repo, args)
+        if args.command == "run" and args.run_command == "list":
+            return handle_object_list(repo, args, "run")
+        if args.command == "run" and args.run_command == "show":
+            return handle_object_show(repo, args, "run", args.run_id)
+        if args.command == "decide":
+            return handle_decide(repo, args)
+        if args.command == "decision" and args.decision_command == "list":
+            return handle_object_list(repo, args, "decision")
+        if args.command == "decision" and args.decision_command == "show":
+            return handle_object_show(repo, args, "decision", args.decision_id)
         if args.command == "status":
             return handle_status(repo, args)
         if args.command == "inspect":

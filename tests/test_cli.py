@@ -75,6 +75,36 @@ class IntentCliTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0)
             self.assertTrue((repo / ".intent").exists())
 
+    def test_version_flag_and_command_work_without_git(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+
+            version_flag = run_cli(repo, "--version")
+            self.assertEqual(version_flag.returncode, 0)
+            self.assertIn("intent-cli 0.1.0", version_flag.stdout)
+
+            version_command = run_cli(repo, "version")
+            self.assertEqual(version_command.returncode, 0)
+            self.assertEqual(version_command.stdout.strip(), "intent-cli 0.1.0")
+
+            version_json = run_cli(repo, "version", "--json")
+            self.assertEqual(version_json.returncode, 0)
+            self.assertEqual(json.loads(version_json.stdout)["version"], "0.1.0")
+
+    def test_help_output_is_informative(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+
+            top_help = run_cli(repo, "--help")
+            self.assertEqual(top_help.returncode, 0)
+            self.assertIn("Intent CLI records semantic history on top of Git.", top_help.stdout)
+            self.assertIn("checkpoint", top_help.stdout)
+            self.assertIn("decision", top_help.stdout)
+
+            checkpoint_help = run_cli(repo, "checkpoint", "--help")
+            self.assertEqual(checkpoint_help.returncode, 0)
+            self.assertIn("List checkpoints", checkpoint_help.stdout)
+
     def test_init_and_status_idle(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
@@ -693,6 +723,20 @@ class IntentCliTests(unittest.TestCase):
         self.assertEqual(inspect_active["state"]["active_run_id"], run_id)
         self.assertEqual(inspect_active["active_run"]["id"], run_id)
 
+        status_active = json.loads(run_cli(repo, "status", "--json").stdout)
+        self.assertEqual(status_active["active_run"]["id"], run_id)
+
+        run_list = run_cli(repo, "run", "list", "--json")
+        self.assertEqual(run_list.returncode, 0)
+        run_items = json.loads(run_list.stdout)["items"]
+        self.assertEqual(len(run_items), 1)
+        self.assertEqual(run_items[0]["id"], run_id)
+        self.assertTrue(run_items[0]["is_active"])
+
+        run_show = run_cli(repo, "run", "show", "@active", "--json")
+        self.assertEqual(run_show.returncode, 0)
+        self.assertEqual(json.loads(run_show.stdout)["result"]["id"], run_id)
+
         checkpoint_result, checkpoint_payload = run_cli_json(repo, "snap", "Candidate A", "--json")
         self.assertEqual(checkpoint_result.returncode, 0)
         checkpoint_id = checkpoint_payload["id"]
@@ -723,6 +767,10 @@ class IntentCliTests(unittest.TestCase):
         self.assertIsNone(inspect_after_end["state"]["active_run_id"])
         self.assertIsNone(inspect_after_end["active_run"])
 
+        completed_run = run_cli(repo, "run", "show", run_id, "--json")
+        self.assertEqual(completed_run.returncode, 0)
+        self.assertEqual(json.loads(completed_run.stdout)["result"]["status"], "completed")
+
     def test_run_requires_active_intent_and_prevents_nested_runs(self) -> None:
         repo = self.make_repo(initialize_intent=True)
 
@@ -749,6 +797,130 @@ class IntentCliTests(unittest.TestCase):
         no_active_run = run_cli(repo, "run", "end", "--json")
         self.assertEqual(no_active_run.returncode, 4)
         self.assertEqual(json.loads(no_active_run.stdout)["error"]["code"], "OBJECT_NOT_FOUND")
+
+        missing_active_selector = run_cli(repo, "run", "show", "@active", "--json")
+        self.assertEqual(missing_active_selector.returncode, 4)
+        self.assertEqual(json.loads(missing_active_selector.stdout)["error"]["code"], "OBJECT_NOT_FOUND")
+
+    def test_decision_create_defaults_to_latest_adoption_and_supports_read_side(self) -> None:
+        repo = self.make_repo(initialize_intent=True)
+        self.assertEqual(run_cli(repo, "start", "Refine onboarding").returncode, 0)
+        checkpoint_id = json.loads(run_cli(repo, "snap", "Candidate A", "--json").stdout)["id"]
+        adoption_id = json.loads(
+            run_cli(
+                repo,
+                "adopt",
+                "--checkpoint",
+                checkpoint_id,
+                "-m",
+                "Adopt Candidate A",
+                "--json",
+            ).stdout
+        )["id"]
+
+        decision_result, decision_payload = run_cli_json(
+            repo,
+            "decide",
+            "Prefer progressive disclosure",
+            "--because",
+            "Lower cognitive load for first-time users.",
+            "--json",
+        )
+        self.assertEqual(decision_result.returncode, 0)
+        decision_id = decision_payload["id"]
+        self.assertEqual(decision_payload["result"]["adoption_id"], adoption_id)
+        self.assertEqual(decision_payload["result"]["checkpoint_id"], checkpoint_id)
+
+        decision_list = run_cli(repo, "decision", "list", "--json")
+        self.assertEqual(decision_list.returncode, 0)
+        decision_items = json.loads(decision_list.stdout)["items"]
+        self.assertEqual(len(decision_items), 1)
+        self.assertEqual(decision_items[0]["id"], decision_id)
+        self.assertEqual(decision_items[0]["adoption_id"], adoption_id)
+
+        decision_show = run_cli(repo, "decision", "show", "@latest", "--json")
+        self.assertEqual(decision_show.returncode, 0)
+        show_payload = json.loads(decision_show.stdout)["result"]
+        self.assertEqual(show_payload["id"], decision_id)
+        self.assertEqual(show_payload["rationale"], "Lower cognitive load for first-time users.")
+
+        inspect_payload = json.loads(run_cli(repo, "inspect", "--json").stdout)
+        self.assertEqual(inspect_payload["latest_decision"]["id"], decision_id)
+
+        log_result = run_cli(repo, "log")
+        self.assertEqual(log_result.returncode, 0)
+        self.assertIn(f"Decision: {decision_id}  Prefer progressive disclosure", log_result.stdout)
+        self.assertIn("Because: Lower cognitive load for first-time users.", log_result.stdout)
+
+    def test_decision_create_can_exist_without_adoption_and_validates_explicit_adoption(self) -> None:
+        repo = self.make_repo(initialize_intent=True)
+        self.assertEqual(run_cli(repo, "start", "Refine onboarding").returncode, 0)
+
+        no_adoption_decision = run_cli(
+            repo,
+            "decision",
+            "create",
+            "--title",
+            "Keep the scope narrow",
+            "--because",
+            "Avoid adding platform concerns too early.",
+            "--json",
+        )
+        self.assertEqual(no_adoption_decision.returncode, 0)
+        no_adoption_payload = json.loads(no_adoption_decision.stdout)["result"]
+        self.assertIsNone(no_adoption_payload["adoption_id"])
+        self.assertIsNone(no_adoption_payload["checkpoint_id"])
+
+        checkpoint_id = json.loads(run_cli(repo, "snap", "Candidate A", "--json").stdout)["id"]
+        adoption_id = json.loads(
+            run_cli(
+                repo,
+                "adopt",
+                "--checkpoint",
+                checkpoint_id,
+                "-m",
+                "Adopt Candidate A",
+                "--json",
+            ).stdout
+        )["id"]
+
+        self.assertEqual(run_cli(repo, "start", "Another problem").returncode, 0)
+
+        wrong_intent = run_cli(
+            repo,
+            "decide",
+            "Keep previous reasoning",
+            "--adoption",
+            adoption_id,
+            "--json",
+        )
+        self.assertEqual(wrong_intent.returncode, 3)
+        self.assertEqual(json.loads(wrong_intent.stdout)["error"]["code"], "STATE_CONFLICT")
+
+        no_latest_in_new_intent = run_cli(repo, "decision", "show", "@latest", "--json")
+        self.assertEqual(no_latest_in_new_intent.returncode, 4)
+        self.assertEqual(json.loads(no_latest_in_new_intent.stdout)["error"]["code"], "OBJECT_NOT_FOUND")
+
+    def test_log_shows_standalone_decisions_when_no_adoptions_exist(self) -> None:
+        repo = self.make_repo(initialize_intent=True)
+        self.assertEqual(run_cli(repo, "start", "Refine onboarding").returncode, 0)
+
+        decision_result = run_cli(
+            repo,
+            "decide",
+            "Keep the scope narrow",
+            "--because",
+            "Avoid adding platform concerns too early.",
+            "--json",
+        )
+        self.assertEqual(decision_result.returncode, 0)
+        decision_id = json.loads(decision_result.stdout)["id"]
+
+        log_result = run_cli(repo, "log")
+        self.assertEqual(log_result.returncode, 0)
+        self.assertIn("Standalone decisions", log_result.stdout)
+        self.assertIn(decision_id, log_result.stdout)
+        self.assertIn("Because: Avoid adding platform concerns too early.", log_result.stdout)
 
 
 if __name__ == "__main__":

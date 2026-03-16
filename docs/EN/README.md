@@ -12,6 +12,7 @@ English | [简体中文](../CN/README.md)
 | [Vision and problem definition](vision.md) | Why does the agent era need Intent? | command syntax, JSON schema |
 | [Unified CLI spec](cli.md) | What are the CLI boundaries, command semantics, and implementation contract? | longer-term platform questions |
 | [Demo](demo.md) | How can `itt log` and `git log` be compared quickly? | CLI contract definitions, long-term roadmap |
+| [Release baseline](release.md) | What must be true before a staged release? | CLI contract details, long-term roadmap |
 | [Roadmap](roadmap.md) | What comes after the initial CLI? | current CLI contract details |
 | [Documentation i18n guide](i18n.md) | How is bilingual documentation organized and maintained? | CLI contract details, implementation sequencing |
 
@@ -19,6 +20,7 @@ English | [简体中文](../CN/README.md)
 
 - New to the project: start with [Glossary](glossary.md), then read [Vision and problem definition](vision.md)
 - Want a runnable example first: read [Demo](demo.md)
+- Want to prepare a staged release: read [Release baseline](release.md)
 - Want to discuss bilingual documentation structure: read [Documentation i18n guide](i18n.md)
 - Want to discuss command semantics or implementation: read [Unified CLI spec](cli.md)
 - Want to discuss upcoming priorities: read [Roadmap](roadmap.md)

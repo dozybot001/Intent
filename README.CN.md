@@ -91,6 +91,35 @@ itt log
 - Intent 额外记录了这次工作的语义历史
 - `itt log` 比 commit history 更接近“这次到底采纳了什么决策”
 
+## 本地体验
+
+```bash
+git clone https://github.com/dozybot001/Intent.git
+cd Intent
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
+itt --help
+```
+
+如果你只是想直接跑仓库里的版本，也可以用 `./itt --help`。
+
+## 验证方式
+
+```bash
+./scripts/check.sh
+```
+
+如果你想分步骤执行，也可以用：
+
+```bash
+python3 -m unittest discover -s tests -v
+./scripts/smoke.sh
+./scripts/demo_log.sh
+./scripts/demo_agent.sh
+```
+
 ## 首页先记住这 6 个命令
 
 ```bash
@@ -133,6 +162,7 @@ Intent 的接口分成两层：
 
 - `.intent/` 本地对象层
 - `init -> start -> snap -> adopt -> log`
+- 基础 read-side 命令，以及 `run` / `decision`
 - `status --json` / `inspect --json` 这类 agent-friendly contract
 - 让同一套语义既适合人使用，也适合 agent 使用
 
@@ -140,11 +170,13 @@ Intent 的接口分成两层：
 
 README 只保留总览，更完整的说明在 `docs/`：
 
+- [变更记录](CHANGELOG.CN.md)
 - [文档索引](docs/CN/README.md)
 - [术语表](docs/CN/glossary.md)
 - [愿景与问题定义](docs/CN/vision.md)
 - [CLI 统一设计文档](docs/CN/cli.md)
 - [Demo](docs/CN/demo.md)
+- [发布基线](docs/CN/release.md)
 - [路线图](docs/CN/roadmap.md)
 - [文档国际化规范](docs/CN/i18n.md)
 

@@ -90,6 +90,35 @@ This flow says three things:
 - Intent adds a semantic history layer on top
 - `itt log` is closer than commit history to "what decision was adopted here?"
 
+## Try It Locally
+
+```bash
+git clone https://github.com/dozybot001/Intent.git
+cd Intent
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
+itt --help
+```
+
+If you want to try the repository version without installing it into the environment, you can also run `./itt --help`.
+
+## Validation
+
+```bash
+./scripts/check.sh
+```
+
+If you want the steps separately:
+
+```bash
+python3 -m unittest discover -s tests -v
+./scripts/smoke.sh
+./scripts/demo_log.sh
+./scripts/demo_agent.sh
+```
+
 ## Six Commands to Remember First
 
 ```bash
@@ -132,6 +161,7 @@ Current priorities:
 
 - the `.intent/` local object layer
 - `init -> start -> snap -> adopt -> log`
+- baseline read-side commands, `run`, and `decision`
 - agent-friendly contracts such as `status --json` and `inspect --json`
 - keeping the same semantic model useful for both humans and agents
 
@@ -139,11 +169,13 @@ Current priorities:
 
 The root README stays lightweight. More detailed material lives in `docs/`.
 
+- [Changelog](CHANGELOG.md)
 - [Documentation index](docs/EN/README.md)
 - [Glossary](docs/EN/glossary.md)
 - [Vision and problem definition](docs/EN/vision.md)
 - [Unified CLI spec](docs/EN/cli.md)
 - [Demo](docs/EN/demo.md)
+- [Release baseline](docs/EN/release.md)
 - [Roadmap](docs/EN/roadmap.md)
 - [Documentation i18n guide](docs/EN/i18n.md)
 

@@ -7,6 +7,12 @@ name = "intent-cli"
 version = "0.1.0"
 description = "Intent CLI"
 requires-python = ">=3.9"
+readme = "README.md"
+license = "MIT"
+
+[project.urls]
+Homepage = "https://github.com/dozybot001/Intent"
+Repository = "https://github.com/dozybot001/Intent"
 
 [project.scripts]
 itt = "intent_cli.cli:main"

@@ -13,8 +13,12 @@
 - `status --json` / `inspect --json`
 - surface CLI 与最小 canonical action
 - Git 前置条件、错误模型和基础测试
+- 基础 read-side 命令
+- 面向 human / agent 的 demo 脚本
+- 初始版 `run` lifecycle 和最小 `decision` 支持
+- 基础 CI、本地安装说明和 package build 验证
 
-下一阶段按下面的顺序推进：
+下一阶段应在这个实现基础上，按下面的顺序推进：
 
 1. 先把 v1 CLI 打磨到稳定可用
 2. 再补读能力和 agent 入口

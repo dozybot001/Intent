@@ -613,6 +613,46 @@ Constraints:
 - `itt run end` clears `state.active_run_id`
 - checkpoints and adoptions created while a run is active should record that `run_id`
 
+### 10.5 Decision
+
+```json
+{
+  "id": "decision-001",
+  "object": "decision",
+  "schema_version": "0.1",
+  "created_at": "2026-03-15T14:40:00Z",
+  "updated_at": "2026-03-15T14:40:00Z",
+  "title": "Prefer progressive disclosure over dense hero copy",
+  "summary": "",
+  "status": "active",
+  "intent_id": "intent-001",
+  "run_id": null,
+  "adoption_id": "adopt-001",
+  "checkpoint_id": "cp-001",
+  "rationale": "Lower cognitive load and make the first action clearer.",
+  "git": {
+    "branch": "main",
+    "head": "a91c3d2",
+    "working_tree": "clean",
+    "linkage_quality": "stable_commit"
+  },
+  "metadata": {}
+}
+```
+
+`status` enum:
+
+- `active`
+
+Constraints:
+
+- `decision` records a tradeoff or principle worth preserving beyond an adoption title
+- `itt decide` / `itt decision create` requires an active intent
+- `decision` may optionally point to an adoption and its checkpoint
+- if no explicit adoption is passed, the latest adoption under the active intent may be linked when available
+- if no adoption is available, the decision may still be recorded with `adoption_id=null` and `checkpoint_id=null`
+- creating a decision does not change `workspace_status`
+
 ## 11. `state.json` Contract
 
 At minimum, the first-version `state.json` contains:
@@ -822,7 +862,18 @@ Rules:
 - does not change `workspace_status`
 - if no active run exists, return an object/state error
 
-### 12.7 `itt status`
+### 12.9 `itt decide`
+
+Rules:
+
+- requires an active intent
+- creates a decision object
+- if `--adoption <id>` is passed, the adoption must belong to the active intent
+- if no explicit adoption is passed, the latest adoption for the active intent may be linked automatically
+- a decision may be created without an adoption link
+- does not change `workspace_status`
+
+### 12.10 `itt status`
 
 Role: show the current semantic workspace state to humans and recommend the next action.
 
@@ -843,7 +894,7 @@ V1 boundary:
 - `status --json` returns only a lightweight workspace summary, not `pending_items` or object arrays
 - `status` does not enumerate objects, replay timelines, or export complete context
 
-### 12.8 `itt inspect`
+### 12.11 `itt inspect`
 
 Role: return stable, complete, machine-consumable semantic context.
 
@@ -861,7 +912,7 @@ V1 boundary:
 - it does not return full lists of intents / checkpoints / adoptions
 - it does not replace the timeline role of `log`
 
-### 12.9 `itt log`
+### 12.12 `itt log`
 
 Role: let humans inspect semantic history, especially adoption history.
 
@@ -871,7 +922,9 @@ V1 boundary:
 - default order is reverse chronological adoption / revert timeline
 - each record must show at least: time, adoption id, title, checkpoint reference, intent reference, and git head
 - checkpoint and intent titles may be included to help humans quickly understand what was adopted
-- if the repo contains no adoptions yet, return a clear empty state with a recommended next step
+- linked decisions may appear beneath the relevant adoption or revert record as supplementary context
+- if decisions exist without an adoption link, `log` may show them in a separate standalone section
+- if the repo contains no adoptions or decisions yet, return a clear empty state with a recommended next step
 - it must not collapse into a list of object files
 - V1 does not define `log --json`
 - V1 does not add `log --intent`, `log --checkpoint`, pagination, or complex filters
@@ -999,6 +1052,7 @@ When `strict_adoption=true`:
     "adopted": false
   },
   "latest_adoption": null,
+  "latest_decision": null,
   "latest_event": null,
   "candidate_checkpoints": [
     {
@@ -1047,13 +1101,13 @@ Null / empty rules:
 - if `.intent/` has not been initialized yet, `status --json` and `inspect --json` return an error object with:
   `ok=false`, `error.code=NOT_INITIALIZED`
 - in successful `status --json` responses, these top-level fields must always exist:
-  `ok`, `object`, `schema_version`, `active_intent`, `current_checkpoint`, `latest_adoption`, `workspace_status`, `workspace_status_reason`, `git`, `next_action`, `warnings`
-- within that response, `active_intent`, `current_checkpoint`, `latest_adoption`, and `next_action` may be `null`
+  `ok`, `object`, `schema_version`, `active_intent`, `active_run`, `current_checkpoint`, `latest_adoption`, `workspace_status`, `workspace_status_reason`, `git`, `next_action`, `warnings`
+- within that response, `active_intent`, `active_run`, `current_checkpoint`, `latest_adoption`, and `next_action` may be `null`
 - `git` must always be an object; `warnings` must always be an array
 - in successful `inspect --json` responses, these top-level fields must always exist:
-  `ok`, `object`, `schema_version`, `mode`, `state`, `active_intent`, `active_run`, `current_checkpoint`, `latest_adoption`, `latest_event`, `candidate_checkpoints`, `workspace_status_reason`, `pending_items`, `suggested_next_actions`, `git`, `warnings`
+  `ok`, `object`, `schema_version`, `mode`, `state`, `active_intent`, `active_run`, `current_checkpoint`, `latest_adoption`, `latest_decision`, `latest_event`, `candidate_checkpoints`, `workspace_status_reason`, `pending_items`, `suggested_next_actions`, `git`, `warnings`
 - `state.active_intent_id`, `state.active_run_id`, `state.current_checkpoint_id`, and `state.last_adoption_id` may be `null`
-- `active_intent`, `active_run`, `current_checkpoint`, `latest_adoption`, and `latest_event` may be `null`
+- `active_intent`, `active_run`, `current_checkpoint`, `latest_adoption`, `latest_decision`, and `latest_event` may be `null`
 - `candidate_checkpoints`, `pending_items`, `suggested_next_actions`, and `warnings` must always be arrays
 - `workspace_status_reason` must always be a string
 - if `next_action` or `suggested_next_actions` exists, they must contain `command`, `args`, and `reason`

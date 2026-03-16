@@ -71,3 +71,11 @@ scripts/demo_agent.sh
 - `inspect --json` 会返回机器可消费的 `suggested_next_actions`
 - action payload 同时包含可展示的 `command` 和可执行的 `args`
 - agent 可以不依赖长 prose，直接沿着结构化状态往前推进
+
+## 完整验证
+
+如果你想用一条命令跑完当前本地验证集，可以执行：
+
+```bash
+scripts/check.sh
+```

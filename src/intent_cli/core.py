@@ -1,259 +1,29 @@
 from __future__ import annotations
 
-import json
-import shlex
-import subprocess
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-
-SCHEMA_VERSION = "0.1"
-
-EXIT_SUCCESS = 0
-EXIT_GENERAL_FAILURE = 1
-EXIT_INVALID_INPUT = 2
-EXIT_STATE_CONFLICT = 3
-EXIT_OBJECT_NOT_FOUND = 4
-
-DIR_NAMES = {
-    "intent": "intents",
-    "checkpoint": "checkpoints",
-    "adoption": "adoptions",
-    "run": "runs",
-    "decision": "decisions",
-}
-
-ID_PREFIXES = {
-    "intent": "intent",
-    "checkpoint": "cp",
-    "adoption": "adopt",
-    "run": "run",
-    "decision": "decision",
-}
-
-OBJECT_LABELS = {
-    "intent": "Intent",
-    "checkpoint": "Checkpoint",
-    "adoption": "Adoption",
-    "run": "Run",
-}
-
-OBJECT_PLURALS = {
-    "intent": "Intents",
-    "checkpoint": "Checkpoints",
-    "adoption": "Adoptions",
-    "run": "Runs",
-}
-
-OBJECT_SELECTORS = {
-    "intent": {"@active"},
-    "checkpoint": {"@current"},
-    "adoption": {"@latest"},
-}
-
-
-class IntentError(Exception):
-    def __init__(
-        self,
-        exit_code: int,
-        code: str,
-        message: str,
-        details: Optional[Dict[str, Any]] = None,
-        suggested_fix: Optional[str] = None,
-    ) -> None:
-        super().__init__(message)
-        self.exit_code = exit_code
-        self.code = code
-        self.message = message
-        self.details = details or {}
-        self.suggested_fix = suggested_fix
-
-    def to_json(self) -> Dict[str, Any]:
-        payload = {
-            "ok": False,
-            "error": {
-                "code": self.code,
-                "message": self.message,
-                "details": self.details,
-            },
-        }
-        if self.suggested_fix:
-            payload["error"]["suggested_fix"] = self.suggested_fix
-        return payload
-
-
-def utc_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def read_json(path: Path) -> Dict[str, Any]:
-    return json.loads(path.read_text())
-
-
-def write_json(path: Path, payload: Dict[str, Any]) -> None:
-    path.write_text(json.dumps(payload, indent=2) + "\n")
-
-
-def run_git(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *args],
-        cwd=str(cwd),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-
-def ensure_git_worktree(cwd: Path) -> None:
-    result = run_git(cwd, "rev-parse", "--is-inside-work-tree")
-    if result.returncode != 0 or result.stdout.strip() != "true":
-        raise IntentError(
-            EXIT_GENERAL_FAILURE,
-            "GIT_STATE_INVALID",
-            "Intent requires a Git repository",
-            suggested_fix="git init",
-        )
-
-
-def git_branch(cwd: Path) -> str:
-    result = run_git(cwd, "branch", "--show-current")
-    if result.returncode == 0:
-        value = result.stdout.strip()
-        if value:
-            return value
-    result = run_git(cwd, "rev-parse", "--abbrev-ref", "HEAD")
-    if result.returncode == 0 and result.stdout.strip():
-        return result.stdout.strip()
-    return "unknown"
-
-
-def git_head(cwd: Path, ref: str = "HEAD") -> Optional[str]:
-    result = run_git(cwd, "rev-parse", "--short", ref)
-    if result.returncode == 0:
-        value = result.stdout.strip()
-        return value or None
-    return None
-
-
-def git_working_tree(cwd: Path) -> str:
-    result = run_git(cwd, "status", "--porcelain")
-    if result.returncode != 0:
-        return "unknown"
-    return "clean" if not result.stdout.strip() else "dirty"
-
-
-def build_git_context(cwd: Path, explicit_ref: Optional[str] = None) -> Tuple[Dict[str, Any], List[str]]:
-    branch = git_branch(cwd)
-    working_tree = git_working_tree(cwd)
-    warnings: List[str] = []
-
-    if explicit_ref:
-        head = git_head(cwd, explicit_ref)
-        if not head:
-            raise IntentError(
-                EXIT_INVALID_INPUT,
-                "INVALID_INPUT",
-                "Git ref could not be resolved.",
-                details={"ref": explicit_ref},
-                suggested_fix="Pass a valid ref to --link-git",
-            )
-        linkage_quality = "explicit_ref"
-    else:
-        head = git_head(cwd)
-        if head and working_tree == "clean":
-            linkage_quality = "stable_commit"
-        else:
-            linkage_quality = "working_tree_context"
-            if not head:
-                warnings.append("Git HEAD could not be resolved; recording working tree context only.")
-
-    if working_tree == "dirty":
-        warnings.append("Git working tree is dirty; recording working tree context.")
-
-    return (
-        {
-            "branch": branch,
-            "head": head,
-            "working_tree": working_tree,
-            "linkage_quality": linkage_quality,
-        },
-        warnings,
-    )
-
-
-def summarize_git(git: Dict[str, Any]) -> str:
-    branch = git.get("branch") or "unknown"
-    head = git.get("head") or "no-commit"
-    working_tree = git.get("working_tree")
-    if working_tree == "dirty":
-        return f"{branch} @ {head} (dirty)"
-    return f"{branch} @ {head}"
-
-
-def object_sort_key(item: Dict[str, Any]) -> Tuple[str, int]:
-    object_id = item.get("id", "")
-    suffix = object_id.rsplit("-", 1)[-1]
-    number = int(suffix) if suffix.isdigit() else 0
-    return (item.get("created_at", ""), number)
-
-
-def object_brief(obj: Optional[Dict[str, Any]], include_status: bool = True) -> Optional[Dict[str, Any]]:
-    if not obj:
-        return None
-    payload = {
-        "id": obj["id"],
-        "title": obj["title"],
-        "status": obj["status"],
-    }
-    if include_status and "adopted" in obj:
-        payload["adopted"] = obj["adopted"]
-    return payload
-
-
-def write_result(
-    object_name: str,
-    action: str,
-    object_id: Optional[str],
-    result: Dict[str, Any],
-    warnings: List[str],
-    next_action: Optional[Dict[str, Any]] = None,
-    *,
-    state_changed: bool = True,
-    noop: bool = False,
-    reason: Optional[str] = None,
-    workspace_status: Optional[str] = None,
-    workspace_status_reason: Optional[str] = None,
-) -> Dict[str, Any]:
-    payload: Dict[str, Any] = {
-        "ok": True,
-        "object": object_name,
-        "action": action,
-        "id": object_id,
-        "state_changed": state_changed,
-        "result": result,
-        "warnings": warnings,
-    }
-    if next_action is not None:
-        payload["next_action"] = next_action
-    if noop:
-        payload["noop"] = True
-    if reason:
-        payload["reason"] = reason
-    if workspace_status is not None:
-        payload["workspace_status"] = workspace_status
-    if workspace_status_reason is not None:
-        payload["workspace_status_reason"] = workspace_status_reason
-    return payload
-
-
-def cli_action(args: List[str], reason: str) -> Dict[str, Any]:
-    return {
-        "command": shlex.join(["itt", *args]),
-        "args": args,
-        "reason": reason,
-    }
+from .constants import (
+    DIR_NAMES,
+    EXIT_GENERAL_FAILURE,
+    EXIT_INVALID_INPUT,
+    EXIT_OBJECT_NOT_FOUND,
+    EXIT_STATE_CONFLICT,
+    ID_PREFIXES,
+    OBJECT_SELECTORS,
+    SCHEMA_VERSION,
+)
+from .errors import IntentError
+from .git import build_git_context, ensure_git_worktree
+from .helpers import cli_action, object_brief, object_sort_key, read_json, utc_now, write_json
+from .render import (
+    render_config_text,
+    render_log_text,
+    render_object_list_text,
+    render_object_show_text,
+    render_status_text,
+)
 
 
 @dataclass
@@ -263,6 +33,7 @@ class StatusSnapshot:
     active_run: Optional[Dict[str, Any]]
     current_checkpoint: Optional[Dict[str, Any]]
     latest_adoption: Optional[Dict[str, Any]]
+    latest_decision: Optional[Dict[str, Any]]
     candidate_checkpoints: List[Dict[str, Any]]
     warnings: List[str]
     git: Dict[str, Any]
@@ -392,6 +163,18 @@ class IntentRepository:
         elif object_name == "adoption":
             payload = self.load_object("adoption", state.get("last_adoption_id"))
             suggested_fix = "itt log"
+        elif object_name == "run":
+            payload = self.active_run(state)
+            suggested_fix = "itt run start"
+        elif object_name == "decision":
+            active_intent = self.active_intent(state)
+            decisions = [
+                decision
+                for decision in self.list_objects("decision")
+                if active_intent is None or decision.get("intent_id") == active_intent.get("id")
+            ]
+            payload = sorted(decisions, key=object_sort_key, reverse=True)[0] if decisions else None
+            suggested_fix = "itt decide <title>"
         else:
             payload = None
             suggested_fix = None
@@ -447,6 +230,11 @@ class IntentRepository:
         elif object_name == "run":
             item["intent_id"] = payload.get("intent_id")
             item["is_active"] = payload["id"] == state.get("active_run_id")
+        elif object_name == "decision":
+            item["intent_id"] = payload.get("intent_id")
+            item["run_id"] = payload.get("run_id")
+            item["adoption_id"] = payload.get("adoption_id")
+            item["checkpoint_id"] = payload.get("checkpoint_id")
         return item
 
     def list_view(self, object_name: str) -> List[Dict[str, Any]]:
@@ -494,6 +282,32 @@ class IntentRepository:
         if not adoptions:
             return None
         return sorted(adoptions, key=object_sort_key, reverse=True)[0]
+
+    def latest_decision(self, intent_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        decisions = [
+            decision
+            for decision in self.list_objects("decision")
+            if intent_id is None or decision.get("intent_id") == intent_id
+        ]
+        if not decisions:
+            return None
+        return sorted(decisions, key=object_sort_key, reverse=True)[0]
+
+    def decisions_for_adoption(self, adoption_id: str) -> List[Dict[str, Any]]:
+        decisions = [
+            decision
+            for decision in self.list_objects("decision")
+            if decision.get("adoption_id") == adoption_id
+        ]
+        return sorted(decisions, key=object_sort_key, reverse=True)
+
+    def standalone_decisions(self) -> List[Dict[str, Any]]:
+        decisions = [
+            decision
+            for decision in self.list_objects("decision")
+            if not decision.get("adoption_id")
+        ]
+        return sorted(decisions, key=object_sort_key, reverse=True)
 
     def derive_current_checkpoint(
         self,
@@ -571,6 +385,7 @@ class IntentRepository:
             active_run=active_run,
             current_checkpoint=current_checkpoint,
             latest_adoption=latest_adoption,
+            latest_decision=self.latest_decision(active_intent["id"] if active_intent else None),
             candidate_checkpoints=self.candidate_checkpoints(active_intent["id"] if active_intent else None),
             warnings=warnings,
             git=git_payload,
@@ -742,6 +557,68 @@ class IntentRepository:
         state["active_run_id"] = None
         self.save_state(state)
         return run, state, []
+
+    def create_decision(
+        self,
+        title: str,
+        rationale: str,
+        adoption_id: Optional[str],
+    ) -> Tuple[Dict[str, Any], Dict[str, Any], List[str]]:
+        self.ensure_git()
+        self.ensure_initialized()
+        state = self.load_state()
+        intent = self.active_intent(state)
+        if not intent:
+            raise IntentError(
+                EXIT_STATE_CONFLICT,
+                "STATE_CONFLICT",
+                "No active intent is available for creating a decision.",
+                suggested_fix='itt start "Describe the problem"',
+            )
+
+        active_run = self.active_run(state)
+        adoption: Optional[Dict[str, Any]] = None
+        checkpoint: Optional[Dict[str, Any]] = None
+
+        if adoption_id:
+            adoption = self.require_object("adoption", adoption_id)
+            if adoption.get("intent_id") != intent["id"]:
+                raise IntentError(
+                    EXIT_STATE_CONFLICT,
+                    "STATE_CONFLICT",
+                    "Adoption does not belong to the active intent.",
+                    details={"adoption_id": adoption_id, "active_intent_id": intent["id"]},
+                )
+        else:
+            latest_adoption = self.load_object("adoption", state.get("last_adoption_id"))
+            if latest_adoption and latest_adoption.get("intent_id") == intent["id"]:
+                adoption = latest_adoption
+
+        if adoption:
+            checkpoint = self.load_object("checkpoint", adoption.get("checkpoint_id"))
+
+        git_payload, warnings = build_git_context(self.cwd)
+        decision_id = self.next_id("decision")
+        now = utc_now()
+        decision = {
+            "id": decision_id,
+            "object": "decision",
+            "schema_version": SCHEMA_VERSION,
+            "created_at": now,
+            "updated_at": now,
+            "title": title,
+            "summary": "",
+            "status": "active",
+            "intent_id": intent["id"],
+            "run_id": active_run["id"] if active_run else None,
+            "adoption_id": adoption["id"] if adoption else None,
+            "checkpoint_id": checkpoint["id"] if checkpoint else None,
+            "rationale": rationale,
+            "git": git_payload,
+            "metadata": {},
+        }
+        self.save_object("decision", decision)
+        return decision, state, warnings
 
     def select_checkpoint(self, checkpoint_id: str) -> Tuple[Dict[str, Any], Dict[str, Any], List[str]]:
         self.ensure_git()
@@ -1070,6 +947,7 @@ class IntentRepository:
             "object": "status",
             "schema_version": SCHEMA_VERSION,
             "active_intent": object_brief(snapshot.active_intent, include_status=False),
+            "active_run": object_brief(snapshot.active_run, include_status=False),
             "current_checkpoint": object_brief(snapshot.current_checkpoint, include_status=False),
             "latest_adoption": object_brief(snapshot.latest_adoption, include_status=False),
             "workspace_status": state["workspace_status"],
@@ -1103,6 +981,7 @@ class IntentRepository:
             "active_run": object_brief(snapshot.active_run, include_status=False),
             "current_checkpoint": object_brief(snapshot.current_checkpoint),
             "latest_adoption": object_brief(snapshot.latest_adoption, include_status=False),
+            "latest_decision": object_brief(snapshot.latest_decision, include_status=False),
             "latest_event": self.latest_event(snapshot),
             "candidate_checkpoints": self.candidate_checkpoint_briefs(snapshot),
             "workspace_status_reason": self.workspace_status_reason(snapshot),
@@ -1120,139 +999,16 @@ class IntentRepository:
         return payload
 
     def render_status_text(self) -> str:
-        snapshot = self.snapshot()
-        status = snapshot.state["workspace_status"]
-        next_action = self.next_action(snapshot)
-        if status in {"idle", "blocked_no_active_intent"}:
-            return "\n".join(
-                [
-                    "Semantic workspace",
-                    f"Status: {status}",
-                    "No active intent",
-                    f"Next: {next_action['command']}" if next_action else "",
-                ]
-            ).strip()
-
-        lines = ["Semantic workspace"]
-        if snapshot.active_intent:
-            lines.append(f"Intent: {snapshot.active_intent['id']}  {snapshot.active_intent['title']}")
-        if snapshot.active_run:
-            lines.append(f"Run: {snapshot.active_run['id']}  {snapshot.active_run['title']}")
-        if snapshot.current_checkpoint:
-            lines.append(
-                f"Current checkpoint: {snapshot.current_checkpoint['id']}  {snapshot.current_checkpoint['title']}"
-            )
-        lines.append(f"Status: {status}")
-        if snapshot.latest_adoption and status == "adoption_recorded":
-            lines.append(f"Latest adoption: {snapshot.latest_adoption['id']}  {snapshot.latest_adoption['title']}")
-        if status == "conflict_multiple_candidates":
-            lines.append("Warning: Multiple candidate checkpoints exist and no unique current checkpoint is selected")
-        if next_action:
-            lines.append(f"Next: {next_action['command']}")
-        return "\n".join(lines)
+        return render_status_text(self)
 
     def render_log_text(self) -> str:
-        self.ensure_git()
-        self.ensure_initialized()
-        adoptions = sorted(self.list_objects("adoption"), key=object_sort_key, reverse=True)
-        if not adoptions:
-            return "Semantic history\nNo adoptions recorded yet\nNext: itt status"
-
-        lines = ["Semantic history", ""]
-        for adoption in adoptions:
-            created = adoption["created_at"].replace("T", " ").replace("Z", "")
-            checkpoint = self.load_object("checkpoint", adoption.get("checkpoint_id"))
-            intent = self.load_object("intent", adoption.get("intent_id"))
-            git_head = (adoption.get("git") or {}).get("head") or "no-commit"
-            lines.append(f"{created}  {adoption['id']}  {adoption['title']}")
-            if intent:
-                lines.append(f"  Intent: {intent['id']}  {intent['title']}")
-            if checkpoint:
-                lines.append(f"  Checkpoint: {checkpoint['id']}  {checkpoint['title']}")
-            if adoption.get("reverts_adoption_id"):
-                lines.append(f"  Reverts: {adoption['reverts_adoption_id']}")
-            lines.append(f"  Git: {git_head}")
-            lines.append("")
-        return "\n".join(lines).rstrip()
+        return render_log_text(self)
 
     def render_config_text(self) -> str:
-        config = self.show_config()
-        lines = [
-            "Intent config",
-            f"Schema version: {config.get('schema_version')}",
-            f"Strict adoption: {str(config.get('git', {}).get('strict_adoption', False)).lower()}",
-        ]
-        return "\n".join(lines)
+        return render_config_text(self)
 
     def render_object_list_text(self, object_name: str) -> str:
-        items = self.list_view(object_name)
-        label = OBJECT_PLURALS[object_name]
-        if not items:
-            return f"{label}\nNo {object_name}s recorded yet"
-
-        lines = [label, ""]
-        for item in items:
-            details = [f"status={item['status']}"]
-            if object_name == "intent":
-                if item.get("is_active"):
-                    details.append("active")
-            elif object_name == "checkpoint":
-                details.append(f"intent={item['intent_id']}")
-                if item.get("run_id"):
-                    details.append(f"run={item['run_id']}")
-                if item.get("selected"):
-                    details.append("selected")
-                if item.get("is_current"):
-                    details.append("current")
-                if item.get("adopted"):
-                    details.append("adopted")
-            elif object_name == "adoption":
-                details.append(f"intent={item['intent_id']}")
-                details.append(f"checkpoint={item['checkpoint_id']}")
-                if item.get("run_id"):
-                    details.append(f"run={item['run_id']}")
-                if item.get("is_latest"):
-                    details.append("latest")
-                if item.get("reverts_adoption_id"):
-                    details.append(f"reverts={item['reverts_adoption_id']}")
-            elif object_name == "run":
-                details.append(f"intent={item['intent_id']}")
-                if item.get("is_active"):
-                    details.append("active")
-            lines.append(f"{item['id']}  {item['title']} [{', '.join(details)}]")
-        return "\n".join(lines)
+        return render_object_list_text(self, object_name)
 
     def render_object_show_text(self, object_name: str, object_ref: str) -> str:
-        payload = self.show_view(object_name, object_ref)
-        label = OBJECT_LABELS[object_name]
-        lines = [
-            f"{label} {payload['id']}",
-            f"Title: {payload['title']}",
-            f"Status: {payload['status']}",
-        ]
-        if payload.get("summary"):
-            lines.append(f"Summary: {payload['summary']}")
-
-        if object_name == "intent":
-            lines.append(f"Latest checkpoint: {payload.get('latest_checkpoint_id') or 'none'}")
-            lines.append(f"Latest adoption: {payload.get('latest_adoption_id') or 'none'}")
-        elif object_name == "checkpoint":
-            lines.append(f"Intent: {payload.get('intent_id')}")
-            lines.append(f"Run: {payload.get('run_id') or 'none'}")
-            lines.append(f"Ordinal: {payload.get('ordinal')}")
-            lines.append(f"Selected: {str(payload.get('selected', False)).lower()}")
-            lines.append(f"Adopted: {str(payload.get('adopted', False)).lower()}")
-            lines.append(f"Adopted by: {payload.get('adopted_by') or 'none'}")
-            lines.append(f"Git: {summarize_git(payload.get('git', {}))}")
-        elif object_name == "adoption":
-            lines.append(f"Intent: {payload.get('intent_id')}")
-            lines.append(f"Run: {payload.get('run_id') or 'none'}")
-            lines.append(f"Checkpoint: {payload.get('checkpoint_id')}")
-            if payload.get("rationale"):
-                lines.append(f"Because: {payload['rationale']}")
-            lines.append(f"Reverts: {payload.get('reverts_adoption_id') or 'none'}")
-            lines.append(f"Git: {summarize_git(payload.get('git', {}))}")
-        elif object_name == "run":
-            lines.append(f"Intent: {payload.get('intent_id')}")
-            lines.append(f"Git: {summarize_git(payload.get('git', {}))}")
-        return "\n".join(lines)
+        return render_object_show_text(self, object_name, object_ref)

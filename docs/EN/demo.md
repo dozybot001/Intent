@@ -71,3 +71,11 @@ What to look for:
 - `inspect --json` returns machine-consumable `suggested_next_actions`
 - each action payload contains both a display-friendly `command` and executable `args`
 - an agent can move forward through the workflow without depending on long prose instructions
+
+## Full Validation
+
+If you want one command that runs the current local verification set, use:
+
+```bash
+scripts/check.sh
+```

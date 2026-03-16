@@ -613,6 +613,46 @@ revert record 示例：
 - `itt run end` 清空 `state.active_run_id`
 - 在 active run 期间创建的 checkpoint 和 adoption 应记录对应的 `run_id`
 
+### 10.5 Decision
+
+```json
+{
+  "id": "decision-001",
+  "object": "decision",
+  "schema_version": "0.1",
+  "created_at": "2026-03-15T14:40:00Z",
+  "updated_at": "2026-03-15T14:40:00Z",
+  "title": "Prefer progressive disclosure over dense hero copy",
+  "summary": "",
+  "status": "active",
+  "intent_id": "intent-001",
+  "run_id": null,
+  "adoption_id": "adopt-001",
+  "checkpoint_id": "cp-001",
+  "rationale": "Lower cognitive load and make the first action clearer.",
+  "git": {
+    "branch": "main",
+    "head": "a91c3d2",
+    "working_tree": "clean",
+    "linkage_quality": "stable_commit"
+  },
+  "metadata": {}
+}
+```
+
+`status` 枚举：
+
+- `active`
+
+约束：
+
+- `decision` 用来记录值得长期保留的取舍理由或原则判断，而不只是 adoption 标题
+- `itt decide` / `itt decision create` 要求存在 active intent
+- `decision` 可以选择性关联 adoption 及其 checkpoint
+- 如果没有显式传入 adoption，系统在可用时可以自动关联当前 active intent 下最新的 adoption
+- 如果当前没有 adoption，仍然允许创建 decision，此时 `adoption_id=null`、`checkpoint_id=null`
+- 创建 decision 不改变 `workspace_status`
+
 ## 11. `state.json` contract
 
 首版 `state.json` 至少包含：
@@ -822,7 +862,18 @@ itt adoption create \
 - 不改变 `workspace_status`
 - 若不存在 active run，返回 object/state 错误
 
-### 12.7 `itt status`
+### 12.9 `itt decide`
+
+规则：
+
+- 要求存在 active intent
+- 创建 decision object
+- 若传入 `--adoption <id>`，该 adoption 必须属于 active intent
+- 若未显式传入 adoption，系统在可用时可自动关联 active intent 下最新的 adoption
+- decision 允许在没有 adoption 链接时创建
+- 不改变 `workspace_status`
+
+### 12.10 `itt status`
 
 作用：给人看当前 semantic workspace 状态，并推荐下一步动作。
 
@@ -843,7 +894,7 @@ V1 边界：
 - `status --json` 只返回轻量 workspace summary，不返回 `pending_items` 或对象数组
 - `status` 不承担对象枚举、时间线回放或完整上下文导出职责
 
-### 12.8 `itt inspect`
+### 12.11 `itt inspect`
 
 作用：给机器输出稳定、完整、可消费的语义上下文。
 
@@ -861,7 +912,7 @@ V1 边界：
 - 不返回 intents / checkpoints / adoptions 的完整列表
 - 不承担替代 `log` 的时间线职责
 
-### 12.9 `itt log`
+### 12.12 `itt log`
 
 作用：给人查看 semantic history，尤其是采纳历史。
 
@@ -871,7 +922,9 @@ V1 边界：
 - 默认按时间倒序展示 adoption / revert 时间线
 - 一条记录至少展示：时间、adoption id、标题、checkpoint 引用、intent 引用、git head
 - 可以附带 checkpoint 和 intent 标题，帮助人快速理解“采纳了什么”
-- 若仓库里还没有 adoption，返回明确 empty state，并给出下一步建议
+- 若存在与 adoption / revert 关联的 decision，可作为补充上下文挂在对应记录下
+- 若存在未关联 adoption 的 decision，`log` 可以单独展示 standalone decisions 区块
+- 若仓库里既没有 adoption 也没有 decision，返回明确 empty state，并给出下一步建议
 - 不退化为对象文件列表
 - V1 不定义 `log --json`
 - V1 不做 `log --intent`、`log --checkpoint`、分页、复杂过滤器
@@ -999,6 +1052,7 @@ adoption：
     "adopted": false
   },
   "latest_adoption": null,
+  "latest_decision": null,
   "latest_event": null,
   "candidate_checkpoints": [
     {
@@ -1047,13 +1101,13 @@ adoption：
 - 若 `.intent/` 尚未初始化，`status --json` 与 `inspect --json` 返回错误对象：
   `ok=false`，`error.code=NOT_INITIALIZED`
 - 在成功返回中，`status --json` 必须始终包含这些顶层字段：
-  `ok`、`object`、`schema_version`、`active_intent`、`current_checkpoint`、`latest_adoption`、`workspace_status`、`workspace_status_reason`、`git`、`next_action`、`warnings`
-- 其中 `active_intent`、`current_checkpoint`、`latest_adoption`、`next_action` 可为 `null`
+  `ok`、`object`、`schema_version`、`active_intent`、`active_run`、`current_checkpoint`、`latest_adoption`、`workspace_status`、`workspace_status_reason`、`git`、`next_action`、`warnings`
+- 其中 `active_intent`、`active_run`、`current_checkpoint`、`latest_adoption`、`next_action` 可为 `null`
 - `git` 必须始终为对象；`warnings` 必须始终为数组
 - 在成功返回中，`inspect --json` 必须始终包含这些顶层字段：
-  `ok`、`object`、`schema_version`、`mode`、`state`、`active_intent`、`active_run`、`current_checkpoint`、`latest_adoption`、`latest_event`、`candidate_checkpoints`、`workspace_status_reason`、`pending_items`、`suggested_next_actions`、`git`、`warnings`
+  `ok`、`object`、`schema_version`、`mode`、`state`、`active_intent`、`active_run`、`current_checkpoint`、`latest_adoption`、`latest_decision`、`latest_event`、`candidate_checkpoints`、`workspace_status_reason`、`pending_items`、`suggested_next_actions`、`git`、`warnings`
 - `state.active_intent_id`、`state.active_run_id`、`state.current_checkpoint_id`、`state.last_adoption_id` 可为 `null`
-- `active_intent`、`active_run`、`current_checkpoint`、`latest_adoption`、`latest_event` 可为 `null`
+- `active_intent`、`active_run`、`current_checkpoint`、`latest_adoption`、`latest_decision`、`latest_event` 可为 `null`
 - `candidate_checkpoints`、`pending_items`、`suggested_next_actions`、`warnings` 必须始终为数组
 - `workspace_status_reason` 必须始终为字符串
 - `next_action` 与 `suggested_next_actions` 若存在，必须同时包含 `command`、`args`、`reason`
