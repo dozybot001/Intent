@@ -155,15 +155,14 @@ Intent is structured in two layers:
 
 ## Current Scope
 
-The project is still early. The focus is not breadth yet; it is making the smallest local loop reliable.
+`v0.1.0` is now tagged. The current focus is no longer "make the prototype exist," but "use it, harden it, and decide what the next release should optimize for."
 
 Current priorities:
 
-- the `.intent/` local object layer
-- `init -> start -> snap -> adopt -> log`
-- baseline read-side commands, `run`, and `decision`
-- agent-friendly contracts such as `status --json` and `inspect --json`
-- keeping the same semantic model useful for both humans and agents
+- dogfooding the current CLI in real repositories
+- hardening release quality, validation, and docs from real usage
+- continuing low-risk internal cleanup where it improves maintainability
+- deciding the right `v0.2.0` direction from usage rather than abstract completeness
 
 ## Documentation
 

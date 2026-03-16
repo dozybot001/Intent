@@ -2,142 +2,90 @@
 
 # Intent 路线图
 
-用途：整理 CLI 初版之后的后续工作顺序。本文回答“接下来做什么”，不重新定义 CLI contract。
+用途：整理 `v0.1.0` 之后的后续工作。本文是当前路线图，不是通向第一个 tag 版本时使用过的历史路线图。
+
+通向首个 release 的历史路线图见：[roadmap-v0.1.0.md](archive/roadmap-v0.1.0.md)
 
 ## 当前阶段
 
-当前实现已经覆盖这条本地最小闭环：
+`v0.1.0` 已经打 tag。初版本地 CLI 闭环已经成立，项目已经走出“先证明原型成立”的阶段。
+
+下一步更重要的是使用、打磨、验证当前实现，而不是继续重复已经完成的 milestones。
+
+## 已完成的部分
 
 - `.intent/` 本地对象层
 - `init -> start -> snap -> adopt -> log`
 - `status --json` / `inspect --json`
-- surface CLI 与最小 canonical action
-- Git 前置条件、错误模型和基础测试
-- 基础 read-side 命令
-- 面向 human / agent 的 demo 脚本
-- 初始版 `run` lifecycle 和最小 `decision` 支持
-- 基础 CI、本地安装说明和 package build 验证
-
-下一阶段应在这个实现基础上，按下面的顺序推进：
-
-1. 先把 v1 CLI 打磨到稳定可用
-2. 再补读能力和 agent 入口
-3. 再引入 `run` / `decision`
-4. 最后再考虑更远的协作层
+- `intent`、`checkpoint`、`adoption`、`run`、`decision` 的 read-side 命令
+- `run` 和 `decision`
+- human / agent demos
+- CI、build 验证、wheel install 验证
+- 第一个已打 tag 的版本：`v0.1.0`
 
 ## 优先级原则
 
-- 优先补会提升可靠性和可用性的能力
-- 优先补会让人和 agent 都更容易接入的能力
-- 优先补能尽快形成演示和验证材料的能力
-- 暂不为了“对象完整性”提前实现低频能力
-- 暂不进入远端同步、平台化协作、复杂筛选器
+- 优先从真实使用里拿反馈，而不是继续扩对象面
+- 优先补可靠性、可维护性和发布质量
+- 持续把本地 semantic layer 放在中心
+- 在本地工作流真正被验证之前，不提前引入平台化范围
 
-## Milestone 1: 打磨 v1 CLI
+## Phase 1：Dogfooding 与 Hardening
 
-目标：补齐当前 CLI 的基础可用性与演示材料。
-
-建议项：
-
-- 补充只读命令：`intent show`、`checkpoint show`、`adoption show`
-- 补充基础列表命令：`intent list`、`checkpoint list`、`adoption list`
-- 为 `config.json` 提供最小读写入口，例如 `itt config show`
-- 增加一个官方 smoke script，方便快速验证主路径
-- 准备一个 human demo，用 `itt log` 展示采纳历史
-- 把 human 输出进一步对齐文档中的文案基线
-- 补充更多错误分支测试和 JSON contract 测试
-
-完成标志：
-
-- 常见读写命令都能在本地自洽使用
-- 主要错误场景都有测试覆盖
-- 新用户按 README 可以完成一次完整演示
-
-## Milestone 2: 强化 Agent / Automation 体验
-
-目标：让 Intent 更容易被 agent、脚本和自动化稳定消费。
+目标：把 `v0.1.0` 真正用到真实仓库里，并把粗糙处磨平。
 
 建议项：
 
-- 补全 canonical CLI 的最低只读能力
-- 让 `inspect --json` 在冲突、空状态、revert 后场景更丰富
-- 准备一个 agent demo，用 `inspect --json` 驱动下一步动作
-- 为写命令补更多 machine-friendly 字段，例如更一致的 `next_action`
-- 增加 `--id-only` 和 `--json` 的回归测试矩阵
-- 增加可复用的 fixture / helper，降低未来测试维护成本
+- 在一个或多个真实 repo 中使用 Intent，而不只是在合成 demo 里运行
+- 收集命令文案、状态切换、恢复路径里的真实摩擦点
+- 基于真实使用补 help、示例和 release 材料
+- 只有在真实使用暴露缺口时，再继续打磨本地 check path 和 CI
 
 完成标志：
 
-- agent 可以只靠 `inspect --json` + canonical action 完成主路径
-- JSON 返回结构在主要状态切换中保持稳定
+- 在真实 repo 里重复使用时，不再需要临时 workaround
+- 常见失败路径已经被理解并沉淀到文档中
 
-## Milestone 3: 引入 `run`
+## Phase 2：内部结构清理
 
-目标：记录一次 agent 执行或一轮探索过程，为 provenance 和 automation 提供语义 span。
+目标：在再次扩语义模型之前，让代码更容易长期维护。
 
 建议项：
 
-- 落地 `run start` / `run end`
-- 在 `state.json` 中正确维护 `active_run_id`
-- 让 checkpoint / adoption 可以挂接 `run_id`
-- 定义 run 的最小 inspect 输出
+- 把 `.intent/` 的存储和 ID 分配从剩余 core logic 中拆开
+- 继续保持 rendering、git、state transition、storage 的职责分离
+- 在确实有帮助时，用更好的 fixture 降低测试重复
 
 完成标志：
 
-- 一轮 agent 执行可以被正式建模
-- run 不影响已有 `start -> snap -> adopt` 闭环
+- 核心领域逻辑更小、更容易演进
+- 新功能不再需要同时碰太多不相关代码路径
 
-## Milestone 4: 引入 `decision`
+## Phase 3：决定 `v0.2.0` 的方向
 
-目标：把“为什么是这个，而不是那个”从 adoption 附注提升为更长期可复用的对象。
+目标：在首个 tag 版本之后，选择下一个真正有意义的方向。
 
-建议项：
+候选方向：
 
-- 增加 `decision create`
-- 明确 decision 与 adoption / intent 的关联方式
-- 设计适合沉淀原则判断的最小 schema
-- 明确 decision 何时应该出现，避免强制化
+- 继续 dogfooding 和 UX 打磨，而不是继续大规模扩面
+- 更好的 packaging 和 release 体验
+- 更丰富的 query / inspection 能力
+- 谨慎试验协作层或 remote-sync
 
-完成标志：
+决策原则：
 
-- 关键取舍可以被稳定引用
-- decision 不挤占首页主路径
-
-## Milestone 5: 分发与协作
-
-目标：让 CLI 更容易安装、试用、分享，并为未来协作层铺路。
-
-建议项：
-
-- 完善安装方式和版本管理
-- 增加 CI，自动运行测试
-- 补使用示例、演示脚本和发布说明
-- 结合真实 repo 做 dogfooding
-- 在本地 layer 稳定后，再评估 Skill / IntHub 接入点
-
-完成标志：
-
-- 外部用户可以方便安装和试用
-- 每次改动都有自动化验证
-
-## 当前下一步
-如果只做一轮实现，可以按这个顺序：
-
-1. human demo：`itt log` 对比 `git log`
-2. agent demo：`inspect --json` 驱动下一步动作
-3. 更完整的 JSON / error 测试
-4. `run start/end`
+- 选择最小、最受真实使用驱动的下一步，而不是追求抽象上的完整
 
 ## 明确暂缓
 
-这几个方向现在不建议抢先做：
+这些方向仍然不建议抢先做：
 
-- 远端同步
+- 把 remote sync 当成默认前提
 - 平台化 timeline UI
-- 复杂过滤器与查询语言
-- 大规模对象扩张
-- 把 `log` 变成全量 JSON timeline API
+- 为了对称性而做的大规模对象扩张
+- 在真实压力出现前就上复杂过滤器和查询语言
+- 试图替代 Git 的版本控制角色
 
 ## 一句话总结
 
-当前路线以本地 semantic layer 为中心，先补演示、验证和基础能力，再扩展更后续的对象与协作层。
+`v0.1.0` 之后的路线图，已经不是“把原型做出来”，而是“验证、打磨，并判断下一版真正应该优化什么”。

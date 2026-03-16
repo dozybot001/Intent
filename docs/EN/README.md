@@ -13,8 +13,7 @@ English | [简体中文](../CN/README.md)
 | [Unified CLI spec](cli.md) | What are the CLI boundaries, command semantics, and implementation contract? | longer-term platform questions |
 | [Demo](demo.md) | How can `itt log` and `git log` be compared quickly? | CLI contract definitions, long-term roadmap |
 | [Release baseline](release.md) | What must be true before a staged release? | CLI contract details, long-term roadmap |
-| [Release notes template](release-notes-template.md) | What stable shape should release notes follow? | release readiness checks, CLI contract details |
-| [Roadmap](roadmap.md) | What comes after the initial CLI? | current CLI contract details |
+| [Roadmap](roadmap.md) | What should happen after `v0.1.0`? | current CLI contract details |
 | [Documentation i18n guide](i18n.md) | How is bilingual documentation organized and maintained? | CLI contract details, implementation sequencing |
 
 ## Suggested Reading Paths
@@ -22,16 +21,15 @@ English | [简体中文](../CN/README.md)
 - New to the project: start with [Glossary](glossary.md), then read [Vision and problem definition](vision.md)
 - Want a runnable example first: read [Demo](demo.md)
 - Want to prepare a staged release: read [Release baseline](release.md)
-- Want a stable release-note structure: read [Release notes template](release-notes-template.md)
 - Want to discuss bilingual documentation structure: read [Documentation i18n guide](i18n.md)
 - Want to discuss command semantics or implementation: read [Unified CLI spec](cli.md)
-- Want to discuss upcoming priorities: read [Roadmap](roadmap.md)
+- Want to discuss post-`v0.1.0` priorities: read [Roadmap](roadmap.md)
 
 ## Current Source of Truth
 
 - problem definition and long-term direction: [Vision and problem definition](vision.md)
 - command semantics, object exposure order, state machine, JSON contract, and error model: [Unified CLI spec](cli.md)
-- implementation sequencing and next-step priorities: [Roadmap](roadmap.md)
+- post-`v0.1.0` priorities and next-step direction: [Roadmap](roadmap.md)
 
 If two documents disagree on a CLI detail, sync the EN/CN pair and keep the contract aligned.
 

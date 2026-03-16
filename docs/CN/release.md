@@ -23,7 +23,7 @@
 - GitHub Actions CI 通过
 - package 仍然可以构建出 sdist 和 wheel
 - 构建出来的 wheel 可以在干净环境中安装，并且 `itt` 入口可正常运行
-- release notes 草稿遵循 [release-notes-template.md](release-notes-template.md)
+- release notes 草稿遵循 `$release-publisher` 技能模板
 
 ## 本地命令
 
@@ -42,7 +42,7 @@ python3 -m build
 - `run` 和 `decision` 支持
 - demos、CI 与验证基线
 
-固定结构以 [release-notes-template.md](release-notes-template.md) 为准。
+固定结构以 `$release-publisher` 技能模板为准。
 
 在 GitHub release 中，标题单独填写，这个模板只用于 release 正文。
 
