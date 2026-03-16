@@ -120,7 +120,7 @@ Intent 的边界很明确：
 
 **只记录那些值得被正式追踪、比较、采纳、撤销和复用的语义节点。**
 
-## 6. 为什么这是 agent 时代更强烈的需求
+## 6. 为什么这在 agent 时代更常见
 
 在传统开发里，很多高层语义虽然没有被正式建模，但至少还在程序员脑中，或者散落在日常协作材料里。
 
@@ -139,51 +139,48 @@ Intent 的边界很明确：
 - 可查询的上下文
 - 可执行的语义动作
 
-## 7. 为什么第一步必须先做 CLI
+## 7. 为什么第一步先做 CLI
 
 Intent 的第一阶段不是平台，而是本地 CLI。
 
-原因很简单：
+当前先以 CLI 落地，主要基于这些考虑：
 
-- 先证明最小闭环能跑通
+- 先把最小闭环跑通
 - 先冻结本地对象层和行为 contract
 - 先让 agent、IDE、automation 有稳定入口
-- 先用真实 workflow 建立信任，而不是靠长文案
+- 先围绕真实 workflow 调整本地接口
 
-如果本地这层不成立，后面的远端协作、可视化历史和平台化表达都会漂浮。
+远端协作、可视化历史和平台化表达依赖这一本地层先清晰下来。
 
-## 8. 现在如何判断 Intent 是否成立
-
-Intent 当前还不是一个已经自证价值的产品，更像一个正在被验证的本地 semantic layer。
-
-因此，现阶段最重要的不是继续扩张叙事，而是回答三个更硬的问题：
+## 8. 当前验证重点
+当前阶段更关注本地 semantic layer 的使用方式和接口边界，主要包括三个问题：
 
 - `start -> snap -> adopt` 是否真的顺手
 - `itt log` 是否真的比 `git log` 更接近采纳历史
 - `itt inspect --json` 是否真的能让 agent 少猜当前状态
 
-这三个问题可以先通过两个 demo 来证明：
+当前可以先通过两个 demo 观察这些问题：
 
-- human demo：同一轮工作里，`itt log` 比 commit history 更清楚地回答“最终采纳了什么”
-- agent demo：agent 先读 `itt inspect --json`，再执行正确下一步动作，而不是从 issue、聊天和文档里拼状态
+- human demo：同一轮工作里，用 `itt log` 查看采纳历史
+- agent demo：先读 `itt inspect --json`，再执行下一步动作
 
-如果这两个 demo 还没有成立，那么 Intent 更应该继续打磨本地闭环，而不是提前扩到平台层。
+这些观察会直接影响后续是继续打磨本地闭环，还是再扩展更远的协作层。
 
 ## 9. 长期结构
 
 Intent 的长期结构可以分成三层：
 
-| 层 | 角色 | 当前优先级 |
+| 层 | 角色 | 当前位置 |
 | --- | --- | --- |
-| Intent CLI | 本地 semantic history 操作层 | 最高 |
-| Skill / agent workflow | 教会 agent 何时、如何使用 `itt` | 次高 |
-| IntHub | 远端组织、展示与协作层 | 更后 |
+| Intent CLI | 本地 semantic history 操作层 | 当前重点 |
+| Skill / agent workflow | 教会 agent 何时、如何使用 `itt` | 下一层 |
+| IntHub | 远端组织、展示与协作层 | 更后续 |
 
-这里的关键顺序不是技术实现顺序，而是产品成立顺序：
+这里表达的是产品推进顺序，而不是技术依赖顺序：
 
-**先把本地 semantic layer 做成立，再让远端协作层自然长出来。**
+**先整理本地 semantic layer，再扩展远端协作层。**
 
-这也意味着 IntHub 目前只是一个更后续的组织与协作层，不应该在本地 contract 还未被证明前占据设计中心。
+因此，IntHub 目前仍属于更后续的组织与协作层，不是当前文档和实现的中心。
 
 ## 10. 一句话定义
 
@@ -195,10 +192,11 @@ Intent 是一个构建在 Git 之上的高层语义版本层，用来记录 agen
 
 Intent is a Git-compatible semantic history layer for agent-driven software development.
 
-## 11. 结论
+## 11. 总结
 
-Intent 不是在和 Git 竞争“谁来管理代码版本”。
+Intent 关注的不是 Git 的版本控制能力，而是 Git 之外的语义历史：
 
-Intent 解决的是另一个问题：
-
-当开发越来越由人和 agent 协作完成时，系统应该如何正式记录“我们到底采纳了什么”。
+- 当前在解决什么问题
+- 出现过哪些候选结果
+- 最后采纳了什么
+- 必要时如何记录撤销与后续决策

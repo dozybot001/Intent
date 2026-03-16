@@ -1,10 +1,10 @@
 # Intent 路线图
 
-用途：把 CLI 初版成型之后的下一阶段工作排成清晰顺序。本文回答“接下来最值得做什么”，不重新定义 CLI contract。
+用途：整理 CLI 初版之后的后续工作顺序。本文回答“接下来做什么”，不重新定义 CLI contract。
 
-## 当前阶段判断
+## 当前阶段
 
-现在的 Intent 已经具备了一个成立的本地最小闭环：
+当前实现已经覆盖这条本地最小闭环：
 
 - `.intent/` 本地对象层
 - `init -> start -> snap -> adopt -> log`
@@ -12,9 +12,7 @@
 - surface CLI 与最小 canonical action
 - Git 前置条件、错误模型和基础测试
 
-这意味着项目已经从“只有文档”进入“可运行的初版 CLI”阶段。
-
-下一阶段不应再泛泛扩张，而应按下面的顺序推进：
+下一阶段按下面的顺序推进：
 
 1. 先把 v1 CLI 打磨到稳定可用
 2. 再补读能力和 agent 入口
@@ -25,13 +23,13 @@
 
 - 优先补会提升可靠性和可用性的能力
 - 优先补会让人和 agent 都更容易接入的能力
-- 优先补能尽快形成 demo 证据的能力，而不是继续扩张概念
+- 优先补能尽快形成演示和验证材料的能力
 - 暂不为了“对象完整性”提前实现低频能力
 - 暂不进入远端同步、平台化协作、复杂筛选器
 
 ## Milestone 1: 打磨 v1 CLI
 
-目标：让当前 CLI 从“能跑”进入“稳定可演示、可连续使用”。
+目标：补齐当前 CLI 的基础可用性与演示材料。
 
 建议项：
 
@@ -39,7 +37,7 @@
 - 补充基础列表命令：`intent list`、`checkpoint list`、`adoption list`
 - 为 `config.json` 提供最小读写入口，例如 `itt config show`
 - 增加一个官方 smoke script，方便快速验证主路径
-- 做一个 human demo，证明 `itt log` 比 `git log` 更接近采纳历史
+- 准备一个 human demo，用 `itt log` 展示采纳历史
 - 把 human 输出进一步对齐文档中的文案基线
 - 补充更多错误分支测试和 JSON contract 测试
 
@@ -57,7 +55,7 @@
 
 - 补全 canonical CLI 的最低只读能力
 - 让 `inspect --json` 在冲突、空状态、revert 后场景更丰富
-- 做一个 agent demo，证明 agent 可以先读 `inspect --json` 再执行正确下一步动作
+- 准备一个 agent demo，用 `inspect --json` 驱动下一步动作
 - 为写命令补更多 machine-friendly 字段，例如更一致的 `next_action`
 - 增加 `--id-only` 和 `--json` 的回归测试矩阵
 - 增加可复用的 fixture / helper，降低未来测试维护成本
@@ -109,16 +107,15 @@
 - 增加 CI，自动运行测试
 - 补使用示例、演示脚本和发布说明
 - 结合真实 repo 做 dogfooding
-- 在本地 layer 被证明后，再评估 Skill / IntHub 接入点
+- 在本地 layer 稳定后，再评估 Skill / IntHub 接入点
 
 完成标志：
 
 - 外部用户可以方便安装和试用
 - 每次改动都有自动化验证
 
-## 当前最推荐的下一步
-
-如果只做一轮最值得的实现，建议按这个顺序：
+## 当前下一步
+如果只做一轮实现，可以按这个顺序：
 
 1. human demo：`itt log` 对比 `git log`
 2. agent demo：`inspect --json` 驱动下一步动作
@@ -135,6 +132,6 @@
 - 大规模对象扩张
 - 把 `log` 变成全量 JSON timeline API
 
-## 一句话结论
+## 一句话总结
 
-Intent 现在最重要的不是“继续想更多对象”，而是先把这版 CLI 打磨成一个稳定、可信、适合人和 agent 共用的本地 semantic layer。
+当前路线以本地 semantic layer 为中心，先补演示、验证和基础能力，再扩展更后续的对象与协作层。
