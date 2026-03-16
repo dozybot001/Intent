@@ -40,6 +40,12 @@ def base_write_parser(name: str, help_text: str) -> argparse.ArgumentParser:
     return parser
 
 
+def base_read_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--json", action="store_true")
+    return parser
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="itt")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -73,8 +79,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     log_parser = subparsers.add_parser("log")
 
+    config_parser = subparsers.add_parser("config")
+    config_subparsers = config_parser.add_subparsers(dest="config_command", required=True)
+    config_subparsers.add_parser("show", parents=[base_read_parser()])
+
     checkpoint_parser = subparsers.add_parser("checkpoint")
     checkpoint_subparsers = checkpoint_parser.add_subparsers(dest="checkpoint_command", required=True)
+    checkpoint_subparsers.add_parser("list", parents=[base_read_parser()])
+    checkpoint_show_parser = checkpoint_subparsers.add_parser("show", parents=[base_read_parser()])
+    checkpoint_show_parser.add_argument("checkpoint_id")
     checkpoint_create_parser = checkpoint_subparsers.add_parser(
         "create",
         parents=[base_write_parser("checkpoint create", "Emit machine-readable JSON")],
@@ -89,6 +102,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     intent_parser = subparsers.add_parser("intent")
     intent_subparsers = intent_parser.add_subparsers(dest="intent_command", required=True)
+    intent_subparsers.add_parser("list", parents=[base_read_parser()])
+    intent_show_parser = intent_subparsers.add_parser("show", parents=[base_read_parser()])
+    intent_show_parser.add_argument("intent_id")
     intent_create_parser = intent_subparsers.add_parser(
         "create",
         parents=[base_write_parser("intent create", "Emit machine-readable JSON")],
@@ -98,6 +114,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     adoption_parser = subparsers.add_parser("adoption")
     adoption_subparsers = adoption_parser.add_subparsers(dest="adoption_command", required=True)
+    adoption_subparsers.add_parser("list", parents=[base_read_parser()])
+    adoption_show_parser = adoption_subparsers.add_parser("show", parents=[base_read_parser()])
+    adoption_show_parser.add_argument("adoption_id")
     adoption_create_parser = adoption_subparsers.add_parser(
         "create",
         parents=[base_write_parser("adoption create", "Emit machine-readable JSON")],
@@ -288,6 +307,60 @@ def handle_log(repo: IntentRepository, args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def handle_config_show(repo: IntentRepository, args: argparse.Namespace) -> int:
+    config = repo.show_config()
+    if args.json:
+        emit_json(
+            {
+                "ok": True,
+                "object": "config",
+                "action": "show",
+                "result": config,
+            }
+        )
+    else:
+        print(repo.render_config_text())
+    return EXIT_SUCCESS
+
+
+def handle_object_list(repo: IntentRepository, args: argparse.Namespace, object_name: str) -> int:
+    items = repo.list_view(object_name)
+    if args.json:
+        emit_json(
+            {
+                "ok": True,
+                "object": object_name,
+                "action": "list",
+                "count": len(items),
+                "items": items,
+            }
+        )
+    else:
+        print(repo.render_object_list_text(object_name))
+    return EXIT_SUCCESS
+
+
+def handle_object_show(
+    repo: IntentRepository,
+    args: argparse.Namespace,
+    object_name: str,
+    object_id: str,
+) -> int:
+    payload = repo.show_view(object_name, object_id)
+    if args.json:
+        emit_json(
+            {
+                "ok": True,
+                "object": object_name,
+                "action": "show",
+                "result": payload,
+            }
+        )
+    else:
+        print(repo.render_object_show_text(object_name, object_id))
+    return EXIT_SUCCESS
+
+
 def normalize_canonical_args(args: argparse.Namespace) -> argparse.Namespace:
     if args.command == "intent" and args.intent_command == "create":
         args.command = "start"
@@ -360,8 +433,22 @@ def main(argv: Optional[list[str]] = None) -> int:
             return handle_inspect(repo, args)
         if args.command == "log":
             return handle_log(repo, args)
+        if args.command == "config" and args.config_command == "show":
+            return handle_config_show(repo, args)
+        if args.command == "intent" and args.intent_command == "list":
+            return handle_object_list(repo, args, "intent")
+        if args.command == "intent" and args.intent_command == "show":
+            return handle_object_show(repo, args, "intent", args.intent_id)
+        if args.command == "checkpoint" and args.checkpoint_command == "list":
+            return handle_object_list(repo, args, "checkpoint")
+        if args.command == "checkpoint" and args.checkpoint_command == "show":
+            return handle_object_show(repo, args, "checkpoint", args.checkpoint_id)
         if args.command == "checkpoint" and args.checkpoint_command == "select":
             return handle_checkpoint_select(repo, args)
+        if args.command == "adoption" and args.adoption_command == "list":
+            return handle_object_list(repo, args, "adoption")
+        if args.command == "adoption" and args.adoption_command == "show":
+            return handle_object_show(repo, args, "adoption", args.adoption_id)
         parser.error("unknown command")
         return 2
     except IntentError as error:

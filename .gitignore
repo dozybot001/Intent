@@ -15,6 +15,18 @@ backup/
 *.log
 *.tmp
 __pycache__/
+.coverage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+
+# Python environments and packaging
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
 
 # OS-generated files
 .DS_Store

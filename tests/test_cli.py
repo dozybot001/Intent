@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CLI = ROOT / "itt"
+SMOKE = ROOT / "scripts" / "smoke.sh"
 
 
 def run_cli(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -175,6 +176,89 @@ class IntentCliTests(unittest.TestCase):
             self.assertEqual(select_result.returncode, 0)
             payload = json.loads(select_result.stdout)
             self.assertEqual(payload["id"], cp1)
+
+    def test_read_side_commands_and_config_show(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            init_git_repo(repo)
+            self.assertEqual(run_cli(repo, "init").returncode, 0)
+
+            empty_intents = run_cli(repo, "intent", "list", "--json")
+            self.assertEqual(empty_intents.returncode, 0)
+            self.assertEqual(json.loads(empty_intents.stdout)["items"], [])
+
+            config_result = run_cli(repo, "config", "show", "--json")
+            self.assertEqual(config_result.returncode, 0)
+            config_payload = json.loads(config_result.stdout)
+            self.assertEqual(config_payload["object"], "config")
+            self.assertFalse(config_payload["result"]["git"]["strict_adoption"])
+
+            intent_result = run_cli(repo, "start", "Refine onboarding", "--json")
+            self.assertEqual(intent_result.returncode, 0)
+            intent_id = json.loads(intent_result.stdout)["id"]
+
+            checkpoint_result = run_cli(repo, "snap", "Candidate A", "--json")
+            self.assertEqual(checkpoint_result.returncode, 0)
+            checkpoint_id = json.loads(checkpoint_result.stdout)["id"]
+
+            intent_list = run_cli(repo, "intent", "list", "--json")
+            self.assertEqual(intent_list.returncode, 0)
+            intent_items = json.loads(intent_list.stdout)["items"]
+            self.assertEqual(len(intent_items), 1)
+            self.assertEqual(intent_items[0]["id"], intent_id)
+            self.assertTrue(intent_items[0]["is_active"])
+
+            intent_show = run_cli(repo, "intent", "show", intent_id, "--json")
+            self.assertEqual(intent_show.returncode, 0)
+            self.assertEqual(json.loads(intent_show.stdout)["result"]["id"], intent_id)
+
+            checkpoint_list = run_cli(repo, "checkpoint", "list", "--json")
+            self.assertEqual(checkpoint_list.returncode, 0)
+            checkpoint_items = json.loads(checkpoint_list.stdout)["items"]
+            self.assertEqual(len(checkpoint_items), 1)
+            self.assertEqual(checkpoint_items[0]["id"], checkpoint_id)
+            self.assertTrue(checkpoint_items[0]["selected"])
+            self.assertTrue(checkpoint_items[0]["is_current"])
+
+            checkpoint_show = run_cli(repo, "checkpoint", "show", checkpoint_id)
+            self.assertEqual(checkpoint_show.returncode, 0)
+            self.assertIn(checkpoint_id, checkpoint_show.stdout)
+            self.assertIn("Selected: true", checkpoint_show.stdout)
+
+            adoption_result = run_cli(
+                repo,
+                "adoption",
+                "create",
+                "--checkpoint",
+                checkpoint_id,
+                "--title",
+                "Adopt Candidate A",
+                "--json",
+            )
+            self.assertEqual(adoption_result.returncode, 0)
+            adoption_id = json.loads(adoption_result.stdout)["id"]
+
+            adoption_list = run_cli(repo, "adoption", "list", "--json")
+            self.assertEqual(adoption_list.returncode, 0)
+            adoption_items = json.loads(adoption_list.stdout)["items"]
+            self.assertEqual(len(adoption_items), 1)
+            self.assertEqual(adoption_items[0]["id"], adoption_id)
+            self.assertTrue(adoption_items[0]["is_latest"])
+
+            adoption_show = run_cli(repo, "adoption", "show", adoption_id, "--json")
+            self.assertEqual(adoption_show.returncode, 0)
+            adoption_payload = json.loads(adoption_show.stdout)["result"]
+            self.assertEqual(adoption_payload["checkpoint_id"], checkpoint_id)
+
+    def test_show_missing_object_returns_object_not_found(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            init_git_repo(repo, with_commit=False)
+            self.assertEqual(run_cli(repo, "init").returncode, 0)
+
+            result = run_cli(repo, "intent", "show", "intent-999", "--json")
+            self.assertEqual(result.returncode, 4)
+            self.assertEqual(json.loads(result.stdout)["error"]["code"], "OBJECT_NOT_FOUND")
 
     def test_canonical_commands_match_surface_flow(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -356,6 +440,17 @@ class IntentCliTests(unittest.TestCase):
             )
             self.assertEqual(clean_attempt.returncode, 0)
             self.assertEqual(json.loads(clean_attempt.stdout)["result"]["status"], "active")
+
+    def test_smoke_script_runs(self) -> None:
+        result = subprocess.run(
+            [str(SMOKE)],
+            cwd=str(ROOT),
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertIn("Smoke test passed", result.stdout)
 
 
 if __name__ == "__main__":

@@ -32,6 +32,18 @@ ID_PREFIXES = {
     "decision": "decision",
 }
 
+OBJECT_LABELS = {
+    "intent": "Intent",
+    "checkpoint": "Checkpoint",
+    "adoption": "Adoption",
+}
+
+OBJECT_PLURALS = {
+    "intent": "Intents",
+    "checkpoint": "Checkpoints",
+    "adoption": "Adoptions",
+}
+
 
 class IntentError(Exception):
     def __init__(
@@ -340,6 +352,49 @@ class IntentRepository:
             return []
         payloads = [read_json(path) for path in directory.glob("*.json")]
         return sorted(payloads, key=object_sort_key)
+
+    def show_config(self) -> Dict[str, Any]:
+        self.ensure_git()
+        self.ensure_initialized()
+        return self.load_config()
+
+    def object_list_item(self, object_name: str, payload: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
+        item = {
+            "id": payload["id"],
+            "title": payload["title"],
+            "status": payload["status"],
+            "created_at": payload["created_at"],
+            "updated_at": payload["updated_at"],
+        }
+        if object_name == "intent":
+            item["latest_checkpoint_id"] = payload.get("latest_checkpoint_id")
+            item["latest_adoption_id"] = payload.get("latest_adoption_id")
+            item["is_active"] = payload["id"] == state.get("active_intent_id")
+        elif object_name == "checkpoint":
+            item["intent_id"] = payload.get("intent_id")
+            item["ordinal"] = payload.get("ordinal")
+            item["selected"] = payload.get("selected", False)
+            item["adopted"] = payload.get("adopted", False)
+            item["adopted_by"] = payload.get("adopted_by")
+            item["is_current"] = payload["id"] == state.get("current_checkpoint_id")
+        elif object_name == "adoption":
+            item["intent_id"] = payload.get("intent_id")
+            item["checkpoint_id"] = payload.get("checkpoint_id")
+            item["reverts_adoption_id"] = payload.get("reverts_adoption_id")
+            item["is_latest"] = payload["id"] == state.get("last_adoption_id")
+        return item
+
+    def list_view(self, object_name: str) -> List[Dict[str, Any]]:
+        self.ensure_git()
+        self.ensure_initialized()
+        state = self.load_state()
+        payloads = sorted(self.list_objects(object_name), key=object_sort_key, reverse=True)
+        return [self.object_list_item(object_name, payload, state) for payload in payloads]
+
+    def show_view(self, object_name: str, object_id: str) -> Dict[str, Any]:
+        self.ensure_git()
+        self.ensure_initialized()
+        return self.require_object(object_name, object_id)
 
     def active_intent(self, state: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
         state = state or self.load_state()
@@ -926,3 +981,72 @@ class IntentRepository:
             lines.append(f"  Git: {git_head}")
             lines.append("")
         return "\n".join(lines).rstrip()
+
+    def render_config_text(self) -> str:
+        config = self.show_config()
+        lines = [
+            "Intent config",
+            f"Schema version: {config.get('schema_version')}",
+            f"Strict adoption: {str(config.get('git', {}).get('strict_adoption', False)).lower()}",
+        ]
+        return "\n".join(lines)
+
+    def render_object_list_text(self, object_name: str) -> str:
+        items = self.list_view(object_name)
+        label = OBJECT_PLURALS[object_name]
+        if not items:
+            return f"{label}\nNo {object_name}s recorded yet"
+
+        lines = [label, ""]
+        for item in items:
+            details = [f"status={item['status']}"]
+            if object_name == "intent":
+                if item.get("is_active"):
+                    details.append("active")
+            elif object_name == "checkpoint":
+                details.append(f"intent={item['intent_id']}")
+                if item.get("selected"):
+                    details.append("selected")
+                if item.get("is_current"):
+                    details.append("current")
+                if item.get("adopted"):
+                    details.append("adopted")
+            elif object_name == "adoption":
+                details.append(f"intent={item['intent_id']}")
+                details.append(f"checkpoint={item['checkpoint_id']}")
+                if item.get("is_latest"):
+                    details.append("latest")
+                if item.get("reverts_adoption_id"):
+                    details.append(f"reverts={item['reverts_adoption_id']}")
+            lines.append(f"{item['id']}  {item['title']} [{', '.join(details)}]")
+        return "\n".join(lines)
+
+    def render_object_show_text(self, object_name: str, object_id: str) -> str:
+        payload = self.show_view(object_name, object_id)
+        label = OBJECT_LABELS[object_name]
+        lines = [
+            f"{label} {payload['id']}",
+            f"Title: {payload['title']}",
+            f"Status: {payload['status']}",
+        ]
+        if payload.get("summary"):
+            lines.append(f"Summary: {payload['summary']}")
+
+        if object_name == "intent":
+            lines.append(f"Latest checkpoint: {payload.get('latest_checkpoint_id') or 'none'}")
+            lines.append(f"Latest adoption: {payload.get('latest_adoption_id') or 'none'}")
+        elif object_name == "checkpoint":
+            lines.append(f"Intent: {payload.get('intent_id')}")
+            lines.append(f"Ordinal: {payload.get('ordinal')}")
+            lines.append(f"Selected: {str(payload.get('selected', False)).lower()}")
+            lines.append(f"Adopted: {str(payload.get('adopted', False)).lower()}")
+            lines.append(f"Adopted by: {payload.get('adopted_by') or 'none'}")
+            lines.append(f"Git: {summarize_git(payload.get('git', {}))}")
+        elif object_name == "adoption":
+            lines.append(f"Intent: {payload.get('intent_id')}")
+            lines.append(f"Checkpoint: {payload.get('checkpoint_id')}")
+            if payload.get("rationale"):
+                lines.append(f"Because: {payload['rationale']}")
+            lines.append(f"Reverts: {payload.get('reverts_adoption_id') or 'none'}")
+            lines.append(f"Git: {summarize_git(payload.get('git', {}))}")
+        return "\n".join(lines)
