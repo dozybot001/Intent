@@ -279,8 +279,37 @@ cp-012      Landing page candidate B
 约束：
 
 - 一个 checkpoint 首版默认最多只能有一个 active adoption
-- `itt revert` 建议仍创建 adoption object，并通过 `reverts_adoption_id` 建立关系
+- `itt revert` 首版固定复用 adoption object，不引入单独的 revert object
+- revert record 继续使用同一 schema，`reverts_adoption_id` 必须指向被回退 adoption
+- revert record 复用原 adoption 的 `intent_id` 与 `checkpoint_id`
+- 新创建的 revert record `status=active`；被回退 adoption 标记为 `reverted`
 - adoption 不直接修改 Git，只记录 Git 关联状态
+
+revert record 示例：
+
+```json
+{
+  "id": "adopt-002",
+  "object": "adoption",
+  "schema_version": "0.1",
+  "created_at": "2026-03-15T14:30:00Z",
+  "updated_at": "2026-03-15T14:30:00Z",
+  "title": "Revert progressive disclosure layout",
+  "summary": "Revert the previously adopted onboarding direction.",
+  "status": "active",
+  "intent_id": "intent-001",
+  "checkpoint_id": "cp-001",
+  "rationale": "Testing showed higher confusion than expected.",
+  "reverts_adoption_id": "adopt-001",
+  "git": {
+    "branch": "main",
+    "head": "b02d441",
+    "working_tree": "clean",
+    "linkage_quality": "stable_commit"
+  },
+  "metadata": {}
+}
+```
 
 ## 7. `state.json` contract
 
@@ -316,7 +345,6 @@ cp-012      Landing page candidate B
 - `idle`
 - `blocked_no_active_intent`
 - `intent_active`
-- `checkpoint_available`
 - `candidate_ready`
 - `adoption_recorded`
 - `conflict_multiple_candidates`
@@ -328,9 +356,8 @@ cp-012      Landing page candidate B
 | `idle` | 尚未创建任何 intent，或 state 尚未初始化完整 |
 | `blocked_no_active_intent` | 当前无 `active_intent_id` |
 | `intent_active` | 有 active intent，但没有 current checkpoint |
-| `checkpoint_available` | 有 current checkpoint，但尚未满足 adoption 推荐条件 |
 | `candidate_ready` | 有 current checkpoint，且它尚未被 adoption，适合作为推荐采纳对象 |
-| `adoption_recorded` | 最近一次动作是 adoption，且当前没有更高优先级冲突 |
+| `adoption_recorded` | 最近一次动作是 adoption 或 revert record，且当前没有更高优先级冲突 |
 | `conflict_multiple_candidates` | 存在多个未采纳 candidate，且没有唯一 `selected=true` 的 current checkpoint |
 
 ### 7.4 更新原则
@@ -386,8 +413,12 @@ cp-012      Landing page candidate B
 
 - 默认回退最近一条 active adoption
 - 若无 active adoption，返回 object/state 错误
-- 创建一条新的 adoption revert record，引用 `reverts_adoption_id`
+- 创建一条新的 adoption object 作为 revert record，引用 `reverts_adoption_id`
+- 新 revert record 继承目标 adoption 的 `intent_id` 与 `checkpoint_id`
+- 新 revert record `status=active`
 - 被回退 adoption 标记为 `reverted`
+- 更新 `last_adoption_id`
+- `workspace_status=adoption_recorded`
 - checkpoint 状态保持历史事实，不自动恢复为 `candidate`
 
 ## 9. Surface 与 Canonical 映射
@@ -714,6 +745,7 @@ cp-001
 - start：创建 intent 成功，`active_intent_id` 更新，`workspace_status=intent_active`
 - snap：创建 checkpoint 成功，自动 selected，旧 selected 取消，`current_checkpoint_id` 更新
 - adopt：默认采纳 current checkpoint 成功，checkpoint 与 adoption 正确关联，`last_adoption_id` 更新
+- revert：创建新的 revert record，原 adoption 标记为 `reverted`，`last_adoption_id` 更新
 - conflict：无 active intent 时 `snap` 失败；无 current checkpoint 时 `adopt` 失败；多 candidate 且默认对象不清晰时 `adopt` 失败
 - inspect/status：`status --json` 和 `inspect --json` 顶层字段稳定；缺失对象返回 `null`
 - git linkage：clean repo 记录 HEAD；dirty tree 质量降级；strict mode 下 dirty tree adopt 失败

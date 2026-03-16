@@ -129,11 +129,7 @@ itt run end
 itt checkpoint select
 ```
 
-兼容别名：
-
-```bash
-itt new
-```
+首版不提供 `itt new` alias。
 
 ### 5.2 Canonical CLI
 
@@ -206,6 +202,7 @@ itt intent create --title "Reduce onboarding confusion"
 - 首页推荐 `start`，而不是 `new`
 - 用户不是在“创建对象”，而是在“开始处理一个问题”
 - 执行后自动切换到 active intent
+- 首版不保留 `new` alias，避免为同一动作维护两套入口
 
 ### 6.3 `itt snap`
 
