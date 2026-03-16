@@ -14,6 +14,7 @@ backup/
 # Logs and temp files
 *.log
 *.tmp
+__pycache__/
 
 # OS-generated files
 .DS_Store
