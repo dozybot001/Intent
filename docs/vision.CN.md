@@ -1,4 +1,8 @@
-# Intent 愿景与问题定义 v4
+[English](vision.EN.md) | 简体中文
+
+配对文件：[vision.EN.md](vision.EN.md)
+
+# Intent 愿景与问题定义
 
 ## 这篇文档回答什么
 
@@ -15,8 +19,8 @@
 
 ## 与其他文档的边界
 
-- 术语定义以 [术语表](glossary.md) 为准
-- CLI 命令语义、状态机与机器可读 contract 以 [CLI 统一设计文档](cli.md) 为准
+- 术语定义以 [术语表](glossary.CN.md) 为准
+- CLI 命令语义、状态机与机器可读 contract 以 [CLI 统一设计文档](cli.CN.md) 为准
 
 ## 1. 核心判断
 
@@ -153,6 +157,7 @@ Intent 的第一阶段不是平台，而是本地 CLI。
 远端协作、可视化历史和平台化表达依赖这一本地层先清晰下来。
 
 ## 8. 当前验证重点
+
 当前阶段更关注本地 semantic layer 的使用方式和接口边界，主要包括三个问题：
 
 - `start -> snap -> adopt` 是否真的顺手
@@ -183,12 +188,6 @@ Intent 的长期结构可以分成三层：
 因此，IntHub 目前仍属于更后续的组织与协作层，不是当前文档和实现的中心。
 
 ## 10. 一句话定义
-
-### 中文
-
-Intent 是一个构建在 Git 之上的高层语义版本层，用来记录 agent 时代软件开发中的意图、候选、采纳与决策历史。
-
-### English
 
 Intent is a Git-compatible semantic history layer for agent-driven software development.
 

@@ -1,77 +1,78 @@
+English | [简体中文](README.CN.md)
+
 # Intent
 
-> Git 记录代码变化，Intent 记录采纳历史。
-> Intent 同时面向人和 agent。
+> Git records code changes. Intent records adoption history.
+> Intent is designed for both humans and agents.
 
-Intent 是一个构建在 Git 之上的新层，用来记录软件开发里更高层的信息：
+Intent is a new layer built on top of Git for tracking higher-level software development history:
 
-- 现在想解决什么问题
-- 试过哪些候选方案
-- 最后正式采纳了什么
-- 为什么采纳它
+- what problem is being worked on
+- which candidate outcomes were explored
+- what was formally adopted
+- why it was adopted
 
-它不替代 Git。  
-它补的是 Git 通常不会清楚保存的那部分历史。
+Intent does not replace Git. It fills in the part of history that Git usually does not preserve clearly.
 
-如果用一句更技术的话说，Intent 是一个面向 agent 时代的 Git-compatible semantic history layer。当前第一步先以 `Intent CLI` 的形式落地。
+In more technical terms, Intent is a Git-compatible semantic history layer for the agent era. The current implementation starts with `Intent CLI`.
 
-## 30 秒理解
+## Understand It in 30 Seconds
 
-在 agent-driven development 里，代码可以生成得很快，但决策过程往往是散的：
+In agent-driven development, code can be produced quickly, but the decision process is often scattered:
 
-- 目标在 issue 里
-- 候选方案在对话或草稿里
-- 最终选择和理由在某次讨论里
+- goals live in issues
+- candidate solutions live in conversations or drafts
+- final choices and rationale live in discussions
 
-Git 很擅长回答“代码怎么变了”，但不擅长回答“我们最后决定了什么”。
+Git is excellent at answering "how did the code change?" but much weaker at answering "what did we finally decide?"
 
-Intent 想补上的，就是这层历史。
+Intent focuses on that missing layer.
 
-Intent 以 CLI 形式提供这层历史，并提供给人和 agent 都可读取的结构化入口。
+It provides this history through a CLI and exposes structured entry points that both humans and agents can read.
 
-这意味着 Intent 不是“多一份说明文档”，而是把这些高层语义变成：
+That means Intent is not just "one more document." It turns higher-level development semantics into:
 
-- 人容易理解的工作流
-- 开发者容易集成的接口
-- agent 能稳定读取和操作的对象
+- a workflow people can follow
+- interfaces developers can integrate
+- stable objects agents can read and act on
 
-## 为什么不直接用 issue / ADR / commit message
+## Why Not Just Use Issues, ADRs, or Commit Messages
 
-现有工具当然有价值，但它们没有把“采纳历史”本身做成稳定对象。
+Existing tools are useful, but they do not model adoption history itself as a stable object.
 
-| 方式 | 擅长什么 | 不足在哪里 |
+| Approach | Good At | Limitation |
 | --- | --- | --- |
-| commit message | 解释一次代码提交 | 不稳定回答“当前 intent 是什么”“试过哪些候选”“最终采纳了什么” |
-| issue / PR | 承载讨论和上下文 | 信息容易分散，对 agent 缺少稳定对象边界和固定读取入口 |
-| ADR / docs | 沉淀长期决策 | 对高频 `start -> snap -> adopt` 过重，不适合作为每次候选采纳的默认路径 |
-| Intent | 记录语义对象与采纳历史 | 重点在本地 CLI 闭环和结构化读取入口 |
+| commit messages | explaining an individual code change | does not reliably answer "what is the current intent?", "which candidates were tried?", or "what was finally adopted?" |
+| issues / PRs | holding discussion and context | context gets fragmented, and there is no stable object boundary or consistent read interface for agents |
+| ADRs / docs | preserving long-term architectural decisions | too heavy for high-frequency `start -> snap -> adopt` flows |
+| Intent | tracking semantic objects and adoption history | currently focused on the local CLI loop and structured read interfaces |
 
-## 核心闭环
+## Core Loop
 
-Intent 先把最重要的 3 个动作做成正式对象：
+Intent starts by formalizing three actions as first-class objects:
 
-- `start`：开始处理一个问题
-- `snap`：保存一个候选结果
-- `adopt`：正式采纳一个候选结果
+- `start`: begin work on a problem
+- `snap`: save a candidate result
+- `adopt`: formally adopt a candidate result
 
-也就是这条最小路径：
+That gives a minimal path:
 
-`问题 -> 候选 -> 采纳`
+`problem -> candidate -> adoption`
 
-这条路径同时面向人和 agent。
+This path is designed for both humans and agents.
 
-## 为什么它对 agent 重要
+## Why It Matters for Agents
 
-对 agent 来说，Intent 提供的是结构化上下文，而不是只依赖 prose：
+For agents, Intent provides structured context instead of relying only on prose:
 
-- 稳定的对象边界
-- 明确的当前状态
-- 可预测的下一步动作
-- 结构化、可消费的输出
+- stable object boundaries
+- explicit current state
+- predictable next actions
+- structured, machine-consumable output
 
-Intent 将意图、候选和采纳作为正式对象暴露出来。
+Intent exposes `intent`, `checkpoint`, and `adoption` as formal objects.
 
-## 最小示例
+## Minimal Example
 
 ```bash
 itt init
@@ -83,13 +84,13 @@ itt adopt -m "Adopt progressive disclosure layout"
 itt log
 ```
 
-这条路径表达三件事：
+This flow says three things:
 
-- Git 还在正常管理代码
-- Intent 额外记录了这次工作的语义历史
-- `itt log` 比 commit history 更接近“这次到底采纳了什么决策”
+- Git still manages the codebase normally
+- Intent adds a semantic history layer on top
+- `itt log` is closer than commit history to "what decision was adopted here?"
 
-## 首页先记住这 6 个命令
+## Six Commands to Remember First
 
 ```bash
 itt init
@@ -100,49 +101,50 @@ itt adopt
 itt log
 ```
 
-如果你是开发者或 agent 集成方，可以先看这两个入口：
+If you are integrating with the CLI or building agent workflows, start with:
 
 ```bash
 itt status --json
 itt inspect --json
 ```
 
-## Intent 不是什么
+## What Intent Is Not
 
-- 不是 Git 的替代品
-- 不是 issue、PR 或 docs 系统的替代品
-- 不是“什么都记录”的日志归档工具
+- not a replacement for Git
+- not a replacement for issues, PRs, or documentation systems
+- not a "record everything" archive
 
-Intent 只关心那些值得被正式追踪的语义节点，例如意图、候选、采纳、撤销与决策。
+Intent only tracks semantic events worth formalizing, such as intent creation, candidate checkpoints, adoption, revert, and decision records.
 
 ## Human-Friendly, Agent-Friendly
 
-Intent 的接口分成两层：
+Intent is structured in two layers:
 
-- 对用户：`start -> snap -> adopt`
-- 对开发者：本地对象层与 CLI contract
-- 对 agent：固定对象、固定状态和固定 JSON 入口
+- for humans: `start -> snap -> adopt`
+- for developers: a local object layer and CLI contract
+- for agents: stable objects, stable states, and stable JSON entry points
 
-## 当前阶段
+## Current Scope
 
-项目还在早期阶段，当前重点不是铺开大而全的能力，而是先把本地最小闭环做稳。
+The project is still early. The focus is not breadth yet; it is making the smallest local loop reliable.
 
-当前优先级是：
+Current priorities:
 
-- `.intent/` 本地对象层
+- the `.intent/` local object layer
 - `init -> start -> snap -> adopt -> log`
-- `status --json` / `inspect --json` 这类 agent-friendly contract
-- 让同一套语义既适合人使用，也适合 agent 使用
+- agent-friendly contracts such as `status --json` and `inspect --json`
+- keeping the same semantic model useful for both humans and agents
 
-## 文档
+## Documentation
 
-README 只保留总览，更完整的说明在 `docs/`：
+The root README stays lightweight. More detailed material lives in `docs/`.
 
-- [文档索引](docs/README.md)
-- [术语表](docs/glossary.md)
-- [愿景与问题定义](docs/vision.md)
-- [CLI 统一设计文档](docs/cli.md)
-- [Demo](docs/demo.md)
-- [路线图](docs/roadmap.md)
+- [Documentation index](docs/README.EN.md)
+- [Glossary](docs/glossary.EN.md)
+- [Vision and problem definition](docs/vision.EN.md)
+- [Unified CLI spec](docs/cli.EN.md)
+- [Demo](docs/demo.EN.md)
+- [Roadmap](docs/roadmap.EN.md)
+- [Documentation i18n plan](docs/i18n.EN.md)
 
-更多背景见：[愿景与问题定义](docs/vision.md)。
+For more background, start with [Vision and problem definition](docs/vision.EN.md).

@@ -1,3 +1,7 @@
+[English](glossary.EN.md) | 简体中文
+
+配对文件：[glossary.EN.md](glossary.EN.md)
+
 # Intent 术语表
 
 这份文档只做术语对齐。它不解释项目愿景，也不定义实现 contract。

@@ -1,3 +1,7 @@
+[English](cli.EN.md) | 简体中文
+
+配对文件：[cli.EN.md](cli.EN.md)
+
 # Intent CLI 统一设计文档
 
 用途：作为 Intent CLI 的单一 source of truth。本文同时定义首版 CLI 的项目边界、命令语义、对象模型、状态机、JSON contract、错误模型和实现优先级。
@@ -11,14 +15,14 @@
 
 ## 这篇文档不回答什么
 
-- 为什么 agent 时代需要 Intent：见 [愿景与问题定义](vision.md)
+- 为什么 agent 时代需要 Intent：见 [愿景与问题定义](vision.CN.md)
 - 长期远端协作和平台化路线
 - UI、Hub、同步协议等更后续的问题
 
 ## 与其他文档的边界
 
-- 术语定义以 [术语表](glossary.md) 为准
-- 为什么需要 Intent、Intent CLI / Skill / IntHub 的长期关系，以 [愿景与问题定义](vision.md) 为准
+- 术语定义以 [术语表](glossary.CN.md) 为准
+- 为什么需要 Intent、Intent CLI / Skill / IntHub 的长期关系，以 [愿景与问题定义](vision.CN.md) 为准
 - CLI 的设计、命令语义和实现 contract，以本文为准
 
 ## 1. 设计目标

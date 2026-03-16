@@ -1,3 +1,7 @@
+[English](roadmap.EN.md) | 简体中文
+
+配对文件：[roadmap.EN.md](roadmap.EN.md)
+
 # Intent 路线图
 
 用途：整理 CLI 初版之后的后续工作顺序。本文回答“接下来做什么”，不重新定义 CLI contract。

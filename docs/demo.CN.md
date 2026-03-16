@@ -1,6 +1,10 @@
+[English](demo.EN.md) | 简体中文
+
+配对文件：[demo.EN.md](demo.EN.md)
+
 # Intent Demo
 
-这个文档提供一个可复现的本地演示，用来观察 `git log` 和 `itt log` 分别回答什么问题。
+这个文档提供两个可复现的本地演示，用来观察 `git log` 和 `itt log` 分别回答什么问题，以及 agent 如何从 `itt inspect --json` 推进下一步。
 
 ## Human Demo
 
