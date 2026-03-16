@@ -41,6 +41,11 @@ def workspace_result_fields(repo: IntentRepository) -> Dict[str, Any]:
     }
 
 
+def current_machine_next_action(repo: IntentRepository) -> Optional[Dict[str, Any]]:
+    snapshot = repo.snapshot()
+    return repo.next_action(snapshot, machine=True)
+
+
 def base_write_parser(name: str, help_text: str) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--json", action="store_true", help=help_text)
@@ -141,6 +146,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     adoption_revert_parser.add_argument("--title")
     adoption_revert_parser.add_argument("--because", default="")
+
+    run_parser = subparsers.add_parser("run")
+    run_subparsers = run_parser.add_subparsers(dest="run_command", required=True)
+    run_start_parser = run_subparsers.add_parser(
+        "start",
+        parents=[base_write_parser("run start", "Emit machine-readable JSON")],
+    )
+    run_start_parser.add_argument("--title")
+    run_subparsers.add_parser("end", parents=[base_write_parser("run end", "Emit machine-readable JSON")])
 
     return parser
 
@@ -312,6 +326,62 @@ def handle_revert(repo: IntentRepository, args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def handle_run_start(repo: IntentRepository, args: argparse.Namespace) -> int:
+    run, _, warnings = repo.create_run(args.title)
+    if args.id_only:
+        print(run["id"])
+        return EXIT_SUCCESS
+    if args.json:
+        workspace_fields = workspace_result_fields(repo)
+        emit_json(
+            write_result(
+                "run",
+                "start",
+                run["id"],
+                run,
+                warnings,
+                next_action=current_machine_next_action(repo),
+                **workspace_fields,
+            )
+        )
+        return EXIT_SUCCESS
+
+    print(f"Started run {run['id']}")
+    print(f"Title: {run['title']}")
+    next_action = current_machine_next_action(repo)
+    if next_action:
+        print(f"Next: {next_action['command']}")
+    return EXIT_SUCCESS
+
+
+def handle_run_end(repo: IntentRepository, args: argparse.Namespace) -> int:
+    run, _, warnings = repo.end_run()
+    if args.id_only:
+        print(run["id"])
+        return EXIT_SUCCESS
+    if args.json:
+        workspace_fields = workspace_result_fields(repo)
+        emit_json(
+            write_result(
+                "run",
+                "end",
+                run["id"],
+                run,
+                warnings,
+                next_action=current_machine_next_action(repo),
+                **workspace_fields,
+            )
+        )
+        return EXIT_SUCCESS
+
+    print(f"Ended run {run['id']}")
+    print(f"Title: {run['title']}")
+    next_action = current_machine_next_action(repo)
+    if next_action:
+        print(f"Next: {next_action['command']}")
+    return EXIT_SUCCESS
+
+
 def handle_status(repo: IntentRepository, args: argparse.Namespace) -> int:
     if args.json:
         emit_json(repo.status_json())
@@ -455,6 +525,10 @@ def main(argv: Optional[list[str]] = None) -> int:
             return handle_adopt(repo, args)
         if args.command == "revert":
             return handle_revert(repo, args)
+        if args.command == "run" and args.run_command == "start":
+            return handle_run_start(repo, args)
+        if args.command == "run" and args.run_command == "end":
+            return handle_run_end(repo, args)
         if args.command == "status":
             return handle_status(repo, args)
         if args.command == "inspect":

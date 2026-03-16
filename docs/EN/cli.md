@@ -197,6 +197,9 @@ itt checkpoint select
 itt adoption create
 itt adoption revert
 
+itt run start
+itt run end
+
 itt inspect
 ```
 
@@ -235,6 +238,10 @@ Implementation principles:
 - the surface CLI should mainly prefill arguments and wrap UX
 - even if a few `list/show` helper commands exist in the implementation, they should not overshadow the `init -> start -> snap -> adopt -> log` path
 - V1 does not require reserved object commands to become front-page commitments or long-term compatibility promises
+
+Current helper-command note:
+
+- when `show` helpers exist, they may support reserved selectors such as `@active`, `@current`, and `@latest` for machine-friendly reads
 
 ### 5.3 Mapping Between Surface and Canonical Commands
 
@@ -314,7 +321,7 @@ The first-version directory layout is fixed as:
 | `.intent/intents/` | intent object files |
 | `.intent/checkpoints/` | checkpoint object files |
 | `.intent/adoptions/` | adoption object files |
-| `.intent/runs/` | run object files; may be empty in V1 |
+| `.intent/runs/` | run object files |
 | `.intent/decisions/` | decision object files; may be empty in V1 |
 
 ### 7.2 File Organization Principles
@@ -512,6 +519,7 @@ Constraints:
   "summary": "Choose candidate B as the official direction for onboarding.",
   "status": "active",
   "intent_id": "intent-001",
+  "run_id": null,
   "checkpoint_id": "cp-001",
   "rationale": "Lower cognitive load and clearer first action.",
   "reverts_adoption_id": null,
@@ -553,6 +561,7 @@ Example revert record:
   "summary": "Revert the previously adopted onboarding direction.",
   "status": "active",
   "intent_id": "intent-001",
+  "run_id": null,
   "checkpoint_id": "cp-001",
   "rationale": "Testing showed higher confusion than expected.",
   "reverts_adoption_id": "adopt-001",
@@ -565,6 +574,44 @@ Example revert record:
   "metadata": {}
 }
 ```
+
+### 10.4 Run
+
+```json
+{
+  "id": "run-001",
+  "object": "run",
+  "schema_version": "0.1",
+  "created_at": "2026-03-15T14:05:00Z",
+  "updated_at": "2026-03-15T14:25:00Z",
+  "title": "Agent exploration",
+  "summary": "",
+  "status": "active",
+  "intent_id": "intent-001",
+  "run_id": null,
+  "git": {
+    "branch": "main",
+    "head": "a91c3d2",
+    "working_tree": "clean",
+    "linkage_quality": "stable_commit"
+  },
+  "metadata": {}
+}
+```
+
+`status` enum:
+
+- `active`
+- `completed`
+
+Constraints:
+
+- `itt run start` requires an active intent
+- `itt run start` creates a new run object and sets `state.active_run_id`
+- only one active run may exist at a time in V1
+- `itt run end` marks the active run as `completed`
+- `itt run end` clears `state.active_run_id`
+- checkpoints and adoptions created while a run is active should record that `run_id`
 
 ## 11. `state.json` Contract
 
@@ -755,6 +802,26 @@ Rules:
 - set `workspace_status=adoption_recorded`
 - checkpoint state preserves the historical fact and does not automatically return to `candidate`
 
+### 12.7 `itt run start`
+
+Rules:
+
+- requires an active intent
+- creates a run object with `status=active`
+- sets `state.active_run_id`
+- does not change `workspace_status`
+- if an active run already exists, return `STATE_CONFLICT`
+
+### 12.8 `itt run end`
+
+Rules:
+
+- requires an active run
+- marks the run object as `status=completed`
+- clears `state.active_run_id`
+- does not change `workspace_status`
+- if no active run exists, return an object/state error
+
 ### 12.7 `itt status`
 
 Role: show the current semantic workspace state to humans and recommend the next action.
@@ -882,6 +949,7 @@ When `strict_adoption=true`:
     "title": "Reduce onboarding confusion",
     "status": "active"
   },
+  "active_run": null,
   "current_checkpoint": {
     "id": "cp-001",
     "title": "Landing page candidate B",
@@ -983,9 +1051,9 @@ Null / empty rules:
 - within that response, `active_intent`, `current_checkpoint`, `latest_adoption`, and `next_action` may be `null`
 - `git` must always be an object; `warnings` must always be an array
 - in successful `inspect --json` responses, these top-level fields must always exist:
-  `ok`, `object`, `schema_version`, `mode`, `state`, `active_intent`, `current_checkpoint`, `latest_adoption`, `latest_event`, `candidate_checkpoints`, `workspace_status_reason`, `pending_items`, `suggested_next_actions`, `git`, `warnings`
+  `ok`, `object`, `schema_version`, `mode`, `state`, `active_intent`, `active_run`, `current_checkpoint`, `latest_adoption`, `latest_event`, `candidate_checkpoints`, `workspace_status_reason`, `pending_items`, `suggested_next_actions`, `git`, `warnings`
 - `state.active_intent_id`, `state.active_run_id`, `state.current_checkpoint_id`, and `state.last_adoption_id` may be `null`
-- `active_intent`, `current_checkpoint`, `latest_adoption`, and `latest_event` may be `null`
+- `active_intent`, `active_run`, `current_checkpoint`, `latest_adoption`, and `latest_event` may be `null`
 - `candidate_checkpoints`, `pending_items`, `suggested_next_actions`, and `warnings` must always be arrays
 - `workspace_status_reason` must always be a string
 - if `next_action` or `suggested_next_actions` exists, they must contain `command`, `args`, and `reason`
@@ -1059,9 +1127,9 @@ Requirements:
 
 V1 parameter boundary:
 
-- `start`, `snap`, `adopt`, and `revert` must support `--json`
-- `start`, `snap`, `adopt`, and `revert` must support `--id-only`
-- `init`, `start`, `snap`, `adopt`, `revert`, and `checkpoint select` must support `--no-interactive`
+- `start`, `snap`, `adopt`, `revert`, `run start`, and `run end` must support `--json`
+- `start`, `snap`, `adopt`, `revert`, `run start`, and `run end` must support `--id-only`
+- `init`, `start`, `snap`, `adopt`, `revert`, `run start`, `run end`, and `checkpoint select` must support `--no-interactive`
 
 `itt adopt` must additionally support:
 

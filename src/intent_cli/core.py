@@ -37,12 +37,20 @@ OBJECT_LABELS = {
     "intent": "Intent",
     "checkpoint": "Checkpoint",
     "adoption": "Adoption",
+    "run": "Run",
 }
 
 OBJECT_PLURALS = {
     "intent": "Intents",
     "checkpoint": "Checkpoints",
     "adoption": "Adoptions",
+    "run": "Runs",
+}
+
+OBJECT_SELECTORS = {
+    "intent": {"@active"},
+    "checkpoint": {"@current"},
+    "adoption": {"@latest"},
 }
 
 
@@ -252,6 +260,7 @@ def cli_action(args: List[str], reason: str) -> Dict[str, Any]:
 class StatusSnapshot:
     state: Dict[str, Any]
     active_intent: Optional[Dict[str, Any]]
+    active_run: Optional[Dict[str, Any]]
     current_checkpoint: Optional[Dict[str, Any]]
     latest_adoption: Optional[Dict[str, Any]]
     candidate_checkpoints: List[Dict[str, Any]]
@@ -361,6 +370,42 @@ class IntentRepository:
             )
         return payload
 
+    def resolve_object_reference(self, object_name: str, object_ref: str) -> Dict[str, Any]:
+        if not object_ref.startswith("@"):
+            return self.require_object(object_name, object_ref)
+
+        if object_ref not in OBJECT_SELECTORS.get(object_name, set()):
+            raise IntentError(
+                EXIT_INVALID_INPUT,
+                "INVALID_INPUT",
+                f"Selector '{object_ref}' is not valid for {object_name} objects.",
+                details={"selector": object_ref, "object": object_name},
+            )
+
+        state = self.load_state()
+        if object_name == "intent":
+            payload = self.active_intent(state)
+            suggested_fix = 'itt start "Describe the problem"'
+        elif object_name == "checkpoint":
+            payload = self.derive_current_checkpoint(state, self.active_intent(state))
+            suggested_fix = "itt checkpoint select <id>"
+        elif object_name == "adoption":
+            payload = self.load_object("adoption", state.get("last_adoption_id"))
+            suggested_fix = "itt log"
+        else:
+            payload = None
+            suggested_fix = None
+
+        if payload is None:
+            raise IntentError(
+                EXIT_OBJECT_NOT_FOUND,
+                "OBJECT_NOT_FOUND",
+                f"No {object_name} is available for selector '{object_ref}'.",
+                details={"selector": object_ref, "object": object_name},
+                suggested_fix=suggested_fix,
+            )
+        return payload
+
     def list_objects(self, object_name: str) -> List[Dict[str, Any]]:
         directory = self._object_dir(object_name)
         if not directory.exists():
@@ -387,6 +432,7 @@ class IntentRepository:
             item["is_active"] = payload["id"] == state.get("active_intent_id")
         elif object_name == "checkpoint":
             item["intent_id"] = payload.get("intent_id")
+            item["run_id"] = payload.get("run_id")
             item["ordinal"] = payload.get("ordinal")
             item["selected"] = payload.get("selected", False)
             item["adopted"] = payload.get("adopted", False)
@@ -395,8 +441,12 @@ class IntentRepository:
         elif object_name == "adoption":
             item["intent_id"] = payload.get("intent_id")
             item["checkpoint_id"] = payload.get("checkpoint_id")
+            item["run_id"] = payload.get("run_id")
             item["reverts_adoption_id"] = payload.get("reverts_adoption_id")
             item["is_latest"] = payload["id"] == state.get("last_adoption_id")
+        elif object_name == "run":
+            item["intent_id"] = payload.get("intent_id")
+            item["is_active"] = payload["id"] == state.get("active_run_id")
         return item
 
     def list_view(self, object_name: str) -> List[Dict[str, Any]]:
@@ -406,14 +456,21 @@ class IntentRepository:
         payloads = sorted(self.list_objects(object_name), key=object_sort_key, reverse=True)
         return [self.object_list_item(object_name, payload, state) for payload in payloads]
 
-    def show_view(self, object_name: str, object_id: str) -> Dict[str, Any]:
+    def show_view(self, object_name: str, object_ref: str) -> Dict[str, Any]:
         self.ensure_git()
         self.ensure_initialized()
-        return self.require_object(object_name, object_id)
+        return self.resolve_object_reference(object_name, object_ref)
 
     def active_intent(self, state: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
         state = state or self.load_state()
         return self.load_object("intent", state.get("active_intent_id"))
+
+    def active_run(self, state: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+        state = state or self.load_state()
+        run = self.load_object("run", state.get("active_run_id"))
+        if run and run.get("status") == "active":
+            return run
+        return None
 
     def candidate_checkpoints(self, intent_id: Optional[str]) -> List[Dict[str, Any]]:
         if not intent_id:
@@ -486,9 +543,12 @@ class IntentRepository:
         self.ensure_initialized()
         state = self.load_state()
         active_intent = self.active_intent(state)
+        active_run = self.active_run(state)
         current_checkpoint = self.derive_current_checkpoint(state, active_intent)
         git_payload, git_warnings = build_git_context(self.cwd)
         warnings = list(git_warnings)
+        if active_run is None and state.get("active_run_id") is not None:
+            state["active_run_id"] = None
         if current_checkpoint is not None and state.get("current_checkpoint_id") != current_checkpoint["id"]:
             state["current_checkpoint_id"] = current_checkpoint["id"]
 
@@ -508,6 +568,7 @@ class IntentRepository:
         return StatusSnapshot(
             state=state,
             active_intent=active_intent,
+            active_run=active_run,
             current_checkpoint=current_checkpoint,
             latest_adoption=latest_adoption,
             candidate_checkpoints=self.candidate_checkpoints(active_intent["id"] if active_intent else None),
@@ -524,6 +585,13 @@ class IntentRepository:
         self.ensure_git()
         self.ensure_initialized()
         state = self.load_state()
+        if self.active_run(state):
+            raise IntentError(
+                EXIT_STATE_CONFLICT,
+                "STATE_CONFLICT",
+                "Cannot switch the active intent while a run is active.",
+                suggested_fix="itt run end",
+            )
         previous = self.active_intent(state)
         if previous and previous.get("status") == "active":
             previous["status"] = "paused"
@@ -570,6 +638,7 @@ class IntentRepository:
             )
 
         current = self.derive_current_checkpoint(state, intent)
+        active_run = self.active_run(state)
         if current:
             current["selected"] = False
             current["updated_at"] = utc_now()
@@ -589,7 +658,7 @@ class IntentRepository:
             "summary": summary,
             "status": "candidate",
             "intent_id": intent["id"],
-            "run_id": None,
+            "run_id": active_run["id"] if active_run else None,
             "ordinal": ordinal,
             "selected": True,
             "adopted": False,
@@ -607,6 +676,72 @@ class IntentRepository:
         state["workspace_status"] = "candidate_ready"
         self.save_state(state)
         return checkpoint, state, warnings
+
+    def create_run(self, title: Optional[str]) -> Tuple[Dict[str, Any], Dict[str, Any], List[str]]:
+        self.ensure_git()
+        self.ensure_initialized()
+        state = self.load_state()
+        intent = self.active_intent(state)
+        active_run = self.active_run(state)
+        if not intent:
+            raise IntentError(
+                EXIT_STATE_CONFLICT,
+                "STATE_CONFLICT",
+                "No active intent is available for starting a run.",
+                suggested_fix='itt start "Describe the problem"',
+            )
+
+        if self.active_run(state):
+            raise IntentError(
+                EXIT_STATE_CONFLICT,
+                "STATE_CONFLICT",
+                "An active run already exists.",
+                suggested_fix="itt run end",
+            )
+
+        git_payload, warnings = build_git_context(self.cwd)
+        run_id = self.next_id("run")
+        now = utc_now()
+        run = {
+            "id": run_id,
+            "object": "run",
+            "schema_version": SCHEMA_VERSION,
+            "created_at": now,
+            "updated_at": now,
+            "title": title or f"Run {run_id}",
+            "summary": "",
+            "status": "active",
+            "intent_id": intent["id"],
+            "run_id": None,
+            "git": git_payload,
+            "metadata": {},
+        }
+        self.save_object("run", run)
+
+        state["active_run_id"] = run_id
+        self.save_state(state)
+        return run, state, warnings
+
+    def end_run(self) -> Tuple[Dict[str, Any], Dict[str, Any], List[str]]:
+        self.ensure_git()
+        self.ensure_initialized()
+        state = self.load_state()
+        run = self.active_run(state)
+        if not run:
+            raise IntentError(
+                EXIT_OBJECT_NOT_FOUND,
+                "OBJECT_NOT_FOUND",
+                "No active run is available to end.",
+                suggested_fix="itt run start",
+            )
+
+        run["status"] = "completed"
+        run["updated_at"] = utc_now()
+        self.save_object("run", run)
+
+        state["active_run_id"] = None
+        self.save_state(state)
+        return run, state, []
 
     def select_checkpoint(self, checkpoint_id: str) -> Tuple[Dict[str, Any], Dict[str, Any], List[str]]:
         self.ensure_git()
@@ -656,6 +791,7 @@ class IntentRepository:
         self.ensure_initialized()
         state = self.load_state()
         intent = self.active_intent(state)
+        active_run = self.active_run(state)
         if not intent:
             raise IntentError(
                 EXIT_STATE_CONFLICT,
@@ -734,6 +870,7 @@ class IntentRepository:
             "summary": "",
             "status": "active",
             "intent_id": intent["id"],
+            "run_id": active_run["id"] if active_run else None,
             "checkpoint_id": checkpoint["id"],
             "rationale": rationale,
             "reverts_adoption_id": None,
@@ -784,6 +921,7 @@ class IntentRepository:
                 "No active adoption is available to revert.",
             )
 
+        active_run = self.active_run(state)
         git_payload, warnings = build_git_context(self.cwd)
         adoption_id = self.next_id("adoption")
         now = utc_now()
@@ -798,6 +936,7 @@ class IntentRepository:
             "summary": "",
             "status": "active",
             "intent_id": target["intent_id"],
+            "run_id": active_run["id"] if active_run else None,
             "checkpoint_id": target["checkpoint_id"],
             "rationale": rationale,
             "reverts_adoption_id": target["id"],
@@ -961,6 +1100,7 @@ class IntentRepository:
                 "workspace_status": snapshot.state.get("workspace_status"),
             },
             "active_intent": object_brief(snapshot.active_intent, include_status=False),
+            "active_run": object_brief(snapshot.active_run, include_status=False),
             "current_checkpoint": object_brief(snapshot.current_checkpoint),
             "latest_adoption": object_brief(snapshot.latest_adoption, include_status=False),
             "latest_event": self.latest_event(snapshot),
@@ -996,6 +1136,8 @@ class IntentRepository:
         lines = ["Semantic workspace"]
         if snapshot.active_intent:
             lines.append(f"Intent: {snapshot.active_intent['id']}  {snapshot.active_intent['title']}")
+        if snapshot.active_run:
+            lines.append(f"Run: {snapshot.active_run['id']}  {snapshot.active_run['title']}")
         if snapshot.current_checkpoint:
             lines.append(
                 f"Current checkpoint: {snapshot.current_checkpoint['id']}  {snapshot.current_checkpoint['title']}"
@@ -1056,6 +1198,8 @@ class IntentRepository:
                     details.append("active")
             elif object_name == "checkpoint":
                 details.append(f"intent={item['intent_id']}")
+                if item.get("run_id"):
+                    details.append(f"run={item['run_id']}")
                 if item.get("selected"):
                     details.append("selected")
                 if item.get("is_current"):
@@ -1065,15 +1209,21 @@ class IntentRepository:
             elif object_name == "adoption":
                 details.append(f"intent={item['intent_id']}")
                 details.append(f"checkpoint={item['checkpoint_id']}")
+                if item.get("run_id"):
+                    details.append(f"run={item['run_id']}")
                 if item.get("is_latest"):
                     details.append("latest")
                 if item.get("reverts_adoption_id"):
                     details.append(f"reverts={item['reverts_adoption_id']}")
+            elif object_name == "run":
+                details.append(f"intent={item['intent_id']}")
+                if item.get("is_active"):
+                    details.append("active")
             lines.append(f"{item['id']}  {item['title']} [{', '.join(details)}]")
         return "\n".join(lines)
 
-    def render_object_show_text(self, object_name: str, object_id: str) -> str:
-        payload = self.show_view(object_name, object_id)
+    def render_object_show_text(self, object_name: str, object_ref: str) -> str:
+        payload = self.show_view(object_name, object_ref)
         label = OBJECT_LABELS[object_name]
         lines = [
             f"{label} {payload['id']}",
@@ -1088,6 +1238,7 @@ class IntentRepository:
             lines.append(f"Latest adoption: {payload.get('latest_adoption_id') or 'none'}")
         elif object_name == "checkpoint":
             lines.append(f"Intent: {payload.get('intent_id')}")
+            lines.append(f"Run: {payload.get('run_id') or 'none'}")
             lines.append(f"Ordinal: {payload.get('ordinal')}")
             lines.append(f"Selected: {str(payload.get('selected', False)).lower()}")
             lines.append(f"Adopted: {str(payload.get('adopted', False)).lower()}")
@@ -1095,9 +1246,13 @@ class IntentRepository:
             lines.append(f"Git: {summarize_git(payload.get('git', {}))}")
         elif object_name == "adoption":
             lines.append(f"Intent: {payload.get('intent_id')}")
+            lines.append(f"Run: {payload.get('run_id') or 'none'}")
             lines.append(f"Checkpoint: {payload.get('checkpoint_id')}")
             if payload.get("rationale"):
                 lines.append(f"Because: {payload['rationale']}")
             lines.append(f"Reverts: {payload.get('reverts_adoption_id') or 'none'}")
+            lines.append(f"Git: {summarize_git(payload.get('git', {}))}")
+        elif object_name == "run":
+            lines.append(f"Intent: {payload.get('intent_id')}")
             lines.append(f"Git: {summarize_git(payload.get('git', {}))}")
         return "\n".join(lines)

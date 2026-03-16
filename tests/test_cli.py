@@ -50,6 +50,16 @@ def init_git_repo(cwd: Path, *, with_commit: bool = True) -> None:
 
 
 class IntentCliTests(unittest.TestCase):
+    def make_repo(self, *, with_commit: bool = True, initialize_intent: bool = False) -> Path:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        repo = Path(tmp.name)
+        init_git_repo(repo, with_commit=with_commit)
+        if initialize_intent:
+            init_result = run_cli(repo, "init")
+            self.assertEqual(init_result.returncode, 0)
+        return repo
+
     def test_init_requires_git(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
@@ -590,6 +600,155 @@ class IntentCliTests(unittest.TestCase):
         self.assertIn("== inspect ==", result.stdout)
         self.assertIn("== next action ==", result.stdout)
         self.assertIn("Agent demo complete", result.stdout)
+
+    def test_show_selectors_resolve_active_current_and_latest_objects(self) -> None:
+        repo = self.make_repo(initialize_intent=True)
+
+        intent_result, intent_payload = run_cli_json(repo, "intent", "create", "--title", "Refine onboarding", "--json")
+        self.assertEqual(intent_result.returncode, 0)
+        intent_id = intent_payload["id"]
+
+        checkpoint_result, checkpoint_payload = run_cli_json(
+            repo,
+            "checkpoint",
+            "create",
+            "--title",
+            "Candidate A",
+            "--json",
+        )
+        self.assertEqual(checkpoint_result.returncode, 0)
+        checkpoint_id = checkpoint_payload["id"]
+
+        active_intent = run_cli(repo, "intent", "show", "@active", "--json")
+        self.assertEqual(active_intent.returncode, 0)
+        self.assertEqual(json.loads(active_intent.stdout)["result"]["id"], intent_id)
+
+        current_before_adopt = run_cli(repo, "checkpoint", "show", "@current", "--json")
+        self.assertEqual(current_before_adopt.returncode, 0)
+        self.assertEqual(json.loads(current_before_adopt.stdout)["result"]["id"], checkpoint_id)
+
+        adoption_result, adoption_payload = run_cli_json(
+            repo,
+            "adoption",
+            "create",
+            "--checkpoint",
+            checkpoint_id,
+            "--title",
+            "Adopt Candidate A",
+            "--json",
+        )
+        self.assertEqual(adoption_result.returncode, 0)
+        adoption_id = adoption_payload["id"]
+
+        latest_adoption = run_cli(repo, "adoption", "show", "@latest", "--json")
+        self.assertEqual(latest_adoption.returncode, 0)
+        self.assertEqual(json.loads(latest_adoption.stdout)["result"]["id"], adoption_id)
+
+        revert_result, revert_payload = run_cli_json(
+            repo,
+            "adoption",
+            "revert",
+            "--title",
+            "Revert Candidate A",
+            "--json",
+        )
+        self.assertEqual(revert_result.returncode, 0)
+
+        latest_after_revert = run_cli(repo, "adoption", "show", "@latest", "--json")
+        self.assertEqual(latest_after_revert.returncode, 0)
+        self.assertEqual(json.loads(latest_after_revert.stdout)["result"]["id"], revert_payload["id"])
+
+    def test_show_selectors_handle_missing_or_invalid_targets(self) -> None:
+        repo = self.make_repo(initialize_intent=True)
+
+        missing_current = run_cli(repo, "checkpoint", "show", "@current", "--json")
+        self.assertEqual(missing_current.returncode, 4)
+        missing_payload = json.loads(missing_current.stdout)
+        self.assertEqual(missing_payload["error"]["code"], "OBJECT_NOT_FOUND")
+
+        invalid_selector = run_cli(repo, "intent", "show", "@latest", "--json")
+        self.assertEqual(invalid_selector.returncode, 2)
+        invalid_payload = json.loads(invalid_selector.stdout)
+        self.assertEqual(invalid_payload["error"]["code"], "INVALID_INPUT")
+
+    def test_run_start_end_updates_state_and_links_new_objects(self) -> None:
+        repo = self.make_repo(initialize_intent=True)
+        intent_result, intent_payload = run_cli_json(repo, "start", "Refine onboarding", "--json")
+        self.assertEqual(intent_result.returncode, 0)
+
+        run_result, run_payload = run_cli_json(
+            repo,
+            "run",
+            "start",
+            "--title",
+            "Agent exploration",
+            "--json",
+        )
+        self.assertEqual(run_result.returncode, 0)
+        run_id = run_payload["id"]
+        self.assertEqual(run_payload["result"]["status"], "active")
+        self.assertEqual(run_payload["result"]["intent_id"], intent_payload["id"])
+
+        inspect_active = json.loads(run_cli(repo, "inspect", "--json").stdout)
+        self.assertEqual(inspect_active["state"]["active_run_id"], run_id)
+        self.assertEqual(inspect_active["active_run"]["id"], run_id)
+
+        checkpoint_result, checkpoint_payload = run_cli_json(repo, "snap", "Candidate A", "--json")
+        self.assertEqual(checkpoint_result.returncode, 0)
+        checkpoint_id = checkpoint_payload["id"]
+        self.assertEqual(checkpoint_payload["result"]["run_id"], run_id)
+
+        adoption_result, adoption_payload = run_cli_json(
+            repo,
+            "adopt",
+            "--checkpoint",
+            checkpoint_id,
+            "-m",
+            "Adopt Candidate A",
+            "--json",
+        )
+        self.assertEqual(adoption_result.returncode, 0)
+        self.assertEqual(adoption_payload["result"]["run_id"], run_id)
+
+        revert_result, revert_payload = run_cli_json(repo, "revert", "-m", "Revert Candidate A", "--json")
+        self.assertEqual(revert_result.returncode, 0)
+        self.assertEqual(revert_payload["result"]["run_id"], run_id)
+
+        end_result, end_payload = run_cli_json(repo, "run", "end", "--json")
+        self.assertEqual(end_result.returncode, 0)
+        self.assertEqual(end_payload["id"], run_id)
+        self.assertEqual(end_payload["result"]["status"], "completed")
+
+        inspect_after_end = json.loads(run_cli(repo, "inspect", "--json").stdout)
+        self.assertIsNone(inspect_after_end["state"]["active_run_id"])
+        self.assertIsNone(inspect_after_end["active_run"])
+
+    def test_run_requires_active_intent_and_prevents_nested_runs(self) -> None:
+        repo = self.make_repo(initialize_intent=True)
+
+        no_intent = run_cli(repo, "run", "start", "--json")
+        self.assertEqual(no_intent.returncode, 3)
+        self.assertEqual(json.loads(no_intent.stdout)["error"]["code"], "STATE_CONFLICT")
+
+        self.assertEqual(run_cli(repo, "start", "Refine onboarding").returncode, 0)
+
+        first_run = run_cli(repo, "run", "start", "--id-only")
+        self.assertEqual(first_run.returncode, 0)
+        self.assertEqual(first_run.stdout.strip(), "run-001")
+
+        start_while_run_active = run_cli(repo, "start", "Another intent", "--json")
+        self.assertEqual(start_while_run_active.returncode, 3)
+        self.assertEqual(json.loads(start_while_run_active.stdout)["error"]["code"], "STATE_CONFLICT")
+
+        second_run = run_cli(repo, "run", "start", "--json")
+        self.assertEqual(second_run.returncode, 3)
+        self.assertEqual(json.loads(second_run.stdout)["error"]["code"], "STATE_CONFLICT")
+
+        self.assertEqual(run_cli(repo, "run", "end").returncode, 0)
+
+        no_active_run = run_cli(repo, "run", "end", "--json")
+        self.assertEqual(no_active_run.returncode, 4)
+        self.assertEqual(json.loads(no_active_run.stdout)["error"]["code"], "OBJECT_NOT_FOUND")
 
 
 if __name__ == "__main__":

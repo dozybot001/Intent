@@ -197,6 +197,9 @@ itt checkpoint select
 itt adoption create
 itt adoption revert
 
+itt run start
+itt run end
+
 itt inspect
 ```
 
@@ -235,6 +238,10 @@ itt run show
 - Surface CLI 只做参数预填和 UX 包装
 - 即使实现中提供了少量 `list/show` 辅助命令，它们也不应盖过 `init -> start -> snap -> adopt -> log` 这条主路径
 - V1 不要求把保留方向里的对象子命令做成首页承诺或长期兼容承诺
+
+当前 helper-command 说明：
+
+- 当实现中提供 `show` 辅助命令时，可以支持 `@active`、`@current`、`@latest` 这类保留选择器，方便机器读取当前对象
 
 ### 5.3 Surface 与 Canonical 映射
 
@@ -314,7 +321,7 @@ agent 模式：
 | `.intent/intents/` | intent 对象文件 |
 | `.intent/checkpoints/` | checkpoint 对象文件 |
 | `.intent/adoptions/` | adoption 对象文件 |
-| `.intent/runs/` | run 对象文件；首版可为空 |
+| `.intent/runs/` | run 对象文件 |
 | `.intent/decisions/` | decision 对象文件；首版可为空 |
 
 ### 7.2 文件组织原则
@@ -512,6 +519,7 @@ cp-012      Landing page candidate B
   "summary": "Choose candidate B as the official direction for onboarding.",
   "status": "active",
   "intent_id": "intent-001",
+  "run_id": null,
   "checkpoint_id": "cp-001",
   "rationale": "Lower cognitive load and clearer first action.",
   "reverts_adoption_id": null,
@@ -553,6 +561,7 @@ revert record 示例：
   "summary": "Revert the previously adopted onboarding direction.",
   "status": "active",
   "intent_id": "intent-001",
+  "run_id": null,
   "checkpoint_id": "cp-001",
   "rationale": "Testing showed higher confusion than expected.",
   "reverts_adoption_id": "adopt-001",
@@ -565,6 +574,44 @@ revert record 示例：
   "metadata": {}
 }
 ```
+
+### 10.4 Run
+
+```json
+{
+  "id": "run-001",
+  "object": "run",
+  "schema_version": "0.1",
+  "created_at": "2026-03-15T14:05:00Z",
+  "updated_at": "2026-03-15T14:25:00Z",
+  "title": "Agent exploration",
+  "summary": "",
+  "status": "active",
+  "intent_id": "intent-001",
+  "run_id": null,
+  "git": {
+    "branch": "main",
+    "head": "a91c3d2",
+    "working_tree": "clean",
+    "linkage_quality": "stable_commit"
+  },
+  "metadata": {}
+}
+```
+
+`status` 枚举：
+
+- `active`
+- `completed`
+
+约束：
+
+- `itt run start` 要求存在 active intent
+- `itt run start` 创建新的 run object，并设置 `state.active_run_id`
+- V1 同一时间最多只允许一个 active run
+- `itt run end` 将 active run 标记为 `completed`
+- `itt run end` 清空 `state.active_run_id`
+- 在 active run 期间创建的 checkpoint 和 adoption 应记录对应的 `run_id`
 
 ## 11. `state.json` contract
 
@@ -755,6 +802,26 @@ itt adoption create \
 - `workspace_status=adoption_recorded`
 - checkpoint 状态保持历史事实，不自动恢复为 `candidate`
 
+### 12.7 `itt run start`
+
+规则：
+
+- 要求存在 active intent
+- 创建 `status=active` 的 run object
+- 设置 `state.active_run_id`
+- 不改变 `workspace_status`
+- 若已有 active run，返回 `STATE_CONFLICT`
+
+### 12.8 `itt run end`
+
+规则：
+
+- 要求存在 active run
+- 将 run object 标记为 `status=completed`
+- 清空 `state.active_run_id`
+- 不改变 `workspace_status`
+- 若不存在 active run，返回 object/state 错误
+
 ### 12.7 `itt status`
 
 作用：给人看当前 semantic workspace 状态，并推荐下一步动作。
@@ -882,6 +949,7 @@ adoption：
     "title": "Reduce onboarding confusion",
     "status": "active"
   },
+  "active_run": null,
   "current_checkpoint": {
     "id": "cp-001",
     "title": "Landing page candidate B",
@@ -983,9 +1051,9 @@ adoption：
 - 其中 `active_intent`、`current_checkpoint`、`latest_adoption`、`next_action` 可为 `null`
 - `git` 必须始终为对象；`warnings` 必须始终为数组
 - 在成功返回中，`inspect --json` 必须始终包含这些顶层字段：
-  `ok`、`object`、`schema_version`、`mode`、`state`、`active_intent`、`current_checkpoint`、`latest_adoption`、`latest_event`、`candidate_checkpoints`、`workspace_status_reason`、`pending_items`、`suggested_next_actions`、`git`、`warnings`
+  `ok`、`object`、`schema_version`、`mode`、`state`、`active_intent`、`active_run`、`current_checkpoint`、`latest_adoption`、`latest_event`、`candidate_checkpoints`、`workspace_status_reason`、`pending_items`、`suggested_next_actions`、`git`、`warnings`
 - `state.active_intent_id`、`state.active_run_id`、`state.current_checkpoint_id`、`state.last_adoption_id` 可为 `null`
-- `active_intent`、`current_checkpoint`、`latest_adoption`、`latest_event` 可为 `null`
+- `active_intent`、`active_run`、`current_checkpoint`、`latest_adoption`、`latest_event` 可为 `null`
 - `candidate_checkpoints`、`pending_items`、`suggested_next_actions`、`warnings` 必须始终为数组
 - `workspace_status_reason` 必须始终为字符串
 - `next_action` 与 `suggested_next_actions` 若存在，必须同时包含 `command`、`args`、`reason`
@@ -1059,9 +1127,9 @@ cp-001
 
 V1 参数边界：
 
-- `start`、`snap`、`adopt`、`revert` 必须支持 `--json`
-- `start`、`snap`、`adopt`、`revert` 必须支持 `--id-only`
-- `init`、`start`、`snap`、`adopt`、`revert`、`checkpoint select` 必须支持 `--no-interactive`
+- `start`、`snap`、`adopt`、`revert`、`run start`、`run end` 必须支持 `--json`
+- `start`、`snap`、`adopt`、`revert`、`run start`、`run end` 必须支持 `--id-only`
+- `init`、`start`、`snap`、`adopt`、`revert`、`run start`、`run end`、`checkpoint select` 必须支持 `--no-interactive`
 
 `itt adopt` 额外必须支持：
 
