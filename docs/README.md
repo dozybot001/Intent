@@ -6,9 +6,9 @@
 
 | 文档 | 主要回答 | 不负责 |
 | --- | --- | --- |
-| [术语表](glossary.md) | 这些核心名词分别是什么意思 | 产品论证、命令设计、实现细节 |
+| [术语表](glossary.md) | 这些核心名词分别是什么意思 | 项目背景、命令设计、实现细节 |
 | [愿景与问题定义](vision.md) | 为什么 agent 时代需要 Intent | 具体命令语法、JSON schema |
-| [CLI 统一设计文档](cli.md) | Intent CLI 的产品边界、命令语义与实现 contract | 更长期的平台问题 |
+| [CLI 统一设计文档](cli.md) | Intent CLI 的项目边界、命令语义与实现 contract | 更长期的平台问题 |
 | [Demo](demo.md) | 如何快速复现 `itt log` 与 `git log` 的对比 | CLI contract 定义、长期路线 |
 | [路线图](roadmap.md) | CLI 初版之后接下来最值得做什么 | 当前 CLI contract 定义 |
 

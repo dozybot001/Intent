@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -209,11 +210,13 @@ def write_result(
     object_id: Optional[str],
     result: Dict[str, Any],
     warnings: List[str],
-    next_action: Optional[Dict[str, str]] = None,
+    next_action: Optional[Dict[str, Any]] = None,
     *,
     state_changed: bool = True,
     noop: bool = False,
     reason: Optional[str] = None,
+    workspace_status: Optional[str] = None,
+    workspace_status_reason: Optional[str] = None,
 ) -> Dict[str, Any]:
     payload: Dict[str, Any] = {
         "ok": True,
@@ -230,7 +233,19 @@ def write_result(
         payload["noop"] = True
     if reason:
         payload["reason"] = reason
+    if workspace_status is not None:
+        payload["workspace_status"] = workspace_status
+    if workspace_status_reason is not None:
+        payload["workspace_status_reason"] = workspace_status_reason
     return payload
+
+
+def cli_action(args: List[str], reason: str) -> Dict[str, Any]:
+    return {
+        "command": shlex.join(["itt", *args]),
+        "args": args,
+        "reason": reason,
+    }
 
 
 @dataclass
@@ -813,40 +828,44 @@ class IntentRepository:
         self.save_state(state)
         return revert_record, state, warnings
 
-    def next_action(self, snapshot: StatusSnapshot, *, machine: bool = False) -> Optional[Dict[str, str]]:
+    def next_action(self, snapshot: StatusSnapshot, *, machine: bool = False) -> Optional[Dict[str, Any]]:
         status = snapshot.state["workspace_status"]
         if status in {"idle", "blocked_no_active_intent"}:
-            return {
-                "command": 'itt start "Describe the problem"',
-                "reason": "No active intent is available.",
-            }
+            return cli_action(["start", "Describe the problem"], "No active intent is available.")
         if status == "intent_active":
-            return {
-                "command": 'itt snap "First candidate"',
-                "reason": "Active intent is ready for a first candidate.",
-            }
+            return cli_action(["snap", "First candidate"], "Active intent is ready for a first candidate.")
         if status == "candidate_ready" and snapshot.current_checkpoint:
-            command = (
-                f'itt adopt --checkpoint {snapshot.current_checkpoint["id"]} -m "Adopt candidate"'
+            args = (
+                ["adopt", "--checkpoint", snapshot.current_checkpoint["id"], "-m", "Adopt candidate"]
                 if machine
-                else 'itt adopt -m "Adopt candidate"'
+                else ["adopt", "-m", "Adopt candidate"]
             )
-            return {
-                "command": command,
-                "reason": "Current checkpoint is ready for adoption.",
-            }
+            return cli_action(args, "Current checkpoint is ready for adoption.")
         if status == "conflict_multiple_candidates":
-            checkpoint = sorted(snapshot.candidate_checkpoints, key=lambda item: item["created_at"], reverse=True)[0]
-            return {
-                "command": f"itt checkpoint select {checkpoint['id']}",
-                "reason": "Multiple candidate checkpoints exist and one must be selected.",
-            }
+            checkpoint = sorted(snapshot.candidate_checkpoints, key=object_sort_key, reverse=True)[0]
+            return cli_action(
+                ["checkpoint", "select", checkpoint["id"]],
+                "Multiple candidate checkpoints exist and one must be selected.",
+            )
         if status == "adoption_recorded":
-            return {
-                "command": "itt log",
-                "reason": "Latest semantic history is available in the log.",
-            }
+            return cli_action(["log"], "Latest semantic history is available in the log.")
         return None
+
+    def workspace_status_reason(self, snapshot: StatusSnapshot) -> str:
+        status = snapshot.state["workspace_status"]
+        if status == "idle":
+            return "No intents have been created in this workspace."
+        if status == "blocked_no_active_intent":
+            return "Intents exist, but none is currently active."
+        if status == "intent_active":
+            return "An active intent exists, but there is no current checkpoint."
+        if status == "candidate_ready":
+            return "A current checkpoint is available for adoption."
+        if status == "adoption_recorded":
+            return "The latest semantic event is an adoption or revert record."
+        if status == "conflict_multiple_candidates":
+            return "Multiple candidate checkpoints exist without a unique current selection."
+        return "Workspace status is available."
 
     def state_warnings(self, snapshot: StatusSnapshot) -> List[str]:
         status = snapshot.state["workspace_status"]
@@ -871,9 +890,37 @@ class IntentRepository:
                     "id": checkpoint["id"],
                     "reason": "Candidate requires explicit selection",
                 }
-                for checkpoint in sorted(snapshot.candidate_checkpoints, key=lambda item: item["created_at"])
+                for checkpoint in sorted(snapshot.candidate_checkpoints, key=object_sort_key)
             ]
         return []
+
+    def candidate_checkpoint_briefs(self, snapshot: StatusSnapshot) -> List[Dict[str, Any]]:
+        return [
+            {
+                "id": checkpoint["id"],
+                "title": checkpoint["title"],
+                "status": checkpoint["status"],
+                "selected": checkpoint.get("selected", False),
+                "adopted": checkpoint.get("adopted", False),
+            }
+            for checkpoint in sorted(snapshot.candidate_checkpoints, key=object_sort_key, reverse=True)
+        ]
+
+    def latest_event(self, snapshot: StatusSnapshot) -> Optional[Dict[str, Any]]:
+        adoption = snapshot.latest_adoption
+        if adoption is None:
+            candidate = self.load_object("adoption", snapshot.state.get("last_adoption_id"))
+            if candidate is not None:
+                adoption = candidate
+        if adoption is None:
+            return None
+        return {
+            "type": "revert" if adoption.get("reverts_adoption_id") else "adoption",
+            "id": adoption["id"],
+            "title": adoption["title"],
+            "checkpoint_id": adoption.get("checkpoint_id"),
+            "reverts_adoption_id": adoption.get("reverts_adoption_id"),
+        }
 
     def status_json(self) -> Dict[str, Any]:
         snapshot = self.snapshot()
@@ -887,12 +934,13 @@ class IntentRepository:
             "current_checkpoint": object_brief(snapshot.current_checkpoint, include_status=False),
             "latest_adoption": object_brief(snapshot.latest_adoption, include_status=False),
             "workspace_status": state["workspace_status"],
+            "workspace_status_reason": self.workspace_status_reason(snapshot),
             "git": {
                 "branch": snapshot.git["branch"],
                 "head": snapshot.git["head"],
                 "working_tree": snapshot.git["working_tree"],
             },
-            "next_action": self.next_action(snapshot, machine=False),
+            "next_action": self.next_action(snapshot, machine=True),
             "warnings": warnings,
         }
         return payload
@@ -915,6 +963,9 @@ class IntentRepository:
             "active_intent": object_brief(snapshot.active_intent, include_status=False),
             "current_checkpoint": object_brief(snapshot.current_checkpoint),
             "latest_adoption": object_brief(snapshot.latest_adoption, include_status=False),
+            "latest_event": self.latest_event(snapshot),
+            "candidate_checkpoints": self.candidate_checkpoint_briefs(snapshot),
+            "workspace_status_reason": self.workspace_status_reason(snapshot),
             "pending_items": self.pending_items(snapshot),
             "suggested_next_actions": (
                 [self.next_action(snapshot, machine=True)] if self.next_action(snapshot, machine=True) else []

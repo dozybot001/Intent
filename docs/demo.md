@@ -50,13 +50,22 @@ itt log
 
 ## Agent Demo
 
-当前仓库还没有单独的 agent demo 脚本。
-
-如果需要观察 machine-readable path，可以从这组命令开始：
+当前仓库提供了一个可运行的 agent demo：
 
 ```bash
-itt status --json
-itt inspect --json
+scripts/demo_agent.sh
 ```
 
-这两个入口分别提供当前 workspace 摘要和更完整的结构化快照。
+这个脚本会：
+
+- 创建一个临时 Git 仓库
+- 初始化 Intent
+- 反复读取 `itt inspect --json`
+- 提取 `suggested_next_actions[0].args`
+- 按返回的参数执行下一步命令
+
+观察点：
+
+- `inspect --json` 会返回机器可消费的 `suggested_next_actions`
+- action payload 同时包含可展示的 `command` 和可执行的 `args`
+- agent 可以不依赖长 prose，直接沿着结构化状态往前推进

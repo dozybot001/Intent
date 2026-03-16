@@ -1,6 +1,6 @@
 # Intent CLI 统一设计文档
 
-用途：作为 Intent CLI 的单一 source of truth。本文同时定义首版 CLI 的产品边界、命令语义、对象模型、状态机、JSON contract、错误模型和实现优先级。
+用途：作为 Intent CLI 的单一 source of truth。本文同时定义首版 CLI 的项目边界、命令语义、对象模型、状态机、JSON contract、错误模型和实现优先级。
 
 ## 这篇文档回答什么
 
@@ -887,13 +887,15 @@ adoption：
   },
   "latest_adoption": null,
   "workspace_status": "candidate_ready",
+  "workspace_status_reason": "A current checkpoint is available for adoption.",
   "git": {
     "branch": "main",
     "head": "a91c3d2",
     "working_tree": "clean"
   },
   "next_action": {
-    "command": "itt adopt -m \"Adopt candidate\"",
+    "command": "itt adopt --checkpoint cp-001 -m \"Adopt candidate\"",
+    "args": ["adopt", "--checkpoint", "cp-001", "-m", "Adopt candidate"],
     "reason": "Current checkpoint is ready for adoption."
   },
   "warnings": []
@@ -927,6 +929,17 @@ adoption：
     "adopted": false
   },
   "latest_adoption": null,
+  "latest_event": null,
+  "candidate_checkpoints": [
+    {
+      "id": "cp-001",
+      "title": "Landing page candidate B",
+      "status": "candidate",
+      "selected": true,
+      "adopted": false
+    }
+  ],
+  "workspace_status_reason": "A current checkpoint is available for adoption.",
   "pending_items": [
     {
       "type": "candidate",
@@ -937,6 +950,7 @@ adoption：
   "suggested_next_actions": [
     {
       "command": "itt adopt --checkpoint cp-001 -m \"Adopt candidate\"",
+      "args": ["adopt", "--checkpoint", "cp-001", "-m", "Adopt candidate"],
       "reason": "Checkpoint is current and not yet adopted"
     }
   ],
@@ -963,24 +977,26 @@ adoption：
 - 若 `.intent/` 尚未初始化，`status --json` 与 `inspect --json` 返回错误对象：
   `ok=false`，`error.code=NOT_INITIALIZED`
 - 在成功返回中，`status --json` 必须始终包含这些顶层字段：
-  `ok`、`object`、`schema_version`、`active_intent`、`current_checkpoint`、`latest_adoption`、`workspace_status`、`git`、`next_action`、`warnings`
+  `ok`、`object`、`schema_version`、`active_intent`、`current_checkpoint`、`latest_adoption`、`workspace_status`、`workspace_status_reason`、`git`、`next_action`、`warnings`
 - 其中 `active_intent`、`current_checkpoint`、`latest_adoption`、`next_action` 可为 `null`
 - `git` 必须始终为对象；`warnings` 必须始终为数组
 - 在成功返回中，`inspect --json` 必须始终包含这些顶层字段：
-  `ok`、`object`、`schema_version`、`mode`、`state`、`active_intent`、`current_checkpoint`、`latest_adoption`、`pending_items`、`suggested_next_actions`、`git`、`warnings`
+  `ok`、`object`、`schema_version`、`mode`、`state`、`active_intent`、`current_checkpoint`、`latest_adoption`、`latest_event`、`candidate_checkpoints`、`workspace_status_reason`、`pending_items`、`suggested_next_actions`、`git`、`warnings`
 - `state.active_intent_id`、`state.active_run_id`、`state.current_checkpoint_id`、`state.last_adoption_id` 可为 `null`
-- `active_intent`、`current_checkpoint`、`latest_adoption` 可为 `null`
-- `pending_items`、`suggested_next_actions`、`warnings` 必须始终为数组
+- `active_intent`、`current_checkpoint`、`latest_adoption`、`latest_event` 可为 `null`
+- `candidate_checkpoints`、`pending_items`、`suggested_next_actions`、`warnings` 必须始终为数组
+- `workspace_status_reason` 必须始终为字符串
+- `next_action` 与 `suggested_next_actions` 若存在，必须同时包含 `command`、`args`、`reason`
 
 成功返回下的最低状态约定：
 
 | 状态 | `status --json` | `inspect --json` |
 | --- | --- | --- |
-| `idle` | `active_intent=null`、`current_checkpoint=null`、`latest_adoption=null`、`next_action` 指向 `itt start` | 对应对象为 `null`，数组字段为 `[]` |
+| `idle` | `active_intent=null`、`current_checkpoint=null`、`latest_adoption=null`、`next_action` 指向 `itt start` | 对应对象为 `null`，`candidate_checkpoints=[]` |
 | `blocked_no_active_intent` | `active_intent=null`、`current_checkpoint=null` | 对应对象为 `null`，数组字段为 `[]` |
-| `intent_active` | `current_checkpoint=null` | `current_checkpoint=null`，`pending_items=[]` |
-| `candidate_ready` | `current_checkpoint` 为对象，`next_action` 指向 `itt adopt` | `current_checkpoint` 为对象，`pending_items` 至少包含一个 candidate |
-| `adoption_recorded` | `current_checkpoint=null` | `state.current_checkpoint_id=null`，`current_checkpoint=null` |
+| `intent_active` | `current_checkpoint=null` | `current_checkpoint=null`，`candidate_checkpoints=[]`，`pending_items=[]` |
+| `candidate_ready` | `current_checkpoint` 为对象，`next_action` 指向 `itt adopt` | `current_checkpoint` 为对象，`candidate_checkpoints` 至少包含当前 candidate |
+| `adoption_recorded` | `current_checkpoint=null` | `state.current_checkpoint_id=null`，`current_checkpoint=null`，`latest_event` 指向 adoption 或 revert |
 
 ## 15. 写命令 JSON contract
 
@@ -993,9 +1009,12 @@ adoption：
   "action": "create",
   "id": "cp-001",
   "state_changed": true,
+  "workspace_status": "candidate_ready",
+  "workspace_status_reason": "A current checkpoint is available for adoption.",
   "result": {},
   "next_action": {
-    "command": "itt adopt -m \"...\"",
+    "command": "itt adopt --checkpoint cp-001 -m \"Adopt candidate\"",
+    "args": ["adopt", "--checkpoint", "cp-001", "-m", "Adopt candidate"],
     "reason": "Checkpoint created and selected"
   },
   "warnings": []
@@ -1009,8 +1028,16 @@ adoption：
 - `action`
 - `id`
 - `state_changed`
+- `workspace_status`
+- `workspace_status_reason`
 - `result`
 - `warnings`
+
+若存在 `next_action`，其最低字段为：
+
+- `command`
+- `args`
+- `reason`
 
 ### 15.1 `--id-only`
 

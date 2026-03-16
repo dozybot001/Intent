@@ -11,6 +11,7 @@ from .core import (
     IntentError,
     IntentRepository,
     build_git_context,
+    cli_action,
     object_brief,
     summarize_git,
     write_result,
@@ -30,6 +31,14 @@ def emit_error(error: IntentError, *, as_json: bool) -> int:
             lines.append(f"Next: {error.suggested_fix}")
         print("\n".join(lines), file=sys.stderr)
     return error.exit_code
+
+
+def workspace_result_fields(repo: IntentRepository) -> Dict[str, Any]:
+    snapshot = repo.snapshot()
+    return {
+        "workspace_status": snapshot.state["workspace_status"],
+        "workspace_status_reason": repo.workspace_status_reason(snapshot),
+    }
 
 
 def base_write_parser(name: str, help_text: str) -> argparse.ArgumentParser:
@@ -141,6 +150,7 @@ def handle_init(repo: IntentRepository, args: argparse.Namespace) -> int:
     git_context, _ = build_git_context(repo.cwd)
     config, state = repo.init_workspace()
     if args.json:
+        workspace_fields = workspace_result_fields(repo)
         emit_json(
             write_result(
                 "workspace",
@@ -148,7 +158,8 @@ def handle_init(repo: IntentRepository, args: argparse.Namespace) -> int:
                 None,
                 {"config": config, "state": state},
                 [],
-                next_action={"command": 'itt start "Describe the problem"', "reason": "Workspace initialized"},
+                next_action=cli_action(["start", "Describe the problem"], "Workspace initialized"),
+                **workspace_fields,
             )
         )
         return EXIT_SUCCESS
@@ -165,6 +176,7 @@ def handle_start(repo: IntentRepository, args: argparse.Namespace) -> int:
         print(intent["id"])
         return EXIT_SUCCESS
     if args.json:
+        workspace_fields = workspace_result_fields(repo)
         emit_json(
             write_result(
                 "intent",
@@ -172,7 +184,8 @@ def handle_start(repo: IntentRepository, args: argparse.Namespace) -> int:
                 intent["id"],
                 intent,
                 warnings,
-                next_action={"command": 'itt snap "First candidate"', "reason": "Intent created and activated"},
+                next_action=cli_action(["snap", "First candidate"], "Intent created and activated"),
+                **workspace_fields,
             )
         )
         return EXIT_SUCCESS
@@ -190,6 +203,7 @@ def handle_snap(repo: IntentRepository, args: argparse.Namespace) -> int:
         print(checkpoint["id"])
         return EXIT_SUCCESS
     if args.json:
+        workspace_fields = workspace_result_fields(repo)
         emit_json(
             write_result(
                 "checkpoint",
@@ -197,7 +211,11 @@ def handle_snap(repo: IntentRepository, args: argparse.Namespace) -> int:
                 checkpoint["id"],
                 checkpoint,
                 warnings,
-                next_action={"command": 'itt adopt -m "Adopt candidate"', "reason": "Checkpoint created and selected"},
+                next_action=cli_action(
+                    ["adopt", "--checkpoint", checkpoint["id"], "-m", "Adopt candidate"],
+                    "Checkpoint created and selected",
+                ),
+                **workspace_fields,
             )
         )
         return EXIT_SUCCESS
@@ -223,6 +241,7 @@ def handle_adopt(repo: IntentRepository, args: argparse.Namespace) -> int:
         print(adoption["id"])
         return EXIT_SUCCESS
     if args.json:
+        workspace_fields = workspace_result_fields(repo)
         if noop:
             emit_json(
                 write_result(
@@ -231,10 +250,11 @@ def handle_adopt(repo: IntentRepository, args: argparse.Namespace) -> int:
                     adoption["id"],
                     adoption,
                     warnings,
-                    next_action={"command": "itt log", "reason": "Checkpoint was already adopted"},
+                    next_action=cli_action(["log"], "Checkpoint was already adopted"),
                     state_changed=False,
                     noop=True,
                     reason="Checkpoint already adopted",
+                    **workspace_fields,
                 )
             )
         else:
@@ -245,7 +265,8 @@ def handle_adopt(repo: IntentRepository, args: argparse.Namespace) -> int:
                     adoption["id"],
                     adoption,
                     warnings,
-                    next_action={"command": "itt log", "reason": "Adoption recorded"},
+                    next_action=cli_action(["log"], "Adoption recorded"),
+                    **workspace_fields,
                 )
             )
         return EXIT_SUCCESS
@@ -266,6 +287,7 @@ def handle_revert(repo: IntentRepository, args: argparse.Namespace) -> int:
         print(adoption["id"])
         return EXIT_SUCCESS
     if args.json:
+        workspace_fields = workspace_result_fields(repo)
         emit_json(
             write_result(
                 "adoption",
@@ -273,7 +295,8 @@ def handle_revert(repo: IntentRepository, args: argparse.Namespace) -> int:
                 adoption["id"],
                 adoption,
                 warnings,
-                next_action={"command": "itt log", "reason": "Revert recorded"},
+                next_action=cli_action(["log"], "Revert recorded"),
+                **workspace_fields,
             )
         )
         return EXIT_SUCCESS
@@ -391,6 +414,7 @@ def handle_checkpoint_select(repo: IntentRepository, args: argparse.Namespace) -
         print(checkpoint["id"])
         return EXIT_SUCCESS
     if args.json:
+        workspace_fields = workspace_result_fields(repo)
         emit_json(
             write_result(
                 "checkpoint",
@@ -398,7 +422,11 @@ def handle_checkpoint_select(repo: IntentRepository, args: argparse.Namespace) -
                 checkpoint["id"],
                 checkpoint,
                 warnings,
-                next_action={"command": 'itt adopt -m "Adopt candidate"', "reason": "Checkpoint selected"},
+                next_action=cli_action(
+                    ["adopt", "--checkpoint", checkpoint["id"], "-m", "Adopt candidate"],
+                    "Checkpoint selected",
+                ),
+                **workspace_fields,
             )
         )
         return EXIT_SUCCESS

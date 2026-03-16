@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CLI = ROOT / "itt"
 SMOKE = ROOT / "scripts" / "smoke.sh"
 DEMO = ROOT / "scripts" / "demo_log.sh"
+AGENT_DEMO = ROOT / "scripts" / "demo_agent.sh"
 
 
 def run_cli(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -31,6 +32,11 @@ def run_module_cli(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
         text=True,
         env={"PYTHONPATH": str(ROOT / "src")},
     )
+
+
+def run_cli_json(cwd: Path, *args: str) -> tuple[subprocess.CompletedProcess[str], dict]:
+    result = run_cli(cwd, *args)
+    return result, json.loads(result.stdout)
 
 
 def init_git_repo(cwd: Path, *, with_commit: bool = True) -> None:
@@ -177,6 +183,113 @@ class IntentCliTests(unittest.TestCase):
             self.assertEqual(select_result.returncode, 0)
             payload = json.loads(select_result.stdout)
             self.assertEqual(payload["id"], cp1)
+
+    def test_status_and_write_json_include_machine_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            init_git_repo(repo)
+            self.assertEqual(run_cli(repo, "init").returncode, 0)
+
+            start_result, start_payload = run_cli_json(repo, "start", "Refine onboarding", "--json")
+            self.assertEqual(start_result.returncode, 0)
+            self.assertEqual(start_payload["workspace_status"], "intent_active")
+            self.assertEqual(start_payload["next_action"]["args"], ["snap", "First candidate"])
+
+            snap_result, snap_payload = run_cli_json(repo, "snap", "Candidate A", "--json")
+            self.assertEqual(snap_result.returncode, 0)
+            self.assertEqual(snap_payload["workspace_status"], "candidate_ready")
+            self.assertEqual(
+                snap_payload["next_action"]["args"],
+                ["adopt", "--checkpoint", snap_payload["id"], "-m", "Adopt candidate"],
+            )
+
+            status_result, status_payload = run_cli_json(repo, "status", "--json")
+            self.assertEqual(status_result.returncode, 0)
+            self.assertEqual(status_payload["workspace_status"], "candidate_ready")
+            self.assertIn("workspace_status_reason", status_payload)
+            self.assertEqual(
+                status_payload["next_action"]["args"],
+                ["adopt", "--checkpoint", snap_payload["id"], "-m", "Adopt candidate"],
+            )
+
+    def test_inspect_json_rich_states_for_conflict_and_revert(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            init_git_repo(repo)
+            self.assertEqual(run_cli(repo, "init").returncode, 0)
+            self.assertEqual(run_cli(repo, "start", "Refine onboarding").returncode, 0)
+
+            cp1 = json.loads(run_cli(repo, "snap", "Candidate A", "--json").stdout)["id"]
+            cp2 = json.loads(run_cli(repo, "snap", "Candidate B", "--json").stdout)["id"]
+
+            checkpoint_file = repo / ".intent" / "checkpoints" / f"{cp2}.json"
+            checkpoint_payload = json.loads(checkpoint_file.read_text())
+            checkpoint_payload["selected"] = False
+            checkpoint_payload["updated_at"] = checkpoint_payload["created_at"]
+            checkpoint_file.write_text(json.dumps(checkpoint_payload, indent=2) + "\n")
+
+            inspect_result, inspect_payload = run_cli_json(repo, "inspect", "--json")
+            self.assertEqual(inspect_result.returncode, 0)
+            self.assertEqual(inspect_payload["state"]["workspace_status"], "conflict_multiple_candidates")
+            self.assertEqual(len(inspect_payload["candidate_checkpoints"]), 2)
+            self.assertIsNone(inspect_payload["latest_event"])
+            self.assertEqual(
+                inspect_payload["suggested_next_actions"][0]["args"],
+                ["checkpoint", "select", cp2],
+            )
+
+            self.assertEqual(run_cli(repo, "checkpoint", "select", cp2).returncode, 0)
+            adopt_result, adopt_payload = run_cli_json(
+                repo,
+                "adopt",
+                "--checkpoint",
+                cp2,
+                "-m",
+                "Adopt Candidate B",
+                "--json",
+            )
+            self.assertEqual(adopt_result.returncode, 0)
+
+            revert_result, revert_payload = run_cli_json(repo, "revert", "-m", "Revert Candidate B", "--json")
+            self.assertEqual(revert_result.returncode, 0)
+            self.assertEqual(revert_payload["workspace_status"], "adoption_recorded")
+
+            inspect_after_revert, reverted_payload = run_cli_json(repo, "inspect", "--json")
+            self.assertEqual(inspect_after_revert.returncode, 0)
+            self.assertEqual(reverted_payload["latest_event"]["type"], "revert")
+            self.assertEqual(
+                reverted_payload["latest_event"]["reverts_adoption_id"],
+                adopt_payload["id"],
+            )
+            self.assertEqual(len(reverted_payload["candidate_checkpoints"]), 1)
+            self.assertEqual(reverted_payload["candidate_checkpoints"][0]["id"], cp1)
+            self.assertEqual(reverted_payload["suggested_next_actions"][0]["args"], ["log"])
+
+    def test_id_only_matrix_for_write_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            init_git_repo(repo)
+            self.assertEqual(run_cli(repo, "init").returncode, 0)
+
+            start_id = run_cli(repo, "start", "Refine onboarding", "--id-only")
+            self.assertEqual(start_id.returncode, 0)
+            self.assertEqual(start_id.stdout.strip(), "intent-001")
+
+            checkpoint_id = run_cli(repo, "snap", "Candidate A", "--id-only")
+            self.assertEqual(checkpoint_id.returncode, 0)
+            self.assertEqual(checkpoint_id.stdout.strip(), "cp-001")
+
+            select_id = run_cli(repo, "checkpoint", "select", "cp-001", "--id-only")
+            self.assertEqual(select_id.returncode, 0)
+            self.assertEqual(select_id.stdout.strip(), "cp-001")
+
+            adoption_id = run_cli(repo, "adopt", "--checkpoint", "cp-001", "--id-only")
+            self.assertEqual(adoption_id.returncode, 0)
+            self.assertEqual(adoption_id.stdout.strip(), "adopt-001")
+
+            revert_id = run_cli(repo, "revert", "--id-only")
+            self.assertEqual(revert_id.returncode, 0)
+            self.assertEqual(revert_id.stdout.strip(), "adopt-002")
 
     def test_read_side_commands_and_config_show(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -464,6 +577,19 @@ class IntentCliTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertIn("== git log --oneline ==", result.stdout)
         self.assertIn("== itt log ==", result.stdout)
+
+    def test_demo_agent_script_runs(self) -> None:
+        result = subprocess.run(
+            [str(AGENT_DEMO)],
+            cwd=str(ROOT),
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertIn("== inspect ==", result.stdout)
+        self.assertIn("== next action ==", result.stdout)
+        self.assertIn("Agent demo complete", result.stdout)
 
 
 if __name__ == "__main__":
