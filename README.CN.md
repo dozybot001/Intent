@@ -146,6 +146,6 @@ README 只保留总览，更完整的说明在 `docs/`：
 - [CLI 统一设计文档](docs/CN/cli.md)
 - [Demo](docs/CN/demo.md)
 - [路线图](docs/CN/roadmap.md)
-- [文档国际化方案](docs/CN/i18n.md)
+- [文档国际化规范](docs/CN/i18n.md)
 
 更多背景见：[愿景与问题定义](docs/CN/vision.md)。

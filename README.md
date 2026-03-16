@@ -145,6 +145,6 @@ The root README stays lightweight. More detailed material lives in `docs/`.
 - [Unified CLI spec](docs/EN/cli.md)
 - [Demo](docs/EN/demo.md)
 - [Roadmap](docs/EN/roadmap.md)
-- [Documentation i18n plan](docs/EN/i18n.md)
+- [Documentation i18n guide](docs/EN/i18n.md)
 
 For more background, start with [Vision and problem definition](docs/EN/vision.md).
