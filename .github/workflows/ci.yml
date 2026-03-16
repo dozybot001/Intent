@@ -50,6 +50,14 @@ jobs:
       - name: Build package
         run: python -m build
 
+      - name: Verify wheel install
+        run: |
+          python -m venv /tmp/intent-install-venv
+          /tmp/intent-install-venv/bin/python -m pip install --upgrade pip
+          /tmp/intent-install-venv/bin/python -m pip install dist/*.whl
+          /tmp/intent-install-venv/bin/itt version
+          /tmp/intent-install-venv/bin/itt --help > /dev/null
+
       - name: Run smoke script
         run: ./scripts/smoke.sh
 

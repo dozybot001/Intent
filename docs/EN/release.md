@@ -22,6 +22,7 @@ Before creating a GitHub release, confirm that the repository is:
 - [scripts/check.sh](../../scripts/check.sh) passes locally
 - GitHub Actions CI is green
 - the package still builds as sdist and wheel
+- the built wheel can be installed into a clean environment and the `itt` entry point still runs
 
 ## Local Commands
 
