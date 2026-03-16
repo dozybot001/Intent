@@ -15,8 +15,7 @@
 ## 与其他文档的边界
 
 - 术语定义以 [术语表](glossary.md) 为准
-- CLI 命令语义与用户路径以 [CLI 设计说明](cli-design.md) 为准
-- schema、状态机与机器可读 contract 以 [实现约束](cli-contract.md) 为准
+- CLI 命令语义、状态机与机器可读 contract 以 [CLI 统一设计文档](cli.md) 为准
 
 ## 1. 核心判断
 

@@ -137,5 +137,6 @@ README 只保留总览，更完整的说明在 `docs/`：
 - [文档索引](docs/README.md)
 - [术语表](docs/glossary.md)
 - [愿景与问题定义](docs/vision.md)
-- [CLI 设计说明](docs/cli-design.md)
-- [实现约束](docs/cli-contract.md)
+- [CLI 统一设计文档](docs/cli.md)
+
+强烈推荐阅读：[愿景与问题定义](docs/vision.md)。

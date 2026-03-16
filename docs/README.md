@@ -8,25 +8,21 @@
 | --- | --- | --- |
 | [术语表](glossary.md) | 这些核心名词分别是什么意思 | 产品论证、命令设计、实现细节 |
 | [愿景与问题定义](vision.md) | 为什么 agent 时代需要 Intent | 具体命令语法、JSON schema |
-| [CLI 设计说明](cli-design.md) | Intent CLI 应该如何组织和使用 | 底层字段和返回结构冻结 |
-| [实现约束](cli-contract.md) | 首版实现必须遵守什么 | 再次解释项目为什么存在 |
+| [CLI 统一设计文档](cli.md) | Intent CLI 的产品边界、命令语义与实现 contract | 更长期的平台问题 |
 
 ## 推荐阅读路径
 
 - 第一次了解项目：先看 [术语表](glossary.md)，再看 [愿景与问题定义](vision.md)
-- 想讨论命令和交互：继续看 [CLI 设计说明](cli-design.md)
-- 准备开始实现或做集成：直接看 [实现约束](cli-contract.md)，需要时回看设计说明
+- 想讨论命令、交互或准备实现：直接看 [CLI 统一设计文档](cli.md)
 
 ## 当前 Source Of Truth
 
 - 问题定义、长期方向：以 [愿景与问题定义](vision.md) 为准
-- 命令语义、对象曝光顺序、交互原则：以 [CLI 设计说明](cli-design.md) 为准
-- schema、状态机、JSON contract、错误模型：以 [实现约束](cli-contract.md) 为准
+- CLI 的命令语义、对象曝光顺序、状态机、JSON contract、错误模型：以 [CLI 统一设计文档](cli.md) 为准
 
 如果不同文档出现细节冲突，按这条规则理解：
 
-- 产品语义和用户路径，优先看设计说明
-- 实现字段和机器可读 contract，优先看实现约束
+- CLI 相关内容统一以 [CLI 统一设计文档](cli.md) 为准
 
 ## 当前最该关注的内容
 
