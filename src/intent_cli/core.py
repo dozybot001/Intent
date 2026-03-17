@@ -5,18 +5,16 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .constants import (
-    DIR_NAMES,
     EXIT_GENERAL_FAILURE,
     EXIT_INVALID_INPUT,
     EXIT_OBJECT_NOT_FOUND,
     EXIT_STATE_CONFLICT,
-    ID_PREFIXES,
     OBJECT_SELECTORS,
     SCHEMA_VERSION,
 )
 from .errors import IntentError
 from .git import build_git_context, ensure_git_worktree
-from .helpers import cli_action, object_brief, object_sort_key, read_json, utc_now, write_json
+from .helpers import cli_action, object_brief, object_sort_key, utc_now
 from .render import (
     render_config_text,
     render_log_text,
@@ -24,6 +22,7 @@ from .render import (
     render_object_show_text,
     render_status_text,
 )
+from .store import IntentStore
 
 
 @dataclass
@@ -42,104 +41,41 @@ class StatusSnapshot:
 class IntentRepository:
     def __init__(self, cwd: Path) -> None:
         self.cwd = cwd
-        self.intent_dir = cwd / ".intent"
-        self.config_path = self.intent_dir / "config.json"
-        self.state_path = self.intent_dir / "state.json"
+        self.store = IntentStore(cwd)
 
     def ensure_git(self) -> None:
         ensure_git_worktree(self.cwd)
 
     def is_initialized(self) -> bool:
-        return self.intent_dir.exists() and self.config_path.exists() and self.state_path.exists()
+        return self.store.is_initialized()
 
     def ensure_initialized(self) -> None:
-        if not self.is_initialized():
-            raise IntentError(
-                EXIT_GENERAL_FAILURE,
-                "NOT_INITIALIZED",
-                "Intent is not initialized in this repository",
-                suggested_fix="itt init",
-            )
-
-    def _object_dir(self, object_name: str) -> Path:
-        return self.intent_dir / DIR_NAMES[object_name]
+        self.store.ensure_initialized()
 
     def init_workspace(self) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         self.ensure_git()
-        if self.intent_dir.exists():
-            raise IntentError(
-                EXIT_GENERAL_FAILURE,
-                "ALREADY_EXISTS",
-                "Intent is already initialized in this repository",
-                suggested_fix="Use the existing .intent workspace",
-            )
-
-        self.intent_dir.mkdir()
-        for dir_name in DIR_NAMES.values():
-            (self.intent_dir / dir_name).mkdir()
-
-        config = {
-            "schema_version": SCHEMA_VERSION,
-            "git": {"strict_adoption": False},
-        }
-        state = {
-            "schema_version": SCHEMA_VERSION,
-            "mode": "human",
-            "active_intent_id": None,
-            "active_run_id": None,
-            "current_checkpoint_id": None,
-            "last_adoption_id": None,
-            "workspace_status": "idle",
-            "updated_at": utc_now(),
-        }
-        write_json(self.config_path, config)
-        write_json(self.state_path, state)
-        return config, state
+        return self.store.init_workspace()
 
     def load_config(self) -> Dict[str, Any]:
-        self.ensure_initialized()
-        return read_json(self.config_path)
+        return self.store.load_config()
 
     def load_state(self) -> Dict[str, Any]:
-        self.ensure_initialized()
-        return read_json(self.state_path)
+        return self.store.load_state()
 
     def save_state(self, state: Dict[str, Any]) -> None:
-        state["updated_at"] = utc_now()
-        write_json(self.state_path, state)
+        self.store.save_state(state)
 
     def next_id(self, object_name: str) -> str:
-        directory = self._object_dir(object_name)
-        prefix = ID_PREFIXES[object_name]
-        max_index = 0
-        for path in directory.glob(f"{prefix}-*.json"):
-            suffix = path.stem[len(prefix) + 1 :]
-            if suffix.isdigit():
-                max_index = max(max_index, int(suffix))
-        return f"{prefix}-{max_index + 1:03d}"
+        return self.store.next_id(object_name)
 
     def save_object(self, object_name: str, payload: Dict[str, Any]) -> None:
-        path = self._object_dir(object_name) / f"{payload['id']}.json"
-        write_json(path, payload)
+        self.store.save_object(object_name, payload)
 
     def load_object(self, object_name: str, object_id: Optional[str]) -> Optional[Dict[str, Any]]:
-        if not object_id:
-            return None
-        path = self._object_dir(object_name) / f"{object_id}.json"
-        if not path.exists():
-            return None
-        return read_json(path)
+        return self.store.load_object(object_name, object_id)
 
     def require_object(self, object_name: str, object_id: str) -> Dict[str, Any]:
-        payload = self.load_object(object_name, object_id)
-        if payload is None:
-            raise IntentError(
-                EXIT_OBJECT_NOT_FOUND,
-                "OBJECT_NOT_FOUND",
-                f"{object_name.capitalize()} '{object_id}' was not found.",
-                details={"id": object_id, "object": object_name},
-            )
-        return payload
+        return self.store.require_object(object_name, object_id)
 
     def resolve_object_reference(self, object_name: str, object_ref: str) -> Dict[str, Any]:
         if not object_ref.startswith("@"):
@@ -190,10 +126,7 @@ class IntentRepository:
         return payload
 
     def list_objects(self, object_name: str) -> List[Dict[str, Any]]:
-        directory = self._object_dir(object_name)
-        if not directory.exists():
-            return []
-        payloads = [read_json(path) for path in directory.glob("*.json")]
+        payloads = self.store.list_objects(object_name)
         return sorted(payloads, key=object_sort_key)
 
     def show_config(self) -> Dict[str, Any]:

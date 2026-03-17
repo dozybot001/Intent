@@ -137,6 +137,25 @@ itt status --json
 itt inspect --json
 ```
 
+## Default Agent Workflow
+
+Intent is meant to help agents maintain semantic history during work, not only inspect it afterward.
+
+This workflow is a functional direction, not the top-level claim by itself. The point of supporting it is to test whether semantic recording during work actually improves agent efficiency, continuity, and human confidence in what the agent is doing.
+
+In practice, an agent should usually:
+
+- derive a concise intent from a substantive user request when there is no suitable active intent yet
+- start a run for one meaningful execution pass
+- create a checkpoint when a candidate state is worth naming or comparing
+- record an adoption when one candidate is explicitly chosen
+- record a decision when the rationale should survive beyond the immediate edit
+- re-read `itt inspect --json` after state-changing steps instead of guessing
+
+This protocol should be applied with restraint. Tiny read-only questions or brief clarifications do not need full semantic records.
+
+The current product question is not "can an agent be asked to record more?" but "does this style of semantic recording make agent work meaningfully better?"
+
 ## What Intent Is Not
 
 - not a replacement for Git

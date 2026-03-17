@@ -1320,6 +1320,24 @@ Recommended agent call order:
 3. execute an explicit object command
 4. run `itt inspect --json` again to verify the state change
 
+Default semantic-recording protocol:
+
+1. if the user request represents a substantive new work slice and there is no suitable active intent, derive a concise intent title and create one
+2. start a run for one meaningful execution pass when implementation work begins
+3. create a checkpoint when a candidate state is worth naming, comparing, or revisiting
+4. record an adoption when a candidate is explicitly chosen
+5. record a decision when the rationale should outlive the immediate edit
+6. end the run when that execution pass is complete
+
+This protocol is a functional direction for agent integrations. Its purpose is to test whether Intent actually improves agent work quality and efficiency; it is not a claim that more recording is automatically better.
+
+Restraint rules:
+
+- do not create semantic objects for trivial read-only questions or one-line clarifications
+- if the existing active intent still matches the user request, continue it rather than starting a new one
+- if intent fit is ambiguous, surface the assumption before creating a fresh intent
+- `decision` should be reserved for durable tradeoffs, constraints, or principles, not every explanation
+
 Additional boundaries:
 
 - in V1, agent integrations should prefer the surface CLI with explicit flags, or the corresponding canonical action

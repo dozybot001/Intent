@@ -1320,6 +1320,24 @@ V1 不要求：
 3. 显式执行对象命令
 4. 再次 `itt inspect --json` 验证状态变化
 
+默认语义记录协议：
+
+1. 如果用户请求代表一段明确且有分量的新工作，而当前又没有合适的 active intent，就先提炼一句简洁的 intent 并创建它
+2. 当真正进入一轮有意义的实现执行时，开启一个 run
+3. 当某个候选状态值得命名、比较或回看时，创建 checkpoint
+4. 当明确选定某个候选结果时，记录 adoption
+5. 当某个理由需要超出当前修改长期保留时，记录 decision
+6. 当这一轮执行结束时，结束 run
+
+这套协议是面向 agent 集成的一条功能方向。它的目的，是验证 Intent 是否真的提升了 agent 工作的质量和效率，而不是默认认为“记录得越多越好”。
+
+克制规则：
+
+- 很小的只读问题或一句话澄清，不应强行创建语义对象
+- 如果现有 active intent 仍匹配用户请求，应优先继续它，而不是新开 intent
+- 如果 intent 是否匹配存在歧义，应先说明当前假设，再决定是否创建新的 intent
+- `decision` 应保留给长期 tradeoff、constraint 或 principle，而不是每一句解释都记录
+
 补充边界：
 
 - V1 agent 集成的写入口，优先走 Surface CLI + 显式 flag，或其对应 canonical action

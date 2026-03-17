@@ -171,14 +171,41 @@ These questions can already be explored through two demos:
 
 Those observations should guide whether the project keeps refining the local loop or expands into broader collaboration layers.
 
-## 9. Long-Term Structure
+## 9. Agent Protocol
+
+Intent is not only a store that agents read after the fact. In real use, agents should also help keep the semantic layer current.
+
+This protocol is not the end goal on its own. It is a concrete way to test the larger claim that Intent can improve agent-driven development by reducing guesswork, preserving continuity, and making the agent's semantic state easier for humans to inspect.
+
+The working expectation is:
+
+- derive a concise intent from a substantive user request when no suitable active intent already exists
+- start a run for one meaningful execution pass
+- create a checkpoint when a candidate state is worth naming or comparing
+- record an adoption when a candidate is explicitly chosen
+- record a decision when the rationale should survive beyond the immediate edit
+- end the run when that execution pass is complete
+
+This protocol should stay high signal:
+
+- trivial read-only questions should not create semantic objects
+- existing active intent should be reused when it still matches the work
+- decisions should be reserved for durable tradeoffs, constraints, or principles
+
+If this protocol becomes part of normal agent work, that matters only insofar as it produces visible gains:
+
+- agents spend less effort reconstructing context
+- humans can see what problem, candidate, adoption, and rationale are current
+- ongoing work is easier to resume, review, and steer
+
+## 10. Long-Term Structure
 
 The long-term structure of Intent can be thought of in three layers:
 
 | Layer | Role | Current Position |
 | --- | --- | --- |
 | Intent CLI | local semantic history operation layer | current focus |
-| Skill / agent workflow | teach agents when and how to use `itt` | next layer |
+| Skill / agent workflow | teach agents when and how to use `itt` and maintain semantic state during work | current dogfooding layer |
 | IntHub | remote organization, presentation, and collaboration | later |
 
 This describes sequencing, not hard technical dependency:
@@ -187,11 +214,11 @@ This describes sequencing, not hard technical dependency:
 
 That is why IntHub is still a later organizational and collaboration layer rather than the center of the current implementation.
 
-## 10. One-Sentence Definition
+## 11. One-Sentence Definition
 
 Intent is a Git-compatible semantic history layer for agent-driven software development.
 
-## 11. Summary
+## 12. Summary
 
 Intent is not focused on Git's version-control role. It is focused on the semantic history that usually sits outside Git:
 

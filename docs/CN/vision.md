@@ -169,14 +169,41 @@ Intent 的第一阶段不是平台，而是本地 CLI。
 
 这些观察会直接影响后续是继续打磨本地闭环，还是再扩展更远的协作层。
 
-## 9. 长期结构
+## 9. Agent 协议
+
+Intent 不只是让 agent 在事后读取语义状态。在真实使用里，agent 也应该帮助维护这层 semantic layer。
+
+但这套协议本身不是最终目标。它是一种具体手段，用来验证一个更大的命题：Intent 是否真的能减少 agent 的猜测、保留工作的连续性，并让人类更容易看懂 agent 当前处在什么语义状态。
+
+当前的工作预期是：
+
+- 当没有合适 active intent，且用户提出了一个明确且有分量的工作请求时，从 query 提炼一句简洁的 intent
+- 为当前这一轮有意义的执行过程开启一个 run
+- 当出现值得命名或比较的候选状态时，创建 checkpoint
+- 当明确选定某个候选结果时，记录 adoption
+- 当某个理由需要超出当前修改长期保留时，记录 decision
+- 在这一轮执行结束时结束 run
+
+这套协议需要保持高信号：
+
+- 很小的只读问题不应创建语义对象
+- 若现有 active intent 仍匹配当前工作，应优先继续沿用
+- decision 应保留给长期 tradeoff、constraint 或 principle
+
+如果这套协议最后成为 agent 的自然工作方式，它之所以有意义，只能是因为它带来了可见收益：
+
+- agent 需要自己补推上下文的次数更少
+- 人类能更清楚地看到当前的问题、候选、采纳与理由
+- 持续中的工作更容易被续做、review 和引导
+
+## 10. 长期结构
 
 Intent 的长期结构可以分成三层：
 
 | 层 | 角色 | 当前位置 |
 | --- | --- | --- |
 | Intent CLI | 本地 semantic history 操作层 | 当前重点 |
-| Skill / agent workflow | 教会 agent 何时、如何使用 `itt` | 下一层 |
+| Skill / agent workflow | 教会 agent 何时、如何使用 `itt`，以及在工作中维护语义状态 | 当前 dogfooding 层 |
 | IntHub | 远端组织、展示与协作层 | 更后续 |
 
 这里表达的是项目推进顺序，而不是技术依赖顺序：
@@ -185,11 +212,11 @@ Intent 的长期结构可以分成三层：
 
 因此，IntHub 目前仍属于更后续的组织与协作层，不是当前文档和实现的中心。
 
-## 10. 一句话定义
+## 11. 一句话定义
 
 Intent is a Git-compatible semantic history layer for agent-driven software development.
 
-## 11. 总结
+## 12. 总结
 
 Intent 关注的不是 Git 的版本控制能力，而是 Git 之外的语义历史：
 
