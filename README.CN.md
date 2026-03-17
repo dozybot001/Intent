@@ -234,9 +234,12 @@ README 只保留总览，更完整的说明在 `docs/`：
 - [愿景与问题定义](docs/CN/vision.md)
 - [CLI 统一设计文档](docs/CN/cli.md)
 - [分发与集成设计](docs/CN/distribution.md)
+- [首个 Agent 试用反馈实录](docs/CN/feedback.md)
 - [Demo](docs/CN/demo.md)
 - [发布基线](docs/CN/release.md)
 - [路线图](docs/CN/roadmap.md)
 - [文档国际化规范](docs/CN/i18n.md)
+
+如果你想先看目前最真实、也最重要的一份产品反馈，建议直接看 [首个 Agent 试用反馈实录](docs/CN/feedback.md)。
 
 更多背景见：[愿景与问题定义](docs/CN/vision.md)。

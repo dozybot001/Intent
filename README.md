@@ -234,9 +234,12 @@ The root README stays lightweight. More detailed material lives in `docs/`.
 - [Vision and problem definition](docs/EN/vision.md)
 - [Unified CLI spec](docs/EN/cli.md)
 - [Distribution and integration design](docs/EN/distribution.md)
+- [First agent feedback transcript](docs/EN/feedback.md)
 - [Demo](docs/EN/demo.md)
 - [Release baseline](docs/EN/release.md)
 - [Roadmap](docs/EN/roadmap.md)
 - [Documentation i18n guide](docs/EN/i18n.md)
+
+If you want the most grounded product feedback so far, start with the [first agent feedback transcript](docs/EN/feedback.md).
 
 For more background, start with [Vision and problem definition](docs/EN/vision.md).
