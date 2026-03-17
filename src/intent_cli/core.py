@@ -52,19 +52,19 @@ class IntentRepository:
             )
         return intent
 
-    def _candidate_checkpoints(self, intent_id: str) -> List[Dict[str, Any]]:
+    def _candidate_snaps(self, intent_id: str) -> List[Dict[str, Any]]:
         return sorted(
             [
-                cp for cp in self.store.list_objects("snap")
-                if cp.get("intent_id") == intent_id and cp.get("status") == "candidate"
+                s for s in self.store.list_objects("snap")
+                if s.get("intent_id") == intent_id and s.get("status") == "candidate"
             ],
             key=object_sort_key,
         )
 
     def _latest_adopted(self, intent_id: str) -> Optional[Dict[str, Any]]:
         adopted = [
-            cp for cp in self.store.list_objects("snap")
-            if cp.get("intent_id") == intent_id and cp.get("status") == "adopted"
+            s for s in self.store.list_objects("snap")
+            if s.get("intent_id") == intent_id and s.get("status") == "adopted"
         ]
         if not adopted:
             return None
@@ -74,7 +74,7 @@ class IntentRepository:
         intent = self._active_intent(state)
         if not intent:
             return "idle"
-        candidates = self._candidate_checkpoints(intent["id"])
+        candidates = self._candidate_snaps(intent["id"])
         if len(candidates) > 1:
             return "conflict"
         return "active"
@@ -141,9 +141,9 @@ class IntentRepository:
 
         return intent, []
 
-    # --- checkpoint lifecycle ---
+    # --- snap lifecycle ---
 
-    def create_checkpoint(
+    def create_snap(
         self,
         title: str,
         rationale: Optional[str] = None,
@@ -155,11 +155,11 @@ class IntentRepository:
         intent = self._require_active_intent(state)
 
         git_payload, warnings = build_git_context(self.cwd)
-        checkpoint_id = self.store.next_id("snap")
+        snap_id = self.store.next_id("snap")
         now = utc_now()
         status = "candidate" if candidate else "adopted"
-        checkpoint = {
-            "id": checkpoint_id,
+        snap = {
+            "id": snap_id,
             "object": "snap",
             "schema_version": SCHEMA_VERSION,
             "created_at": now,
@@ -170,15 +170,15 @@ class IntentRepository:
             "intent_id": intent["id"],
             "git": git_payload,
         }
-        self.store.save_object("snap", checkpoint)
+        self.store.save_object("snap", snap)
 
         state["workspace_status"] = self._derive_workspace_status(state)
         self._save_state(state)
-        return checkpoint, warnings
+        return snap, warnings
 
-    def adopt_checkpoint(
+    def adopt_snap(
         self,
-        checkpoint_id: Optional[str] = None,
+        snap_id: Optional[str] = None,
         rationale: Optional[str] = None,
     ) -> Tuple[Dict[str, Any], List[str]]:
         self.ensure_git()
@@ -186,30 +186,30 @@ class IntentRepository:
         state = self._load_state()
         intent = self._require_active_intent(state)
 
-        candidates = self._candidate_checkpoints(intent["id"])
+        candidates = self._candidate_snaps(intent["id"])
 
-        if checkpoint_id:
-            checkpoint = self.store.require_object("snap", checkpoint_id)
-            if checkpoint.get("intent_id") != intent["id"]:
+        if snap_id:
+            snap = self.store.require_object("snap", snap_id)
+            if snap.get("intent_id") != intent["id"]:
                 raise IntentError(
                     EXIT_STATE_CONFLICT,
                     "STATE_CONFLICT",
-                    "Checkpoint does not belong to the active intent.",
-                    details={"checkpoint_id": checkpoint_id, "intent_id": intent["id"]},
+                    "Snap does not belong to the active intent.",
+                    details={"snap_id": snap_id, "intent_id": intent["id"]},
                 )
-            if checkpoint.get("status") != "candidate":
+            if snap.get("status") != "candidate":
                 raise IntentError(
                     EXIT_STATE_CONFLICT,
                     "STATE_CONFLICT",
-                    f"Checkpoint '{checkpoint_id}' is not a candidate.",
+                    f"Snap '{snap_id}' is not a candidate.",
                 )
         elif len(candidates) == 1:
-            checkpoint = candidates[0]
+            snap = candidates[0]
         elif len(candidates) == 0:
             raise IntentError(
                 EXIT_STATE_CONFLICT,
                 "STATE_CONFLICT",
-                "No candidate checkpoints to adopt.",
+                "No candidate snaps to adopt.",
                 suggested_fix='itt snap "Describe the step" --candidate',
             )
         else:
@@ -223,17 +223,17 @@ class IntentRepository:
                 suggested_fix=f"itt adopt {candidates[-1]['id']}",
             )
 
-        checkpoint["status"] = "adopted"
+        snap["status"] = "adopted"
         if rationale:
-            checkpoint["rationale"] = rationale
-        checkpoint["updated_at"] = utc_now()
-        self.store.save_object("snap", checkpoint)
+            snap["rationale"] = rationale
+        snap["updated_at"] = utc_now()
+        self.store.save_object("snap", snap)
 
         state["workspace_status"] = self._derive_workspace_status(state)
         self._save_state(state)
-        return checkpoint, []
+        return snap, []
 
-    def revert_checkpoint(self, rationale: Optional[str] = None) -> Tuple[Dict[str, Any], List[str]]:
+    def revert_snap(self, rationale: Optional[str] = None) -> Tuple[Dict[str, Any], List[str]]:
         self.ensure_git()
         self.ensure_initialized()
         state = self._load_state()
@@ -244,7 +244,7 @@ class IntentRepository:
             raise IntentError(
                 EXIT_STATE_CONFLICT,
                 "STATE_CONFLICT",
-                "No adopted checkpoint to revert.",
+                "No adopted snap to revert.",
                 suggested_fix='itt snap "Describe the step"',
             )
 
@@ -273,7 +273,7 @@ class IntentRepository:
             latest_snap = self._latest_adopted(intent["id"])
             candidate_snaps = [
                 {"id": c["id"], "title": c["title"]}
-                for c in self._candidate_checkpoints(intent["id"])
+                for c in self._candidate_snaps(intent["id"])
             ]
 
         workspace_status = self._derive_workspace_status(state)

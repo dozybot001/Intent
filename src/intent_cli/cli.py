@@ -36,16 +36,16 @@ def build_parser() -> argparse.ArgumentParser:
     start_p = sub.add_parser("start", help="Create and activate an intent")
     start_p.add_argument("title")
 
-    snap_p = sub.add_parser("snap", help="Record a checkpoint (adopted by default)")
+    snap_p = sub.add_parser("snap", help="Record a snap (adopted by default)")
     snap_p.add_argument("title")
-    snap_p.add_argument("-m", "--message", help="Rationale for this checkpoint")
+    snap_p.add_argument("-m", "--message", help="Rationale for this snap")
     snap_p.add_argument("--candidate", action="store_true", help="Record as candidate without adopting")
 
-    adopt_p = sub.add_parser("adopt", help="Adopt a candidate checkpoint")
-    adopt_p.add_argument("checkpoint_id", nargs="?")
+    adopt_p = sub.add_parser("adopt", help="Adopt a candidate snap")
+    adopt_p.add_argument("snap_id", nargs="?")
     adopt_p.add_argument("-m", "--message", help="Rationale for adoption")
 
-    revert_p = sub.add_parser("revert", help="Revert the latest adopted checkpoint")
+    revert_p = sub.add_parser("revert", help="Revert the latest adopted snap")
     revert_p.add_argument("-m", "--message", help="Rationale for revert")
 
     done_p = sub.add_parser("done", help="Close the active intent")
@@ -84,25 +84,25 @@ def main(argv: Optional[list[str]] = None) -> int:
             return EXIT_SUCCESS
 
         if args.command == "snap":
-            checkpoint, warnings = repo.create_checkpoint(
+            snap, warnings = repo.create_snap(
                 args.title,
                 rationale=args.message,
                 candidate=args.candidate,
             )
-            emit(ok("snap", checkpoint, warnings=warnings))
+            emit(ok("snap", snap, warnings=warnings))
             return EXIT_SUCCESS
 
         if args.command == "adopt":
-            checkpoint, warnings = repo.adopt_checkpoint(
-                checkpoint_id=args.checkpoint_id,
+            snap, warnings = repo.adopt_snap(
+                snap_id=args.snap_id,
                 rationale=args.message,
             )
-            emit(ok("adopt", checkpoint, warnings=warnings))
+            emit(ok("adopt", snap, warnings=warnings))
             return EXIT_SUCCESS
 
         if args.command == "revert":
-            checkpoint, warnings = repo.revert_checkpoint(rationale=args.message)
-            emit(ok("revert", checkpoint, warnings=warnings))
+            snap, warnings = repo.revert_snap(rationale=args.message)
+            emit(ok("revert", snap, warnings=warnings))
             return EXIT_SUCCESS
 
         if args.command == "done":

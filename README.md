@@ -33,7 +33,7 @@ Two objects: **intent** (the goal) and **snap** (a step taken, with rationale). 
 
 **Without `.intent/`** — new agent session opens. It reads `git log` and source code. Understands what the code does *now*, but doesn't know the JWT migration was for compliance (might revert it), doesn't know the refresh token is intentionally incomplete, can't tell there's unfinished work. Asks: *"What would you like me to do?"*
 
-**With `.intent/`** — new agent session opens. Runs `itt inspect`. Sees an active intent ("Migrate auth to JWT"), last checkpoint ("Add refresh token — incomplete"), and rationale ("token rotation not done, security priority"). Says: *"I'll implement the token rotation next."*
+**With `.intent/`** — new agent session opens. Runs `itt inspect`. Sees an active intent ("Migrate auth to JWT"), last snap ("Add refresh token — incomplete"), and rationale ("token rotation not done, security priority"). Says: *"I'll implement the token rotation next."*
 
 The difference: 10 seconds of reading structured metadata vs. minutes of re-explaining context.
 
@@ -44,7 +44,7 @@ start → snap → done
 ```
 
 - `start` — open an intent (what problem you're solving)
-- `snap` — record a checkpoint (what you did and why)
+- `snap` — record a snap (what you did and why)
 - `done` — close when complete
 
 ## Example
@@ -78,7 +78,7 @@ python3 -m venv .venv && . .venv/bin/activate && pip install -e .
 | --- | --- |
 | `itt init` | Initialize `.intent/` in a Git repo |
 | `itt start <title>` | Open an intent |
-| `itt snap <title> [-m why]` | Record a checkpoint |
+| `itt snap <title> [-m why]` | Record a snap |
 | `itt done` | Close the active intent |
 | `itt inspect` | Machine-readable workspace snapshot |
 | `itt list <intent\|snap>` | List objects |
