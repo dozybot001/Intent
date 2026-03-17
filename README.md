@@ -52,12 +52,6 @@ itt done
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/setup/install.sh | bash
-```
-
-For contributors:
-
-```bash
 git clone https://github.com/dozybot001/Intent.git && cd Intent
 python3 -m venv .venv && . .venv/bin/activate && pip install -e .
 ```
