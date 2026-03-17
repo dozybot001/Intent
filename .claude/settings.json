@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ./itt inspect 2>/dev/null || true",
+            "timeout": 5,
+            "statusMessage": "Checking intent workspace..."
+          }
+        ]
+      }
+    ]
+  }
+}

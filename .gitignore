@@ -4,6 +4,9 @@ backup/
 # Local Intent workspace metadata
 .intent/
 
+# Claude Code local settings (personal overrides)
+.claude/settings.local.json
+
 # Editor settings
 .vscode/
 .idea/
