@@ -242,9 +242,10 @@ class IntentRepository:
         latest = self._latest_adopted(intent["id"])
         if not latest:
             raise IntentError(
-                EXIT_OBJECT_NOT_FOUND,
-                "OBJECT_NOT_FOUND",
+                EXIT_STATE_CONFLICT,
+                "STATE_CONFLICT",
                 "No adopted checkpoint to revert.",
+                suggested_fix='itt snap "Describe the step"',
             )
 
         latest["status"] = "reverted"
@@ -283,7 +284,7 @@ class IntentRepository:
         def brief(obj: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
             if not obj:
                 return None
-            return {k: obj[k] for k in ("id", "title", "status") if k in obj}
+            return {k: obj[k] for k in ("id", "title", "status", "rationale") if k in obj}
 
         action = self._next_action(intent, candidate_checkpoints)
 

@@ -173,7 +173,8 @@ class IntentCliTests(unittest.TestCase):
 
         d, rc = self.itt_rc("revert")
         self.assertFalse(d["ok"])
-        self.assertEqual(rc, 4)
+        self.assertEqual(d["error"]["code"], "STATE_CONFLICT")
+        self.assertEqual(rc, 3)
 
     # --- intent lifecycle edge cases ---
 

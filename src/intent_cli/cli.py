@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from . import __version__
-from .constants import EXIT_SUCCESS
+from .constants import EXIT_GENERAL_FAILURE, EXIT_SUCCESS
 from .core import IntentRepository
 from .errors import IntentError
 
@@ -130,6 +130,16 @@ def main(argv: Optional[list[str]] = None) -> int:
     except IntentError as error:
         emit(error.to_json())
         return error.exit_code
+    except Exception as error:
+        emit({
+            "ok": False,
+            "error": {
+                "code": "INTERNAL_ERROR",
+                "message": str(error),
+                "details": {},
+            },
+        })
+        return EXIT_GENERAL_FAILURE
 
 
 if __name__ == "__main__":
