@@ -1,30 +1,26 @@
 # Intent CLI – Development Guidelines
 
-## Project context
+## Project
 
-- **Language:** Python 3.9+, stdlib only, no external dependencies.
-- **Entry point:** `src/intent_cli/cli.py` → `python3 ./itt` during development.
-- **Tests:** `python3 -m unittest discover -s tests -v`
-- **Build:** `python3 -m build`
-- **CI:** GitHub Actions, matrix tests on Python 3.9/3.11/3.12.
+- Python 3.9+, stdlib only, no external dependencies.
+- Dev entry point: `python3 ./itt`
+- Tests: `python3 -m unittest discover -s tests -v`
 
-## Intent protocol
+## Intent workflow
 
-This repository uses Intent CLI for semantic history recording.
+This repo uses Intent to record semantic history. Follow this workflow:
 
-### Core loop
+1. **Session start** → run `python3 ./itt inspect` to see current state
+   - If workspace is `active`, continue the existing intent
+   - If workspace is `idle`, decide whether this session needs an intent
+2. **Begin substantive work** → `python3 ./itt start "What problem am I solving"`
+   - Skip for trivial questions or tiny edits
+3. **Before each git commit** → `python3 ./itt snap "What I did" -m "Why"`
+   - This is the key trigger point — snap before commit, not after
+4. **Work complete** → `python3 ./itt done`
 
-```bash
-itt inspect                           # read state before work
-itt start "Describe the problem"      # open an intent
-itt snap "What I did" -m "Why"        # record a checkpoint (adopted by default)
-itt done                              # close the intent
-```
+## Rules
 
-### Guardrails
-
-- Do not invent object IDs.
-- Use `itt snap --candidate` only when comparing alternatives.
-- Do not create noisy checkpoints for trivial edits.
-- If you skip Intent during substantive work, explain why.
 - All output is JSON. No `--json` flag needed.
+- Do not invent object IDs.
+- Use `--candidate` only when genuinely comparing alternatives.
