@@ -51,7 +51,7 @@ start → snap → done
 
 ```bash
 pip install git-intent
-itt setup                # init + generate CLAUDE.md, .cursor/rules, AGENTS.md
+itt init
 itt start "Fix login timeout"
 itt snap "Increase timeout to 30s" -m "5s too short for slow networks"
 git add . && git commit -m "fix timeout"
@@ -78,18 +78,11 @@ Or with pip:
 pip install git-intent          # if `itt` is not found, use: python3 -m intent_cli
 ```
 
-## A note on agent inertia
-
-Intent is a new project. Current AI models have never seen `itt` in their training data, so they won't use it proactively — even with instructions in CLAUDE.md or AGENTS.md. You may need to nudge your agent: "run `itt inspect`", "snap before committing", etc.
-
-This gets better over time as the model follows the instructions more consistently within a session. The semantic history it produces is worth the occasional reminder — the next session starts with structured context instead of from zero.
-
 ## Commands
 
 | Command | Purpose |
 | --- | --- |
-| `itt setup` | Init + generate agent config files |
-| `itt init` | Initialize `.intent/` only |
+| `itt init` | Initialize `.intent/` |
 | `itt start <title>` | Open an intent |
 | `itt snap <title> [-m why]` | Record a snap |
 | `itt done` | Close the active intent |
@@ -104,5 +97,4 @@ This gets better over time as the model follows the instructions more consistent
 ## Documentation
 
 - [CLI spec](https://github.com/dozybot001/Intent/blob/main/docs/cli.EN.md) — objects, commands, JSON output contract
-- [Agent integration](https://github.com/dozybot001/Intent/blob/main/docs/agent-integration.md) — copy-paste snippets for Claude Code, Cursor, AGENTS.md
 - [Dogfooding](https://github.com/dozybot001/Intent/blob/main/docs/dogfooding.md) — how we built Intent with Intent

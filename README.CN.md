@@ -51,7 +51,7 @@ start → snap → done
 
 ```bash
 pip install git-intent
-itt setup                # 初始化 + 生成 CLAUDE.md、.cursor/rules、AGENTS.md
+itt init
 itt start "修复登录超时"
 itt snap "将超时增加到 30s" -m "5s 对慢网络太短"
 git add . && git commit -m "fix timeout"
@@ -78,18 +78,11 @@ pipx install git-intent        # 推荐 — 自动处理 PATH
 pip install git-intent          # 若 `itt` 找不到，可用：python3 -m intent_cli
 ```
 
-## 关于 agent 惯性
-
-Intent 是一个新项目。当前 AI 模型的训练数据中从未见过 `itt`，所以即使在 CLAUDE.md 或 AGENTS.md 中写了指令，agent 也不会主动使用它。你可能需要偶尔提醒："跑一下 `itt inspect`"、"commit 之前 snap 一下"等等。
-
-随着 session 内的交互，模型会越来越一致地遵循指令。它产出的语义历史值得这些偶尔的提醒——下一个 session 从结构化上下文开始，而不是从零开始。
-
 ## 命令
 
 | 命令 | 用途 |
 | --- | --- |
-| `itt setup` | 初始化 + 生成 agent 配置文件 |
-| `itt init` | 仅初始化 `.intent/` |
+| `itt init` | 初始化 `.intent/` |
 | `itt start <title>` | 打开一个 intent |
 | `itt snap <title> [-m why]` | 记录一个 snap |
 | `itt done` | 关闭当前 intent |
@@ -104,5 +97,4 @@ Intent 是一个新项目。当前 AI 模型的训练数据中从未见过 `itt`
 ## 文档
 
 - [CLI 设计](https://github.com/dozybot001/Intent/blob/main/docs/cli.CN.md) — 对象、命令、JSON 输出契约
-- [Agent 集成](https://github.com/dozybot001/Intent/blob/main/docs/agent-integration.md) — Claude Code、Cursor、AGENTS.md 接入片段
 - [吃自己的狗粮](https://github.com/dozybot001/Intent/blob/main/docs/dogfooding.CN.md) — 用 Intent 开发 Intent 的真实记录
