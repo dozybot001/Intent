@@ -68,8 +68,14 @@ itt done
 ## Install
 
 ```bash
+pip install intent-cli
+```
+
+Or from source:
+
+```bash
 git clone https://github.com/dozybot001/Intent.git && cd Intent
-python3 -m venv .venv && . .venv/bin/activate && pip install -e .
+pip install -e .
 ```
 
 ## Commands
@@ -89,3 +95,4 @@ python3 -m venv .venv && . .venv/bin/activate && pip install -e .
 ## Documentation
 
 - [CLI spec](docs/cli.EN.md) — objects, commands, JSON output contract
+- [Agent integration](docs/agent-integration.md) — copy-paste snippets for Claude Code, Cursor, AGENTS.md

@@ -68,8 +68,14 @@ itt done
 ## 安装
 
 ```bash
+pip install intent-cli
+```
+
+或从源码安装：
+
+```bash
 git clone https://github.com/dozybot001/Intent.git && cd Intent
-python3 -m venv .venv && . .venv/bin/activate && pip install -e .
+pip install -e .
 ```
 
 ## 命令
@@ -89,3 +95,4 @@ python3 -m venv .venv && . .venv/bin/activate && pip install -e .
 ## 文档
 
 - [CLI 设计](docs/cli.CN.md) — 对象、命令、JSON 输出契约
+- [Agent 集成](docs/agent-integration.md) — Claude Code、Cursor、AGENTS.md 接入片段
