@@ -125,9 +125,12 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "${SCRIPT_DIR}/../pyproject.toml" && -f "${SCRIPT_DIR}/../itt" ]]; then
-  LOCAL_REPO="$(cd "${SCRIPT_DIR}/.." && pwd)"
+SCRIPT_SOURCE="${BASH_SOURCE[0]-}"
+if [[ -n "${SCRIPT_SOURCE}" ]]; then
+  SCRIPT_DIR="$(cd "$(dirname "${SCRIPT_SOURCE}")" && pwd)"
+  if [[ -f "${SCRIPT_DIR}/../pyproject.toml" && -f "${SCRIPT_DIR}/../itt" ]]; then
+    LOCAL_REPO="$(cd "${SCRIPT_DIR}/.." && pwd)"
+  fi
 fi
 
 detect_rc_file

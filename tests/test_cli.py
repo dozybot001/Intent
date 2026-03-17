@@ -820,6 +820,40 @@ class IntentCliTests(unittest.TestCase):
             launcher_payload = json.loads(launcher_result.stdout)
             self.assertEqual(launcher_payload["result"]["repo_root"], str(repo_dir))
 
+    def test_install_script_supports_stdin_bootstrap_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "home"
+            home.mkdir()
+            codex_home = home / ".codex"
+            codex_home.mkdir(parents=True)
+
+            env = os.environ.copy()
+            env.update(
+                {
+                    "HOME": str(home),
+                    "SHELL": "/bin/zsh",
+                    "CODEX_HOME": str(codex_home),
+                    "INTENT_REPO_URL": ROOT.as_uri(),
+                    "INTENT_REPO_REF": "main",
+                }
+            )
+
+            result = subprocess.run(
+                ["bash"],
+                cwd=str(ROOT),
+                input=INSTALL.read_text(),
+                check=False,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertNotIn("unbound variable", result.stderr)
+
+            launcher = home / ".intent" / "bin" / "itt"
+            self.assertTrue(launcher.exists())
+            self.assertTrue((codex_home / "skills" / "intent-cli" / "SKILL.md").exists())
+
     def test_show_selectors_resolve_active_current_and_latest_objects(self) -> None:
         repo = self.make_repo(initialize_intent=True)
 
