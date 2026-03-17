@@ -217,24 +217,6 @@ itt show intent-001
 itt show cp-003
 ```
 
-### setup
-
-安装 agent 集成。
-
-```
-itt setup claude
-itt setup           # 自动检测
-```
-
-### doctor
-
-验证 agent 配置状态。
-
-```
-itt doctor
-itt doctor --agent claude
-```
-
 ## 5. JSON 输出 contract
 
 ### 成功

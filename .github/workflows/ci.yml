@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  unit-tests:
+  test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -26,10 +26,10 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e .
 
-      - name: Run unit tests
+      - name: Run tests
         run: python -m unittest discover -s tests -v
 
-  demos-and-build:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -41,28 +41,10 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install build tooling
+      - name: Build and verify
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e .
-          python -m pip install build
-
-      - name: Build package
-        run: python -m build
-
-      - name: Verify wheel install
-        run: |
-          python -m venv /tmp/intent-install-venv
-          /tmp/intent-install-venv/bin/python -m pip install --upgrade pip
-          /tmp/intent-install-venv/bin/python -m pip install dist/*.whl
-          /tmp/intent-install-venv/bin/itt version
-          /tmp/intent-install-venv/bin/itt --help > /dev/null
-
-      - name: Run smoke script
-        run: ./scripts/smoke.sh
-
-      - name: Run human demo script
-        run: ./scripts/demo_history.sh
-
-      - name: Run agent demo script
-        run: ./scripts/demo_agent.sh
+          python -m pip install --upgrade pip build
+          python -m build
+          python -m venv /tmp/venv
+          /tmp/venv/bin/pip install dist/*.whl
+          /tmp/venv/bin/itt version

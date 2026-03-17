@@ -10,7 +10,6 @@ from typing import Dict, Optional
 
 ROOT = Path(__file__).resolve().parents[1]
 CLI = ROOT / "itt"
-INSTALL = ROOT / "setup" / "install.sh"
 
 
 def run_cli(cwd: Path, *args: str, env: Optional[Dict[str, str]] = None) -> subprocess.CompletedProcess[str]:
@@ -267,27 +266,6 @@ class IntentCliTests(unittest.TestCase):
             d, rc = self.itt_rc(*args)
             self.assertFalse(d["ok"], f"Expected failure for {args}")
             self.assertEqual(d["error"]["code"], "NOT_INITIALIZED")
-
-    # --- distribution ---
-
-    def test_setup_and_doctor_work(self):
-        # These don't require init
-        d = self.itt("setup")
-        self.assertIn("ok", d)
-
-        d = self.itt("doctor")
-        self.assertIn("ok", d)
-
-    # --- install script ---
-
-    def test_install_script_supports_dry_run(self):
-        if not INSTALL.exists():
-            self.skipTest("install.sh not found")
-        result = subprocess.run(
-            ["bash", str(INSTALL), "--dry-run"],
-            capture_output=True, text=True,
-        )
-        self.assertEqual(result.returncode, 0)
 
     # --- module entrypoint ---
 

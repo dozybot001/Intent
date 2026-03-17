@@ -8,12 +8,6 @@ from typing import Any, Dict, Optional
 from . import __version__
 from .constants import EXIT_SUCCESS
 from .core import IntentRepository
-from .distribution import (
-    doctor_exit_code,
-    doctor_report,
-    normalize_agent_name,
-    setup_integration,
-)
 from .errors import IntentError
 
 
@@ -65,22 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
     show_p = sub.add_parser("show", help="Show a single object by ID")
     show_p.add_argument("id")
 
-    setup_p = sub.add_parser("setup", help="Install agent integration")
-    setup_p.add_argument("agent_target", nargs="?")
-    setup_p.add_argument("--agent", dest="agent_flag")
-
-    doctor_p = sub.add_parser("doctor", help="Verify agent setup health")
-    doctor_p.add_argument("--agent")
-
     return parser
-
-
-def resolve_setup_agent(args: argparse.Namespace) -> str:
-    target = getattr(args, "agent_target", None)
-    flag = getattr(args, "agent_flag", None)
-    if target and flag and target.lower() != flag.lower():
-        raise IntentError(2, "INVALID_INPUT", "Conflicting setup targets.")
-    return normalize_agent_name(flag or target or "auto")
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -144,17 +123,6 @@ def main(argv: Optional[list[str]] = None) -> int:
             obj = repo.show_object(args.id)
             emit(ok("show", obj))
             return EXIT_SUCCESS
-
-        if args.command == "setup":
-            agent = resolve_setup_agent(args)
-            result, warnings, state_changed, noop, reason = setup_integration(agent)
-            emit(ok("setup", result, warnings=warnings, state_changed=state_changed, noop=noop))
-            return EXIT_SUCCESS
-
-        if args.command == "doctor":
-            payload = doctor_report(args.agent)
-            emit(ok("doctor", payload, warnings=payload["warnings"]))
-            return doctor_exit_code(payload)
 
         parser.error("unknown command")
         return 2

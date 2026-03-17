@@ -255,24 +255,6 @@ itt show intent-001
 itt show cp-003
 ```
 
-### setup
-
-Install agent integration (e.g., CLAUDE.md skill file for Claude Code).
-
-```
-itt setup claude
-itt setup           # auto-detect
-```
-
-### doctor
-
-Verify agent setup health.
-
-```
-itt doctor
-itt doctor --agent claude
-```
-
 ## 5. JSON Output Contract
 
 ### Success envelope

@@ -75,8 +75,6 @@ python3 -m venv .venv && . .venv/bin/activate && pip install -e .
 | `itt show <id>` | 查看单个对象 |
 | `itt adopt [id]` | 采纳一个候选 checkpoint |
 | `itt revert` | 回退最近的 checkpoint |
-| `itt setup [agent]` | 安装 agent 集成 |
-| `itt doctor` | 验证配置状态 |
 
 ## 文档
 

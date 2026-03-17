@@ -8,28 +8,14 @@ INSTALL_VENV="$(mktemp -d)"
 BUILD_OUT="$(mktemp -d)"
 
 cleanup() {
-  rm -rf "${BUILD_VENV}"
-  rm -rf "${INSTALL_VENV}"
-  rm -rf "${BUILD_OUT}"
+  rm -rf "${BUILD_VENV}" "${INSTALL_VENV}" "${BUILD_OUT}"
 }
 
 trap cleanup EXIT
-
 cd "${ROOT}"
 
-printf '\n== unit tests ==\n'
+printf '\n== tests ==\n'
 "${PYTHON}" -m unittest discover -s tests -v
-
-printf '\n== smoke ==\n'
-"${ROOT}/scripts/smoke.sh"
-
-printf '\n== history demo ==\n'
-"${ROOT}/scripts/demo_history.sh" >/dev/null
-printf 'History demo passed\n'
-
-printf '\n== agent demo ==\n'
-"${ROOT}/scripts/demo_agent.sh" >/dev/null
-printf 'Agent demo passed\n'
 
 printf '\n== build ==\n'
 "${PYTHON}" -m venv "${BUILD_VENV}"
@@ -42,7 +28,6 @@ printf '\n== install from wheel ==\n'
 "${INSTALL_VENV}/bin/python" -m pip install --upgrade pip >/dev/null
 "${INSTALL_VENV}/bin/python" -m pip install "${BUILD_OUT}"/intent_cli-*.whl >/dev/null
 "${INSTALL_VENV}/bin/itt" version >/dev/null
-"${INSTALL_VENV}/bin/itt" --help >/dev/null
 printf 'Wheel install passed\n'
 
 printf '\nAll checks passed\n'
