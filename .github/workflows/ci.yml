@@ -62,7 +62,7 @@ jobs:
         run: ./scripts/smoke.sh
 
       - name: Run human demo script
-        run: ./scripts/demo_log.sh
+        run: ./scripts/demo_history.sh
 
       - name: Run agent demo script
         run: ./scripts/demo_agent.sh
