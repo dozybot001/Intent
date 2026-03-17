@@ -1,4 +1,4 @@
-# AGENTS.md instructions for /Users/dozy/Intent
+# AGENTS.md instructions for this repository
 
 ## Skills
 
@@ -6,7 +6,7 @@ A skill is a set of local instructions stored in a `SKILL.md` file. Use the proj
 
 ### Available skills
 
-- intent-cli: Use when you need to understand, operate, or teach the Intent CLI workflow in a Git repository. This skill is the preferred guide for reading workspace state, following the core `init -> start -> snap -> adopt -> log` loop, using `run` and `decision`, and dogfooding Intent CLI inside the Intent project. (file: /Users/dozy/.codex/skills/intent-cli/SKILL.md)
+- intent-cli: Use when you need to understand, operate, or teach the Intent CLI workflow in a Git repository. This skill is the preferred guide for reading workspace state, following the core `init -> start -> snap -> adopt -> log` loop, using `run` and `decision`, and dogfooding Intent CLI inside the Intent project. (file: `$CODEX_HOME/skills/intent-cli/SKILL.md`, when installed)
 
 ### How to use skills
 
