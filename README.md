@@ -2,23 +2,24 @@ English | [简体中文](README.CN.md)
 
 # Intent
 
-> Git records code changes. Intent records what you did and why.
+> Git records code changes. Intent records why.
 
-Intent is a semantic history layer built on top of Git for agent-driven development. It tracks:
+## The Problem
 
-- what problem is being worked on
-- what steps were taken
-- what was the rationale behind key choices
+In agent-driven development, code is produced fast, but the reasoning behind it disappears between sessions. Git tells you *how* code changed — not what problem was being solved, what was tried, or why a particular path was chosen.
 
-Intent does not replace Git. It adds the layer Git was never designed to carry.
+In the human era, this context lived in memory and conversation. In the agent era, every new session starts from zero. There is no persistent "why."
 
-## Understand It in 30 Seconds
+## The Solution
 
-In agent-driven development, code is produced quickly, but the reasoning behind it is often scattered across conversations, issues, and drafts.
+Intent adds a `.intent/` directory to your repository — structured metadata that captures semantic history alongside code history.
 
-Git answers "how did the code change?" but not "what was the intent, and why was this path chosen?"
+```
+.git/    ← how code changed
+.intent/ ← what you did and why
+```
 
-Intent fills that gap by promoting higher-level semantics into first-class objects that agents can read and act on.
+Any agent platform can read `.intent/`. It is a protocol, not just a tool.
 
 ## Core Loop
 
@@ -26,130 +27,58 @@ Intent fills that gap by promoting higher-level semantics into first-class objec
 start → snap → done
 ```
 
-- `start`: begin work on a problem
-- `snap`: record a step with optional rationale
-- `done`: close the intent when work is complete
+- `start` — begin work on a problem
+- `snap` — record a step with rationale
+- `done` — close when work is complete
 
-## Object Model
+Two objects: **intent** (the goal) and **checkpoint** (a step taken). All output is JSON.
 
-Intent has two object types:
-
-| Object | States | Purpose |
-| --- | --- | --- |
-| Intent | `open` → `done` | the problem or goal being worked on |
-| Checkpoint | `adopted`, `candidate`, `reverted` | a recorded step — the unit of semantic history |
-
-By default, `snap` creates an adopted checkpoint. Use `--candidate` when genuinely comparing alternatives.
-
-## Minimal Example
+## Example
 
 ```bash
 itt init
-itt start "Reduce onboarding confusion"
-itt snap "Simplify landing page" -m "Progressive disclosure approach"
-git add . && git commit -m "refine onboarding layout"
+itt start "Fix login timeout"
+itt snap "Increase timeout to 30s" -m "5s too short for slow networks"
+git add . && git commit -m "fix timeout"
 itt done
 ```
 
-All commands output JSON. Intent is designed for agent consumption.
+## Where This Is Going
 
-## Why Not Just Use Issues, ADRs, or Commit Messages
-
-| Approach | Good At | Limitation |
-| --- | --- | --- |
-| commit messages | explaining individual code changes | does not answer "what is the current goal?" or "what steps led here?" |
-| issues / PRs | holding discussion and context | context fragments; no stable object boundary for agents |
-| ADRs / docs | preserving long-term decisions | too heavy for high-frequency step recording |
-| Intent | tracking semantic steps and rationale | currently focused on the local CLI loop |
+1. **Agent memory layer** — agents read `.intent/` on startup, instantly know what happened last session
+2. **Semantic exchange protocol** — `.intent/` becomes the standard way to hand off context between agent platforms
+3. **Network effects** — when enough repos contain `.intent/`, new tooling emerges: intent-aware code review, decision archaeology, semantic dashboards
 
 ## Install
-
-For contributors:
-
-```bash
-git clone https://github.com/dozybot001/Intent.git
-cd Intent
-python3 -m venv .venv && . .venv/bin/activate
-pip install -e .
-```
-
-For end users:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/setup/install.sh | bash
 ```
 
-The bootstrap keeps a local checkout at `~/.intent/repo`, exposes `itt` at `~/.intent/bin/itt`, and runs `itt setup` for the detected agent.
+For contributors:
+
+```bash
+git clone https://github.com/dozybot001/Intent.git && cd Intent
+python3 -m venv .venv && . .venv/bin/activate && pip install -e .
+```
 
 ## Commands
 
 | Command | Purpose |
 | --- | --- |
-| `itt init` | Initialize Intent in a Git repository |
-| `itt start <title>` | Create and activate an intent |
-| `itt snap <title> [-m rationale]` | Record a checkpoint (adopted by default) |
-| `itt snap <title> --candidate` | Record as candidate for comparison |
-| `itt adopt [checkpoint_id]` | Adopt a candidate checkpoint |
-| `itt revert` | Revert the latest adopted checkpoint |
-| `itt done [intent_id]` | Close the active intent |
-| `itt inspect` | Machine-readable workspace snapshot (JSON) |
+| `itt init` | Initialize `.intent/` in a Git repo |
+| `itt start <title>` | Open an intent |
+| `itt snap <title> [-m why]` | Record a checkpoint |
+| `itt done` | Close the active intent |
+| `itt inspect` | Machine-readable workspace snapshot |
 | `itt list <intent\|checkpoint>` | List objects |
-| `itt show <id>` | Show a single object by ID |
+| `itt show <id>` | Show a single object |
+| `itt adopt [id]` | Adopt a candidate checkpoint |
+| `itt revert` | Revert the latest checkpoint |
 | `itt setup [agent]` | Install agent integration |
-| `itt doctor` | Verify agent setup health |
-
-## Agent Protocol
-
-Intent is designed primarily for agents. An agent should:
-
-- run `itt inspect` before substantive work to understand current state
-- start an intent when beginning meaningful work
-- use `itt snap` to record steps with rationale
-- run `itt done` when work is complete
-- skip recording for trivial questions or tiny edits
-
-## Validation
-
-```bash
-./scripts/check.sh
-```
-
-Or run steps separately:
-
-```bash
-python3 -m unittest discover -s tests -v
-./scripts/smoke.sh
-./scripts/demo_agent.sh
-```
-
-## What Intent Is Not
-
-- not a replacement for Git
-- not a replacement for issues, PRs, or documentation systems
-- not a "record everything" archive
-
-Intent only tracks semantic steps worth recording, along with their rationale.
-
-## Repository Layout
-
-```text
-Intent/
-|-- README.md
-|-- README.CN.md
-|-- skills/
-|   `-- intent-cli/
-|-- setup/
-|-- src/
-|   `-- intent_cli/
-|-- docs/
-|-- scripts/
-|-- tests/
-`-- .intent/
-```
+| `itt doctor` | Verify setup health |
 
 ## Documentation
 
 - [Changelog](CHANGELOG.md)
-- [Vision](docs/EN/vision.md) — why Intent exists
-- [CLI spec](docs/EN/cli.md) — commands, objects, JSON output
-- [Strategy](docs/EN/strategy.md) — path to paradigm adoption
+- [CLI spec](docs/EN/cli.md) — objects, commands, JSON output contract
