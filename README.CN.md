@@ -78,5 +78,4 @@ python3 -m venv .venv && . .venv/bin/activate && pip install -e .
 
 ## 文档
 
-- [变更记录](CHANGELOG.CN.md)
 - [CLI 设计](docs/CN/cli.md) — 对象、命令、JSON 输出契约
