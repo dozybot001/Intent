@@ -6,20 +6,36 @@ English | [简体中文](README.CN.md)
 
 ## The Problem
 
-In agent-driven development, code is produced fast, but the reasoning behind it disappears between sessions. Git tells you *how* code changed — not what problem was being solved, what was tried, or why a particular path was chosen.
+Agent-driven development produces code fast, but reasoning disappears between sessions. Every new session starts from zero — the agent doesn't know what problem was being solved, what was tried, or why a path was chosen.
 
-In the human era, this context lived in memory and conversation. In the agent era, every new session starts from zero. There is no persistent "why."
+## What's Missing
+
+Git records *what* changed. Commit messages and comments add some context. But three things consistently fall through:
+
+**Goal continuity.** Commits are isolated snapshots. There's no structure connecting five commits to one task, or saying "this is what we're trying to accomplish."
+
+**Decision rationale.** Why JWT over cookies? Why 15-minute expiry? This rarely makes it into commit messages — and when it does, it's unstructured text that agents must parse and guess from.
+
+**Work state.** `git status` can be clean while a task is half-done. The next session has no signal that work was interrupted or what comes next.
 
 ## The Solution
 
-Intent adds a `.intent/` directory to your repository — structured metadata that captures semantic history alongside code history.
+Intent adds a `.intent/` directory to your repository — structured, machine-readable metadata that captures semantic history alongside code history.
 
 ```
 .git/    ← how code changed
-.intent/ ← what you did and why
+.intent/ ← what you were doing and why
 ```
 
-Any agent platform can read `.intent/`. It is a protocol, not just a tool.
+Two objects: **intent** (the goal) and **checkpoint** (a step taken, with rationale). All JSON. Any agent platform can read it.
+
+### What changes
+
+**Without `.intent/`** — new agent session opens. It reads `git log` and source code. Understands what the code does *now*, but doesn't know the JWT migration was for compliance (might revert it), doesn't know the refresh token is intentionally incomplete, can't tell there's unfinished work. Asks: *"What would you like me to do?"*
+
+**With `.intent/`** — new agent session opens. Runs `itt inspect`. Sees an active intent ("Migrate auth to JWT"), last checkpoint ("Add refresh token — incomplete"), and rationale ("token rotation not done, security priority"). Says: *"I'll implement the token rotation next."*
+
+The difference: 10 seconds of reading structured metadata vs. minutes of re-explaining context.
 
 ## Core Loop
 
@@ -27,11 +43,9 @@ Any agent platform can read `.intent/`. It is a protocol, not just a tool.
 start → snap → done
 ```
 
-- `start` — begin work on a problem
-- `snap` — record a step with rationale
-- `done` — close when work is complete
-
-Two objects: **intent** (the goal) and **checkpoint** (a step taken). All output is JSON.
+- `start` — open an intent (what problem you're solving)
+- `snap` — record a checkpoint (what you did and why)
+- `done` — close when complete
 
 ## Example
 
@@ -45,9 +59,11 @@ itt done
 
 ## Where This Is Going
 
-1. **Agent memory layer** — agents read `.intent/` on startup, instantly know what happened last session
-2. **Semantic exchange protocol** — `.intent/` becomes the standard way to hand off context between agent platforms
-3. **Network effects** — when enough repos contain `.intent/`, new tooling emerges: intent-aware code review, decision archaeology, semantic dashboards
+`.intent/` is a protocol, not just a tool.
+
+1. **Agent memory** — agents read `.intent/` on startup, recover last session's context in seconds
+2. **Context exchange** — `.intent/` becomes the standard way to hand off work between agent platforms
+3. **Network effects** — when enough repos contain `.intent/`, new tooling emerges: intent-aware review, decision archaeology, semantic dashboards
 
 ## Install
 
