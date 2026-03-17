@@ -69,14 +69,13 @@ itt done
 ## Install
 
 ```bash
-pip install git-intent
+pipx install git-intent        # recommended — handles PATH automatically
 ```
 
-Or from source:
+Or with pip:
 
 ```bash
-git clone https://github.com/dozybot001/Intent.git && cd Intent
-pip install -e .
+pip install git-intent          # if `itt` is not found, use: python3 -m intent_cli
 ```
 
 ## A note on agent inertia

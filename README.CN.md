@@ -69,14 +69,13 @@ itt done
 ## 安装
 
 ```bash
-pip install git-intent
+pipx install git-intent        # 推荐 — 自动处理 PATH
 ```
 
-或从源码安装：
+或用 pip：
 
 ```bash
-git clone https://github.com/dozybot001/Intent.git && cd Intent
-pip install -e .
+pip install git-intent          # 若 `itt` 找不到，可用：python3 -m intent_cli
 ```
 
 ## 关于 agent 惯性
