@@ -1,4 +1,4 @@
-English | [简体中文](../CN/cli.md)
+English | [简体中文](cli.CN.md)
 
 # Intent CLI Specification
 

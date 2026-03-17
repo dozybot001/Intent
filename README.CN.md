@@ -72,4 +72,4 @@ python3 -m venv .venv && . .venv/bin/activate && pip install -e .
 
 ## 文档
 
-- [CLI 设计](docs/CN/cli.md) — 对象、命令、JSON 输出契约
+- [CLI 设计](docs/cli.CN.md) — 对象、命令、JSON 输出契约

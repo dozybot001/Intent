@@ -72,4 +72,4 @@ python3 -m venv .venv && . .venv/bin/activate && pip install -e .
 
 ## Documentation
 
-- [CLI spec](docs/EN/cli.md) — objects, commands, JSON output contract
+- [CLI spec](docs/cli.md) — objects, commands, JSON output contract

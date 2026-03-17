@@ -1,4 +1,4 @@
-[English](../EN/cli.md) | 简体中文
+[English](cli.md) | 简体中文
 
 # Intent CLI 设计文档
 
