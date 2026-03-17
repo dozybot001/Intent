@@ -23,7 +23,6 @@ Before creating a GitHub release, confirm that the repository is:
 - GitHub Actions CI is green
 - the package still builds as sdist and wheel
 - the built wheel can be installed into a clean environment and the `itt` entry point still runs
-- the release notes draft follows the `$release-publisher` skill template
 
 ## Local Commands
 
@@ -37,14 +36,11 @@ python3 -m build
 
 For the current stage, release notes should cover:
 
-- the local semantic-history loop
-- machine-readable agent entry points
-- `run` and `decision` support
-- demos, CI, and validation baseline
-
-Use the `$release-publisher` skill template as the stable shape.
-
-For GitHub releases, keep the release title separate and use the template only for the release body.
+- the 2-object model (intent, checkpoint)
+- the `start → snap → done` core loop
+- JSON-only output
+- machine-readable agent entry point (`inspect`)
+- agent integration setup
 
 ## Out of Scope
 

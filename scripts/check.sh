@@ -23,9 +23,9 @@ printf '\n== unit tests ==\n'
 printf '\n== smoke ==\n'
 "${ROOT}/scripts/smoke.sh"
 
-printf '\n== human demo ==\n'
-"${ROOT}/scripts/demo_log.sh" >/dev/null
-printf 'Human demo passed\n'
+printf '\n== history demo ==\n'
+"${ROOT}/scripts/demo_history.sh" >/dev/null
+printf 'History demo passed\n'
 
 printf '\n== agent demo ==\n'
 "${ROOT}/scripts/demo_agent.sh" >/dev/null

@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from .constants import EXIT_GENERAL_FAILURE, EXIT_INVALID_INPUT
+from .constants import EXIT_GENERAL_FAILURE
 from .errors import IntentError
 
 
@@ -56,30 +56,18 @@ def git_working_tree(cwd: Path) -> str:
     return "clean" if not result.stdout.strip() else "dirty"
 
 
-def build_git_context(cwd: Path, explicit_ref: Optional[str] = None) -> Tuple[Dict[str, Any], List[str]]:
+def build_git_context(cwd: Path) -> Tuple[Dict[str, Any], List[str]]:
     branch = git_branch(cwd)
     working_tree = git_working_tree(cwd)
     warnings: List[str] = []
 
-    if explicit_ref:
-        head = git_head(cwd, explicit_ref)
-        if not head:
-            raise IntentError(
-                EXIT_INVALID_INPUT,
-                "INVALID_INPUT",
-                "Git ref could not be resolved.",
-                details={"ref": explicit_ref},
-                suggested_fix="Pass a valid ref to --link-git",
-            )
-        linkage_quality = "explicit_ref"
+    head = git_head(cwd)
+    if head and working_tree == "clean":
+        linkage_quality = "stable_commit"
     else:
-        head = git_head(cwd)
-        if head and working_tree == "clean":
-            linkage_quality = "stable_commit"
-        else:
-            linkage_quality = "working_tree_context"
-            if not head:
-                warnings.append("Git HEAD could not be resolved; recording working tree context only.")
+        linkage_quality = "working_tree_context"
+        if not head:
+            warnings.append("Git HEAD could not be resolved; recording working tree context only.")
 
     if working_tree == "dirty":
         warnings.append("Git working tree is dirty; recording working tree context.")
@@ -93,12 +81,3 @@ def build_git_context(cwd: Path, explicit_ref: Optional[str] = None) -> Tuple[Di
         },
         warnings,
     )
-
-
-def summarize_git(git: Dict[str, Any]) -> str:
-    branch = git.get("branch") or "unknown"
-    head = git.get("head") or "no-commit"
-    working_tree = git.get("working_tree")
-    if working_tree == "dirty":
-        return f"{branch} @ {head} (dirty)"
-    return f"{branch} @ {head}"

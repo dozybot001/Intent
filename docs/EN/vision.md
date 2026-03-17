@@ -2,227 +2,69 @@ English | [简体中文](../CN/vision.md)
 
 # Intent Vision and Problem Definition
 
-## What This Document Answers
-
-- why the agent era needs a new semantic history layer
-- which layer Intent adds, and what it does not replace
-- where Intent CLI, skills, and IntHub sit relative to each other
-- how to judge whether the project is working at the current stage
-
-## What This Document Does Not Answer
-
-- exact command design
-- JSON schema, state machine, or exit codes
-- first-release implementation details
-
-## Boundary with Other Documents
-
-- terminology is defined in [Glossary](glossary.md)
-- command semantics, state machines, and machine-readable contracts are defined in [Unified CLI spec](cli.md)
-
-## 1. Core Judgment
+## Core Judgment
 
 Git remains core infrastructure for the code layer. That has not changed.
 
 What has changed is the way software gets built:
 
 - people increasingly shape code indirectly through agents
-- implementation increasingly looks like "set a goal, generate candidates, choose an outcome"
-- development now produces higher-level objects such as `intent`, `checkpoint`, `adoption`, and `decision`
+- implementation looks like "set a goal, generate candidates, choose an outcome"
+- the center of gravity is shifting from "write code" to "record why"
 
-So the new question is not "how do we replace Git?" It is:
+The new question is not "how do we replace Git?" It is:
 
-**How do we add a semantic history layer on top of Git for human-agent collaboration?**
+**How do we add a semantic history layer on top of Git for agent-driven development?**
 
 That is the role of Intent.
 
-## 2. The Missing Piece Is Not Information, but Objects
+## The Missing Piece Is Not Information, but Objects
 
-High-level semantic information is not rare today. It is usually scattered across:
+High-level semantic information is not rare. It is scattered across commit messages, issues, PR discussions, docs, team chat, and agent conversations.
 
-- commit messages
-- issues
-- PR discussions
-- docs
-- team chat
-- agent conversations
-- temporary notes and spoken agreement
-
-The problem is not that the information does not exist. The problem is that it is usually:
+The problem is not that the information does not exist. The problem is that it is:
 
 - readable, but unstable
 - discussable, but hard to track over time
-- rememberable, but not modeled with shared object boundaries
 - workable for humans, but unreliable for agents
 
-That creates a practical gap: we can usually see how code changed, but not reliably answer questions like:
+We can usually see how code changed, but not reliably answer:
 
-- what problem is currently being worked on
-- which candidate outcomes appeared along the way
-- which one was formally adopted
-- why this one was chosen instead of another
+- what problem is being worked on
+- what steps were taken and why
+- what was the rationale behind key choices
 
-Intent is not trying to "record more information." It is trying to:
+Intent promotes these higher-level semantics into first-class objects.
 
-**promote higher-level semantics into first-class objects.**
+## Why the Existing Tool Stack Is Not Enough
 
-## 3. Why the Existing Tool Stack Is Not Enough
-
-`Git + PR + issue + docs + chat` is useful, but it does not make adoption history into a unified system.
-
-The main gaps are:
+`Git + PR + issue + docs + chat` is useful, but it does not make semantic history into a unified system:
 
 - semantics are expressed in fragments rather than formally modeled
-- semantic node boundaries are unstable, so they are hard to reference, compare, and revisit
-- agents lack stable ids, explicit states, and structured entry points
-- adoption is not treated as the central system action
+- semantic boundaries are unstable — hard to reference and revisit
+- agents lack stable IDs, explicit states, and structured entry points
 
-In traditional development, the center of gravity is closer to "writing code."
-
-In agent-driven development, the increasingly important actions are:
-
-- propose a goal
-- generate candidates
-- compare candidates
-- formally adopt one
-- revert when necessary
-- preserve long-lived decisions
-
-The center of gravity is shifting from "write" to "select."
-
-## 4. Which Layer Intent Adds
-
-Intent does not replace Git. It adds the layer Git was never designed to carry by itself.
+## Which Layer Intent Adds
 
 | Layer | Responsibility | Typical Objects |
 | --- | --- | --- |
 | Git | code history | commit, branch, diff |
-| Intent | semantic history | intent, checkpoint, adoption, decision |
-| IntHub | remote organization and collaboration | timeline, sharing, collaboration views |
+| Intent | semantic history | intent, checkpoint |
+| IntHub | remote organization and collaboration | later |
 
-Intent can therefore be understood as:
+**Git records code changes. Intent records what you did and why.**
 
-**an intention and adoption layer built on top of Git.**
+## Project Boundary
 
-In one sentence:
-
-**Git records code changes. Intent records adoption history.**
-
-## 5. Project Boundary
-
-Intent does not currently aim to:
+Intent does not aim to:
 
 - replace Git's version control role
 - replace issues, PRs, or documentation systems
-- preserve every raw conversation or every intermediate artifact
-- become a heavyweight "record everything" process platform
-- start as a full remote platform in phase one
+- preserve every raw conversation or intermediate artifact
+- become a "record everything" process platform
 
-Its boundary is narrower and more concrete:
+Its boundary: **record the semantic steps worth tracking, along with their rationale.**
 
-**record only the semantic nodes worth tracking, comparing, adopting, reverting, and reusing.**
-
-## 6. Why This Becomes More Common in the Agent Era
-
-In traditional development, higher-level semantics often stayed in a developer's head or across ordinary collaboration artifacts.
-
-In the agent era, the shape of work changes:
-
-- much more implementation is carried out by agents
-- humans act more like reviewers, selectors, and directors
-- user queries, revisions, adoption, and revert actions become part of the development process itself
-
-That means a system can no longer stop at recording how code changes. It also needs to capture why a path was chosen.
-
-For agents in particular, this matters because they need:
-
-- stable object ids
-- explicit states
-- queryable context
-- executable semantic actions
-
-## 7. Why the First Step Is a CLI
-
-The first phase of Intent is not a platform. It is a local CLI.
-
-That choice is driven by a few practical goals:
-
-- prove the smallest loop locally
-- freeze the local object layer and behavior contract first
-- give agents, IDEs, and automation a stable entry point
-- adjust the interface around real workflows before expanding further
-
-Remote collaboration, timeline views, and broader platform layers depend on the local layer becoming clear first.
-
-## 8. Current Validation Focus
-
-At the current stage, the priority is understanding whether the local semantic layer is useful and whether its interface boundaries are right.
-
-The main questions are:
-
-- does `start -> snap -> adopt` feel natural in real use
-- is `itt log` actually closer than `git log` to adoption history
-- does `itt inspect --json` really let agents guess less about the current state
-
-These questions can already be explored through two demos:
-
-- human demo: use `itt log` to inspect adoption history during a single round of work
-- agent demo: read `itt inspect --json`, then execute the suggested next action
-
-Those observations should guide whether the project keeps refining the local loop or expands into broader collaboration layers.
-
-## 9. Agent Protocol
-
-Intent is not only a store that agents read after the fact. In real use, agents should also help keep the semantic layer current.
-
-This protocol is not the end goal on its own. It is a concrete way to test the larger claim that Intent can improve agent-driven development by reducing guesswork, preserving continuity, and making the agent's semantic state easier for humans to inspect.
-
-The working expectation is:
-
-- derive a concise intent from a substantive user request when no suitable active intent already exists
-- start a run for one meaningful execution pass
-- create a checkpoint when a candidate state is worth naming or comparing
-- record an adoption when a candidate is explicitly chosen
-- record a decision when the rationale should survive beyond the immediate edit
-- end the run when that execution pass is complete
-
-This protocol should stay high signal:
-
-- trivial read-only questions should not create semantic objects
-- existing active intent should be reused when it still matches the work
-- decisions should be reserved for durable tradeoffs, constraints, or principles
-
-If this protocol becomes part of normal agent work, that matters only insofar as it produces visible gains:
-
-- agents spend less effort reconstructing context
-- humans can see what problem, candidate, adoption, and rationale are current
-- ongoing work is easier to resume, review, and steer
-
-## 10. Long-Term Structure
-
-The long-term structure of Intent can be thought of in three layers:
-
-| Layer | Role | Current Position |
-| --- | --- | --- |
-| Intent CLI | local semantic history operation layer | current focus |
-| Skill / agent workflow | teach agents when and how to use `itt` and maintain semantic state during work | current dogfooding layer |
-| IntHub | remote organization, presentation, and collaboration | later |
-
-This describes sequencing, not hard technical dependency:
-
-**stabilize the local semantic layer first, then expand into remote collaboration.**
-
-That is why IntHub is still a later organizational and collaboration layer rather than the center of the current implementation.
-
-## 11. One-Sentence Definition
+## One-Sentence Definition
 
 Intent is a Git-compatible semantic history layer for agent-driven software development.
-
-## 12. Summary
-
-Intent is not focused on Git's version-control role. It is focused on the semantic history that usually sits outside Git:
-
-- what problem is being worked on
-- which candidate outcomes appeared
-- what was finally adopted
-- how revert and longer-lived decisions should be recorded when needed

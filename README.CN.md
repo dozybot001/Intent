@@ -2,231 +2,135 @@
 
 # Intent
 
-> Git 记录代码变化，Intent 记录采纳历史。
-> Intent 同时面向人和 agent。
+> Git 记录代码变化，Intent 记录你做了什么以及为什么。
 
-Intent 是一个构建在 Git 之上的新层，用来记录软件开发里更高层的信息：
+Intent 是一个构建在 Git 之上的语义历史层，面向 agent 驱动的软件开发。它记录：
 
-- 现在想解决什么问题
-- 试过哪些候选方案
-- 最后正式采纳了什么
-- 为什么采纳它
+- 当前在解决什么问题
+- 做了哪些步骤
+- 关键选择背后的理由是什么
 
-它不替代 Git。  
-它补的是 Git 通常不会清楚保存的那部分历史。
-
-如果用一句更技术的话说，Intent 是一个面向 agent 时代的 Git-compatible semantic history layer。当前第一步先以 `Intent CLI` 的形式落地。
+它不替代 Git，它补的是 Git 天然没有被设计去承载的那层历史。
 
 ## 30 秒理解
 
-在 agent-driven development 里，代码可以生成得很快，但决策过程往往是散的：
+在 agent 驱动的开发里，代码可以生成得很快，但背后的推理过程往往散落在对话、issue 和草稿中。
 
-- 目标在 issue 里
-- 候选方案在对话或草稿里
-- 最终选择和理由在某次讨论里
+Git 擅长回答"代码怎么变了"，但不擅长回答"当时的目标是什么，为什么选了这条路"。
 
-Git 很擅长回答“代码怎么变了”，但不擅长回答“我们最后决定了什么”。
-
-Intent 想补上的，就是这层历史。
-
-Intent 以 CLI 形式提供这层历史，并提供给人和 agent 都可读取的结构化入口。
-
-这意味着 Intent 不是“多一份说明文档”，而是把这些高层语义变成：
-
-- 人容易理解的工作流
-- 开发者容易集成的接口
-- agent 能稳定读取和操作的对象
-
-## 为什么不直接用 issue / ADR / commit message
-
-现有工具当然有价值，但它们没有把“采纳历史”本身做成稳定对象。
-
-| 方式 | 擅长什么 | 不足在哪里 |
-| --- | --- | --- |
-| commit message | 解释一次代码提交 | 不稳定回答“当前 intent 是什么”“试过哪些候选”“最终采纳了什么” |
-| issue / PR | 承载讨论和上下文 | 信息容易分散，对 agent 缺少稳定对象边界和固定读取入口 |
-| ADR / docs | 沉淀长期决策 | 对高频 `start -> snap -> adopt` 过重，不适合作为每次候选采纳的默认路径 |
-| Intent | 记录语义对象与采纳历史 | 重点在本地 CLI 闭环和结构化读取入口 |
+Intent 把这些高层语义提升为第一类对象，让 agent 能稳定读取和操作。
 
 ## 核心闭环
 
-Intent 先把最重要的 3 个动作做成正式对象：
+```
+start → snap → done
+```
 
 - `start`：开始处理一个问题
-- `snap`：保存一个候选结果
-- `adopt`：正式采纳一个候选结果
+- `snap`：记录一个步骤，可附带理由
+- `done`：工作完成，关闭 intent
 
-也就是这条最小路径：
+## 对象模型
 
-`问题 -> 候选 -> 采纳`
+Intent 有两种对象类型：
 
-这条路径同时面向人和 agent。
+| 对象 | 状态 | 用途 |
+| --- | --- | --- |
+| Intent | `open` → `done` | 当前在处理的问题或目标 |
+| Checkpoint | `adopted`、`candidate`、`reverted` | 一次记录的步骤——语义历史的基本单元 |
 
-## 为什么它对 agent 重要
-
-对 agent 来说，Intent 提供的是结构化上下文，而不是只依赖 prose：
-
-- 稳定的对象边界
-- 明确的当前状态
-- 可预测的下一步动作
-- 结构化、可消费的输出
-
-Intent 将意图、候选和采纳作为正式对象暴露出来。
+默认情况下，`snap` 创建的 checkpoint 状态为 adopted。需要真正比较方案时，使用 `--candidate`。
 
 ## 最小示例
 
 ```bash
 itt init
 itt start "Reduce onboarding confusion"
-itt snap "Landing page candidate B"
-git add .
-git commit -m "refine onboarding landing layout"
-itt adopt -m "Adopt progressive disclosure layout"
-itt log
+itt snap "Simplify landing page" -m "Progressive disclosure approach"
+git add . && git commit -m "refine onboarding layout"
+itt done
 ```
 
-这条路径表达三件事：
+所有命令输出 JSON。Intent 为 agent 消费而设计。
 
-- Git 还在正常管理代码
-- Intent 额外记录了这次工作的语义历史
-- `itt log` 比 commit history 更接近“这次到底采纳了什么决策”
+## 为什么不直接用 issue / ADR / commit message
 
-## 本地体验
+| 方式 | 擅长什么 | 不足在哪里 |
+| --- | --- | --- |
+| commit message | 解释一次代码提交 | 不能回答"当前目标是什么""经历了哪些步骤" |
+| issue / PR | 承载讨论和上下文 | 信息容易分散，对 agent 缺少稳定对象边界 |
+| ADR / docs | 沉淀长期决策 | 对高频步骤记录过重 |
+| Intent | 记录语义步骤与理由 | 当前重点在本地 CLI 闭环 |
+
+## 安装
+
+给贡献者：
 
 ```bash
 git clone https://github.com/dozybot001/Intent.git
 cd Intent
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e .
-itt --help
+python3 -m venv .venv && . .venv/bin/activate
+pip install -e .
 ```
 
-如果你只是想直接跑仓库里的版本，也可以用 `./itt --help`。
-
-这条 editable install 路径是给贡献者和仓库内开发使用的。如果你只是想作为普通用户使用 Intent，可以直接跳到下面的 bootstrap 命令。
-
-## 安装路径
-
-给贡献者的命令：
-
-```bash
-git clone https://github.com/dozybot001/Intent.git
-```
-
-给普通用户的一条安装命令：
+给普通用户：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/setup/install.sh | bash
 ```
 
-这条 bootstrap 命令会在 `~/.intent/repo` 保留一份本地 checkout，把
-repo-backed 的 `itt` 暴露到 `~/.intent/bin/itt`，并在可能时把这个目录接进
-PATH，然后对检测到的 agent 运行 `itt setup`。普通用户不需要再额外做一次
-`pip install` 去安装独立 CLI 副本。
+这条 bootstrap 命令会在 `~/.intent/repo` 保留一份 checkout，把 `itt` 暴露到 `~/.intent/bin/itt`，并对检测到的 agent 运行 `itt setup`。
 
-安装完成后，后续命令面保持很小：
+## 命令
 
-```bash
-itt integrations list
-itt setup --agent auto
-itt setup codex
-itt setup claude
-itt doctor
-```
+| 命令 | 用途 |
+| --- | --- |
+| `itt init` | 在 Git 仓库中初始化 Intent |
+| `itt start <title>` | 创建并激活一个 intent |
+| `itt snap <title> [-m rationale]` | 记录一个 checkpoint（默认 adopted） |
+| `itt snap <title> --candidate` | 记录为候选，用于比较 |
+| `itt adopt [checkpoint_id]` | 采纳一个候选 checkpoint |
+| `itt revert` | 回退最近一个已采纳的 checkpoint |
+| `itt done [intent_id]` | 关闭当前 active intent |
+| `itt inspect` | 机器可读的 workspace 快照（JSON） |
+| `itt list <intent\|checkpoint>` | 列出对象 |
+| `itt show <id>` | 按 ID 查看单个对象 |
+| `itt setup [agent]` | 安装 agent 集成 |
+| `itt doctor` | 验证 agent 配置状态 |
 
-## 验证方式
+## Agent 协议
+
+Intent 主要面向 agent。一个 agent 应该：
+
+- 在开始实质工作前运行 `itt inspect` 了解当前状态
+- 开始有意义的工作时启动一个 intent
+- 用 `itt snap` 记录步骤和理由
+- 工作完成时运行 `itt done`
+- 对于琐碎的问题或微小编辑，跳过记录
+
+## 验证
 
 ```bash
 ./scripts/check.sh
 ```
 
-如果你想分步骤执行，也可以用：
+或者分步骤执行：
 
 ```bash
 python3 -m unittest discover -s tests -v
 ./scripts/smoke.sh
-./scripts/demo_log.sh
 ./scripts/demo_agent.sh
 ```
-
-## 首页先记住这 6 个命令
-
-```bash
-itt init
-itt start
-itt status
-itt snap
-itt adopt
-itt log
-```
-
-如果你是开发者或 agent 集成方，可以先看这两个入口：
-
-```bash
-itt status --json
-itt inspect --json
-```
-
-当写命令依赖“当前对象”时，优先使用内置 selector：
-
-```bash
-itt adopt --checkpoint @current -m "Adopt candidate"
-itt decide "Record rationale" --adoption @latest
-```
-
-如果 `itt adopt` 提示 checkpoint 冲突，就先用提示里的候选执行一次 `itt checkpoint select <id>`，再重试。
-
-## Agent 的默认工作方式
-
-Intent 不只是让 agent 在事后读取语义状态，也希望 agent 在执行过程中主动维护这层语义历史。
-
-但这是一条功能设计方向，不是更高层目标本身。支持这套协议，是为了验证：在工作过程中记录语义状态，是否真的能提升 agent 的效率、连续性，以及人类对 agent 行为的理解和信任。
-
-在实践里，一个 agent 通常应该：
-
-- 当用户提出一个明确且有分量的工作请求，而当前又没有合适 active intent 时，从 query 提炼出一句简洁的 intent
-- 为当前这一轮有意义的执行过程开启一个 run
-- 当出现值得命名或比较的候选状态时，创建 checkpoint
-- 当明确选定某个候选结果时，记录 adoption
-- 当某个理由需要超出当前修改长期保留时，记录 decision
-- 在每次状态变化后重新读取 `itt inspect --json`，而不是靠猜
-
-但这套协议要克制使用。很小的只读问题或一句话澄清，不需要强行形成完整语义记录。
-
-当前真正要回答的产品问题，不是“能不能要求 agent 多记一点”，而是“这种语义记录方式是否真的让 agent 工作得更好”。
 
 ## Intent 不是什么
 
 - 不是 Git 的替代品
 - 不是 issue、PR 或 docs 系统的替代品
-- 不是“什么都记录”的日志归档工具
+- 不是"什么都记录"的日志归档工具
 
-Intent 只关心那些值得被正式追踪的语义节点，例如意图、候选、采纳、撤销与决策。
-
-## Human-Friendly, Agent-Friendly
-
-Intent 的接口分成两层：
-
-- 对用户：`start -> snap -> adopt`
-- 对开发者：本地对象层与 CLI contract
-- 对 agent：固定对象、固定状态和固定 JSON 入口
-
-## 当前阶段
-
-`v0.1.0` 已经打 tag。当前重点已经不是“先把原型做出来”，而是“先用起来、打磨它，并判断下一版真正该优化什么”。
-
-当前优先级是：
-
-- 在真实仓库里 dogfooding 当前 CLI
-- 基于真实使用打磨发布质量、验证路径和文档
-- 继续做低风险的内部清理，提升可维护性
-- 用真实使用反馈决定合适的 `v0.2.0` 方向
+Intent 只记录值得追踪的语义步骤及其理由。
 
 ## 仓库结构
-
-当前仓库结构刻意保持得很小：
 
 ```text
 Intent/
@@ -243,27 +147,17 @@ Intent/
 `-- .intent/
 ```
 
-- `skills/intent-cli/`：正式对外分发的 Intent canonical skill bundle，里面包含 `SKILL.md`、agent metadata 和 bundled references。
-- `setup/`：bootstrap 脚本、集成 manifest，以及 `itt setup` 用到的平台差异 helper 资源。
-- `src/intent_cli/`：CLI 实现本体。
-- `.intent/`：这个仓库自己 dogfooding 时产生的本地语义状态，不属于 end-user runtime bundle。
-
 ## 文档
-
-README 只保留总览，更完整的说明在 `docs/`：
 
 - [变更记录](CHANGELOG.CN.md)
 - [文档索引](docs/CN/README.md)
 - [术语表](docs/CN/glossary.md)
 - [愿景与问题定义](docs/CN/vision.md)
-- [CLI 统一设计文档](docs/CN/cli.md)
+- [CLI 设计文档](docs/CN/cli.md)
 - [分发与集成设计](docs/CN/distribution.md)
 - [首个 Agent 试用反馈实录](docs/CN/feedback.md)
 - [Demo](docs/CN/demo.md)
 - [发布基线](docs/CN/release.md)
+- [发展战略](docs/CN/strategy.md)
 - [路线图](docs/CN/roadmap.md)
 - [文档国际化规范](docs/CN/i18n.md)
-
-如果你想先看目前最真实、也最重要的一份产品反馈，建议直接看 [首个 Agent 试用反馈实录](docs/CN/feedback.md)。
-
-更多背景见：[愿景与问题定义](docs/CN/vision.md)。

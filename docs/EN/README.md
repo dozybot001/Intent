@@ -2,54 +2,51 @@ English | [简体中文](../CN/README.md)
 
 # Intent Documentation
 
-`docs/` exists to split the project documentation into clear layers, with each document answering a different kind of question.
+`docs/` splits the project documentation into clear layers, with each document answering a different kind of question.
 
 ## Document Map
 
 | Document | Primary Question | Out of Scope |
 | --- | --- | --- |
-| [Glossary](glossary.md) | What do the core terms mean? | project background, command design, implementation details |
+| [Glossary](glossary.md) | What do the core terms mean? | project background, command design |
 | [Vision and problem definition](vision.md) | Why does the agent era need Intent? | command syntax, JSON schema |
-| [Unified CLI spec](cli.md) | What are the CLI boundaries, command semantics, and implementation contract? | longer-term platform questions |
-| [Distribution and integration design](distribution.md) | How should Intent CLI and agent integrations be distributed and installed? | CLI contract details, per-platform implementation minutiae |
-| [First agent feedback](feedback.md) | What did the first real agent user find useful or frustrating? | CLI contract definitions, final product decisions |
-| [Demo](demo.md) | How can `itt log` and `git log` be compared quickly? | CLI contract definitions, long-term roadmap |
-| [Release baseline](release.md) | What must be true before a staged release? | CLI contract details, long-term roadmap |
-| [Roadmap](roadmap.md) | What should happen after `v0.1.0`? | current CLI contract details |
-| [Documentation i18n guide](i18n.md) | How is bilingual documentation organized and maintained? | CLI contract details, implementation sequencing |
+| [CLI spec](cli.md) | What are the CLI commands, object model, and JSON contract? | longer-term platform questions |
+| [Distribution and integration design](distribution.md) | How should Intent CLI and agent integrations be distributed? | CLI contract details |
+| [First agent feedback](feedback.md) | What did the first real agent user find useful or frustrating? | CLI contract definitions |
+| [Demo](demo.md) | How can Intent be tried quickly? | CLI contract definitions |
+| [Release baseline](release.md) | What must be true before a release? | CLI contract details |
+| [Strategy](strategy.md) | How does Intent become a paradigm? | current CLI details |
+| [Roadmap](roadmap.md) | What should happen after the v0.2 simplification? | current CLI contract details |
+| [Documentation i18n guide](i18n.md) | How is bilingual documentation organized? | CLI contract details |
 
 ## Suggested Reading Paths
 
-- New to the project: start with [Glossary](glossary.md), then read [Vision and problem definition](vision.md)
+- New to the project: start with [Glossary](glossary.md), then read [Vision](vision.md)
 - Want a runnable example first: read [Demo](demo.md)
-- Want a quick map of the repository before editing: read the ASCII tree in the root [README](../../README.md)
-- Want practical product feedback from real agent usage: read [First agent feedback](feedback.md)
-- Want to discuss one-step install and multi-platform agent enablement: read [Distribution and integration design](distribution.md)
-- Want to prepare a staged release: read [Release baseline](release.md)
-- Want to discuss bilingual documentation structure: read [Documentation i18n guide](i18n.md)
-- Want to discuss command semantics or implementation: read [Unified CLI spec](cli.md)
-- Want to discuss post-`v0.1.0` priorities: read [Roadmap](roadmap.md)
+- Want to understand the CLI: read [CLI spec](cli.md)
+- Want product feedback from real agent usage: read [First agent feedback](feedback.md)
+- Want to prepare a release: read [Release baseline](release.md)
+- Want to understand the long-term direction: read [Strategy](strategy.md)
+- Want to discuss priorities: read [Roadmap](roadmap.md)
 
 ## Current Source of Truth
 
-- problem definition and long-term direction: [Vision and problem definition](vision.md)
-- command semantics, object exposure order, state machine, JSON contract, and error model: [Unified CLI spec](cli.md)
-- post-`v0.1.0` priorities and next-step direction: [Roadmap](roadmap.md)
-- real usage feedback from the first dogfooding agent pass: [First agent feedback](feedback.md)
+- problem definition and long-term direction: [Vision](vision.md)
+- command semantics, object model, JSON contract, error model: [CLI spec](cli.md)
+- post-simplification priorities: [Roadmap](roadmap.md)
 
 If two documents disagree on a CLI detail, sync the EN/CN pair and keep the contract aligned.
 
 ## Current Focus
 
-- `init -> start -> snap -> adopt -> log`
-- the `.intent/` local object layer
-- `status --json` / `inspect --json`
-- Git linkage, error handling, and idempotent semantics
+- `init → start → snap → done`
+- 2-object model: intent and checkpoint
+- `inspect` as the primary machine-readable entry point
+- JSON-only output
 - the fixed bootstrap path: `~/.intent/repo` plus `~/.intent/bin/itt`
 
 ## Notes
 
 - the root [README](../../README.md) is the English GitHub entry point; [README.CN.md](../../README.CN.md) is the Chinese version
-- `docs/` tries to avoid duplicated narrative; shared terminology should stay aligned with [Glossary](glossary.md)
+- `docs/` avoids duplicated narrative; shared terminology stays aligned with [Glossary](glossary.md)
 - the current install journey source of truth is [Distribution and integration design](distribution.md)
-- lightweight repository structure notes now live in the root README instead of a dedicated `structure.md`

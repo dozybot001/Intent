@@ -6,32 +6,30 @@ This document aligns terminology only. It does not explain the project vision or
 
 ## Core Sentence
 
-Git records code changes. Intent records adoption history.
+Git records code changes. Intent records what you did and why.
 
 ## Terms
 
-- `semantic history`: history of intent, candidates, adoption, and decisions rather than code diffs
+- `semantic history`: history of intents, steps, and rationale rather than code diffs
 - `intent`: the current problem or goal being worked on
-- `checkpoint`: a candidate outcome that is concrete enough to compare and track
-- `adoption`: the formal adoption of a checkpoint
-- `decision`: a tradeoff or principle worth preserving over time
-- `run`: one agent execution or one round of exploration; important for automation, but not a front-page object yet
-- `active intent`: the current default problem context
-- `current checkpoint`: the current default candidate object
-- `Surface CLI`: short commands for frequent human use, such as `itt start` and `itt snap`
-- `Canonical CLI`: stable object commands for agents, skills, IDEs, and automation, such as `itt checkpoint create`
-- `status`: human-facing output that answers "what state are we in, and what should happen next?"
-- `inspect`: machine-facing output that returns stable, complete, consumable context
+- `checkpoint`: a recorded step with optional rationale — the unit of semantic history
+- `inspect`: the primary machine-readable interface; returns the full workspace state as JSON
+- `rationale`: the reason behind a checkpoint, recorded via `-m`
 
-## Minimal Loop
+## Object Model
 
-The most important path in Intent right now is:
+Intent has two object types:
 
-`problem -> candidate -> adoption`
+- **Intent**: `open` → `done`
+- **Checkpoint**: `adopted` (default), `candidate`, or `reverted`
 
-At the command level, that becomes:
+## Core Loop
 
-`start -> snap -> adopt`
+`problem → step → done`
+
+At the command level:
+
+`start → snap → done`
 
 ## What Intent Is Not
 

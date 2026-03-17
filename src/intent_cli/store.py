@@ -23,7 +23,7 @@ class IntentStore:
             raise IntentError(
                 EXIT_GENERAL_FAILURE,
                 "NOT_INITIALIZED",
-                "Intent is not initialized in this repository",
+                "Intent is not initialized in this repository.",
                 suggested_fix="itt init",
             )
 
@@ -35,35 +35,23 @@ class IntentStore:
             raise IntentError(
                 EXIT_GENERAL_FAILURE,
                 "ALREADY_EXISTS",
-                "Intent is already initialized in this repository",
-                suggested_fix="Use the existing .intent workspace",
+                "Intent is already initialized in this repository.",
             )
 
         self.intent_dir.mkdir()
         for dir_name in DIR_NAMES.values():
             (self.intent_dir / dir_name).mkdir()
 
-        config = {
+        config: Dict[str, Any] = {"schema_version": SCHEMA_VERSION}
+        state: Dict[str, Any] = {
             "schema_version": SCHEMA_VERSION,
-            "git": {"strict_adoption": False},
-        }
-        state = {
-            "schema_version": SCHEMA_VERSION,
-            "mode": "human",
             "active_intent_id": None,
-            "active_run_id": None,
-            "current_checkpoint_id": None,
-            "last_adoption_id": None,
             "workspace_status": "idle",
             "updated_at": utc_now(),
         }
         write_json(self.config_path, config)
         write_json(self.state_path, state)
         return config, state
-
-    def load_config(self) -> Dict[str, Any]:
-        self.ensure_initialized()
-        return read_json(self.config_path)
 
     def load_state(self) -> Dict[str, Any]:
         self.ensure_initialized()
@@ -78,7 +66,7 @@ class IntentStore:
         prefix = ID_PREFIXES[object_name]
         max_index = 0
         for path in directory.glob(f"{prefix}-*.json"):
-            suffix = path.stem[len(prefix) + 1 :]
+            suffix = path.stem[len(prefix) + 1:]
             if suffix.isdigit():
                 max_index = max(max_index, int(suffix))
         return f"{prefix}-{max_index + 1:03d}"

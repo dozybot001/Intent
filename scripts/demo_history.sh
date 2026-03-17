@@ -25,25 +25,21 @@ printf '\n== Setup ==\n'
 "${CLI}" init
 "${CLI}" start "Reduce onboarding confusion"
 
-printf '\n== Candidate A ==\n'
+printf '\n== Record work ==\n'
 printf 'hero = "candidate-a"\n' > landing.txt
-"${CLI}" snap "Landing page candidate A"
 git add landing.txt
 git commit -m "landing candidate A" >/dev/null
+"${CLI}" snap "Landing page candidate A" -m "First approach"
 
-printf '\n== Candidate B ==\n'
 printf 'hero = "candidate-b"\n' > landing.txt
-"${CLI}" snap "Landing page candidate B"
 git add landing.txt
 git commit -m "landing candidate B" >/dev/null
+"${CLI}" snap "Landing page candidate B" -m "Progressive disclosure is better"
 
-printf '\n== Adopt ==\n'
-"${CLI}" adopt --checkpoint cp-002 -m "Adopt progressive disclosure layout"
+printf '\n== Inspect ==\n'
+"${CLI}" inspect
 
-printf '\n== git log --oneline ==\n'
-git log --oneline
-
-printf '\n== itt log ==\n'
-"${CLI}" log
+printf '\n== Done ==\n'
+"${CLI}" done
 
 printf '\nDemo complete\n'

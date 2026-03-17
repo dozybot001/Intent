@@ -16,14 +16,13 @@
 ## 最小检查清单
 
 - [pyproject.toml](../../pyproject.toml) 里的版本号正确
-- [CHANGELOG.CN.md](../../CHANGELOG.CN.md) 和 [CHANGELOG.md](../../CHANGELOG.md) 已更新到当前发布目标
+- [CHANGELOG.md](../../CHANGELOG.md) 和 [CHANGELOG.CN.md](../../CHANGELOG.CN.md) 已更新到当前发布目标
 - [README.md](../../README.md) 和 [README.CN.md](../../README.CN.md) 与当前 CLI 保持一致
 - [docs/EN/cli.md](../EN/cli.md) 和 [docs/CN/cli.md](cli.md) 与实现一致
 - [scripts/check.sh](../../scripts/check.sh) 在本地通过
 - GitHub Actions CI 通过
 - package 仍然可以构建出 sdist 和 wheel
 - 构建出来的 wheel 可以在干净环境中安装，并且 `itt` 入口可正常运行
-- release notes 草稿遵循 `$release-publisher` 技能模板
 
 ## 本地命令
 
@@ -37,14 +36,11 @@ python3 -m build
 
 对当前阶段来说，release notes 重点覆盖：
 
-- 本地 semantic-history 闭环
-- 面向 agent 的 machine-readable 入口
-- `run` 和 `decision` 支持
-- demos、CI 与验证基线
-
-固定结构以 `$release-publisher` 技能模板为准。
-
-在 GitHub release 中，标题单独填写，这个模板只用于 release 正文。
+- 2 对象模型（intent、checkpoint）
+- `start → snap → done` 核心闭环
+- JSON-only 输出
+- 机器可读 agent 入口（`inspect`）
+- agent 集成 setup
 
 ## 当前不纳入阻塞项
 

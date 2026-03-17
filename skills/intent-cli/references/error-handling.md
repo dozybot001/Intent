@@ -1,69 +1,40 @@
-# Intent CLI Error Handling
+# Error Handling
 
-## `GIT_STATE_INVALID`
+All errors return JSON with `"ok": false` and an `error` object containing `code`, `message`, and optional `details` and `suggested_fix`.
 
-Meaning:
+## Error codes
 
-- the current directory is not inside a Git worktree
+### `GIT_STATE_INVALID`
 
-What to do:
+Not inside a Git worktree. Move to a repo or run `git init`.
 
-- move to the correct repository, or
-- run `git init` if the user wants to start a new Git repo first
+### `NOT_INITIALIZED`
 
-## `NOT_INITIALIZED`
+`.intent/` not found. Run `itt init`.
 
-Meaning:
-
-- the repository is a Git worktree, but `.intent/` has not been initialized
-
-What to do:
-
-- run `itt init` if the user wants Intent enabled here
-
-## `STATE_CONFLICT`
+### `STATE_CONFLICT`
 
 Common causes:
-
 - `itt snap` without an active intent
-- `itt adopt` without a clear current checkpoint
-- starting a run while another run is already active
+- `itt start` while another intent is open
+- `itt adopt` with multiple candidates and no ID specified
 
-What to do:
+What to do: run `itt inspect`, check `workspace_status` and `candidate_checkpoints`, then follow `suggested_next_action`.
 
-- inspect `itt inspect --json`
-- check `candidate_checkpoints`, `active_run`, and `workspace_status_reason`
-- if needed, select the intended checkpoint explicitly before adopting
+### `OBJECT_NOT_FOUND`
 
-## `OBJECT_NOT_FOUND`
+The requested ID does not exist. Run `itt list` to find valid IDs. Never guess.
 
-Meaning:
+### `INVALID_INPUT`
 
-- the requested object ID does not exist in the current workspace
-
-What to do:
-
-- re-read with `list/show`
-- use selectors like `@active`, `@current`, or `@latest` when available
-- never guess the missing ID
-
-## `INVALID_INPUT`
-
-Meaning:
-
-- the command syntax or linked Git reference is invalid
-
-What to do:
-
-- check the flags again
-- verify any explicit Git ref before retrying
+Bad command syntax or invalid reference.
 
 ## Recovery rule
 
-When the state is unclear, fall back to:
+When state is unclear:
 
 ```bash
-itt inspect --json
+itt inspect
 ```
 
-Use the returned `workspace_status_reason`, `warnings`, `candidate_checkpoints`, and `suggested_next_actions` to decide the next safe step.
+Use the returned `workspace_status`, `candidate_checkpoints`, and `suggested_next_action` to decide the next step.

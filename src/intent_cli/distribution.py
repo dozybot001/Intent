@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from . import __version__
 from .constants import EXIT_GENERAL_FAILURE, EXIT_INVALID_INPUT
 from .errors import IntentError
-from .helpers import cli_action, read_json, utc_now, write_json
+from .helpers import read_json, utc_now, write_json
 
 
 MANIFEST_NAME = "manifest.json"
@@ -462,92 +462,6 @@ def doctor_report(requested_agent: Optional[str] = None) -> Dict[str, Any]:
         "checks": checks,
         "warnings": warnings,
     }
-
-
-def format_integrations_text(payload: Dict[str, Any]) -> str:
-    lines = [
-        "Supported integrations",
-        f"Install root: {payload['install_root']}",
-        f"Intent command: {payload['launcher_path']}",
-        f"Repo checkout: {payload['repo_root']}",
-        f"Setup source: {payload['setup_root']}",
-    ]
-    for item in payload["integrations"]:
-        badges = [item["status"]]
-        if item["detected"]:
-            badges.append("detected")
-        if item["auto_install_supported"]:
-            badges.append("auto")
-        else:
-            badges.append("manual")
-        lines.append(f"- {item['id']} ({', '.join(badges)})")
-        lines.append(f"  {item['description']}")
-    return "\n".join(lines)
-
-
-def format_setup_text(result: Dict[str, Any], reason: Optional[str]) -> str:
-    if result["selected_agent"] is None:
-        lines = [
-            "No auto-installable agent was detected.",
-            f"Repo-backed itt remains available at: {result['launcher_path']}",
-            f"Install root: {result['install_root']}",
-            f"Repo checkout: {result['repo_root']}",
-        ]
-        manual_detected = result.get("manual_detected_agents") or []
-        if manual_detected:
-            lines.append("Detected manual-follow-up targets: " + ", ".join(manual_detected))
-        lines.append("Next: itt integrations list")
-        return "\n".join(lines)
-
-    if result["install_mode"] == "manual_helper":
-        lines = [
-            f"Prepared manual setup helper for {result['selected_agent']}",
-            f"Helper: {result['target_path']}",
-            f"Intent command: {result['launcher_path']}",
-        ]
-        if reason:
-            lines.append(reason)
-        return "\n".join(lines)
-
-    lines = [
-        f"Installed Intent skill for {result['selected_agent']}",
-        f"Target: {result['target_path']}",
-        f"Intent command: {result['launcher_path']}",
-        f"Install root: {result['install_root']}",
-        f"Repo checkout: {result['repo_root']}",
-    ]
-    if reason:
-        lines.append(f"Status: {reason}")
-    lines.append(f"Next: {cli_action(['doctor', '--agent', result['selected_agent']], 'Verify the installed skill')['command']}")
-    return "\n".join(lines)
-
-
-def format_doctor_text(payload: Dict[str, Any]) -> str:
-    lines = [
-        "Intent setup doctor",
-        f"CLI: {payload['cli_version']}",
-        f"Install root: {payload['install_root']}",
-        f"Intent command: {payload['launcher_path']}",
-        f"Repo checkout: {payload['repo_root']}",
-        f"Setup source: {payload['setup_root']}",
-        f"Healthy: {'yes' if payload['healthy'] else 'no'}",
-    ]
-
-    for check in payload["checks"]:
-        status_bits = [check["status"], check["install_mode"]]
-        if check["detected"]:
-            status_bits.append("detected")
-        lines.append(f"- {check['id']}: {', '.join(status_bits)}")
-        if check["target_path"]:
-            lines.append(f"  Target: {check['target_path']}")
-        if check["missing_files"]:
-            lines.append(f"  Missing: {', '.join(check['missing_files'])}")
-
-    if payload["warnings"]:
-        lines.append("Warnings:")
-        for warning in payload["warnings"]:
-            lines.append(f"- {warning}")
-    return "\n".join(lines)
 
 
 def doctor_exit_code(payload: Dict[str, Any]) -> int:

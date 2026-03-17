@@ -2,6 +2,8 @@ English | [简体中文](../CN/feedback.md)
 
 # First Agent Feedback Transcript
 
+> **Note**: This feedback was given against the v0.1 model which had 5 object types (intent, checkpoint, adoption, run, decision). The CLI has since been simplified to 2 objects (intent, checkpoint). The transcript is preserved as a historical record.
+
 This page keeps the feedback in a more literal conversation format instead of turning it into a polished product summary.
 
 The original exchange happened in Chinese during real Intent dogfooding work. The screenshot and transcript below are kept as a more grounded record of that moment.

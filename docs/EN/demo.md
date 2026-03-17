@@ -2,57 +2,11 @@ English | [简体中文](../CN/demo.md)
 
 # Intent Demo
 
-This document provides reproducible local demos for comparing what `git log` and `itt log` answer, and for showing how an agent can move forward from `itt inspect --json`.
-
-## Human Demo
-
-Goal: show that `git log` is centered on commit history, while `itt log` is centered on adoption history.
-
-Run:
-
-```bash
-scripts/demo_log.sh
-```
-
-The script will:
-
-- create a temporary Git repository
-- initialize Intent
-- create one intent
-- create two checkpoints
-- record one adoption
-- print `git log --oneline`
-- print `itt log`
-
-What to look for:
-
-- `git log` shows commit order and commit messages
-- `itt log` shows an adoption timeline, including the related intent, checkpoint, and Git head
-
-You can also reproduce the same flow manually:
-
-```bash
-itt init
-itt start "Reduce onboarding confusion"
-
-# candidate A
-itt snap "Landing page candidate A"
-git add .
-git commit -m "landing candidate A"
-
-# candidate B
-itt snap "Landing page candidate B"
-git add .
-git commit -m "landing candidate B"
-
-itt adopt --checkpoint cp-002 -m "Adopt progressive disclosure layout"
-git log --oneline
-itt log
-```
+This document provides reproducible local demos for seeing how Intent records semantic history alongside Git.
 
 ## Agent Demo
 
-The repository also includes a runnable agent demo:
+The repository includes a runnable agent demo:
 
 ```bash
 scripts/demo_agent.sh
@@ -62,15 +16,36 @@ The script will:
 
 - create a temporary Git repository
 - initialize Intent
-- repeatedly read `itt inspect --json`
-- extract `suggested_next_actions[0].args`
-- execute the next command from the returned arguments
+- read `itt inspect` to understand current state
+- follow `suggested_next_action` to move through the workflow
+- complete the full `start → snap → done` loop
 
 What to look for:
 
-- `inspect --json` returns machine-consumable `suggested_next_actions`
-- each action payload contains both a display-friendly `command` and executable `args`
-- an agent can move forward through the workflow without depending on long prose instructions
+- `inspect` returns machine-consumable `suggested_next_action`
+- the action payload contains a display-friendly `command` and a `reason`
+- an agent can move through the workflow by following structured suggestions
+
+## Log Demo
+
+```bash
+scripts/demo_history.sh
+```
+
+The script will:
+
+- create a temporary Git repository
+- initialize Intent
+- create an intent and record checkpoints with rationale
+- show how `inspect` provides a structured workspace snapshot
+
+## Smoke Test
+
+```bash
+scripts/smoke.sh
+```
+
+Runs the full command set: init, start, snap, snap --candidate, adopt, revert, list, show, inspect, done.
 
 ## Full Validation
 

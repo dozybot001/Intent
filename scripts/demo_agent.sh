@@ -12,31 +12,21 @@ cleanup() {
 trap cleanup EXIT
 
 run_next_action() {
-  local inspect_payload args_json
-  inspect_payload="$("${CLI}" inspect --json)"
+  local inspect_payload action_cmd
+  inspect_payload="$("${CLI}" inspect)"
 
   printf '\n== inspect ==\n'
   printf '%s\n' "${inspect_payload}"
 
-  args_json="$(printf '%s' "${inspect_payload}" | python3 -c 'import json,sys; payload=json.load(sys.stdin); actions=payload.get("suggested_next_actions", []); print(json.dumps(actions[0]["args"] if actions else []))')"
+  action_cmd="$(printf '%s' "${inspect_payload}" | python3 -c 'import json,sys; d=json.load(sys.stdin); a=d.get("suggested_next_action"); print(a["command"] if a else "")')"
 
-  if [[ "${args_json}" == "[]" ]]; then
+  if [[ -z "${action_cmd}" ]]; then
     printf '\nNo suggested next action\n'
     return 1
   fi
 
-  printf '\n== next action ==\n'
-  python3 - "$CLI" "${args_json}" <<'PY'
-import json
-import shlex
-import subprocess
-import sys
-
-cli = sys.argv[1]
-args = json.loads(sys.argv[2])
-print(shlex.join([cli, *args]))
-subprocess.run([cli, *args], check=True)
-PY
+  printf '\n== next action: %s ==\n' "${action_cmd}"
+  eval "${CLI} ${action_cmd#itt }"
 }
 
 cd "${TMPDIR}"
@@ -51,18 +41,18 @@ git commit -m "seed" >/dev/null
 
 "${CLI}" init >/dev/null
 
-printf '\n== Step 1 ==\n'
+printf '\n== Step 1: follow suggestion ==\n'
 run_next_action
 
 printf 'hero = "candidate"\n' > candidate.txt
 
-printf '\n== Step 2 ==\n'
+printf '\n== Step 2: follow suggestion ==\n'
 run_next_action
 
-printf '\n== Step 3 ==\n'
-run_next_action
+printf '\n== Step 3: close ==\n'
+"${CLI}" done
 
 printf '\n== final inspect ==\n'
-"${CLI}" inspect --json
+"${CLI}" inspect
 
 printf '\nAgent demo complete\n'

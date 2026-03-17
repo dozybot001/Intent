@@ -2,6 +2,8 @@
 
 # 首个 Agent 试用反馈实录
 
+> **注意**：这份反馈基于 v0.1 的 5 对象模型（intent、checkpoint、adoption、run、decision）。CLI 已简化为 2 对象（intent、checkpoint）。此对话记录作为历史文档保留。
+
 这页不再把反馈整理成“官方总结”，而是尽量保留一次真实对话的原始口气。
 
 下面的内容来自一次实际使用 Intent 之后的问答，只做了轻微的 Markdown 排版整理，方便在 GitHub 上阅读和引用。
