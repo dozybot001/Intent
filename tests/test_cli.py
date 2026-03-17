@@ -96,15 +96,15 @@ class IntentCliTests(unittest.TestCase):
 
             version_flag = run_cli(repo, "--version")
             self.assertEqual(version_flag.returncode, 0)
-            self.assertIn("intent-cli 0.1.0", version_flag.stdout)
+            self.assertIn("intent-cli 0.2.0rc1", version_flag.stdout)
 
             version_command = run_cli(repo, "version")
             self.assertEqual(version_command.returncode, 0)
-            self.assertEqual(version_command.stdout.strip(), "intent-cli 0.1.0")
+            self.assertEqual(version_command.stdout.strip(), "intent-cli 0.2.0rc1")
 
             version_json = run_cli(repo, "version", "--json")
             self.assertEqual(version_json.returncode, 0)
-            self.assertEqual(json.loads(version_json.stdout)["version"], "0.1.0")
+            self.assertEqual(json.loads(version_json.stdout)["version"], "0.2.0rc1")
 
     def test_help_output_is_informative(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
