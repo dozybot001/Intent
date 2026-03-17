@@ -65,6 +65,11 @@ def build_parser() -> argparse.ArgumentParser:
     show_p = sub.add_parser("show", help="Show a single object by ID")
     show_p.add_argument("id")
 
+    setup_p = sub.add_parser("setup", help="Set up agent integration for this repo")
+    setup_p.add_argument("--claude", action="store_true", help="Generate CLAUDE.md snippet")
+    setup_p.add_argument("--cursor", action="store_true", help="Generate .cursor/rules snippet")
+    setup_p.add_argument("--agents", action="store_true", help="Generate AGENTS.md snippet")
+
     return parser
 
 
@@ -138,6 +143,18 @@ def main(argv: Optional[list[str]] = None) -> int:
         if args.command == "show":
             obj = repo.show_object(args.id)
             emit(ok("show", obj))
+            return EXIT_SUCCESS
+
+        if args.command == "setup":
+            platforms = []
+            if args.claude:
+                platforms.append("claude")
+            if args.cursor:
+                platforms.append("cursor")
+            if args.agents:
+                platforms.append("agents")
+            result = repo.setup(platforms=platforms or None)
+            emit(ok("setup", result))
             return EXIT_SUCCESS
 
         parser.error("unknown command")

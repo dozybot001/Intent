@@ -50,7 +50,8 @@ start → snap → done
 ## 示例
 
 ```bash
-itt init
+pip install git-intent
+itt setup                # 初始化 + 生成 CLAUDE.md、.cursor/rules、AGENTS.md
 itt start "修复登录超时"
 itt snap "将超时增加到 30s" -m "5s 对慢网络太短"
 git add . && git commit -m "fix timeout"
@@ -82,7 +83,8 @@ pip install -e .
 
 | 命令 | 用途 |
 | --- | --- |
-| `itt init` | 在 Git 仓库中初始化 `.intent/` |
+| `itt setup` | 初始化 + 生成 agent 配置文件 |
+| `itt init` | 仅初始化 `.intent/` |
 | `itt start <title>` | 打开一个 intent |
 | `itt snap <title> [-m why]` | 记录一个 snap |
 | `itt done` | 关闭当前 intent |

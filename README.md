@@ -50,7 +50,8 @@ start → snap → done
 ## Example
 
 ```bash
-itt init
+pip install git-intent
+itt setup                # init + generate CLAUDE.md, .cursor/rules, AGENTS.md
 itt start "Fix login timeout"
 itt snap "Increase timeout to 30s" -m "5s too short for slow networks"
 git add . && git commit -m "fix timeout"
@@ -82,7 +83,8 @@ pip install -e .
 
 | Command | Purpose |
 | --- | --- |
-| `itt init` | Initialize `.intent/` in a Git repo |
+| `itt setup` | Init + generate agent config files |
+| `itt init` | Initialize `.intent/` only |
 | `itt start <title>` | Open an intent |
 | `itt snap <title> [-m why]` | Record a snap |
 | `itt done` | Close the active intent |
