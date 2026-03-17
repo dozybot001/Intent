@@ -104,6 +104,38 @@ itt --help
 
 If you want to try the repository version without installing it into the environment, you can also run `./itt --help`.
 
+This editable-install path is for contributors and local repository development.
+If you only want to use Intent as an end user, skip to the bootstrap command below.
+
+## Install Paths
+
+For contributors:
+
+```bash
+git clone https://github.com/dozybot001/Intent.git
+```
+
+For end users who want Intent plus agent setup:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/setup/install.sh | bash
+```
+
+That bootstrap keeps a local checkout at `~/.intent/repo`, exposes the
+repo-backed `itt` command at `~/.intent/bin/itt`, adds that directory to PATH
+when it can, and then runs `itt setup` against the detected agent. End users do
+not need a separate `pip install` step for a standalone CLI copy.
+
+After installation, the follow-up command surface stays small:
+
+```bash
+itt integrations list
+itt setup --agent auto
+itt setup codex
+itt setup claude
+itt doctor
+```
+
 ## Validation
 
 ```bash
@@ -136,6 +168,15 @@ If you are integrating with the CLI or building agent workflows, start with:
 itt status --json
 itt inspect --json
 ```
+
+When write commands depend on the current object, prefer the built-in selectors:
+
+```bash
+itt adopt --checkpoint @current -m "Adopt candidate"
+itt decide "Record rationale" --adoption @latest
+```
+
+If `itt adopt` reports a checkpoint conflict, run `itt checkpoint select <id>` with one of the suggested candidates and retry.
 
 ## Default Agent Workflow
 
@@ -192,6 +233,7 @@ The root README stays lightweight. More detailed material lives in `docs/`.
 - [Glossary](docs/EN/glossary.md)
 - [Vision and problem definition](docs/EN/vision.md)
 - [Unified CLI spec](docs/EN/cli.md)
+- [Distribution and integration design](docs/EN/distribution.md)
 - [Demo](docs/EN/demo.md)
 - [Release baseline](docs/EN/release.md)
 - [Roadmap](docs/EN/roadmap.md)

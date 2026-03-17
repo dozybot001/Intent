@@ -105,6 +105,37 @@ itt --help
 
 如果你只是想直接跑仓库里的版本，也可以用 `./itt --help`。
 
+这条 editable install 路径是给贡献者和仓库内开发使用的。如果你只是想作为普通用户使用 Intent，可以直接跳到下面的 bootstrap 命令。
+
+## 安装路径
+
+给贡献者的命令：
+
+```bash
+git clone https://github.com/dozybot001/Intent.git
+```
+
+给普通用户的一条安装命令：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/setup/install.sh | bash
+```
+
+这条 bootstrap 命令会在 `~/.intent/repo` 保留一份本地 checkout，把
+repo-backed 的 `itt` 暴露到 `~/.intent/bin/itt`，并在可能时把这个目录接进
+PATH，然后对检测到的 agent 运行 `itt setup`。普通用户不需要再额外做一次
+`pip install` 去安装独立 CLI 副本。
+
+安装完成后，后续命令面保持很小：
+
+```bash
+itt integrations list
+itt setup --agent auto
+itt setup codex
+itt setup claude
+itt doctor
+```
+
 ## 验证方式
 
 ```bash
@@ -137,6 +168,15 @@ itt log
 itt status --json
 itt inspect --json
 ```
+
+当写命令依赖“当前对象”时，优先使用内置 selector：
+
+```bash
+itt adopt --checkpoint @current -m "Adopt candidate"
+itt decide "Record rationale" --adoption @latest
+```
+
+如果 `itt adopt` 提示 checkpoint 冲突，就先用提示里的候选执行一次 `itt checkpoint select <id>`，再重试。
 
 ## Agent 的默认工作方式
 
@@ -193,6 +233,7 @@ README 只保留总览，更完整的说明在 `docs/`：
 - [术语表](docs/CN/glossary.md)
 - [愿景与问题定义](docs/CN/vision.md)
 - [CLI 统一设计文档](docs/CN/cli.md)
+- [分发与集成设计](docs/CN/distribution.md)
 - [Demo](docs/CN/demo.md)
 - [发布基线](docs/CN/release.md)
 - [路线图](docs/CN/roadmap.md)

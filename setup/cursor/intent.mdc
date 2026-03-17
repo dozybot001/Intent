@@ -1,0 +1,13 @@
+---
+description: "Intent CLI workflow helper"
+globs: ["**/*"]
+alwaysApply: false
+---
+
+Use Intent CLI when a repository already uses `.intent/` or when the user asks
+to maintain semantic history with `itt`.
+
+- Read `itt inspect --json` before substantive work.
+- Continue the active intent when it matches the task.
+- Use `itt run start`, `itt snap`, `itt adopt`, and `itt decide` only for meaningful steps.
+- Re-read `itt inspect --json` after state changes instead of guessing.

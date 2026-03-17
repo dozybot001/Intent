@@ -242,6 +242,7 @@ itt run show
 当前 helper-command 说明：
 
 - 当实现中提供 `show` 辅助命令时，可以支持 `@active`、`@current`、`@latest` 这类保留选择器，方便机器读取当前对象
+- 当写命令接受 `--checkpoint` 或 `--adoption` 时，也可以接受对应 selector，比如 `@current` 与 `@latest`，避免额外查 id
 
 ### 5.3 Surface 与 Canonical 映射
 
@@ -288,6 +289,7 @@ agent 模式：
 - 优先显式传 `intent id` / `checkpoint id`
 - 可以读取 current object，但不应把它当成强契约
 - 推荐先 `itt inspect --json` 再执行写操作
+- 如果目标只是“当前 checkpoint”或“最新 adoption”，优先用 `--checkpoint @current` 和 `--adoption @latest`
 
 ### 6.4 冲突处理
 
@@ -295,7 +297,8 @@ agent 模式：
 
 - `itt adopt` 不应猜测
 - 返回 `STATE_CONFLICT`
-- 输出明确 next action，例如 `itt checkpoint select`
+- 在 error details 里带出 candidate id 列表
+- 输出具体 next action，例如 `itt checkpoint select cp-002`
 
 ## 7. 本地目录结构
 
@@ -1544,8 +1547,10 @@ Next: itt log
 
 ```text
 Cannot adopt because the current checkpoint is not unambiguous
-Intent: intent-001  Reduce onboarding confusion
 Error: STATE_CONFLICT
+Candidates:
+- cp-002: Landing page candidate C
+- cp-001: Landing page candidate B
 Next: itt checkpoint select cp-002
 ```
 

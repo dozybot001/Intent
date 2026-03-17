@@ -9,6 +9,16 @@ from typing import Any, Dict, Optional
 from . import __version__
 from .constants import EXIT_SUCCESS
 from .core import IntentRepository
+from .distribution import (
+    doctor_exit_code,
+    doctor_report,
+    format_doctor_text,
+    format_integrations_text,
+    format_setup_text,
+    list_integrations,
+    normalize_agent_name,
+    setup_integration,
+)
 from .errors import IntentError
 from .git import build_git_context, summarize_git
 from .helpers import cli_action, write_result
@@ -18,11 +28,22 @@ def emit_json(payload: Dict[str, Any]) -> None:
     print(json.dumps(payload, indent=2))
 
 
+def error_detail_lines(error: IntentError) -> list[str]:
+    lines: list[str] = []
+    candidates = error.details.get("candidate_checkpoints")
+    if candidates:
+        lines.append("Candidates:")
+        for checkpoint in candidates:
+            lines.append(f"- {checkpoint['id']}: {checkpoint['title']}")
+    return lines
+
+
 def emit_error(error: IntentError, *, as_json: bool) -> int:
     if as_json:
         emit_json(error.to_json())
     else:
         lines = [error.message, f"Error: {error.code}"]
+        lines.extend(error_detail_lines(error))
         if error.suggested_fix:
             lines.append(f"Next: {error.suggested_fix}")
         print("\n".join(lines), file=sys.stderr)
@@ -111,6 +132,29 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_parser.add_argument("--json", action="store_true")
 
     log_parser = subparsers.add_parser("log", help="Show semantic history for humans")
+
+    setup_parser = subparsers.add_parser(
+        "setup",
+        help="Install or stage agent-specific Intent setup assets from the local Intent checkout",
+    )
+    setup_parser.add_argument("agent_target", nargs="?")
+    setup_parser.add_argument("--agent", dest="agent_flag")
+    setup_parser.add_argument("--json", action="store_true")
+
+    doctor_parser = subparsers.add_parser(
+        "doctor",
+        help="Verify local checkout-backed agent setup health and remaining manual steps",
+    )
+    doctor_parser.add_argument("--agent")
+    doctor_parser.add_argument("--json", action="store_true")
+
+    integrations_parser = subparsers.add_parser("integrations", help="Read integration metadata")
+    integrations_subparsers = integrations_parser.add_subparsers(
+        dest="integrations_command",
+        required=True,
+        title="integration commands",
+    )
+    integrations_subparsers.add_parser("list", parents=[base_read_parser()], help="List supported integrations")
 
     config_parser = subparsers.add_parser("config", help="Read workspace configuration")
     config_subparsers = config_parser.add_subparsers(dest="config_command", required=True, title="config commands")
@@ -506,6 +550,82 @@ def handle_log(repo: IntentRepository, args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def resolve_setup_agent(args: argparse.Namespace) -> str:
+    target = args.agent_target
+    flag = args.agent_flag
+    if target and flag and target.lower() != flag.lower():
+        raise IntentError(
+            2,
+            "INVALID_INPUT",
+            "Conflicting setup targets were provided.",
+            details={"agent_target": target, "agent_flag": flag},
+            suggested_fix="Use either a positional target or --agent, but not both.",
+        )
+    return normalize_agent_name(flag or target or "auto")
+
+
+def handle_setup(args: argparse.Namespace) -> int:
+    requested_agent = resolve_setup_agent(args)
+    result, warnings, state_changed, noop, reason = setup_integration(requested_agent)
+    next_action = None
+    if result["selected_agent"] is None:
+        next_action = cli_action(["integrations", "list"], "Inspect detected agents and explicit setup options")
+    elif result.get("install_mode") == "skill_dir":
+        next_action = cli_action(["doctor", "--agent", result["selected_agent"]], "Verify the installed skill")
+
+    if args.json:
+        emit_json(
+            write_result(
+                "integration",
+                "setup",
+                result["selected_agent"],
+                result,
+                warnings,
+                next_action=next_action,
+                state_changed=state_changed,
+                noop=noop,
+                reason=reason,
+            )
+        )
+        return EXIT_SUCCESS
+
+    print(format_setup_text(result, reason))
+    return EXIT_SUCCESS
+
+
+def handle_doctor(args: argparse.Namespace) -> int:
+    payload = doctor_report(args.agent)
+    if args.json:
+        emit_json(
+            {
+                "ok": payload["healthy"],
+                "object": "doctor",
+                "action": "check",
+                "result": payload,
+                "warnings": payload["warnings"],
+            }
+        )
+    else:
+        print(format_doctor_text(payload))
+    return doctor_exit_code(payload)
+
+
+def handle_integrations_list(args: argparse.Namespace) -> int:
+    payload = list_integrations()
+    if args.json:
+        emit_json(
+            {
+                "ok": True,
+                "object": "integration",
+                "action": "list",
+                "result": payload,
+            }
+        )
+    else:
+        print(format_integrations_text(payload))
+    return EXIT_SUCCESS
+
+
 def handle_config_show(repo: IntentRepository, args: argparse.Namespace) -> int:
     config = repo.show_config()
     if args.json:
@@ -658,6 +778,12 @@ def main(argv: Optional[list[str]] = None) -> int:
             return handle_inspect(repo, args)
         if args.command == "log":
             return handle_log(repo, args)
+        if args.command == "setup":
+            return handle_setup(args)
+        if args.command == "doctor":
+            return handle_doctor(args)
+        if args.command == "integrations" and args.integrations_command == "list":
+            return handle_integrations_list(args)
         if args.command == "config" and args.config_command == "show":
             return handle_config_show(repo, args)
         if args.command == "intent" and args.intent_command == "list":

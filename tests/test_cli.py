@@ -1,9 +1,11 @@
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Dict, Optional
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,31 +13,44 @@ CLI = ROOT / "itt"
 SMOKE = ROOT / "scripts" / "smoke.sh"
 DEMO = ROOT / "scripts" / "demo_log.sh"
 AGENT_DEMO = ROOT / "scripts" / "demo_agent.sh"
+INSTALL = ROOT / "setup" / "install.sh"
 
 
-def run_cli(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def run_cli(cwd: Path, *args: str, env: Optional[Dict[str, str]] = None) -> subprocess.CompletedProcess[str]:
+    merged_env = os.environ.copy()
+    if env:
+        merged_env.update(env)
     return subprocess.run(
         [sys.executable, str(CLI), *args],
         cwd=str(cwd),
         check=False,
         capture_output=True,
         text=True,
+        env=merged_env,
     )
 
 
-def run_module_cli(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def run_module_cli(cwd: Path, *args: str, env: Optional[Dict[str, str]] = None) -> subprocess.CompletedProcess[str]:
+    merged_env = os.environ.copy()
+    merged_env["PYTHONPATH"] = str(ROOT / "src")
+    if env:
+        merged_env.update(env)
     return subprocess.run(
         [sys.executable, "-m", "intent_cli", *args],
         cwd=str(cwd),
         check=False,
         capture_output=True,
         text=True,
-        env={"PYTHONPATH": str(ROOT / "src")},
+        env=merged_env,
     )
 
 
-def run_cli_json(cwd: Path, *args: str) -> tuple[subprocess.CompletedProcess[str], dict]:
-    result = run_cli(cwd, *args)
+def run_cli_json(
+    cwd: Path,
+    *args: str,
+    env: Optional[Dict[str, str]] = None,
+) -> tuple[subprocess.CompletedProcess[str], dict]:
+    result = run_cli(cwd, *args, env=env)
     return result, json.loads(result.stdout)
 
 
@@ -100,6 +115,9 @@ class IntentCliTests(unittest.TestCase):
             self.assertIn("Intent CLI records semantic history on top of Git.", top_help.stdout)
             self.assertIn("checkpoint", top_help.stdout)
             self.assertIn("decision", top_help.stdout)
+            self.assertIn("setup", top_help.stdout)
+            self.assertIn("doctor", top_help.stdout)
+            self.assertIn("integrations", top_help.stdout)
 
             checkpoint_help = run_cli(repo, "checkpoint", "--help")
             self.assertEqual(checkpoint_help.returncode, 0)
@@ -631,6 +649,173 @@ class IntentCliTests(unittest.TestCase):
         self.assertIn("== next action ==", result.stdout)
         self.assertIn("Agent demo complete", result.stdout)
 
+    def test_distribution_commands_work_without_git(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            home = repo / "home"
+            intent_home = repo / "intent-home"
+            codex_home = home / ".codex"
+            codex_home.mkdir(parents=True)
+
+            env = {
+                "HOME": str(home),
+                "INTENT_HOME": str(intent_home),
+                "CODEX_HOME": str(codex_home),
+            }
+
+            list_result = run_cli(repo, "integrations", "list", "--json", env=env)
+            self.assertEqual(list_result.returncode, 0)
+            list_payload = json.loads(list_result.stdout)["result"]["integrations"]
+            codex = next(item for item in list_payload if item["id"] == "codex")
+            self.assertTrue(codex["detected"])
+            self.assertTrue(codex["auto_install_supported"])
+            self.assertEqual(codex["status"], "not_installed")
+
+            setup_result = run_cli(repo, "setup", "--agent", "auto", "--json", env=env)
+            self.assertEqual(setup_result.returncode, 0)
+            setup_payload = json.loads(setup_result.stdout)
+            self.assertEqual(setup_payload["result"]["selected_agent"], "codex")
+            self.assertEqual(setup_payload["result"]["install_mode"], "skill_dir")
+            self.assertEqual(setup_payload["result"]["repo_root"], str(ROOT))
+            skill_root = Path(setup_payload["result"]["target_path"])
+            self.assertTrue((skill_root / "SKILL.md").exists())
+
+            second_setup = run_cli(repo, "setup", "codex", "--json", env=env)
+            self.assertEqual(second_setup.returncode, 0)
+            second_payload = json.loads(second_setup.stdout)
+            self.assertTrue(second_payload["noop"])
+            self.assertFalse(second_payload["state_changed"])
+
+            doctor_result = run_cli(repo, "doctor", "--agent", "codex", "--json", env=env)
+            self.assertEqual(doctor_result.returncode, 0)
+            doctor_payload = json.loads(doctor_result.stdout)
+            self.assertTrue(doctor_payload["ok"])
+            self.assertEqual(doctor_payload["result"]["checks"][0]["status"], "installed")
+
+    def test_setup_claude_installs_skill_into_global_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            home = repo / "home"
+            intent_home = repo / "intent-home"
+            claude_home = home / ".claude"
+            claude_home.mkdir(parents=True)
+
+            env = {
+                "HOME": str(home),
+                "INTENT_HOME": str(intent_home),
+                "CLAUDE_HOME": str(claude_home),
+            }
+
+            setup_result = run_cli(repo, "setup", "claude", "--json", env=env)
+            self.assertEqual(setup_result.returncode, 0)
+            setup_payload = json.loads(setup_result.stdout)
+            self.assertEqual(setup_payload["result"]["selected_agent"], "claude")
+            self.assertTrue((claude_home / "skills" / "intent-cli" / "SKILL.md").exists())
+
+            doctor_result = run_cli(repo, "doctor", "--agent", "claude", "--json", env=env)
+            self.assertEqual(doctor_result.returncode, 0)
+            self.assertTrue(json.loads(doctor_result.stdout)["ok"])
+
+    def test_auto_setup_skips_manual_only_cursor_detection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            home = repo / "home"
+            intent_home = repo / "intent-home"
+            cursor_home = home / ".cursor"
+            cursor_home.mkdir(parents=True)
+            env = {
+                "HOME": str(home),
+                "INTENT_HOME": str(intent_home),
+                "CURSOR_HOME": str(cursor_home),
+            }
+
+            setup_auto = run_cli(repo, "setup", "--agent", "auto", "--json", env=env)
+            self.assertEqual(setup_auto.returncode, 0)
+            auto_payload = json.loads(setup_auto.stdout)
+            self.assertIsNone(auto_payload["result"]["selected_agent"])
+            self.assertEqual(auto_payload["result"]["status"], "no_auto_installable_agent_detected")
+            self.assertIn("cursor", auto_payload["result"]["manual_detected_agents"])
+
+            setup_cursor = run_cli(repo, "setup", "cursor", "--json", env=env)
+            self.assertEqual(setup_cursor.returncode, 0)
+            cursor_payload = json.loads(setup_cursor.stdout)
+            self.assertEqual(cursor_payload["result"]["selected_agent"], "cursor")
+            self.assertEqual(cursor_payload["result"]["status"], "manual_helper_ready")
+            helper_path = Path(cursor_payload["result"]["target_path"])
+            self.assertTrue(helper_path.exists())
+            self.assertEqual(helper_path, intent_home / "generated" / "cursor" / "intent.mdc")
+
+            doctor_result = run_cli(repo, "doctor", "--agent", "cursor", "--json", env=env)
+            self.assertEqual(doctor_result.returncode, 1)
+            doctor_payload = json.loads(doctor_result.stdout)
+            self.assertFalse(doctor_payload["ok"])
+            self.assertEqual(doctor_payload["result"]["checks"][0]["status"], "manual_helper_ready")
+
+    def test_install_script_supports_dry_run(self) -> None:
+        result = subprocess.run(
+            [str(INSTALL), "--agent", "codex", "--dry-run"],
+            cwd=str(ROOT),
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertIn(".intent/repo", result.stdout)
+        self.assertIn(".intent/bin/itt", result.stdout)
+        self.assertIn(".intent/repo/itt setup --agent codex", result.stdout)
+        self.assertNotIn("pip install", result.stdout)
+
+    def test_install_script_creates_repo_backed_launcher(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "home"
+            home.mkdir()
+            codex_home = home / ".codex"
+            codex_home.mkdir(parents=True)
+
+            env = os.environ.copy()
+            env.update(
+                {
+                    "HOME": str(home),
+                    "SHELL": "/bin/zsh",
+                    "CODEX_HOME": str(codex_home),
+                }
+            )
+
+            result = subprocess.run(
+                [str(INSTALL), "--agent", "codex"],
+                cwd=str(ROOT),
+                check=False,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+
+            intent_home = home / ".intent"
+            repo_dir = intent_home / "repo"
+            launcher = intent_home / "bin" / "itt"
+            skill_file = codex_home / "skills" / "intent-cli" / "SKILL.md"
+            rc_file = home / ".zshrc"
+
+            self.assertTrue((repo_dir / "itt").exists())
+            self.assertTrue(launcher.exists())
+            self.assertEqual(launcher.resolve(), (repo_dir / "itt").resolve())
+            self.assertTrue(skill_file.exists())
+            self.assertTrue(rc_file.exists())
+            self.assertIn(str(intent_home / "bin"), rc_file.read_text())
+
+            launcher_result = subprocess.run(
+                [str(launcher), "integrations", "list", "--json"],
+                cwd=str(home),
+                check=False,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            self.assertEqual(launcher_result.returncode, 0, msg=launcher_result.stderr)
+            launcher_payload = json.loads(launcher_result.stdout)
+            self.assertEqual(launcher_payload["result"]["repo_root"], str(repo_dir))
+
     def test_show_selectors_resolve_active_current_and_latest_objects(self) -> None:
         repo = self.make_repo(initialize_intent=True)
 
@@ -700,6 +885,67 @@ class IntentCliTests(unittest.TestCase):
         self.assertEqual(invalid_selector.returncode, 2)
         invalid_payload = json.loads(invalid_selector.stdout)
         self.assertEqual(invalid_payload["error"]["code"], "INVALID_INPUT")
+
+    def test_write_commands_accept_current_and_latest_selectors(self) -> None:
+        repo = self.make_repo(initialize_intent=True)
+        self.assertEqual(run_cli(repo, "start", "Refine onboarding").returncode, 0)
+
+        checkpoint_id = json.loads(run_cli(repo, "snap", "Candidate A", "--json").stdout)["id"]
+
+        adopt_result = run_cli(
+            repo,
+            "adopt",
+            "--checkpoint",
+            "@current",
+            "-m",
+            "Adopt current candidate",
+            "--json",
+        )
+        self.assertEqual(adopt_result.returncode, 0)
+        adopt_payload = json.loads(adopt_result.stdout)["result"]
+        self.assertEqual(adopt_payload["checkpoint_id"], checkpoint_id)
+
+        decide_result = run_cli(
+            repo,
+            "decide",
+            "Keep the current adoption rationale",
+            "--adoption",
+            "@latest",
+            "--json",
+        )
+        self.assertEqual(decide_result.returncode, 0)
+        decide_payload = json.loads(decide_result.stdout)["result"]
+        self.assertEqual(decide_payload["adoption_id"], adopt_payload["id"])
+        self.assertEqual(decide_payload["checkpoint_id"], checkpoint_id)
+
+    def test_adopt_conflict_error_surfaces_candidate_recovery(self) -> None:
+        repo = self.make_repo(initialize_intent=True)
+        self.assertEqual(run_cli(repo, "start", "Refine onboarding").returncode, 0)
+
+        cp1 = json.loads(run_cli(repo, "snap", "Candidate A", "--json").stdout)["id"]
+        cp2 = json.loads(run_cli(repo, "snap", "Candidate B", "--json").stdout)["id"]
+
+        checkpoint_file = repo / ".intent" / "checkpoints" / f"{cp2}.json"
+        checkpoint_payload = json.loads(checkpoint_file.read_text())
+        checkpoint_payload["selected"] = False
+        checkpoint_payload["updated_at"] = checkpoint_payload["created_at"]
+        checkpoint_file.write_text(json.dumps(checkpoint_payload, indent=2) + "\n")
+
+        conflict = run_cli(
+            repo,
+            "adopt",
+            "--checkpoint",
+            "@current",
+            "-m",
+            "Adopt candidate",
+            "--json",
+        )
+        self.assertEqual(conflict.returncode, 3)
+        conflict_payload = json.loads(conflict.stdout)
+        self.assertEqual(conflict_payload["error"]["code"], "STATE_CONFLICT")
+        self.assertEqual(conflict_payload["error"]["suggested_fix"], f"itt checkpoint select {cp2}")
+        candidate_ids = [item["id"] for item in conflict_payload["error"]["details"]["candidate_checkpoints"]]
+        self.assertEqual(candidate_ids, [cp2, cp1])
 
     def test_run_start_end_updates_state_and_links_new_objects(self) -> None:
         repo = self.make_repo(initialize_intent=True)

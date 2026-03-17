@@ -93,15 +93,27 @@ class IntentRepository:
         if object_name == "intent":
             payload = self.active_intent(state)
             suggested_fix = 'itt start "Describe the problem"'
+            extra_details: Dict[str, Any] = {}
         elif object_name == "checkpoint":
-            payload = self.derive_current_checkpoint(state, self.active_intent(state))
-            suggested_fix = "itt checkpoint select <id>"
+            active_intent = self.active_intent(state)
+            payload = self.derive_current_checkpoint(state, active_intent)
+            candidate_details = self.checkpoint_selector_candidates(active_intent["id"] if active_intent else None)
+            suggested_fix = self.checkpoint_selector_fix(active_intent["id"] if active_intent else None)
+            extra_details = {"candidate_checkpoints": candidate_details} if candidate_details else {}
         elif object_name == "adoption":
+            active_intent = self.active_intent(state)
             payload = self.load_object("adoption", state.get("last_adoption_id"))
-            suggested_fix = "itt log"
+            if payload and active_intent and payload.get("intent_id") != active_intent.get("id"):
+                payload = None
+            if payload is None and active_intent:
+                payload = self.latest_active_adoption(active_intent["id"])
+            suggested_fix = self.adoption_selector_fix(state, active_intent) if active_intent else 'itt start "Describe the problem"'
+            candidate_details = self.checkpoint_selector_candidates(active_intent["id"] if active_intent else None)
+            extra_details = {"candidate_checkpoints": candidate_details} if candidate_details else {}
         elif object_name == "run":
             payload = self.active_run(state)
             suggested_fix = "itt run start"
+            extra_details = {}
         elif object_name == "decision":
             active_intent = self.active_intent(state)
             decisions = [
@@ -111,16 +123,20 @@ class IntentRepository:
             ]
             payload = sorted(decisions, key=object_sort_key, reverse=True)[0] if decisions else None
             suggested_fix = "itt decide <title>"
+            extra_details = {}
         else:
             payload = None
             suggested_fix = None
+            extra_details = {}
 
         if payload is None:
+            details = {"selector": object_ref, "object": object_name}
+            details.update(extra_details)
             raise IntentError(
                 EXIT_OBJECT_NOT_FOUND,
                 "OBJECT_NOT_FOUND",
                 f"No {object_name} is available for selector '{object_ref}'.",
-                details={"selector": object_ref, "object": object_name},
+                details=details,
                 suggested_fix=suggested_fix,
             )
         return payload
@@ -241,6 +257,83 @@ class IntentRepository:
             if not decision.get("adoption_id")
         ]
         return sorted(decisions, key=object_sort_key, reverse=True)
+
+    def checkpoint_selector_candidates(self, intent_id: Optional[str]) -> List[Dict[str, Any]]:
+        return [
+            {"id": checkpoint["id"], "title": checkpoint["title"]}
+            for checkpoint in sorted(self.candidate_checkpoints(intent_id), key=object_sort_key, reverse=True)
+        ]
+
+    def checkpoint_selector_fix(self, intent_id: Optional[str]) -> str:
+        candidates = self.checkpoint_selector_candidates(intent_id)
+        if candidates:
+            return f"itt checkpoint select {candidates[0]['id']}"
+        return 'itt snap "First candidate"'
+
+    def resolve_checkpoint_argument(
+        self,
+        state: Dict[str, Any],
+        intent: Dict[str, Any],
+        checkpoint_ref: str,
+    ) -> Dict[str, Any]:
+        if not checkpoint_ref.startswith("@"):
+            return self.require_object("checkpoint", checkpoint_ref)
+
+        checkpoint = self.derive_current_checkpoint(state, intent)
+        if checkpoint is not None:
+            return checkpoint
+
+        candidate_details = self.checkpoint_selector_candidates(intent["id"])
+        raise IntentError(
+            EXIT_STATE_CONFLICT,
+            "STATE_CONFLICT",
+            "Cannot resolve --checkpoint because the current checkpoint is not unambiguous.",
+            details={
+                "intent_id": intent["id"],
+                "selector": checkpoint_ref,
+                "candidate_checkpoints": candidate_details,
+            },
+            suggested_fix=self.checkpoint_selector_fix(intent["id"]),
+        )
+
+    def adoption_selector_fix(self, state: Dict[str, Any], intent: Optional[Dict[str, Any]]) -> str:
+        if intent is None:
+            return 'itt start "Describe the problem"'
+        current_checkpoint = self.derive_current_checkpoint(state, intent)
+        if current_checkpoint is not None:
+            return f'itt adopt --checkpoint {current_checkpoint["id"]} -m "Adopt candidate"'
+        return self.checkpoint_selector_fix(intent["id"])
+
+    def resolve_adoption_argument(
+        self,
+        state: Dict[str, Any],
+        intent: Dict[str, Any],
+        adoption_ref: str,
+    ) -> Dict[str, Any]:
+        if not adoption_ref.startswith("@"):
+            return self.require_object("adoption", adoption_ref)
+
+        latest_adoption = self.load_object("adoption", state.get("last_adoption_id"))
+        if latest_adoption and latest_adoption.get("intent_id") == intent["id"]:
+            return latest_adoption
+
+        latest_adoption = self.latest_active_adoption(intent["id"])
+        if latest_adoption is not None:
+            return latest_adoption
+
+        candidate_details = self.checkpoint_selector_candidates(intent["id"])
+        raise IntentError(
+            EXIT_OBJECT_NOT_FOUND,
+            "OBJECT_NOT_FOUND",
+            f"No adoption is available for selector '{adoption_ref}'.",
+            details={
+                "selector": adoption_ref,
+                "object": "adoption",
+                "intent_id": intent["id"],
+                "candidate_checkpoints": candidate_details,
+            },
+            suggested_fix=self.adoption_selector_fix(state, intent),
+        )
 
     def derive_current_checkpoint(
         self,
@@ -514,7 +607,7 @@ class IntentRepository:
         checkpoint: Optional[Dict[str, Any]] = None
 
         if adoption_id:
-            adoption = self.require_object("adoption", adoption_id)
+            adoption = self.resolve_adoption_argument(state, intent, adoption_id)
             if adoption.get("intent_id") != intent["id"]:
                 raise IntentError(
                     EXIT_STATE_CONFLICT,
@@ -611,16 +704,20 @@ class IntentRepository:
             )
 
         if checkpoint_id:
-            checkpoint = self.require_object("checkpoint", checkpoint_id)
+            checkpoint = self.resolve_checkpoint_argument(state, intent, checkpoint_id)
         else:
             checkpoint = self.derive_current_checkpoint(state, intent)
             if checkpoint is None:
+                candidate_details = self.checkpoint_selector_candidates(intent["id"])
                 raise IntentError(
                     EXIT_STATE_CONFLICT,
                     "STATE_CONFLICT",
                     "Cannot adopt because the current checkpoint is not unambiguous",
-                    details={"intent_id": intent["id"]},
-                    suggested_fix="itt checkpoint select <id>",
+                    details={
+                        "intent_id": intent["id"],
+                        "candidate_checkpoints": candidate_details,
+                    },
+                    suggested_fix=self.checkpoint_selector_fix(intent["id"]),
                 )
 
         if checkpoint.get("intent_id") != intent["id"]:

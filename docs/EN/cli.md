@@ -242,6 +242,7 @@ Implementation principles:
 Current helper-command note:
 
 - when `show` helpers exist, they may support reserved selectors such as `@active`, `@current`, and `@latest` for machine-friendly reads
+- when write commands accept `--checkpoint` or `--adoption`, they may also accept the matching selectors such as `@current` and `@latest` to avoid unnecessary id lookups
 
 ### 5.3 Mapping Between Surface and Canonical Commands
 
@@ -288,6 +289,7 @@ Agent mode:
 - prefer passing explicit `intent id` / `checkpoint id`
 - the current object may be read, but should not be treated as a strong contract
 - recommended flow: run `itt inspect --json` before any write operation
+- when the write target is simply "the current checkpoint" or "the latest adoption", prefer `--checkpoint @current` and `--adoption @latest`
 
 ### 6.4 Conflict Handling
 
@@ -295,7 +297,8 @@ If multiple unadopted candidates exist and the default object is not clear:
 
 - `itt adopt` must not guess
 - it should return `STATE_CONFLICT`
-- it should return a clear next action such as `itt checkpoint select`
+- it should return candidate ids in the error details
+- it should return a concrete next action such as `itt checkpoint select cp-002`
 
 ## 7. Local Directory Layout
 
@@ -1544,8 +1547,10 @@ Next: itt log
 
 ```text
 Cannot adopt because the current checkpoint is not unambiguous
-Intent: intent-001  Reduce onboarding confusion
 Error: STATE_CONFLICT
+Candidates:
+- cp-002: Landing page candidate C
+- cp-001: Landing page candidate B
 Next: itt checkpoint select cp-002
 ```
 
