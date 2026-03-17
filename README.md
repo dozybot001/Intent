@@ -79,6 +79,12 @@ git clone https://github.com/dozybot001/Intent.git && cd Intent
 pip install -e .
 ```
 
+## A note on agent inertia
+
+Intent is a new project. Current AI models have never seen `itt` in their training data, so they won't use it proactively — even with instructions in CLAUDE.md or AGENTS.md. You may need to nudge your agent: "run `itt inspect`", "snap before committing", etc.
+
+This gets better over time as the model follows the instructions more consistently within a session. The semantic history it produces is worth the occasional reminder — the next session starts with structured context instead of from zero.
+
 ## Commands
 
 | Command | Purpose |

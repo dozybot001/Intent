@@ -79,6 +79,12 @@ git clone https://github.com/dozybot001/Intent.git && cd Intent
 pip install -e .
 ```
 
+## 关于 agent 惯性
+
+Intent 是一个新项目。当前 AI 模型的训练数据中从未见过 `itt`，所以即使在 CLAUDE.md 或 AGENTS.md 中写了指令，agent 也不会主动使用它。你可能需要偶尔提醒："跑一下 `itt inspect`"、"commit 之前 snap 一下"等等。
+
+随着 session 内的交互，模型会越来越一致地遵循指令。它产出的语义历史值得这些偶尔的提醒——下一个 session 从结构化上下文开始，而不是从零开始。
+
 ## 命令
 
 | 命令 | 用途 |
