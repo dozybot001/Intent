@@ -1,0 +1,4 @@
+interface:
+  display_name: "Intent CLI"
+  short_description: "Guide agents to use Intent CLI safely"
+  default_prompt: "Use $intent-cli to understand and operate an Intent CLI workspace in the current repository."

@@ -81,7 +81,8 @@ The current path model should stay concrete and small:
 
 - fixed local checkout: `~/.intent/repo`
 - command launcher: `~/.intent/bin/itt`
-- setup source of truth: `~/.intent/repo/setup/`
+- installer assets: `~/.intent/repo/setup/`
+- canonical skill bundle: `~/.intent/repo/skills/intent-cli/`
 - runtime receipts and generated helpers: `~/.intent/receipts/` and `~/.intent/generated/`
 
 Anything outside those paths should be treated as contributor tooling, not part of the end-user install story.
@@ -92,7 +93,7 @@ To keep future implementation work aligned, these boundaries should stay explici
 
 - no second copied `setup/` tree under `~/.intent`
 - no second standalone CLI install for end users
-- no alternate runtime source of setup assets beyond the fixed local checkout
+- no alternate runtime source of installer assets or canonical skill content beyond the fixed local checkout
 - contributor flows such as `pip install -e .` may continue to exist, but they should stay framed as contributor-only paths
 
 The GitHub homepage and docs should keep pointing to the bootstrap flow first.
@@ -114,26 +115,40 @@ These commands should hide platform-specific filesystem paths, adapter layouts, 
 
 ## 6. Repository Layout
 
-The repository source of truth can stay very small:
+The repository source of truth can stay small, but it should still distinguish
+between the canonical reusable skill bundle and the installer-specific assets:
 
 ```text
+skills/
+  intent-cli/
+    SKILL.md
+    agents/
+    references/
+
 setup/
   install.sh
   manifest.json
-  codex/
-  claude/
   cursor/
 ```
 
-This keeps the bootstrap entry point, manifest, and agent-specific setup assets in one predictable place. At runtime, `itt` can read them directly from the stable checkout under `~/.intent/repo`.
+`skills/intent-cli/` is the canonical shipped Intent skill bundle. It should be
+versioned in GitHub, visible to contributors, and used as the source for
+platforms that can install a file-based global skill directory.
 
-It also means the fixed checkout contains the `itt` entrypoint and CLI code itself. The user should experience one local repo, not one repo plus a separate user-facing CLI install.
+`setup/` keeps only the bootstrap entry point, integration manifest, and
+platform-specific helper assets. Codex and Claude should install from the
+shared repo skill bundle instead of maintaining duplicated skill copies under
+`setup/`.
+
+The fixed checkout still contains the `itt` entrypoint and CLI code itself. The
+user should experience one local repo, not one repo plus a separate user-facing
+CLI install.
 
 ## 7. Release Artifacts
 
 At the current stage, release outputs only need to preserve the same user journey:
 
-1. a stable repository snapshot or release archive that contains `itt`, `src/`, and `setup/`
+1. a stable repository snapshot or release archive that contains `itt`, `src/`, `skills/`, and `setup/`
 2. a stable bootstrap script
 3. a machine-readable integration manifest
 4. the platform setup assets inside `setup/`

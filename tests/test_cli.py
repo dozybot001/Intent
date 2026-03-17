@@ -679,6 +679,8 @@ class IntentCliTests(unittest.TestCase):
             self.assertEqual(setup_payload["result"]["repo_root"], str(ROOT))
             skill_root = Path(setup_payload["result"]["target_path"])
             self.assertTrue((skill_root / "SKILL.md").exists())
+            self.assertTrue((skill_root / "agents" / "openai.yaml").exists())
+            self.assertTrue((skill_root / "references" / "workflow-cheatsheet.md").exists())
 
             second_setup = run_cli(repo, "setup", "codex", "--json", env=env)
             self.assertEqual(second_setup.returncode, 0)
@@ -711,6 +713,7 @@ class IntentCliTests(unittest.TestCase):
             setup_payload = json.loads(setup_result.stdout)
             self.assertEqual(setup_payload["result"]["selected_agent"], "claude")
             self.assertTrue((claude_home / "skills" / "intent-cli" / "SKILL.md").exists())
+            self.assertTrue((claude_home / "skills" / "intent-cli" / "references" / "error-handling.md").exists())
 
             doctor_result = run_cli(repo, "doctor", "--agent", "claude", "--json", env=env)
             self.assertEqual(doctor_result.returncode, 0)
@@ -801,6 +804,7 @@ class IntentCliTests(unittest.TestCase):
             self.assertTrue(launcher.exists())
             self.assertEqual(launcher.resolve(), (repo_dir / "itt").resolve())
             self.assertTrue(skill_file.exists())
+            self.assertTrue((codex_home / "skills" / "intent-cli" / "agents" / "openai.yaml").exists())
             self.assertTrue(rc_file.exists())
             self.assertIn(str(intent_home / "bin"), rc_file.read_text())
 

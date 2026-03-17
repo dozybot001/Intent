@@ -224,6 +224,30 @@ Intent 的接口分成两层：
 - 继续做低风险的内部清理，提升可维护性
 - 用真实使用反馈决定合适的 `v0.2.0` 方向
 
+## 仓库结构
+
+当前仓库结构刻意保持得很小：
+
+```text
+Intent/
+|-- README.md
+|-- README.CN.md
+|-- skills/
+|   `-- intent-cli/
+|-- setup/
+|-- src/
+|   `-- intent_cli/
+|-- docs/
+|-- scripts/
+|-- tests/
+`-- .intent/
+```
+
+- `skills/intent-cli/`：正式对外分发的 Intent canonical skill bundle，里面包含 `SKILL.md`、agent metadata 和 bundled references。
+- `setup/`：bootstrap 脚本、集成 manifest，以及 `itt setup` 用到的平台差异 helper 资源。
+- `src/intent_cli/`：CLI 实现本体。
+- `.intent/`：这个仓库自己 dogfooding 时产生的本地语义状态，不属于 end-user runtime bundle。
+
 ## 文档
 
 README 只保留总览，更完整的说明在 `docs/`：

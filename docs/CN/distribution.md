@@ -81,7 +81,8 @@ curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/setup/instal
 
 - 固定本地 checkout：`~/.intent/repo`
 - 命令 launcher：`~/.intent/bin/itt`
-- setup source of truth：`~/.intent/repo/setup/`
+- installer assets：`~/.intent/repo/setup/`
+- canonical skill bundle：`~/.intent/repo/skills/intent-cli/`
 - 运行时 receipts 和 generated helpers：`~/.intent/receipts/` 与 `~/.intent/generated/`
 
 除了这些路径之外的内容，都应该视为贡献者工具链，而不是普通用户安装旅程的一部分。
@@ -92,7 +93,7 @@ curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/setup/instal
 
 - 不再复制第二份 `setup/` 到 `~/.intent`
 - 普通用户不再额外安装第二份独立 CLI
-- 运行时 setup 资产只认固定本地 checkout
+- 运行时 installer assets 和 canonical skill 内容都只认固定本地 checkout
 - `pip install -e .` 这类 contributor flow 可以保留，但必须持续被表述为贡献者路径
 
 GitHub 首页和文档都应该优先指向 bootstrap 流程。
@@ -114,26 +115,38 @@ itt integrations list
 
 ## 6. 仓库结构
 
-仓库里的 source of truth 可以收敛得很小：
+仓库里的 source of truth 可以保持得小，但应该明确区分“正式 skill bundle”
+和“安装器自己的资源”：
 
 ```text
+skills/
+  intent-cli/
+    SKILL.md
+    agents/
+    references/
+
 setup/
   install.sh
   manifest.json
-  codex/
-  claude/
   cursor/
 ```
 
-这样可以把 bootstrap 入口、manifest 和各平台 setup 资产都收敛在一个稳定位置里，而运行时 `itt` 只需要读取 `~/.intent/repo/setup/` 这份固定 checkout。
+`skills/intent-cli/` 是正式对外分发的 Intent skill bundle。它应该直接放在
+GitHub 仓库里，被版本管理、被贡献者看见，也作为支持 file-based global
+skill directory 的平台的安装来源。
 
-同时也意味着，固定 checkout 本身还包含 `itt` 入口和 CLI 源码；用户面对的是同一份本地 repo，而不是“repo 一份、CLI 另一份”。
+`setup/` 只保留 bootstrap 入口、integration manifest 和平台差异 helper
+资源。Codex 和 Claude 应该从共享的 repo skill bundle 安装，而不是继续在
+`setup/` 下维护重复 skill 副本。
+
+固定 checkout 本身仍然同时包含 `itt` 入口和 CLI 源码；用户面对的是同一份
+本地 repo，而不是“repo 一份、CLI 另一份”。
 
 ## 7. Release 产物
 
 在当前阶段，release 物料只需要维持同一条用户旅程：
 
-1. 包含 `itt`、`src/` 和 `setup/` 的稳定仓库快照或 release archive
+1. 包含 `itt`、`src/`、`skills/` 和 `setup/` 的稳定仓库快照或 release archive
 2. 稳定的 bootstrap 脚本
 3. machine-readable integration manifest
 4. `setup/` 里的平台 setup 资产

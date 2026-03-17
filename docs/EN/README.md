@@ -12,7 +12,6 @@ English | [简体中文](../CN/README.md)
 | [Vision and problem definition](vision.md) | Why does the agent era need Intent? | command syntax, JSON schema |
 | [Unified CLI spec](cli.md) | What are the CLI boundaries, command semantics, and implementation contract? | longer-term platform questions |
 | [Distribution and integration design](distribution.md) | How should Intent CLI and agent integrations be distributed and installed? | CLI contract details, per-platform implementation minutiae |
-| [Repository structure](structure.md) | What does the current repository layout look like, and what does each path do? | command contract details, release policy |
 | [First agent feedback](feedback.md) | What did the first real agent user find useful or frustrating? | CLI contract definitions, final product decisions |
 | [Demo](demo.md) | How can `itt log` and `git log` be compared quickly? | CLI contract definitions, long-term roadmap |
 | [Release baseline](release.md) | What must be true before a staged release? | CLI contract details, long-term roadmap |
@@ -23,7 +22,7 @@ English | [简体中文](../CN/README.md)
 
 - New to the project: start with [Glossary](glossary.md), then read [Vision and problem definition](vision.md)
 - Want a runnable example first: read [Demo](demo.md)
-- Want a quick map of the repository before editing: read [Repository structure](structure.md)
+- Want a quick map of the repository before editing: read the ASCII tree in the root [README](../../README.md)
 - Want practical product feedback from real agent usage: read [First agent feedback](feedback.md)
 - Want to discuss one-step install and multi-platform agent enablement: read [Distribution and integration design](distribution.md)
 - Want to prepare a staged release: read [Release baseline](release.md)
@@ -53,3 +52,4 @@ If two documents disagree on a CLI detail, sync the EN/CN pair and keep the cont
 - the root [README](../../README.md) is the English GitHub entry point; [README.CN.md](../../README.CN.md) is the Chinese version
 - `docs/` tries to avoid duplicated narrative; shared terminology should stay aligned with [Glossary](glossary.md)
 - the current install journey source of truth is [Distribution and integration design](distribution.md)
+- lightweight repository structure notes now live in the root README instead of a dedicated `structure.md`

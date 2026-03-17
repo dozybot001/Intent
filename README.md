@@ -224,6 +224,30 @@ Current priorities:
 - continuing low-risk internal cleanup where it improves maintainability
 - deciding the right `v0.2.0` direction from usage rather than abstract completeness
 
+## Repository Layout
+
+The repository layout stays intentionally small:
+
+```text
+Intent/
+|-- README.md
+|-- README.CN.md
+|-- skills/
+|   `-- intent-cli/
+|-- setup/
+|-- src/
+|   `-- intent_cli/
+|-- docs/
+|-- scripts/
+|-- tests/
+`-- .intent/
+```
+
+- `skills/intent-cli/`: the canonical shipped Intent skill bundle, including `SKILL.md`, agent metadata, and bundled references.
+- `setup/`: the bootstrap script, integration manifest, and platform-specific helper assets used by `itt setup`.
+- `src/intent_cli/`: the CLI implementation.
+- `.intent/`: local dogfooding state for this repository itself, not part of the end-user runtime bundle.
+
 ## Documentation
 
 The root README stays lightweight. More detailed material lives in `docs/`.

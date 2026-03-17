@@ -7,7 +7,7 @@
       "display_name": "Codex",
       "description": "Install the Intent skill into the global Codex skills directory.",
       "install_mode": "skill_dir",
-      "source_dir": "codex",
+      "source_dir": "../skills/intent-cli",
       "detection": {
         "env_any": [
           "CODEX_HOME"
@@ -28,7 +28,7 @@
       "display_name": "Claude Code",
       "description": "Install the Intent skill into the global Claude skills directory.",
       "install_mode": "skill_dir",
-      "source_dir": "claude",
+      "source_dir": "../skills/intent-cli",
       "detection": {
         "env_any": [
           "CLAUDE_HOME"
