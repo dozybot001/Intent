@@ -98,3 +98,4 @@ pip install -e .
 
 - [CLI 设计](https://github.com/dozybot001/Intent/blob/main/docs/cli.CN.md) — 对象、命令、JSON 输出契约
 - [Agent 集成](https://github.com/dozybot001/Intent/blob/main/docs/agent-integration.md) — Claude Code、Cursor、AGENTS.md 接入片段
+- [吃自己的狗粮](https://github.com/dozybot001/Intent/blob/main/docs/dogfooding.CN.md) — 用 Intent 开发 Intent 的真实记录

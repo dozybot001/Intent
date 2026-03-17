@@ -98,3 +98,4 @@ pip install -e .
 
 - [CLI spec](https://github.com/dozybot001/Intent/blob/main/docs/cli.EN.md) — objects, commands, JSON output contract
 - [Agent integration](https://github.com/dozybot001/Intent/blob/main/docs/agent-integration.md) — copy-paste snippets for Claude Code, Cursor, AGENTS.md
+- [Dogfooding](https://github.com/dozybot001/Intent/blob/main/docs/dogfooding.md) — how we built Intent with Intent
