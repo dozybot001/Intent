@@ -60,6 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     list_p = sub.add_parser("list", help="List objects")
     list_p.add_argument("type", choices=["intent", "snap"])
+    list_p.add_argument("--intent", dest="intent_id", help="Filter snaps by intent ID")
 
     show_p = sub.add_parser("show", help="Show a single object by ID")
     show_p.add_argument("id")
@@ -130,7 +131,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             return EXIT_SUCCESS
 
         if args.command == "list":
-            items = repo.list_objects(args.type)
+            items = repo.list_objects(args.type, intent_id=getattr(args, "intent_id", None))
             emit(ok("list", items, count=len(items)))
             return EXIT_SUCCESS
 

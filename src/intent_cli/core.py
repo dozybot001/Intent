@@ -382,7 +382,7 @@ class IntentRepository:
             "warnings": git_warnings,
         }
 
-    def list_objects(self, object_name: str) -> List[Dict[str, Any]]:
+    def list_objects(self, object_name: str, intent_id: Optional[str] = None) -> List[Dict[str, Any]]:
         self.ensure_git()
         self.ensure_initialized()
         if object_name not in ("intent", "snap"):
@@ -392,7 +392,10 @@ class IntentRepository:
                 f"Unknown object type: {object_name}",
                 suggested_fix="Use 'intent' or 'snap'.",
             )
-        return sorted(self.store.list_objects(object_name), key=object_sort_key, reverse=True)
+        items = self.store.list_objects(object_name)
+        if intent_id and object_name == "snap":
+            items = [s for s in items if s.get("intent_id") == intent_id]
+        return sorted(items, key=object_sort_key, reverse=True)
 
     def show_object(self, object_id: str) -> Dict[str, Any]:
         self.ensure_git()

@@ -8,7 +8,7 @@ Teach your agent what the objects mean, not just the commands:
 
 - **Intent** = a goal or objective, not a single task. One intent may span multiple snaps and commits. Title answers: "What problem am I solving?" Example: "Migrate auth to JWT", not "Add JWT token generation".
 - **Snap** = a step taken toward the intent. Title answers: "What did I do?" The `-m` rationale answers: "Why, and what comes next?" Example: `itt snap "Add refresh token" -m "Token rotation not yet done — security priority. Next: implement rotation logic"`.
-- **Rationale is the most valuable field.** It should capture decision context and forward state — things the next session can't derive from code alone.
+- **Rationale is the most valuable field.** It should capture decision context and forward state — things the next session can't derive from code alone. For progress-tracking snaps, include the full picture: what's done, what's in progress, what's remaining, and any strategic context (constraints, threats, deadlines). A future session should be able to reconstruct the entire plan from the latest snap's rationale alone.
 - **Use `suspend` / `resume`** when switching between goals. Don't close an intent that isn't finished.
 
 ## Claude Code (CLAUDE.md)

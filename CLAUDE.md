@@ -30,4 +30,4 @@ This repo uses Intent to record semantic history. Follow this workflow:
 - Do not invent object IDs.
 - Use `--candidate` only when genuinely comparing alternatives.
 - Intent = goal (e.g. "迁移认证到 JWT"), snap = step (e.g. "添加 refresh token").
-- Rationale is the most valuable field — don't just describe the diff, capture why and what's next.
+- Rationale is the most valuable field — don't just describe the diff, capture why, what's next, and the full picture. A future session should reconstruct the plan from the latest snap alone.
