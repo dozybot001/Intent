@@ -89,6 +89,8 @@ pip install -e .
 | `itt inspect` | Machine-readable workspace snapshot |
 | `itt list <intent\|snap>` | List objects |
 | `itt show <id>` | Show a single object |
+| `itt suspend` | Suspend the active intent |
+| `itt resume [id]` | Resume a suspended intent |
 | `itt adopt [id]` | Adopt a candidate snap |
 | `itt revert` | Revert the latest snap |
 

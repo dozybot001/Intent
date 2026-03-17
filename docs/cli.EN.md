@@ -22,7 +22,7 @@ An intent represents a unit of work — typically one problem or task.
 | `created_at`     | string | ISO 8601 UTC                   |
 | `updated_at`     | string | ISO 8601 UTC                   |
 | `title`          | string | What problem is being solved   |
-| `status`         | string | `open` or `done`               |
+| `status`         | string | `open`, `suspended`, or `done` |
 
 ### Snap
 
@@ -63,9 +63,10 @@ Derived from current state, stored in `state.json`:
 
 ```
 open → done
+open → suspended → open → done
 ```
 
-An intent is `open` when created by `start`, and becomes `done` when closed by `done`.
+An intent is `open` when created by `start`, and becomes `done` when closed by `done`. An open intent can be `suspended` via `suspend` and later resumed with `resume`.
 
 ## 3. Storage Layout
 
@@ -147,7 +148,7 @@ itt start "Fix the login timeout bug"
 }
 ```
 
-Fails if an intent is already open. Close it first with `itt done`.
+Fails if an intent is already open. Close it with `itt done` or suspend it with `itt suspend`.
 
 ### snap
 
@@ -186,6 +187,27 @@ itt revert -m "Approach caused regression in tests"
 
 Changes the snap status from `adopted` to `reverted`. Fails if no adopted snap exists.
 
+### suspend
+
+Suspend the active intent. The workspace becomes `idle`, allowing you to start or resume a different intent.
+
+```
+itt suspend
+```
+
+Fails if no intent is active.
+
+### resume
+
+Resume a suspended intent. If there is exactly one suspended intent, no ID is needed.
+
+```
+itt resume
+itt resume intent-001
+```
+
+Fails if an intent is already active, or if multiple suspended intents exist and no ID is specified (the error will list them).
+
 ### done
 
 Close the active intent (or a specific intent by ID).
@@ -213,6 +235,7 @@ itt inspect
   "intent": { "id": "intent-001", "title": "Fix the login timeout bug", "status": "open" },
   "latest_snap": { "id": "snap-002", "title": "Increase timeout to 30s", "status": "adopted", "rationale": "Default 5s was too short" },
   "candidate_snaps": [],
+  "suspended_intents": [],
   "suggested_next_action": {
     "command": "itt snap 'Describe the step'",
     "reason": "Intent is active."
@@ -226,7 +249,7 @@ itt inspect
 }
 ```
 
-When no intent is active, `intent` and `latest_snap` are `null`, `candidate_snaps` is `[]`, and `suggested_next_action` recommends `itt start`.
+When no intent is active, `intent` and `latest_snap` are `null`, `candidate_snaps` and `suspended_intents` are `[]`, and `suggested_next_action` recommends `itt start` (or `itt resume` if suspended intents exist).
 
 ### list
 

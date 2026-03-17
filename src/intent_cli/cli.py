@@ -48,6 +48,11 @@ def build_parser() -> argparse.ArgumentParser:
     revert_p = sub.add_parser("revert", help="Revert the latest adopted snap")
     revert_p.add_argument("-m", "--message", help="Rationale for revert")
 
+    sub.add_parser("suspend", help="Suspend the active intent")
+
+    resume_p = sub.add_parser("resume", help="Resume a suspended intent")
+    resume_p.add_argument("intent_id", nargs="?")
+
     done_p = sub.add_parser("done", help="Close the active intent")
     done_p.add_argument("intent_id", nargs="?")
 
@@ -103,6 +108,16 @@ def main(argv: Optional[list[str]] = None) -> int:
         if args.command == "revert":
             snap, warnings = repo.revert_snap(rationale=args.message)
             emit(ok("revert", snap, warnings=warnings))
+            return EXIT_SUCCESS
+
+        if args.command == "suspend":
+            intent, warnings = repo.suspend_intent()
+            emit(ok("suspend", intent, warnings=warnings))
+            return EXIT_SUCCESS
+
+        if args.command == "resume":
+            intent, warnings = repo.resume_intent(intent_id=args.intent_id)
+            emit(ok("resume", intent, warnings=warnings))
             return EXIT_SUCCESS
 
         if args.command == "done":

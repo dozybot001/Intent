@@ -89,6 +89,8 @@ pip install -e .
 | `itt inspect` | 机器可读的 workspace 快照 |
 | `itt list <intent\|snap>` | 列出对象 |
 | `itt show <id>` | 查看单个对象 |
+| `itt suspend` | 暂停当前 intent |
+| `itt resume [id]` | 恢复一个暂停的 intent |
 | `itt adopt [id]` | 采纳一个候选 snap |
 | `itt revert` | 回退最近的 snap |
 

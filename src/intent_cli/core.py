@@ -92,7 +92,7 @@ class IntentRepository:
                 EXIT_STATE_CONFLICT,
                 "STATE_CONFLICT",
                 f"Intent '{current['id']}' is still open.",
-                suggested_fix="itt done",
+                suggested_fix="itt done or itt suspend",
             )
 
         intent_id = self.store.next_id("intent")
@@ -139,6 +139,77 @@ class IntentRepository:
             state["workspace_status"] = "idle"
             self._save_state(state)
 
+        return intent, []
+
+    def suspend_intent(self) -> Tuple[Dict[str, Any], List[str]]:
+        self.ensure_git()
+        self.ensure_initialized()
+        state = self._load_state()
+        intent = self._require_active_intent(state)
+
+        intent["status"] = "suspended"
+        intent["updated_at"] = utc_now()
+        self.store.save_object("intent", intent)
+
+        state["active_intent_id"] = None
+        state["workspace_status"] = "idle"
+        self._save_state(state)
+        return intent, []
+
+    def resume_intent(self, intent_id: Optional[str] = None) -> Tuple[Dict[str, Any], List[str]]:
+        self.ensure_git()
+        self.ensure_initialized()
+        state = self._load_state()
+
+        current = self._active_intent(state)
+        if current and current.get("status") == "open":
+            raise IntentError(
+                EXIT_STATE_CONFLICT,
+                "STATE_CONFLICT",
+                f"Intent '{current['id']}' is still open.",
+                suggested_fix="itt suspend or itt done",
+            )
+
+        suspended = [
+            i for i in self.store.list_objects("intent")
+            if i.get("status") == "suspended"
+        ]
+
+        if intent_id:
+            intent = self.store.require_object("intent", intent_id)
+            if intent.get("status") != "suspended":
+                raise IntentError(
+                    EXIT_STATE_CONFLICT,
+                    "STATE_CONFLICT",
+                    f"Intent '{intent_id}' is not suspended.",
+                )
+        elif len(suspended) == 1:
+            intent = suspended[0]
+        elif len(suspended) == 0:
+            raise IntentError(
+                EXIT_STATE_CONFLICT,
+                "STATE_CONFLICT",
+                "No suspended intents to resume.",
+                suggested_fix='itt start "Describe the problem"',
+            )
+        else:
+            raise IntentError(
+                EXIT_STATE_CONFLICT,
+                "STATE_CONFLICT",
+                "Multiple suspended intents. Specify which one to resume.",
+                details={
+                    "suspended": [{"id": i["id"], "title": i["title"]} for i in suspended],
+                },
+                suggested_fix=f"itt resume {suspended[-1]['id']}",
+            )
+
+        intent["status"] = "open"
+        intent["updated_at"] = utc_now()
+        self.store.save_object("intent", intent)
+
+        state["active_intent_id"] = intent["id"]
+        state["workspace_status"] = "active"
+        self._save_state(state)
         return intent, []
 
     # --- snap lifecycle ---
@@ -276,6 +347,12 @@ class IntentRepository:
                 for c in self._candidate_snaps(intent["id"])
             ]
 
+        suspended_intents = [
+            {"id": i["id"], "title": i["title"]}
+            for i in self.store.list_objects("intent")
+            if i.get("status") == "suspended"
+        ]
+
         workspace_status = self._derive_workspace_status(state)
         if workspace_status != state.get("workspace_status"):
             state["workspace_status"] = workspace_status
@@ -286,7 +363,7 @@ class IntentRepository:
                 return None
             return {k: obj[k] for k in ("id", "title", "status", "rationale") if k in obj}
 
-        action = self._next_action(intent, candidate_snaps)
+        action = self._next_action(intent, candidate_snaps, suspended_intents)
 
         return {
             "ok": True,
@@ -295,6 +372,7 @@ class IntentRepository:
             "intent": brief(intent),
             "latest_snap": brief(latest_snap),
             "candidate_snaps": candidate_snaps,
+            "suspended_intents": suspended_intents,
             "suggested_next_action": action,
             "git": {
                 "branch": git_payload["branch"],
@@ -340,8 +418,14 @@ class IntentRepository:
         self,
         intent: Optional[Dict[str, Any]],
         candidates: List[Dict[str, Any]],
+        suspended: Optional[List[Dict[str, Any]]] = None,
     ) -> Optional[Dict[str, Any]]:
         if not intent or intent.get("status") != "open":
+            if suspended:
+                return {
+                    "command": f"itt resume {suspended[-1]['id']}",
+                    "reason": "Suspended intents exist.",
+                }
             return {"command": "itt start 'Describe the problem'", "reason": "No active intent."}
         if len(candidates) > 1:
             return {

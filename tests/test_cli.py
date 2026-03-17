@@ -201,6 +201,66 @@ class IntentCliTests(unittest.TestCase):
         d, rc = self.itt_rc("done")
         self.assertFalse(d["ok"])
 
+    # --- suspend and resume ---
+
+    def test_suspend_and_resume(self):
+        self.itt("init")
+        self.itt("start", "Task A")
+
+        # suspend
+        d = self.itt("suspend")
+        self.assertEqual(d["result"]["status"], "suspended")
+
+        # workspace is idle
+        d = self.itt("inspect")
+        self.assertEqual(d["workspace_status"], "idle")
+        self.assertEqual(len(d["suspended_intents"]), 1)
+
+        # can start a new intent
+        self.itt("start", "Task B")
+        d = self.itt("inspect")
+        self.assertEqual(d["intent"]["title"], "Task B")
+
+        # done Task B
+        self.itt("done")
+
+        # resume Task A
+        d = self.itt("resume")
+        self.assertEqual(d["result"]["status"], "open")
+        d = self.itt("inspect")
+        self.assertEqual(d["intent"]["title"], "Task A")
+
+    def test_suspend_when_idle_fails(self):
+        self.itt("init")
+        d, rc = self.itt_rc("suspend")
+        self.assertFalse(d["ok"])
+
+    def test_resume_when_active_fails(self):
+        self.itt("init")
+        self.itt("start", "A")
+        self.itt("suspend")
+        self.itt("start", "B")
+        d, rc = self.itt_rc("resume", "intent-001")
+        self.assertFalse(d["ok"])
+        self.assertEqual(d["error"]["code"], "STATE_CONFLICT")
+
+    def test_resume_multiple_requires_id(self):
+        self.itt("init")
+        self.itt("start", "A")
+        self.itt("suspend")
+        self.itt("start", "B")
+        self.itt("suspend")
+
+        # resume without id fails
+        d, rc = self.itt_rc("resume")
+        self.assertFalse(d["ok"])
+        self.assertIn("candidates" if False else "suspended", str(d["error"].get("details", {})))
+
+        # resume with id works
+        d = self.itt("resume", "intent-001")
+        self.assertEqual(d["result"]["id"], "intent-001")
+        self.assertEqual(d["result"]["status"], "open")
+
     # --- list and show ---
 
     def test_list_and_show(self):
@@ -239,6 +299,8 @@ class IntentCliTests(unittest.TestCase):
             ["snap", "S2", "--candidate"],
             ["adopt"],
             ["revert"],
+            ["suspend"],
+            ["resume"],
             ["list", "intent"],
             ["list", "snap"],
             ["show", "intent-001"],
