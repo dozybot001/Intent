@@ -71,7 +71,7 @@ class IntentCliTests(unittest.TestCase):
         self.assertEqual(d["result"]["state"]["workspace_status"], "idle")
         self.assertTrue((self.cwd / ".intent" / "config.json").exists())
         self.assertTrue((self.cwd / ".intent" / "intents").is_dir())
-        self.assertTrue((self.cwd / ".intent" / "checkpoints").is_dir())
+        self.assertTrue((self.cwd / ".intent" / "snaps").is_dir())
 
     def test_init_fails_if_already_initialized(self):
         self.itt("init")
@@ -106,8 +106,8 @@ class IntentCliTests(unittest.TestCase):
         d = self.itt("inspect")
         self.assertEqual(d["workspace_status"], "active")
         self.assertEqual(d["intent"]["id"], intent_id)
-        self.assertIsNotNone(d["latest_checkpoint"])
-        self.assertEqual(d["candidate_checkpoints"], [])
+        self.assertIsNotNone(d["latest_snap"])
+        self.assertEqual(d["candidate_snaps"], [])
 
         # done
         d = self.itt("done")
@@ -132,7 +132,7 @@ class IntentCliTests(unittest.TestCase):
 
         # inspect shows candidates
         d = self.itt("inspect")
-        self.assertEqual(len(d["candidate_checkpoints"]), 2)
+        self.assertEqual(len(d["candidate_snaps"]), 2)
         self.assertEqual(d["workspace_status"], "conflict")
 
         # adopt without id fails (multiple candidates)
@@ -147,7 +147,7 @@ class IntentCliTests(unittest.TestCase):
 
         # single candidate auto-adopts
         d = self.itt("inspect")
-        self.assertEqual(len(d["candidate_checkpoints"]), 1)
+        self.assertEqual(len(d["candidate_snaps"]), 1)
 
     def test_adopt_single_candidate_auto_selects(self):
         self.itt("init")
@@ -209,13 +209,13 @@ class IntentCliTests(unittest.TestCase):
         self.itt("snap", "Step 1")
         self.itt("snap", "Step 2")
 
-        d = self.itt("list", "checkpoint")
+        d = self.itt("list", "snap")
         self.assertEqual(d["count"], 2)
 
         d = self.itt("list", "intent")
         self.assertEqual(d["count"], 1)
 
-        d = self.itt("show", "cp-001")
+        d = self.itt("show", "snap-001")
         self.assertEqual(d["result"]["title"], "Step 1")
 
         d = self.itt("show", "intent-001")
@@ -223,7 +223,7 @@ class IntentCliTests(unittest.TestCase):
 
     def test_show_missing_object(self):
         self.itt("init")
-        d, rc = self.itt_rc("show", "cp-999")
+        d, rc = self.itt_rc("show", "snap-999")
         self.assertFalse(d["ok"])
         self.assertEqual(d["error"]["code"], "OBJECT_NOT_FOUND")
 
@@ -240,9 +240,9 @@ class IntentCliTests(unittest.TestCase):
             ["adopt"],
             ["revert"],
             ["list", "intent"],
-            ["list", "checkpoint"],
+            ["list", "snap"],
             ["show", "intent-001"],
-            ["show", "cp-001"],
+            ["show", "snap-001"],
             ["done"],
             ["version"],
         ]:

@@ -54,7 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("inspect", help="Machine-readable workspace snapshot")
 
     list_p = sub.add_parser("list", help="List objects")
-    list_p.add_argument("type", choices=["intent", "checkpoint"])
+    list_p.add_argument("type", choices=["intent", "snap"])
 
     show_p = sub.add_parser("show", help="Show a single object by ID")
     show_p.add_argument("id")

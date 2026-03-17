@@ -27,7 +27,7 @@ Intent adds a `.intent/` directory to your repository — structured, machine-re
 .intent/ ← what you were doing and why
 ```
 
-Two objects: **intent** (the goal) and **checkpoint** (a step taken, with rationale). All JSON. Any agent platform can read it.
+Two objects: **intent** (the goal) and **snap** (a step taken, with rationale). All JSON. Any agent platform can read it.
 
 ### What changes
 
@@ -81,10 +81,10 @@ python3 -m venv .venv && . .venv/bin/activate && pip install -e .
 | `itt snap <title> [-m why]` | Record a checkpoint |
 | `itt done` | Close the active intent |
 | `itt inspect` | Machine-readable workspace snapshot |
-| `itt list <intent\|checkpoint>` | List objects |
+| `itt list <intent\|snap>` | List objects |
 | `itt show <id>` | Show a single object |
-| `itt adopt [id]` | Adopt a candidate checkpoint |
-| `itt revert` | Revert the latest checkpoint |
+| `itt adopt [id]` | Adopt a candidate snap |
+| `itt revert` | Revert the latest snap |
 
 ## Documentation
 

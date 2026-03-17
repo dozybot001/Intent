@@ -4,7 +4,7 @@ English | [简体中文](cli.CN.md)
 
 Schema version: **0.2**
 
-Intent CLI is a semantic history tool built on Git. It records what problem you are working on, what you did, and why — using two objects: **intent** and **checkpoint**.
+Intent CLI is a semantic history tool built on Git. It records what problem you are working on, what you did, and why — using two objects: **intent** and **snap**.
 
 Core loop: `init → start → snap → done`
 
@@ -24,14 +24,14 @@ An intent represents a unit of work — typically one problem or task.
 | `title`          | string | What problem is being solved   |
 | `status`         | string | `open` or `done`               |
 
-### Checkpoint
+### Snap
 
-A checkpoint records a step taken within an intent — what was done and why.
+A snap records a step taken within an intent — what was done and why.
 
 | Field            | Type   | Description                          |
 | ---------------- | ------ | ------------------------------------ |
-| `id`             | string | e.g. `cp-001`                        |
-| `object`         | string | Always `"checkpoint"`               |
+| `id`             | string | e.g. `snap-001`                      |
+| `object`         | string | Always `"snap"`                      |
 | `schema_version` | string | `"0.2"`                              |
 | `created_at`     | string | ISO 8601 UTC                         |
 | `updated_at`     | string | ISO 8601 UTC                         |
@@ -41,7 +41,7 @@ A checkpoint records a step taken within an intent — what was done and why.
 | `intent_id`      | string | Parent intent ID                     |
 | `git`            | object | Git context at time of snap          |
 
-**Checkpoint status semantics:**
+**Snap status semantics:**
 
 - `adopted` — default when created with `snap`. This step is accepted.
 - `candidate` — created with `snap --candidate`. Awaiting explicit `adopt`.
@@ -57,7 +57,7 @@ Derived from current state, stored in `state.json`:
 | ---------- | ----------------------------------------- |
 | `idle`     | No active intent                          |
 | `active`   | One intent is open                        |
-| `conflict` | Multiple candidate checkpoints exist      |
+| `conflict` | Multiple candidate snaps exist            |
 
 ### Intent lifecycle
 
@@ -76,9 +76,9 @@ An intent is `open` when created by `start`, and becomes `done` when closed by `
   intents/
     intent-001.json
     intent-002.json
-  checkpoints/
-    cp-001.json
-    cp-002.json
+  snaps/
+    snap-001.json
+    snap-002.json
 ```
 
 ### state.json
@@ -108,13 +108,13 @@ itt version
 {
   "ok": true,
   "action": "version",
-  "result": { "version": "0.2.4" }
+  "result": { "version": "0.3.0" }
 }
 ```
 
 ### init
 
-Initialize Intent in the current Git repository. Creates `.intent/` directory with `config.json`, `state.json`, and subdirectories for intents and checkpoints.
+Initialize Intent in the current Git repository. Creates `.intent/` directory with `config.json`, `state.json`, and subdirectories for intents and snaps.
 
 ```
 itt init
@@ -151,7 +151,7 @@ Fails if an intent is already open. Close it first with `itt done`.
 
 ### snap
 
-Record a checkpoint against the active intent. By default the checkpoint is `adopted`.
+Record a snap against the active intent. By default the snap is `adopted`.
 
 ```
 itt snap "Increase timeout to 30s" -m "Default 5s was too short for slow networks"
@@ -165,26 +165,26 @@ itt snap "Try connection pooling" --candidate
 
 ### adopt
 
-Adopt a candidate checkpoint. If there is exactly one candidate, no ID is needed.
+Adopt a candidate snap. If there is exactly one candidate, no ID is needed.
 
 ```
 itt adopt
-itt adopt cp-003
-itt adopt cp-003 -m "Pooling approach benchmarked 2x faster"
+itt adopt snap-003
+itt adopt snap-003 -m "Pooling approach benchmarked 2x faster"
 ```
 
 Fails if no candidates exist, or if multiple candidates exist and no ID is specified (the error will list the candidates).
 
 ### revert
 
-Revert the latest adopted checkpoint within the active intent.
+Revert the latest adopted snap within the active intent.
 
 ```
 itt revert
 itt revert -m "Approach caused regression in tests"
 ```
 
-Changes the checkpoint status from `adopted` to `reverted`. Fails if no adopted checkpoint exists.
+Changes the snap status from `adopted` to `reverted`. Fails if no adopted snap exists.
 
 ### done
 
@@ -211,8 +211,8 @@ itt inspect
   "schema_version": "0.2",
   "workspace_status": "active",
   "intent": { "id": "intent-001", "title": "Fix the login timeout bug", "status": "open" },
-  "latest_checkpoint": { "id": "cp-002", "title": "Increase timeout to 30s", "status": "adopted" },
-  "candidate_checkpoints": [],
+  "latest_snap": { "id": "snap-002", "title": "Increase timeout to 30s", "status": "adopted", "rationale": "Default 5s was too short" },
+  "candidate_snaps": [],
   "suggested_next_action": {
     "command": "itt snap 'Describe the step'",
     "reason": "Intent is active."
@@ -226,7 +226,7 @@ itt inspect
 }
 ```
 
-When no intent is active, `intent`, `latest_checkpoint`, and `candidate_checkpoints` are `null`/`[]`, and `suggested_next_action` recommends `itt start`.
+When no intent is active, `intent` and `latest_snap` are `null`, `candidate_snaps` is `[]`, and `suggested_next_action` recommends `itt start`.
 
 ### list
 
@@ -234,7 +234,7 @@ List all objects of a given type, sorted newest first.
 
 ```
 itt list intent
-itt list checkpoint
+itt list snap
 ```
 
 ```json
@@ -248,11 +248,11 @@ itt list checkpoint
 
 ### show
 
-Show a single object by its ID. The object type is inferred from the ID prefix (`intent-` or `cp-`).
+Show a single object by its ID. The object type is inferred from the ID prefix (`intent-` or `snap-`).
 
 ```
 itt show intent-001
-itt show cp-003
+itt show snap-003
 ```
 
 ## 5. JSON Output Contract
@@ -307,13 +307,13 @@ Every error returns:
 | `NOT_INITIALIZED`   | `.intent/` does not exist                        |
 | `ALREADY_EXISTS`    | `init` called when `.intent/` already exists     |
 | `GIT_STATE_INVALID` | Not inside a Git worktree                        |
-| `STATE_CONFLICT`    | Intent already open, checkpoint not a candidate, etc. |
+| `STATE_CONFLICT`    | Intent already open, snap not a candidate, etc.  |
 | `OBJECT_NOT_FOUND`  | ID does not resolve to a stored object           |
 | `INVALID_INPUT`     | Bad arguments or conflicting flags               |
 
 ## 8. Git Context
 
-Each checkpoint records a `git` object:
+Each snap records a `git` object:
 
 ```json
 {
@@ -335,6 +335,6 @@ Each checkpoint records a `git` object:
 ## 9. ID Format
 
 - Intents: `intent-001`, `intent-002`, ...
-- Checkpoints: `cp-001`, `cp-002`, ...
+- Snaps: `snap-001`, `snap-002`, ...
 
 IDs are zero-padded to 3 digits, auto-incremented per type.

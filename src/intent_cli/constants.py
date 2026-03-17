@@ -10,10 +10,10 @@ EXIT_OBJECT_NOT_FOUND = 4
 
 DIR_NAMES = {
     "intent": "intents",
-    "checkpoint": "checkpoints",
+    "snap": "snaps",
 }
 
 ID_PREFIXES = {
     "intent": "intent",
-    "checkpoint": "cp",
+    "snap": "snap",
 }

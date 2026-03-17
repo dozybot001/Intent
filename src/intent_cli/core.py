@@ -55,7 +55,7 @@ class IntentRepository:
     def _candidate_checkpoints(self, intent_id: str) -> List[Dict[str, Any]]:
         return sorted(
             [
-                cp for cp in self.store.list_objects("checkpoint")
+                cp for cp in self.store.list_objects("snap")
                 if cp.get("intent_id") == intent_id and cp.get("status") == "candidate"
             ],
             key=object_sort_key,
@@ -63,7 +63,7 @@ class IntentRepository:
 
     def _latest_adopted(self, intent_id: str) -> Optional[Dict[str, Any]]:
         adopted = [
-            cp for cp in self.store.list_objects("checkpoint")
+            cp for cp in self.store.list_objects("snap")
             if cp.get("intent_id") == intent_id and cp.get("status") == "adopted"
         ]
         if not adopted:
@@ -155,12 +155,12 @@ class IntentRepository:
         intent = self._require_active_intent(state)
 
         git_payload, warnings = build_git_context(self.cwd)
-        checkpoint_id = self.store.next_id("checkpoint")
+        checkpoint_id = self.store.next_id("snap")
         now = utc_now()
         status = "candidate" if candidate else "adopted"
         checkpoint = {
             "id": checkpoint_id,
-            "object": "checkpoint",
+            "object": "snap",
             "schema_version": SCHEMA_VERSION,
             "created_at": now,
             "updated_at": now,
@@ -170,7 +170,7 @@ class IntentRepository:
             "intent_id": intent["id"],
             "git": git_payload,
         }
-        self.store.save_object("checkpoint", checkpoint)
+        self.store.save_object("snap", checkpoint)
 
         state["workspace_status"] = self._derive_workspace_status(state)
         self._save_state(state)
@@ -189,7 +189,7 @@ class IntentRepository:
         candidates = self._candidate_checkpoints(intent["id"])
 
         if checkpoint_id:
-            checkpoint = self.store.require_object("checkpoint", checkpoint_id)
+            checkpoint = self.store.require_object("snap", checkpoint_id)
             if checkpoint.get("intent_id") != intent["id"]:
                 raise IntentError(
                     EXIT_STATE_CONFLICT,
@@ -227,7 +227,7 @@ class IntentRepository:
         if rationale:
             checkpoint["rationale"] = rationale
         checkpoint["updated_at"] = utc_now()
-        self.store.save_object("checkpoint", checkpoint)
+        self.store.save_object("snap", checkpoint)
 
         state["workspace_status"] = self._derive_workspace_status(state)
         self._save_state(state)
@@ -252,7 +252,7 @@ class IntentRepository:
         if rationale:
             latest["rationale"] = rationale
         latest["updated_at"] = utc_now()
-        self.store.save_object("checkpoint", latest)
+        self.store.save_object("snap", latest)
 
         state["workspace_status"] = self._derive_workspace_status(state)
         self._save_state(state)
@@ -267,11 +267,11 @@ class IntentRepository:
         intent = self._active_intent(state)
         git_payload, git_warnings = build_git_context(self.cwd)
 
-        latest_checkpoint = None
-        candidate_checkpoints: List[Dict[str, Any]] = []
+        latest_snap = None
+        candidate_snaps: List[Dict[str, Any]] = []
         if intent:
-            latest_checkpoint = self._latest_adopted(intent["id"])
-            candidate_checkpoints = [
+            latest_snap = self._latest_adopted(intent["id"])
+            candidate_snaps = [
                 {"id": c["id"], "title": c["title"]}
                 for c in self._candidate_checkpoints(intent["id"])
             ]
@@ -286,15 +286,15 @@ class IntentRepository:
                 return None
             return {k: obj[k] for k in ("id", "title", "status", "rationale") if k in obj}
 
-        action = self._next_action(intent, candidate_checkpoints)
+        action = self._next_action(intent, candidate_snaps)
 
         return {
             "ok": True,
             "schema_version": SCHEMA_VERSION,
             "workspace_status": workspace_status,
             "intent": brief(intent),
-            "latest_checkpoint": brief(latest_checkpoint),
-            "candidate_checkpoints": candidate_checkpoints,
+            "latest_snap": brief(latest_snap),
+            "candidate_snaps": candidate_snaps,
             "suggested_next_action": action,
             "git": {
                 "branch": git_payload["branch"],
@@ -307,12 +307,12 @@ class IntentRepository:
     def list_objects(self, object_name: str) -> List[Dict[str, Any]]:
         self.ensure_git()
         self.ensure_initialized()
-        if object_name not in ("intent", "checkpoint"):
+        if object_name not in ("intent", "snap"):
             raise IntentError(
                 EXIT_STATE_CONFLICT,
                 "STATE_CONFLICT",
                 f"Unknown object type: {object_name}",
-                suggested_fix="Use 'intent' or 'checkpoint'.",
+                suggested_fix="Use 'intent' or 'snap'.",
             )
         return sorted(self.store.list_objects(object_name), key=object_sort_key, reverse=True)
 
@@ -327,13 +327,13 @@ class IntentRepository:
     def _type_from_id(self, object_id: str) -> str:
         if object_id.startswith("intent-"):
             return "intent"
-        if object_id.startswith("cp-"):
-            return "checkpoint"
+        if object_id.startswith("snap-"):
+            return "snap"
         raise IntentError(
             EXIT_OBJECT_NOT_FOUND,
             "OBJECT_NOT_FOUND",
             f"Cannot determine type for id '{object_id}'.",
-            suggested_fix="Use a valid id like 'intent-001' or 'cp-001'.",
+            suggested_fix="Use a valid id like 'intent-001' or 'snap-001'.",
         )
 
     def _next_action(
