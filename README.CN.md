@@ -68,7 +68,7 @@ itt done
 ## 安装
 
 ```bash
-pip install intent-cli
+pip install git-intent
 ```
 
 或从源码安装：

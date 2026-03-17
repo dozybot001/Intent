@@ -68,7 +68,7 @@ itt done
 ## Install
 
 ```bash
-pip install intent-cli
+pip install git-intent
 ```
 
 Or from source:
