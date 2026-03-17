@@ -1,4 +1,4 @@
-[English](README.md) | 简体中文
+[English](https://github.com/dozybot001/Intent/blob/main/README.md) | 简体中文
 
 # Intent
 
@@ -96,5 +96,5 @@ pip install -e .
 
 ## 文档
 
-- [CLI 设计](docs/cli.CN.md) — 对象、命令、JSON 输出契约
-- [Agent 集成](docs/agent-integration.md) — Claude Code、Cursor、AGENTS.md 接入片段
+- [CLI 设计](https://github.com/dozybot001/Intent/blob/main/docs/cli.CN.md) — 对象、命令、JSON 输出契约
+- [Agent 集成](https://github.com/dozybot001/Intent/blob/main/docs/agent-integration.md) — Claude Code、Cursor、AGENTS.md 接入片段

@@ -1,4 +1,4 @@
-English | [简体中文](README.CN.md)
+English | [简体中文](https://github.com/dozybot001/Intent/blob/main/README.CN.md)
 
 # Intent
 
@@ -96,5 +96,5 @@ pip install -e .
 
 ## Documentation
 
-- [CLI spec](docs/cli.EN.md) — objects, commands, JSON output contract
-- [Agent integration](docs/agent-integration.md) — copy-paste snippets for Claude Code, Cursor, AGENTS.md
+- [CLI spec](https://github.com/dozybot001/Intent/blob/main/docs/cli.EN.md) — objects, commands, JSON output contract
+- [Agent integration](https://github.com/dozybot001/Intent/blob/main/docs/agent-integration.md) — copy-paste snippets for Claude Code, Cursor, AGENTS.md

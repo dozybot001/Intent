@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "git-intent"
-version = "0.3.1"
+version = "0.3.2"
 description = "Semantic history for agent-driven development. Records what you did and why."
 requires-python = ">=3.9"
 readme = "README.md"
