@@ -150,14 +150,6 @@ Intent/
 ## 文档
 
 - [变更记录](CHANGELOG.CN.md)
-- [文档索引](docs/CN/README.md)
-- [术语表](docs/CN/glossary.md)
-- [愿景与问题定义](docs/CN/vision.md)
-- [CLI 设计文档](docs/CN/cli.md)
-- [分发与集成设计](docs/CN/distribution.md)
-- [首个 Agent 试用反馈实录](docs/CN/feedback.md)
-- [Demo](docs/CN/demo.md)
-- [发布基线](docs/CN/release.md)
-- [发展战略](docs/CN/strategy.md)
-- [路线图](docs/CN/roadmap.md)
-- [文档国际化规范](docs/CN/i18n.md)
+- [愿景](docs/CN/vision.md) — 为什么做 Intent
+- [CLI 设计](docs/CN/cli.md) — 命令、对象、JSON 输出
+- [发展战略](docs/CN/strategy.md) — 通向新范式的路径

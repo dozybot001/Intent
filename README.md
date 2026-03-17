@@ -150,14 +150,6 @@ Intent/
 ## Documentation
 
 - [Changelog](CHANGELOG.md)
-- [Documentation index](docs/EN/README.md)
-- [Glossary](docs/EN/glossary.md)
-- [Vision and problem definition](docs/EN/vision.md)
-- [CLI spec](docs/EN/cli.md)
-- [Distribution and integration design](docs/EN/distribution.md)
-- [First agent feedback transcript](docs/EN/feedback.md)
-- [Demo](docs/EN/demo.md)
-- [Release baseline](docs/EN/release.md)
-- [Strategy](docs/EN/strategy.md)
-- [Roadmap](docs/EN/roadmap.md)
-- [Documentation i18n guide](docs/EN/i18n.md)
+- [Vision](docs/EN/vision.md) — why Intent exists
+- [CLI spec](docs/EN/cli.md) — commands, objects, JSON output
+- [Strategy](docs/EN/strategy.md) — path to paradigm adoption
