@@ -1,12 +1,12 @@
 ---
-name: git-intent
+name: intent-cli
 description: Track what you're doing and why with structured semantic history (.intent/) — goals, decisions, and work state that persist across agent sessions.
 ---
 
 # Intent — semantic history
 
 This repo uses Intent (`.intent/`) to track what you're doing and why.
-Install: `pipx install git-intent`
+Install: `pipx install intent-cli-python`
 
 ## Workflow
 

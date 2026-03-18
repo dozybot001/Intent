@@ -50,7 +50,7 @@ start → snap → done
 ## Example
 
 ```bash
-pipx install git-intent
+pipx install intent-cli-python
 itt init                    # creates .intent/
 itt start "Fix login timeout"
 itt snap "Increase timeout to 30s" -m "5s too short for slow networks"
@@ -92,7 +92,7 @@ The closest alternative is writing a `context.md` by hand. Intent trades that fl
 **Users:**
 
 ```bash
-pipx install git-intent
+pipx install intent-cli-python
 ```
 
 **Configure your agent:** Install the Intent skill so your agent knows the workflow:

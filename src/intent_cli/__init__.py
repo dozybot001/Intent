@@ -6,7 +6,7 @@ import re
 from typing import Optional
 
 
-PACKAGE_NAME = "git-intent"
+PACKAGE_NAME = "intent-cli-python"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT_PATH = REPO_ROOT / "pyproject.toml"
 VERSION_PATTERN = re.compile(r'^version\s*=\s*"([^"]+)"\s*$', re.MULTILINE)

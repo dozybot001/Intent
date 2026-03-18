@@ -50,7 +50,7 @@ start → snap → done
 ## 示例
 
 ```bash
-pipx install git-intent
+pipx install intent-cli-python
 itt init
 itt start "修复登录超时"
 itt snap "将超时增加到 30s" -m "5s 对慢网络太短"
@@ -92,7 +92,7 @@ itt done
 **用户：**
 
 ```bash
-pipx install git-intent
+pipx install intent-cli-python
 ```
 
 **配置你的 agent：** 安装 Intent skill，让 agent 了解工作流：
