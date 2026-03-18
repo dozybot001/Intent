@@ -2,7 +2,7 @@
 
 English | [中文](../CN/cli.md)
 
-Schema version: **0.6**
+Schema version: **1.0**
 
 Intent CLI is an object-centric, agent-first CLI. The system models only three types of objects: **intent**, **snap**, and **decision**.
 
@@ -164,7 +164,7 @@ Only the following transitions are allowed; all others return `STATE_CONFLICT`:
 
 ```json
 {
-  "schema_version": "0.6"
+  "schema_version": "1.0"
 }
 ```
 
@@ -203,7 +203,7 @@ Example:
 ```json
 {
   "ok": true,
-  "schema_version": "0.6",
+  "schema_version": "1.0",
   "active_intents": [
     {
       "id": "intent-001",

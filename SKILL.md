@@ -309,7 +309,7 @@ When an error includes `suggested_fix`, follow it.
 
 ```
 .intent/
-  config.json              # {"schema_version": "0.6"}
+  config.json              # {"schema_version": "1.0"}
   intents/intent-001.json
   snaps/snap-001.json
   decisions/decision-001.json

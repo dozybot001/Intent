@@ -43,7 +43,7 @@ def init_workspace():
     d.mkdir()
     for sub in SUBDIRS.values():
         (d / sub).mkdir()
-    (d / "config.json").write_text(json.dumps({"schema_version": "0.6"}, indent=2))
+    (d / "config.json").write_text(json.dumps({"schema_version": "1.0"}, indent=2))
     return d, None
 
 

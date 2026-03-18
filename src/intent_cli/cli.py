@@ -11,7 +11,7 @@ from intent_cli.store import (
     next_id, read_object, write_object, list_objects, read_config,
 )
 
-VERSION = "0.6.0"
+VERSION = "1.0.0"
 
 
 def _now():
@@ -98,7 +98,7 @@ def cmd_inspect(_args):
 
     print(json.dumps({
         "ok": True,
-        "schema_version": config.get("schema_version", "0.6"),
+        "schema_version": config.get("schema_version", "1.0"),
         "active_intents": active_intents,
         "suspend_intents": suspend_intents,
         "active_decisions": active_decisions,
