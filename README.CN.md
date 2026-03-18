@@ -50,7 +50,7 @@ start → snap → done
 ## 示例
 
 ```bash
-pip install git-intent
+pipx install git-intent
 itt init
 itt start "修复登录超时"
 itt snap "将超时增加到 30s" -m "5s 对慢网络太短"
@@ -69,13 +69,7 @@ itt done
 ## 安装
 
 ```bash
-pipx install git-intent        # 推荐 — 自动处理 PATH
-```
-
-或用 pip：
-
-```bash
-pip install git-intent          # 若 `itt` 找不到，可用：python3 -m intent_cli
+pipx install git-intent
 ```
 
 ## 命令

@@ -50,7 +50,7 @@ start → snap → done
 ## Example
 
 ```bash
-pip install git-intent
+pipx install git-intent
 itt init                    # creates .intent/ and .claude/instructions.md
 itt start "Fix login timeout"
 itt snap "Increase timeout to 30s" -m "5s too short for slow networks"
@@ -71,13 +71,7 @@ itt done
 ## Install
 
 ```bash
-pipx install git-intent        # recommended — handles PATH automatically
-```
-
-Or with pip:
-
-```bash
-pip install git-intent          # if `itt` is not found, use: python3 -m intent_cli
+pipx install git-intent
 ```
 
 ## Commands

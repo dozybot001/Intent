@@ -11,7 +11,7 @@ AGENT_INSTRUCTIONS = """\
 # Intent — semantic history
 
 This repo uses Intent (`.intent/`) to track what you're doing and why.
-If `itt` is not found, use `python3 -m intent_cli` instead.
+Install: `pipx install git-intent`
 
 ## Workflow
 
