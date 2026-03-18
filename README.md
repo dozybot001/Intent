@@ -51,14 +51,12 @@ start → snap → done
 
 ```bash
 pipx install git-intent
-itt init                    # creates .intent/ and .claude/instructions.md
+itt init                    # creates .intent/
 itt start "Fix login timeout"
 itt snap "Increase timeout to 30s" -m "5s too short for slow networks"
 git add . && git commit -m "fix timeout"
 itt done
 ```
-
-`itt init` also generates `.claude/instructions.md` so that Claude Code (and any agent that reads project instructions) automatically picks up the Intent workflow — no manual configuration needed.
 
 ## Why Not Just…
 
@@ -96,6 +94,17 @@ The closest alternative is writing a `context.md` by hand. Intent trades that fl
 ```bash
 pipx install git-intent
 ```
+
+**Configure your agent:** Intent ships a ready-to-use skill file in [`skills/git-intent.md`](skills/git-intent.md). Copy it into your agent's skill directory so it knows the Intent workflow:
+
+```bash
+# Claude Code
+mkdir -p .claude/skills
+curl -o .claude/skills/git-intent.md \
+  https://raw.githubusercontent.com/dozybot001/Intent/main/skills/git-intent.md
+```
+
+For other agents, adapt `skills/git-intent.md` to your platform's instruction format.
 
 **Contributors:**
 
