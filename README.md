@@ -44,6 +44,10 @@ Requires Python 3.9+ and Git.
 npx skills add dozybot001/Intent
 ```
 
+> **Tip:** `itt` is a new tool — current models have never seen it in training data. Your agent may forget to call it mid-conversation. A short nudge like *"use itt to record this"* is usually enough to bring it back on track.
+>
+> This isn't busywork — every record is a **semantic asset**. An upcoming platform, **IntHub**, will turn these assets into searchable, shareable project intelligence.
+
 ## Quick start
 
 ```bash
