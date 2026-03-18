@@ -70,8 +70,18 @@ itt done
 
 ## Install
 
+**Users:**
+
 ```bash
 pipx install git-intent
+```
+
+**Contributors:**
+
+```bash
+git clone https://github.com/dozybot001/Intent.git
+cd Intent
+python3 ./itt   # dev entry point, no install needed
 ```
 
 ## Commands

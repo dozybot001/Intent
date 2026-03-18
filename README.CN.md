@@ -68,8 +68,18 @@ itt done
 
 ## 安装
 
+**用户：**
+
 ```bash
 pipx install git-intent
+```
+
+**贡献者：**
+
+```bash
+git clone https://github.com/dozybot001/Intent.git
+cd Intent
+python3 ./itt   # 开发入口，无需安装
 ```
 
 ## 命令
