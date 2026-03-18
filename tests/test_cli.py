@@ -72,6 +72,7 @@ class IntentCliTests(unittest.TestCase):
         self.assertTrue((self.cwd / ".intent" / "config.json").exists())
         self.assertTrue((self.cwd / ".intent" / "intents").is_dir())
         self.assertTrue((self.cwd / ".intent" / "snaps").is_dir())
+        self.assertTrue((self.cwd / ".intent" / "decisions").is_dir())
 
     def test_init_fails_if_already_initialized(self):
         self.itt("init")
@@ -95,11 +96,12 @@ class IntentCliTests(unittest.TestCase):
         # start
         d = self.itt("start", "Fix the bug")
         self.assertEqual(d["result"]["status"], "open")
+        self.assertIn("decision_ids", d["result"])
         intent_id = d["result"]["id"]
 
-        # snap (default = adopted)
+        # snap (always active)
         d = self.itt("snap", "First fix", "-m", "Root cause was X")
-        self.assertEqual(d["result"]["status"], "adopted")
+        self.assertEqual(d["result"]["status"], "active")
         self.assertEqual(d["result"]["rationale"], "Root cause was X")
 
         # inspect
@@ -107,7 +109,7 @@ class IntentCliTests(unittest.TestCase):
         self.assertEqual(d["workspace_status"], "active")
         self.assertEqual(d["intent"]["id"], intent_id)
         self.assertIsNotNone(d["latest_snap"])
-        self.assertEqual(d["candidate_snaps"], [])
+        self.assertIn("active_decisions", d)
 
         # done
         d = self.itt("done")
@@ -118,44 +120,93 @@ class IntentCliTests(unittest.TestCase):
         self.assertEqual(d["workspace_status"], "idle")
         self.assertIsNone(d["intent"])
 
-    # --- candidate workflow ---
+    # --- decision lifecycle ---
 
-    def test_candidate_workflow(self):
+    def test_decision_lifecycle(self):
         self.itt("init")
-        self.itt("start", "Choose approach")
+        self.itt("start", "Task A")
 
-        # create candidates
-        d1 = self.itt("snap", "Option A", "--candidate")
-        self.assertEqual(d1["result"]["status"], "candidate")
-        d2 = self.itt("snap", "Option B", "--candidate")
-        self.assertEqual(d2["result"]["status"], "candidate")
+        # create decision with active intent
+        d = self.itt("decide", "Use PostgreSQL", "-m", "Team consensus")
+        self.assertTrue(d["ok"])
+        self.assertEqual(d["result"]["status"], "active")
+        self.assertEqual(d["result"]["created_from_intent_id"], "intent-001")
+        self.assertIn("intent-001", d["result"]["intent_ids"])
+        decision_id = d["result"]["id"]
 
-        # inspect shows candidates
-        d = self.itt("inspect")
-        self.assertEqual(len(d["candidate_snaps"]), 2)
-        self.assertEqual(d["workspace_status"], "conflict")
+        # intent should have the decision attached
+        d = self.itt("show", "intent-001")
+        self.assertIn(decision_id, d["result"]["decision_ids"])
 
-        # adopt without id fails (multiple candidates)
-        d, rc = self.itt_rc("adopt")
+        # deprecate
+        d = self.itt("deprecate", decision_id, "-m", "Switching to SQLite")
+        self.assertEqual(d["result"]["status"], "deprecated")
+
+    def test_decision_without_active_intent(self):
+        self.itt("init")
+
+        d = self.itt("decide", "Global convention")
+        self.assertTrue(d["ok"])
+        self.assertIsNone(d["result"]["created_from_intent_id"])
+        self.assertEqual(d["result"]["intent_ids"], [])
+
+    def test_deprecate_single_auto_selects(self):
+        self.itt("init")
+        self.itt("decide", "Only decision")
+
+        d = self.itt("deprecate")
+        self.assertEqual(d["result"]["status"], "deprecated")
+
+    def test_deprecate_multiple_requires_id(self):
+        self.itt("init")
+        self.itt("decide", "Decision A")
+        self.itt("decide", "Decision B")
+
+        d, rc = self.itt_rc("deprecate")
         self.assertFalse(d["ok"])
         self.assertEqual(d["error"]["code"], "STATE_CONFLICT")
 
-        # adopt specific one
-        d = self.itt("adopt", d2["result"]["id"], "-m", "B is better")
-        self.assertEqual(d["result"]["status"], "adopted")
-        self.assertEqual(d["result"]["rationale"], "B is better")
+        d = self.itt("deprecate", "decision-001")
+        self.assertEqual(d["result"]["status"], "deprecated")
 
-        # single candidate auto-adopts
-        d = self.itt("inspect")
-        self.assertEqual(len(d["candidate_snaps"]), 1)
-
-    def test_adopt_single_candidate_auto_selects(self):
+    def test_deprecate_no_active_fails(self):
         self.itt("init")
-        self.itt("start", "Task")
-        self.itt("snap", "Only option", "--candidate")
+        d, rc = self.itt_rc("deprecate")
+        self.assertFalse(d["ok"])
 
-        d = self.itt("adopt", "-m", "Obvious choice")
-        self.assertEqual(d["result"]["status"], "adopted")
+    # --- auto-attach on start ---
+
+    def test_start_attaches_active_decisions(self):
+        self.itt("init")
+
+        # create decisions without active intent
+        self.itt("decide", "Decision 1")
+        self.itt("decide", "Decision 2")
+
+        # start intent — should attach both decisions
+        d = self.itt("start", "New task")
+        self.assertEqual(len(d["attached_decisions"]), 2)
+        self.assertEqual(len(d["result"]["decision_ids"]), 2)
+
+        # verify bidirectional: decisions should reference the intent
+        d = self.itt("show", "decision-001")
+        self.assertIn("intent-001", d["result"]["intent_ids"])
+
+    # --- auto-attach on resume ---
+
+    def test_resume_attaches_new_decisions(self):
+        self.itt("init")
+        self.itt("start", "Task A")
+        self.itt("suspend")
+
+        # create a decision while suspended
+        self.itt("decide", "New decision during suspend")
+
+        # resume — should pick up the new decision
+        d = self.itt("resume")
+        self.assertEqual(d["result"]["status"], "open")
+        self.assertEqual(len(d["attached_decisions"]), 1)
+        self.assertIn("decision-001", d["result"]["decision_ids"])
 
     # --- revert ---
 
@@ -167,7 +218,7 @@ class IntentCliTests(unittest.TestCase):
         d = self.itt("revert", "-m", "Bad idea")
         self.assertEqual(d["result"]["status"], "reverted")
 
-    def test_revert_without_adopted_fails(self):
+    def test_revert_without_active_snap_fails(self):
         self.itt("init")
         self.itt("start", "Task")
 
@@ -254,7 +305,6 @@ class IntentCliTests(unittest.TestCase):
         # resume without id fails
         d, rc = self.itt_rc("resume")
         self.assertFalse(d["ok"])
-        self.assertIn("candidates" if False else "suspended", str(d["error"].get("details", {})))
 
         # resume with id works
         d = self.itt("resume", "intent-001")
@@ -268,11 +318,15 @@ class IntentCliTests(unittest.TestCase):
         self.itt("start", "Task")
         self.itt("snap", "Step 1")
         self.itt("snap", "Step 2")
+        self.itt("decide", "A decision")
 
         d = self.itt("list", "snap")
         self.assertEqual(d["count"], 2)
 
         d = self.itt("list", "intent")
+        self.assertEqual(d["count"], 1)
+
+        d = self.itt("list", "decision")
         self.assertEqual(d["count"], 1)
 
         d = self.itt("show", "snap-001")
@@ -281,30 +335,47 @@ class IntentCliTests(unittest.TestCase):
         d = self.itt("show", "intent-001")
         self.assertEqual(d["result"]["title"], "Task")
 
+        d = self.itt("show", "decision-001")
+        self.assertEqual(d["result"]["title"], "A decision")
+
     def test_show_missing_object(self):
         self.itt("init")
         d, rc = self.itt_rc("show", "snap-999")
         self.assertFalse(d["ok"])
         self.assertEqual(d["error"]["code"], "OBJECT_NOT_FOUND")
 
+    # --- inspect with decisions ---
+
+    def test_inspect_shows_active_decisions(self):
+        self.itt("init")
+        self.itt("decide", "Global decision")
+        self.itt("start", "Task")
+
+        d = self.itt("inspect")
+        self.assertEqual(len(d["active_decisions"]), 1)
+        self.assertEqual(d["active_decisions"][0]["title"], "Global decision")
+        self.assertNotIn("candidate_snaps", d)
+
     # --- json output ---
 
     def test_all_commands_output_json(self):
         self.itt("init")
+        self.itt("decide", "D1")
         self.itt("start", "Task")
 
         for args in [
             ["inspect"],
             ["snap", "S1"],
-            ["snap", "S2", "--candidate"],
-            ["adopt"],
             ["revert"],
             ["suspend"],
             ["resume"],
             ["list", "intent"],
             ["list", "snap"],
+            ["list", "decision"],
             ["show", "intent-001"],
             ["show", "snap-001"],
+            ["show", "decision-001"],
+            ["deprecate"],
             ["done"],
             ["version"],
         ]:
@@ -325,7 +396,7 @@ class IntentCliTests(unittest.TestCase):
     # --- not initialized ---
 
     def test_commands_fail_without_init(self):
-        for args in [["start", "X"], ["snap", "X"], ["inspect"], ["done"]]:
+        for args in [["start", "X"], ["snap", "X"], ["inspect"], ["done"], ["decide", "X"]]:
             d, rc = self.itt_rc(*args)
             self.assertFalse(d["ok"], f"Expected failure for {args}")
             self.assertEqual(d["error"]["code"], "NOT_INITIALIZED")
@@ -341,6 +412,39 @@ class IntentCliTests(unittest.TestCase):
         )
         d = json.loads(result.stdout)
         self.assertTrue(d["ok"])
+
+    # --- full three-object flow ---
+
+    def test_full_three_object_flow(self):
+        """init → decide → start → snap → done → deprecate → inspect"""
+        self.itt("init")
+
+        # decide before any intent
+        d = self.itt("decide", "Use REST API", "-m", "Team standard")
+        self.assertEqual(d["result"]["status"], "active")
+        self.assertIsNone(d["result"]["created_from_intent_id"])
+
+        # start — auto-attaches the decision
+        d = self.itt("start", "Build user endpoint")
+        self.assertEqual(len(d["attached_decisions"]), 1)
+        self.assertIn("decision-001", d["result"]["decision_ids"])
+
+        # snap
+        d = self.itt("snap", "Implemented GET /users", "-m", "Basic CRUD")
+        self.assertEqual(d["result"]["status"], "active")
+
+        # done
+        d = self.itt("done")
+        self.assertEqual(d["result"]["status"], "done")
+
+        # deprecate the decision
+        d = self.itt("deprecate", "decision-001", "-m", "Switching to GraphQL")
+        self.assertEqual(d["result"]["status"], "deprecated")
+
+        # inspect — idle, no active decisions
+        d = self.itt("inspect")
+        self.assertEqual(d["workspace_status"], "idle")
+        self.assertEqual(len(d["active_decisions"]), 0)
 
 
 if __name__ == "__main__":

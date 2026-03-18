@@ -2,11 +2,11 @@ English | [简体中文](cli.CN.md)
 
 # Intent CLI Specification
 
-Schema version: **0.2**
+Schema version: **0.3**
 
-Intent CLI is a semantic history tool built on Git. It records what problem you are working on, what you did, and why — using two objects: **intent** and **snap**.
+Intent CLI is a semantic history tool built on Git. It records what problem you are working on, what you did, and why — using three objects: **intent**, **snap**, and **decision**.
 
-Core loop: `init → start → snap → done`
+Core loop: `init → start → snap → done` (with `decide` to capture cross-cutting decisions)
 
 ## 1. Object Model
 
@@ -18,11 +18,12 @@ An intent represents a unit of work — typically one problem or task.
 | ---------------- | ------ | ------------------------------- |
 | `id`             | string | e.g. `intent-001`              |
 | `object`         | string | Always `"intent"`              |
-| `schema_version` | string | `"0.2"`                        |
+| `schema_version` | string | `"0.3"`                        |
 | `created_at`     | string | ISO 8601 UTC                   |
 | `updated_at`     | string | ISO 8601 UTC                   |
 | `title`          | string | What problem is being solved   |
 | `status`         | string | `open`, `suspended`, or `done` |
+| `decision_ids`   | list   | Related decision IDs           |
 
 ### Snap
 
@@ -32,20 +33,36 @@ A snap records a step taken within an intent — what was done and why.
 | ---------------- | ------ | ------------------------------------ |
 | `id`             | string | e.g. `snap-001`                      |
 | `object`         | string | Always `"snap"`                      |
-| `schema_version` | string | `"0.2"`                              |
+| `schema_version` | string | `"0.3"`                              |
 | `created_at`     | string | ISO 8601 UTC                         |
 | `updated_at`     | string | ISO 8601 UTC                         |
 | `title`          | string | What was done                        |
 | `rationale`      | string | Why (from `-m` flag)                 |
-| `status`         | string | `adopted`, `candidate`, or `reverted`|
+| `status`         | string | `active` or `reverted`               |
 | `intent_id`      | string | Parent intent ID                     |
 | `git`            | object | Git context at time of snap          |
 
 **Snap status semantics:**
 
-- `adopted` — default when created with `snap`. This step is accepted.
-- `candidate` — created with `snap --candidate`. Awaiting explicit `adopt`.
-- `reverted` — was adopted, then rolled back via `revert`.
+- `active` — default when created with `snap`. This step is accepted.
+- `reverted` — was active, then rolled back via `revert`.
+
+### Decision
+
+A decision records a cross-cutting choice that may span multiple intents.
+
+| Field                 | Type   | Description                              |
+| --------------------- | ------ | ---------------------------------------- |
+| `id`                  | string | e.g. `decision-001`                      |
+| `object`              | string | Always `"decision"`                      |
+| `schema_version`      | string | `"0.3"`                                  |
+| `created_at`          | string | ISO 8601 UTC                             |
+| `updated_at`          | string | ISO 8601 UTC                             |
+| `title`               | string | What was decided                         |
+| `rationale`           | string | Why this choice was made                 |
+| `status`              | string | `active` or `deprecated`                 |
+| `intent_ids`          | list   | Related intent IDs                       |
+| `created_from_intent_id` | string | Intent that prompted this decision    |
 
 ## 2. State Machine
 
@@ -57,7 +74,6 @@ Derived from current state, stored in `state.json`:
 | ---------- | ----------------------------------------- |
 | `idle`     | No active intent                          |
 | `active`   | One intent is open                        |
-| `conflict` | Multiple candidate snaps exist            |
 
 ### Intent lifecycle
 
@@ -72,7 +88,7 @@ An intent is `open` when created by `start`, and becomes `done` when closed by `
 
 ```
 .intent/
-  config.json           # {"schema_version": "0.2"}
+  config.json           # {"schema_version": "0.3"}
   state.json            # workspace state
   intents/
     intent-001.json
@@ -80,13 +96,16 @@ An intent is `open` when created by `start`, and becomes `done` when closed by `
   snaps/
     snap-001.json
     snap-002.json
+  decisions/
+    decision-001.json
+    decision-002.json
 ```
 
 ### state.json
 
 ```json
 {
-  "schema_version": "0.2",
+  "schema_version": "0.3",
   "active_intent_id": null,
   "workspace_status": "idle",
   "updated_at": "2026-03-17T10:00:00Z"
@@ -138,11 +157,13 @@ itt start "Fix the login timeout bug"
   "result": {
     "id": "intent-001",
     "object": "intent",
-    "schema_version": "0.2",
+    "schema_version": "0.3",
     "created_at": "2026-03-17T10:00:00Z",
     "updated_at": "2026-03-17T10:00:00Z",
     "title": "Fix the login timeout bug",
-    "status": "open"
+    "status": "open",
+    "decision_ids": [],
+    "attached_decisions": []
   },
   "warnings": []
 }
@@ -152,40 +173,22 @@ Fails if an intent is already open. Close it with `itt done` or suspend it with 
 
 ### snap
 
-Record a snap against the active intent. By default the snap is `adopted`.
+Record a snap against the active intent. The snap status is `active`.
 
 ```
 itt snap "Increase timeout to 30s" -m "Default 5s was too short for slow networks"
 ```
 
-Use `--candidate` to record without adopting — useful when exploring alternatives:
-
-```
-itt snap "Try connection pooling" --candidate
-```
-
-### adopt
-
-Adopt a candidate snap. If there is exactly one candidate, no ID is needed.
-
-```
-itt adopt
-itt adopt snap-003
-itt adopt snap-003 -m "Pooling approach benchmarked 2x faster"
-```
-
-Fails if no candidates exist, or if multiple candidates exist and no ID is specified (the error will list the candidates).
-
 ### revert
 
-Revert the latest adopted snap within the active intent.
+Revert the latest active snap within the active intent.
 
 ```
 itt revert
 itt revert -m "Approach caused regression in tests"
 ```
 
-Changes the snap status from `adopted` to `reverted`. Fails if no adopted snap exists.
+Changes the snap status from `active` to `reverted`. Fails if no active snap exists.
 
 ### suspend
 
@@ -199,7 +202,7 @@ Fails if no intent is active.
 
 ### resume
 
-Resume a suspended intent. If there is exactly one suspended intent, no ID is needed.
+Resume a suspended intent. If there is exactly one suspended intent, no ID is needed. On resume, the CLI catches up on any decisions created while the intent was suspended.
 
 ```
 itt resume
@@ -207,6 +210,27 @@ itt resume intent-001
 ```
 
 Fails if an intent is already active, or if multiple suspended intents exist and no ID is specified (the error will list them).
+
+### decide
+
+Create a new decision linked to the active intent.
+
+```
+itt decide "Use PostgreSQL for persistence" -m "Evaluated Redis and SQLite; PG best fits our query patterns"
+```
+
+The decision is created with status `active` and linked to the current intent via `created_from_intent_id`. The decision's ID is also added to the intent's `decision_ids`.
+
+### deprecate
+
+Deprecate an existing decision.
+
+```
+itt deprecate decision-001
+itt deprecate decision-001 -m "Migrating to SQLite for simpler deployment"
+```
+
+Changes the decision status from `active` to `deprecated`.
 
 ### done
 
@@ -230,11 +254,11 @@ itt inspect
 ```json
 {
   "ok": true,
-  "schema_version": "0.2",
+  "schema_version": "0.3",
   "workspace_status": "active",
-  "intent": { "id": "intent-001", "title": "Fix the login timeout bug", "status": "open" },
-  "latest_snap": { "id": "snap-002", "title": "Increase timeout to 30s", "status": "adopted", "rationale": "Default 5s was too short" },
-  "candidate_snaps": [],
+  "intent": { "id": "intent-001", "title": "Fix the login timeout bug", "status": "open", "decision_ids": ["decision-001"] },
+  "latest_snap": { "id": "snap-002", "title": "Increase timeout to 30s", "status": "active", "rationale": "Default 5s was too short" },
+  "active_decisions": [{ "id": "decision-001", "title": "Use PostgreSQL for persistence", "status": "active" }],
   "suspended_intents": [],
   "suggested_next_action": {
     "command": "itt snap 'Describe the step'",
@@ -249,7 +273,7 @@ itt inspect
 }
 ```
 
-When no intent is active, `intent` and `latest_snap` are `null`, `candidate_snaps` and `suspended_intents` are `[]`, and `suggested_next_action` recommends `itt start` (or `itt resume` if suspended intents exist).
+When no intent is active, `intent` and `latest_snap` are `null`, `active_decisions` and `suspended_intents` are `[]`, and `suggested_next_action` recommends `itt start` (or `itt resume` if suspended intents exist).
 
 ### list
 
@@ -258,6 +282,7 @@ List all objects of a given type, sorted newest first.
 ```
 itt list intent
 itt list snap
+itt list decision
 ```
 
 ```json
@@ -271,11 +296,12 @@ itt list snap
 
 ### show
 
-Show a single object by its ID. The object type is inferred from the ID prefix (`intent-` or `snap-`).
+Show a single object by its ID. The object type is inferred from the ID prefix (`intent-`, `snap-`, or `decision-`).
 
 ```
 itt show intent-001
 itt show snap-003
+itt show decision-001
 ```
 
 ## 5. JSON Output Contract
@@ -330,7 +356,7 @@ Every error returns:
 | `NOT_INITIALIZED`   | `.intent/` does not exist                        |
 | `ALREADY_EXISTS`    | `init` called when `.intent/` already exists     |
 | `GIT_STATE_INVALID` | Not inside a Git worktree                        |
-| `STATE_CONFLICT`    | Intent already open, snap not a candidate, etc.  |
+| `STATE_CONFLICT`    | Intent already open, invalid state transition, etc. |
 | `OBJECT_NOT_FOUND`  | ID does not resolve to a stored object           |
 | `INVALID_INPUT`     | Bad arguments or conflicting flags               |
 
@@ -359,5 +385,6 @@ Each snap records a `git` object:
 
 - Intents: `intent-001`, `intent-002`, ...
 - Snaps: `snap-001`, `snap-002`, ...
+- Decisions: `decision-001`, `decision-002`, ...
 
 IDs are zero-padded to 3 digits, auto-incremented per type.

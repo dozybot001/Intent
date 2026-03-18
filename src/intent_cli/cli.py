@@ -36,16 +36,11 @@ def build_parser() -> argparse.ArgumentParser:
     start_p = sub.add_parser("start", help="Create and activate an intent")
     start_p.add_argument("title")
 
-    snap_p = sub.add_parser("snap", help="Record a snap (adopted by default)")
+    snap_p = sub.add_parser("snap", help="Record a snap")
     snap_p.add_argument("title")
     snap_p.add_argument("-m", "--message", help="Rationale for this snap")
-    snap_p.add_argument("--candidate", action="store_true", help="Record as candidate without adopting")
 
-    adopt_p = sub.add_parser("adopt", help="Adopt a candidate snap")
-    adopt_p.add_argument("snap_id", nargs="?")
-    adopt_p.add_argument("-m", "--message", help="Rationale for adoption")
-
-    revert_p = sub.add_parser("revert", help="Revert the latest adopted snap")
+    revert_p = sub.add_parser("revert", help="Revert the latest active snap")
     revert_p.add_argument("-m", "--message", help="Rationale for revert")
 
     sub.add_parser("suspend", help="Suspend the active intent")
@@ -56,10 +51,18 @@ def build_parser() -> argparse.ArgumentParser:
     done_p = sub.add_parser("done", help="Close the active intent")
     done_p.add_argument("intent_id", nargs="?")
 
+    decide_p = sub.add_parser("decide", help="Create a decision")
+    decide_p.add_argument("title")
+    decide_p.add_argument("-m", "--message", help="Rationale for this decision")
+
+    deprecate_p = sub.add_parser("deprecate", help="Deprecate a decision")
+    deprecate_p.add_argument("decision_id", nargs="?")
+    deprecate_p.add_argument("-m", "--message", help="Rationale for deprecation")
+
     sub.add_parser("inspect", help="Machine-readable workspace snapshot")
 
     list_p = sub.add_parser("list", help="List objects")
-    list_p.add_argument("type", choices=["intent", "snap"])
+    list_p.add_argument("type", choices=["intent", "snap", "decision"])
     list_p.add_argument("--intent", dest="intent_id", help="Filter snaps by intent ID")
 
     show_p = sub.add_parser("show", help="Show a single object by ID")
@@ -85,25 +88,16 @@ def main(argv: Optional[list[str]] = None) -> int:
             return EXIT_SUCCESS
 
         if args.command == "start":
-            intent, warnings = repo.create_intent(args.title)
-            emit(ok("start", intent, warnings=warnings))
+            intent, warnings, attached_decisions = repo.create_intent(args.title)
+            emit(ok("start", intent, warnings=warnings, attached_decisions=attached_decisions))
             return EXIT_SUCCESS
 
         if args.command == "snap":
             snap, warnings = repo.create_snap(
                 args.title,
                 rationale=args.message,
-                candidate=args.candidate,
             )
             emit(ok("snap", snap, warnings=warnings))
-            return EXIT_SUCCESS
-
-        if args.command == "adopt":
-            snap, warnings = repo.adopt_snap(
-                snap_id=args.snap_id,
-                rationale=args.message,
-            )
-            emit(ok("adopt", snap, warnings=warnings))
             return EXIT_SUCCESS
 
         if args.command == "revert":
@@ -117,13 +111,29 @@ def main(argv: Optional[list[str]] = None) -> int:
             return EXIT_SUCCESS
 
         if args.command == "resume":
-            intent, warnings = repo.resume_intent(intent_id=args.intent_id)
-            emit(ok("resume", intent, warnings=warnings))
+            intent, warnings, attached_decisions = repo.resume_intent(intent_id=args.intent_id)
+            emit(ok("resume", intent, warnings=warnings, attached_decisions=attached_decisions))
             return EXIT_SUCCESS
 
         if args.command == "done":
             intent, warnings = repo.close_intent(intent_id=args.intent_id)
             emit(ok("done", intent, warnings=warnings))
+            return EXIT_SUCCESS
+
+        if args.command == "decide":
+            decision, warnings = repo.create_decision(
+                args.title,
+                rationale=args.message,
+            )
+            emit(ok("decide", decision, warnings=warnings))
+            return EXIT_SUCCESS
+
+        if args.command == "deprecate":
+            decision, warnings = repo.deprecate_decision(
+                decision_id=args.decision_id,
+                rationale=args.message,
+            )
+            emit(ok("deprecate", decision, warnings=warnings))
             return EXIT_SUCCESS
 
         if args.command == "inspect":

@@ -52,32 +52,37 @@ class IntentRepository:
             )
         return intent
 
-    def _candidate_snaps(self, intent_id: str) -> List[Dict[str, Any]]:
+    def _active_decisions(self) -> List[Dict[str, Any]]:
         return sorted(
-            [
-                s for s in self.store.list_objects("snap")
-                if s.get("intent_id") == intent_id and s.get("status") == "candidate"
-            ],
+            [d for d in self.store.list_objects("decision") if d.get("status") == "active"],
             key=object_sort_key,
         )
 
-    def _latest_adopted(self, intent_id: str) -> Optional[Dict[str, Any]]:
-        adopted = [
+    def _latest_active_snap(self, intent_id: str) -> Optional[Dict[str, Any]]:
+        active = [
             s for s in self.store.list_objects("snap")
-            if s.get("intent_id") == intent_id and s.get("status") == "adopted"
+            if s.get("intent_id") == intent_id and s.get("status") == "active"
         ]
-        if not adopted:
+        if not active:
             return None
-        return sorted(adopted, key=object_sort_key, reverse=True)[0]
+        return sorted(active, key=object_sort_key, reverse=True)[0]
 
     def _derive_workspace_status(self, state: Dict[str, Any]) -> str:
         intent = self._active_intent(state)
         if not intent:
             return "idle"
-        candidates = self._candidate_snaps(intent["id"])
-        if len(candidates) > 1:
-            return "conflict"
         return "active"
+
+    def _attach_decisions_to_intent(self, intent: Dict[str, Any], decisions: List[Dict[str, Any]]) -> None:
+        decision_ids = [d["id"] for d in decisions]
+        intent["decision_ids"] = decision_ids
+        intent["updated_at"] = utc_now()
+        self.store.save_object("intent", intent)
+        for d in decisions:
+            if intent["id"] not in d.get("intent_ids", []):
+                d.setdefault("intent_ids", []).append(intent["id"])
+                d["updated_at"] = utc_now()
+                self.store.save_object("decision", d)
 
     # --- intent lifecycle ---
 
@@ -95,6 +100,8 @@ class IntentRepository:
                 suggested_fix="itt done or itt suspend",
             )
 
+        active_decisions = self._active_decisions()
+
         intent_id = self.store.next_id("intent")
         now = utc_now()
         intent = {
@@ -105,13 +112,22 @@ class IntentRepository:
             "updated_at": now,
             "title": title,
             "status": "open",
+            "decision_ids": [d["id"] for d in active_decisions],
         }
         self.store.save_object("intent", intent)
+
+        for d in active_decisions:
+            if intent_id not in d.get("intent_ids", []):
+                d.setdefault("intent_ids", []).append(intent_id)
+                d["updated_at"] = now
+                self.store.save_object("decision", d)
 
         state["active_intent_id"] = intent_id
         state["workspace_status"] = "active"
         self._save_state(state)
-        return intent, []
+
+        attached = [{"id": d["id"], "title": d["title"]} for d in active_decisions]
+        return intent, [], attached
 
     def close_intent(self, intent_id: Optional[str] = None) -> Tuple[Dict[str, Any], List[str]]:
         self.ensure_git()
@@ -156,7 +172,7 @@ class IntentRepository:
         self._save_state(state)
         return intent, []
 
-    def resume_intent(self, intent_id: Optional[str] = None) -> Tuple[Dict[str, Any], List[str]]:
+    def resume_intent(self, intent_id: Optional[str] = None) -> Tuple[Dict[str, Any], List[str], List[Dict[str, Any]]]:
         self.ensure_git()
         self.ensure_initialized()
         state = self._load_state()
@@ -205,12 +221,17 @@ class IntentRepository:
 
         intent["status"] = "open"
         intent["updated_at"] = utc_now()
-        self.store.save_object("intent", intent)
+
+        # Re-attach active decisions (catch up on decisions created while suspended)
+        active_decisions = self._active_decisions()
+        self._attach_decisions_to_intent(intent, active_decisions)
 
         state["active_intent_id"] = intent["id"]
         state["workspace_status"] = "active"
         self._save_state(state)
-        return intent, []
+
+        attached = [{"id": d["id"], "title": d["title"]} for d in active_decisions]
+        return intent, [], attached
 
     # --- snap lifecycle ---
 
@@ -218,7 +239,6 @@ class IntentRepository:
         self,
         title: str,
         rationale: Optional[str] = None,
-        candidate: bool = False,
     ) -> Tuple[Dict[str, Any], List[str]]:
         self.ensure_git()
         self.ensure_initialized()
@@ -228,7 +248,6 @@ class IntentRepository:
         git_payload, warnings = build_git_context(self.cwd)
         snap_id = self.store.next_id("snap")
         now = utc_now()
-        status = "candidate" if candidate else "adopted"
         snap = {
             "id": snap_id,
             "object": "snap",
@@ -237,72 +256,12 @@ class IntentRepository:
             "updated_at": now,
             "title": title,
             "rationale": rationale or "",
-            "status": status,
+            "status": "active",
             "intent_id": intent["id"],
             "git": git_payload,
         }
         self.store.save_object("snap", snap)
-
-        state["workspace_status"] = self._derive_workspace_status(state)
-        self._save_state(state)
         return snap, warnings
-
-    def adopt_snap(
-        self,
-        snap_id: Optional[str] = None,
-        rationale: Optional[str] = None,
-    ) -> Tuple[Dict[str, Any], List[str]]:
-        self.ensure_git()
-        self.ensure_initialized()
-        state = self._load_state()
-        intent = self._require_active_intent(state)
-
-        candidates = self._candidate_snaps(intent["id"])
-
-        if snap_id:
-            snap = self.store.require_object("snap", snap_id)
-            if snap.get("intent_id") != intent["id"]:
-                raise IntentError(
-                    EXIT_STATE_CONFLICT,
-                    "STATE_CONFLICT",
-                    "Snap does not belong to the active intent.",
-                    details={"snap_id": snap_id, "intent_id": intent["id"]},
-                )
-            if snap.get("status") != "candidate":
-                raise IntentError(
-                    EXIT_STATE_CONFLICT,
-                    "STATE_CONFLICT",
-                    f"Snap '{snap_id}' is not a candidate.",
-                )
-        elif len(candidates) == 1:
-            snap = candidates[0]
-        elif len(candidates) == 0:
-            raise IntentError(
-                EXIT_STATE_CONFLICT,
-                "STATE_CONFLICT",
-                "No candidate snaps to adopt.",
-                suggested_fix='itt snap "Describe the step" --candidate',
-            )
-        else:
-            raise IntentError(
-                EXIT_STATE_CONFLICT,
-                "STATE_CONFLICT",
-                "Multiple candidates exist. Specify which one to adopt.",
-                details={
-                    "candidates": [{"id": c["id"], "title": c["title"]} for c in candidates],
-                },
-                suggested_fix=f"itt adopt {candidates[-1]['id']}",
-            )
-
-        snap["status"] = "adopted"
-        if rationale:
-            snap["rationale"] = rationale
-        snap["updated_at"] = utc_now()
-        self.store.save_object("snap", snap)
-
-        state["workspace_status"] = self._derive_workspace_status(state)
-        self._save_state(state)
-        return snap, []
 
     def revert_snap(self, rationale: Optional[str] = None) -> Tuple[Dict[str, Any], List[str]]:
         self.ensure_git()
@@ -310,12 +269,12 @@ class IntentRepository:
         state = self._load_state()
         intent = self._require_active_intent(state)
 
-        latest = self._latest_adopted(intent["id"])
+        latest = self._latest_active_snap(intent["id"])
         if not latest:
             raise IntentError(
                 EXIT_STATE_CONFLICT,
                 "STATE_CONFLICT",
-                "No adopted snap to revert.",
+                "No active snap to revert.",
                 suggested_fix='itt snap "Describe the step"',
             )
 
@@ -324,10 +283,92 @@ class IntentRepository:
             latest["rationale"] = rationale
         latest["updated_at"] = utc_now()
         self.store.save_object("snap", latest)
-
-        state["workspace_status"] = self._derive_workspace_status(state)
-        self._save_state(state)
         return latest, []
+
+    # --- decision lifecycle ---
+
+    def create_decision(
+        self,
+        title: str,
+        rationale: Optional[str] = None,
+    ) -> Tuple[Dict[str, Any], List[str]]:
+        self.ensure_git()
+        self.ensure_initialized()
+        state = self._load_state()
+
+        decision_id = self.store.next_id("decision")
+        now = utc_now()
+
+        intent = self._active_intent(state)
+        created_from = intent["id"] if intent else None
+        intent_ids = [intent["id"]] if intent else []
+
+        decision = {
+            "id": decision_id,
+            "object": "decision",
+            "schema_version": SCHEMA_VERSION,
+            "created_at": now,
+            "updated_at": now,
+            "title": title,
+            "rationale": rationale or "",
+            "status": "active",
+            "intent_ids": intent_ids,
+            "created_from_intent_id": created_from,
+        }
+        self.store.save_object("decision", decision)
+
+        # Attach decision to active intent
+        if intent:
+            intent.setdefault("decision_ids", []).append(decision_id)
+            intent["updated_at"] = now
+            self.store.save_object("intent", intent)
+
+        return decision, []
+
+    def deprecate_decision(
+        self,
+        decision_id: Optional[str] = None,
+        rationale: Optional[str] = None,
+    ) -> Tuple[Dict[str, Any], List[str]]:
+        self.ensure_git()
+        self.ensure_initialized()
+
+        active_decisions = self._active_decisions()
+
+        if decision_id:
+            decision = self.store.require_object("decision", decision_id)
+            if decision.get("status") != "active":
+                raise IntentError(
+                    EXIT_STATE_CONFLICT,
+                    "STATE_CONFLICT",
+                    f"Decision '{decision_id}' is not active.",
+                )
+        elif len(active_decisions) == 1:
+            decision = active_decisions[0]
+        elif len(active_decisions) == 0:
+            raise IntentError(
+                EXIT_STATE_CONFLICT,
+                "STATE_CONFLICT",
+                "No active decisions to deprecate.",
+                suggested_fix='itt decide "Describe the decision"',
+            )
+        else:
+            raise IntentError(
+                EXIT_STATE_CONFLICT,
+                "STATE_CONFLICT",
+                "Multiple active decisions. Specify which one to deprecate.",
+                details={
+                    "active_decisions": [{"id": d["id"], "title": d["title"]} for d in active_decisions],
+                },
+                suggested_fix=f"itt deprecate {active_decisions[-1]['id']}",
+            )
+
+        decision["status"] = "deprecated"
+        if rationale:
+            decision["rationale"] = rationale
+        decision["updated_at"] = utc_now()
+        self.store.save_object("decision", decision)
+        return decision, []
 
     # --- read ---
 
@@ -339,18 +380,18 @@ class IntentRepository:
         git_payload, git_warnings = build_git_context(self.cwd)
 
         latest_snap = None
-        candidate_snaps: List[Dict[str, Any]] = []
         if intent:
-            latest_snap = self._latest_adopted(intent["id"])
-            candidate_snaps = [
-                {"id": c["id"], "title": c["title"]}
-                for c in self._candidate_snaps(intent["id"])
-            ]
+            latest_snap = self._latest_active_snap(intent["id"])
 
         suspended_intents = [
             {"id": i["id"], "title": i["title"]}
             for i in self.store.list_objects("intent")
             if i.get("status") == "suspended"
+        ]
+
+        active_decisions = [
+            {"id": d["id"], "title": d["title"], "status": d["status"]}
+            for d in self._active_decisions()
         ]
 
         workspace_status = self._derive_workspace_status(state)
@@ -361,9 +402,10 @@ class IntentRepository:
         def brief(obj: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
             if not obj:
                 return None
-            return {k: obj[k] for k in ("id", "title", "status", "rationale") if k in obj}
+            keys = ("id", "title", "status", "rationale", "decision_ids")
+            return {k: obj[k] for k in keys if k in obj}
 
-        action = self._next_action(intent, candidate_snaps, suspended_intents)
+        action = self._next_action(intent, suspended_intents)
 
         return {
             "ok": True,
@@ -371,7 +413,7 @@ class IntentRepository:
             "workspace_status": workspace_status,
             "intent": brief(intent),
             "latest_snap": brief(latest_snap),
-            "candidate_snaps": candidate_snaps,
+            "active_decisions": active_decisions,
             "suspended_intents": suspended_intents,
             "suggested_next_action": action,
             "git": {
@@ -385,12 +427,12 @@ class IntentRepository:
     def list_objects(self, object_name: str, intent_id: Optional[str] = None) -> List[Dict[str, Any]]:
         self.ensure_git()
         self.ensure_initialized()
-        if object_name not in ("intent", "snap"):
+        if object_name not in ("intent", "snap", "decision"):
             raise IntentError(
                 EXIT_STATE_CONFLICT,
                 "STATE_CONFLICT",
                 f"Unknown object type: {object_name}",
-                suggested_fix="Use 'intent' or 'snap'.",
+                suggested_fix="Use 'intent', 'snap', or 'decision'.",
             )
         items = self.store.list_objects(object_name)
         if intent_id and object_name == "snap":
@@ -410,17 +452,18 @@ class IntentRepository:
             return "intent"
         if object_id.startswith("snap-"):
             return "snap"
+        if object_id.startswith("decision-"):
+            return "decision"
         raise IntentError(
             EXIT_OBJECT_NOT_FOUND,
             "OBJECT_NOT_FOUND",
             f"Cannot determine type for id '{object_id}'.",
-            suggested_fix="Use a valid id like 'intent-001' or 'snap-001'.",
+            suggested_fix="Use a valid id like 'intent-001', 'snap-001', or 'decision-001'.",
         )
 
     def _next_action(
         self,
         intent: Optional[Dict[str, Any]],
-        candidates: List[Dict[str, Any]],
         suspended: Optional[List[Dict[str, Any]]] = None,
     ) -> Optional[Dict[str, Any]]:
         if not intent or intent.get("status") != "open":
@@ -430,14 +473,4 @@ class IntentRepository:
                     "reason": "Suspended intents exist.",
                 }
             return {"command": "itt start 'Describe the problem'", "reason": "No active intent."}
-        if len(candidates) > 1:
-            return {
-                "command": f"itt adopt {candidates[-1]['id']}",
-                "reason": "Multiple candidates — pick one to adopt.",
-            }
-        if len(candidates) == 1:
-            return {
-                "command": f"itt adopt {candidates[0]['id']}",
-                "reason": "One candidate ready for adoption.",
-            }
         return {"command": "itt snap 'Describe the step'", "reason": "Intent is active."}

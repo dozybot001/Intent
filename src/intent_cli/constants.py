@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-SCHEMA_VERSION = "0.2"
+SCHEMA_VERSION = "0.3"
 
 EXIT_SUCCESS = 0
 EXIT_GENERAL_FAILURE = 1
@@ -11,9 +11,11 @@ EXIT_OBJECT_NOT_FOUND = 4
 DIR_NAMES = {
     "intent": "intents",
     "snap": "snaps",
+    "decision": "decisions",
 }
 
 ID_PREFIXES = {
     "intent": "intent",
     "snap": "snap",
+    "decision": "decision",
 }
