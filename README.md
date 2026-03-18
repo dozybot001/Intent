@@ -132,6 +132,12 @@ All data lives in `.intent/` at your git repo root:
     decision-001.json
 ```
 
+## Docs
+
+- [CLI Design](docs/EN/cli.md) — object model, commands, JSON contract
+- [Vision](docs/EN/vision.md) — why semantic history matters
+- [Roadmap](docs/EN/roadmap.md) — phase plan
+
 ## License
 
 MIT

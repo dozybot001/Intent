@@ -1,5 +1,7 @@
 # Intent 的愿景
 
+[English](../EN/vision.md) | 中文
+
 ## 这篇文档回答什么
 
 - 为什么 agent 时代需要一层新的 semantic history

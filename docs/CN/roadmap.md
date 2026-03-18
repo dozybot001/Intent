@@ -1,5 +1,7 @@
 # Intent 路线图
 
+[English](../EN/roadmap.md) | 中文
+
 ## 这篇文档回答什么
 
 - 当前阶段先做什么、后做什么

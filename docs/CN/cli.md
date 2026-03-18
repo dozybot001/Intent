@@ -1,5 +1,7 @@
 # Intent CLI 设计文档
 
+[English](../EN/cli.md) | 中文
+
 Schema version: **0.6**
 
 Intent CLI 改为对象中心的 agent-first CLI。系统只建模三类对象：**intent**、**snap**、**decision**。
