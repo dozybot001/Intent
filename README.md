@@ -6,6 +6,16 @@ Semantic history for agent-driven development. Records **what you did** and **wh
 
 Intent CLI gives AI agents a structured way to track goals, interactions, and decisions across sessions. Instead of losing context when a conversation ends, agents persist their understanding into three simple objects stored alongside your code.
 
+## Why
+
+Git records how code changes. But it doesn't record **why you're on this path**, what you decided along the way, or where you left off.
+
+Today that context lives in chat logs, PR threads, and your head. It works — until the session ends, the agent forgets, or a teammate picks up your work blind.
+
+Intent treats these as a missing layer: **semantic history**. Not more docs, not better commit messages — a small set of formal objects that capture goals, interactions, and decisions so they survive context loss.
+
+> The shift is simple: development is moving from *writing code* to *guiding agents and distilling decisions*. The history layer should reflect that.
+
 ## Three objects, one graph
 
 | Object | What it captures |
