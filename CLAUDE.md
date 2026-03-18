@@ -1,8 +1,0 @@
-# Intent CLI – Development Guidelines
-
-## Project
-
-- Python 3.9+, stdlib only, no external dependencies.
-- Dev entry point: `python3 ./itt`
-- Tests: `python3 -m unittest discover -s tests -v`
-- Intent workflow: see `SKILL.md`
