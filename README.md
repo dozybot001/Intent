@@ -2,25 +2,29 @@ English | [简体中文](https://github.com/dozybot001/Intent/blob/main/README.C
 
 # Intent
 
-> Git records code changes. Intent records why.
+> Git records code changes. Intent records adoption history.
 
 ## The Problem
 
-Agent-driven development produces code fast, but reasoning disappears between sessions. Every new session starts from zero — the agent doesn't know what problem was being solved, what was tried, or why a path was chosen.
+Software development is shifting from *writing* to *selecting*. Agents generate candidates; humans review, compare, and adopt. But the tools haven't caught up — Git tracks how code changed, not what problem was being solved, what alternatives existed, or why one path was chosen over another.
+
+Every new agent session starts from zero. The reasoning, the rejected candidates, the half-finished work — all gone.
 
 ## What's Missing
 
-Git records *what* changed. Commit messages and comments add some context. But three things consistently fall through:
+High-level semantic information isn't scarce — it's scattered across commit messages, PRs, docs, chat, and agent conversations. The problem is that none of these are **first-class objects**: they can be read but not reliably tracked, discussed but not compared, recalled but not queried by machines.
+
+Three things consistently fall through:
 
 **Goal continuity.** Commits are isolated snapshots. There's no structure connecting five commits to one task, or saying "this is what we're trying to accomplish."
 
-**Decision rationale.** Why JWT over cookies? Why 15-minute expiry? This rarely makes it into commit messages — and when it does, it's unstructured text that agents must parse and guess from.
+**Decision rationale.** Why JWT over cookies? Why 15-minute expiry? These decisions exist somewhere — a Slack thread, a PR comment — but they're not modeled as objects an agent can find and reason about.
 
 **Work state.** `git status` can be clean while a task is half-done. The next session has no signal that work was interrupted or what comes next.
 
 ## The Solution
 
-Intent adds a `.intent/` directory to your repository — structured, machine-readable metadata that captures semantic history alongside code history.
+Intent adds a `.intent/` directory to your repository — promoting goals, decisions, and adoption records into first-class, machine-readable objects that live alongside code history.
 
 ```
 .git/    ← how code changed
@@ -81,11 +85,15 @@ The closest alternative is writing a `context.md` by hand. Intent trades that fl
 
 ## Where This Is Going
 
-`.intent/` is a protocol, not just a tool.
+Intent is a protocol, not just a tool. The long-term structure has three layers:
 
-1. **Agent memory** — agents read `.intent/` on startup, recover last session's context in seconds
-2. **Context exchange** — `.intent/` becomes the standard way to hand off work between agent platforms
-3. **Network effects** — when enough repos contain `.intent/`, new tooling emerges: intent-aware review, decision archaeology, semantic dashboards
+| Layer | Role | Status |
+| --- | --- | --- |
+| **Intent CLI** | Local semantic history — objects, lifecycle, query | Current focus |
+| **Skill / Agent workflow** | Teach agents when and how to maintain `.intent/` | Dogfooding now |
+| **IntHub** | Remote collaboration, shared timelines, dashboards | Future |
+
+The bet: local semantic layer first, remote collaboration later. If `.intent/` becomes a natural part of agent workflows, new tooling emerges — intent-aware code review, decision archaeology, cross-session continuity.
 
 ## Install
 
