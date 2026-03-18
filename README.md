@@ -127,5 +127,5 @@ python3 ./itt   # dev entry point, no install needed
 
 ## Documentation
 
-- [CLI spec](https://github.com/dozybot001/Intent/blob/main/docs/cli.EN.md) — objects, commands, JSON output contract
+- [CLI spec](https://github.com/dozybot001/Intent/blob/main/docs/cli.md) — objects, commands, JSON output contract
 - [Dogfooding](https://github.com/dozybot001/Intent/blob/main/docs/dogfooding.md) — how we built Intent with Intent
