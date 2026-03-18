@@ -1,139 +1,137 @@
-English | [简体中文](https://github.com/dozybot001/Intent/blob/main/README.CN.md)
+# Intent CLI
 
-# Intent
+[中文](README.CN.md) | English
 
-> Git records code changes. Intent records adoption history.
+Semantic history for agent-driven development. Records **what you did** and **why**.
 
-## The Problem
+Intent CLI gives AI agents a structured way to track goals, interactions, and decisions across sessions. Instead of losing context when a conversation ends, agents persist their understanding into three simple objects stored alongside your code.
 
-Software development is shifting from *writing* to *selecting*. Agents generate candidates; humans review, compare, and adopt. But the tools haven't caught up — Git tracks how code changed, not what problem was being solved, what alternatives existed, or why one path was chosen over another.
+## Three objects, one graph
 
-Every new agent session starts from zero. The reasoning, the rejected candidates, the half-finished work — all gone.
+| Object | What it captures |
+|---|---|
+| **Intent** | A goal the agent identified from your query |
+| **Snap** | One agent interaction — query, summary, feedback |
+| **Decision** | A long-lived decision that spans multiple intents |
 
-## What's Missing
+Objects link automatically: creating an intent attaches all active decisions; creating a decision attaches all active intents. Relationships are always bidirectional and append-only.
 
-High-level semantic information isn't scarce — it's scattered across commit messages, PRs, docs, chat, and agent conversations. The problem is that none of these are **first-class objects**: they can be read but not reliably tracked, discussed but not compared, recalled but not queried by machines.
+### How decisions are created
 
-Three things consistently fall through:
+Decisions require human involvement. Two paths:
 
-**Goal continuity.** Commits are isolated snapshots. There's no structure connecting five commits to one task, or saying "this is what we're trying to accomplish."
-
-**Decision rationale.** Why JWT over cookies? Why 15-minute expiry? These decisions exist somewhere — a Slack thread, a PR comment — but they're not modeled as objects an agent can find and reason about.
-
-**Work state.** `git status` can be clean while a task is half-done. The next session has no signal that work was interrupted or what comes next.
-
-## The Solution
-
-Intent adds a `.intent/` directory to your repository — promoting goals, decisions, and adoption records into first-class, machine-readable objects that live alongside code history.
-
-```
-.git/    ← how code changed
-.intent/ ← what you were doing and why
-```
-
-Two objects: **intent** (the goal) and **snap** (a step taken, with rationale). All JSON. Any agent platform can read it.
-
-### What changes
-
-**Without `.intent/`** — new agent session opens. It reads `git log` and source code. Understands what the code does *now*, but doesn't know the JWT migration was for compliance (might revert it), doesn't know the refresh token is intentionally incomplete, can't tell there's unfinished work. Asks: *"What would you like me to do?"*
-
-**With `.intent/`** — new agent session opens. Runs `itt inspect`. Sees an active intent ("Migrate auth to JWT"), last snap ("Add refresh token — incomplete"), and rationale ("token rotation not done, security priority"). Says: *"I'll implement the token rotation next."*
-
-The difference: 10 seconds of reading structured metadata vs. minutes of re-explaining context.
-
-## Core Loop
-
-```
-start → snap → done
-```
-
-- `start` — open an intent (what problem you're solving)
-- `snap` — record a snap (what you did and why)
-- `done` — close when complete
-
-## Example
-
-```bash
-pipx install intent-cli-python
-itt init                    # creates .intent/
-itt start "Fix login timeout"
-itt snap "Increase timeout to 30s" -m "5s too short for slow networks"
-git add . && git commit -m "fix timeout"
-itt done
-```
-
-## Why Not Just…
-
-| Approach | What it does well | What falls through |
-| --- | --- | --- |
-| **Git commit messages** | Records what changed per commit | No goal structure across commits; rationale is afterthought; no work-in-progress state |
-| **CLAUDE.md / .cursorrules** | Gives agents project-level instructions | Static — doesn't track active tasks, decisions, or progress; must be manually maintained |
-| **TODO comments** | Marks incomplete work in-place | Scattered across files; no lifecycle; no rationale; agents must grep and guess priority |
-| **Notion / Linear / Jira** | Rich project tracking for humans | External to the repo; agents can't read them without API integration; overhead is high for solo/agent workflows |
-| **Agent memory** (e.g. Claude Code memory) | Persists user preferences across sessions | Tied to one platform; not versioned with code; not shareable across agents or teammates |
-| **Ad-hoc context files** (e.g. `context.md`) | Quick, zero-tooling setup | No schema — every project invents its own format; no lifecycle management; grows stale silently |
-
-**Intent occupies a specific gap**: structured, versioned, task-scoped context that lives *in the repo* and works across any agent platform.
-
-- **Structured** — JSON objects with defined schema, not free text an agent must interpret
-- **Task-scoped** — an intent has a lifecycle (`open → done`); snaps are ordered steps, not a pile of notes
-- **Versioned** — `.intent/` is committed alongside code; `git blame` works on your decisions too
-- **Platform-agnostic** — any agent that reads JSON can use it; no vendor lock-in
-- **Minimal** — two objects (intent, snap), one CLI, zero dependencies; adds seconds to a workflow, not minutes
-
-The closest alternative is writing a `context.md` by hand. Intent trades that flexibility for consistency: a schema agents can rely on without per-project prompt engineering.
-
-## Where This Is Going
-
-Intent is a protocol, not just a tool. The long-term structure has three layers:
-
-| Layer | Role | Status |
-| --- | --- | --- |
-| **Intent CLI** | Local semantic history — objects, lifecycle, query | Current focus |
-| **Skill / Agent workflow** | Teach agents when and how to maintain `.intent/` | Dogfooding now |
-| **IntHub** | Remote collaboration, shared timelines, dashboards | Future |
-
-The bet: local semantic layer first, remote collaboration later. If `.intent/` becomes a natural part of agent workflows, new tooling emerges — intent-aware code review, decision archaeology, cross-session continuity.
+- **Explicit**: include `decision-[text]` (or `决定-[text]`) in your query and the agent creates it directly. E.g. "decision-all API responses use envelope format"
+- **Agent-proposed**: the agent spots a potential long-term constraint in conversation and asks you to confirm before recording it
 
 ## Install
 
-**Users:**
-
 ```bash
+# Clone the repository
+git clone https://github.com/dozybot001/Intent.git
+
+# Install the CLI (pipx recommended)
 pipx install intent-cli-python
+
+# Or using pip
+pip install intent-cli-python
 ```
 
-**Configure your agent:** Install the Intent skill so your agent knows the workflow:
+Requires Python 3.9+ and Git.
+
+### Add the Claude Code skill
 
 ```bash
 npx skills add dozybot001/Intent
 ```
 
-**Contributors:**
+## Quick start
 
 ```bash
-git clone https://github.com/dozybot001/Intent.git
-cd Intent
-python3 ./itt   # dev entry point, no install needed
+# Initialize in any git repo
+itt init
+
+# Agent identifies a new intent from user query
+itt intent create "Fix the login timeout bug" \
+  --query "why does login timeout after 5s?"
+
+# Record what the agent did
+itt snap create "Raise timeout to 30s" \
+  --intent intent-001 \
+  --query "login timeout still fails on slow networks" \
+  --summary "Updated timeout config and ran the login test"
+
+# Capture a long-lived decision
+itt decision create "Timeout must stay configurable" \
+  --rationale "Different deployments have different latency envelopes"
+
+# See the full object graph
+itt inspect
 ```
 
 ## Commands
 
-| Command | Purpose |
-| --- | --- |
-| `itt init` | Initialize `.intent/` |
-| `itt start <title>` | Open an intent |
-| `itt snap <title> [-m why]` | Record a snap |
-| `itt done` | Close the active intent |
-| `itt inspect` | Machine-readable workspace snapshot |
-| `itt list <intent\|snap>` | List objects |
-| `itt show <id>` | Show a single object |
-| `itt suspend` | Suspend the active intent |
-| `itt resume [id]` | Resume a suspended intent |
-| `itt adopt [id]` | Adopt a candidate snap |
-| `itt revert` | Revert the latest snap |
+### Global
 
-## Documentation
+| Command | Description |
+|---|---|
+| `itt version` | Print version |
+| `itt init` | Initialize `.intent/` in current git repo |
+| `itt inspect` | Show the live object graph snapshot |
 
-- [CLI spec](https://github.com/dozybot001/Intent/blob/main/docs/cli.md) — objects, commands, JSON output contract
-- [Dogfooding](https://github.com/dozybot001/Intent/blob/main/docs/dogfooding.md) — how we built Intent with Intent
+### Intent
+
+| Command | Description |
+|---|---|
+| `itt intent create TITLE --query Q` | Create a new intent |
+| `itt intent list [--status S]` | List intents |
+| `itt intent show ID` | Show intent details |
+| `itt intent activate ID` | Resume a suspended intent |
+| `itt intent suspend ID` | Suspend an active intent |
+| `itt intent done ID` | Mark intent as completed |
+
+### Snap
+
+| Command | Description |
+|---|---|
+| `itt snap create TITLE --intent ID` | Record an interaction snapshot |
+| `itt snap list [--intent ID] [--status S]` | List snaps |
+| `itt snap show ID` | Show snap details |
+| `itt snap feedback ID TEXT` | Set or overwrite feedback |
+| `itt snap revert ID` | Mark a snap as reverted |
+
+### Decision
+
+| Command | Description |
+|---|---|
+| `itt decision create TITLE --rationale R` | Create a long-lived decision |
+| `itt decision list [--status S]` | List decisions |
+| `itt decision show ID` | Show decision details |
+| `itt decision deprecate ID` | Deprecate a decision |
+| `itt decision attach ID --intent ID` | Manually link a decision to an intent |
+
+## Design principles
+
+- **Agent-first**: designed to be called by AI agents, not typed by hand
+- **Append-only history**: content fields are immutable after creation; correct mistakes in new snaps, don't rewrite old ones
+- **Relationships only grow**: no detach — deprecate a decision instead
+- **All output is JSON**: machine-readable by default
+- **Zero dependencies**: pure Python, stdlib only
+
+## Storage
+
+All data lives in `.intent/` at your git repo root:
+
+```
+.intent/
+  config.json
+  intents/
+    intent-001.json
+  snaps/
+    snap-001.json
+  decisions/
+    decision-001.json
+```
+
+## License
+
+MIT
