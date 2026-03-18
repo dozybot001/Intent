@@ -134,8 +134,8 @@ All data lives in `.intent/` at your git repo root:
 
 ## Docs
 
+- [Vision](docs/EN/vision.md) — why semantic history matters. **If this project interests you, start here.**
 - [CLI Design](docs/EN/cli.md) — object model, commands, JSON contract
-- [Vision](docs/EN/vision.md) — why semantic history matters
 - [Roadmap](docs/EN/roadmap.md) — phase plan
 
 ## License

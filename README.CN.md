@@ -134,8 +134,8 @@ itt inspect
 
 ## 文档
 
+- [愿景](docs/CN/vision.md) — 为什么需要语义历史。**如果你对这个项目感兴趣，强烈建议从这里开始。**
 - [CLI 设计文档](docs/CN/cli.md) — 对象模型、命令、JSON 契约
-- [愿景](docs/CN/vision.md) — 为什么需要语义历史
 - [路线图](docs/CN/roadmap.md) — 阶段规划
 
 ## 许可证
