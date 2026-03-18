@@ -58,6 +58,27 @@ git add . && git commit -m "fix timeout"
 itt done
 ```
 
+## 为什么不直接用……
+
+| 方案 | 擅长什么 | 缺什么 |
+| --- | --- | --- |
+| **Git commit message** | 记录每个 commit 改了什么 | 无法跨 commit 关联目标；rationale 是事后补的；没有进行中状态 |
+| **CLAUDE.md / .cursorrules** | 给 agent 项目级指令 | 静态的——不跟踪活跃任务、决策或进度；需要手动维护 |
+| **TODO 注释** | 在代码中标记未完成的工作 | 散落在各文件；没有生命周期；没有理由；agent 必须 grep 然后猜优先级 |
+| **Notion / Linear / Jira** | 面向人类的丰富项目跟踪 | 在仓库之外；agent 需要 API 集成才能读取；对于独立/agent 工作流来说过重 |
+| **Agent 记忆**（如 Claude Code memory） | 跨 session 保存用户偏好 | 绑定单一平台；不随代码版本化；无法在不同 agent 或队友之间共享 |
+| **临时上下文文件**（如 `context.md`） | 快速、零工具上手 | 没有 schema——每个项目自己发明格式；没有生命周期管理；悄悄过期 |
+
+**Intent 填补的是一个具体的缝隙**：结构化、版本化、任务粒度的上下文，*住在仓库里*，跨任何 agent 平台工作。
+
+- **结构化** — JSON 对象，定义了 schema，不是 agent 需要猜的自由文本
+- **任务粒度** — intent 有生命周期（`open → done`）；snap 是有序步骤，不是一堆笔记
+- **版本化** — `.intent/` 和代码一起 commit；`git blame` 也能用在你的决策上
+- **平台无关** — 任何能读 JSON 的 agent 都能用；没有供应商锁定
+- **极简** — 两种对象（intent、snap），一个 CLI，零依赖；给工作流加几秒，不是几分钟
+
+最接近的替代方案是手写一个 `context.md`。Intent 用一致性换灵活性：一个 agent 可以直接依赖的 schema，不需要每个项目单独写 prompt 来解析。
+
 ## 发展方向
 
 `.intent/` 是一个协议，不只是工具。

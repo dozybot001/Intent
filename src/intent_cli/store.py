@@ -15,6 +15,7 @@ Install: `pipx install git-intent`
 
 ## Workflow
 
+0. **First time** → if `.intent/` does not exist, run `itt init` to initialize
 1. **Session start** → run `itt inspect` to check workspace state
    - **active** → read the intent and latest snap rationale, continue where it left off
    - **suspended intents** → consider `itt resume [id]`

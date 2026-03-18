@@ -60,6 +60,27 @@ itt done
 
 `itt init` also generates `.claude/instructions.md` so that Claude Code (and any agent that reads project instructions) automatically picks up the Intent workflow — no manual configuration needed.
 
+## Why Not Just…
+
+| Approach | What it does well | What falls through |
+| --- | --- | --- |
+| **Git commit messages** | Records what changed per commit | No goal structure across commits; rationale is afterthought; no work-in-progress state |
+| **CLAUDE.md / .cursorrules** | Gives agents project-level instructions | Static — doesn't track active tasks, decisions, or progress; must be manually maintained |
+| **TODO comments** | Marks incomplete work in-place | Scattered across files; no lifecycle; no rationale; agents must grep and guess priority |
+| **Notion / Linear / Jira** | Rich project tracking for humans | External to the repo; agents can't read them without API integration; overhead is high for solo/agent workflows |
+| **Agent memory** (e.g. Claude Code memory) | Persists user preferences across sessions | Tied to one platform; not versioned with code; not shareable across agents or teammates |
+| **Ad-hoc context files** (e.g. `context.md`) | Quick, zero-tooling setup | No schema — every project invents its own format; no lifecycle management; grows stale silently |
+
+**Intent occupies a specific gap**: structured, versioned, task-scoped context that lives *in the repo* and works across any agent platform.
+
+- **Structured** — JSON objects with defined schema, not free text an agent must interpret
+- **Task-scoped** — an intent has a lifecycle (`open → done`); snaps are ordered steps, not a pile of notes
+- **Versioned** — `.intent/` is committed alongside code; `git blame` works on your decisions too
+- **Platform-agnostic** — any agent that reads JSON can use it; no vendor lock-in
+- **Minimal** — two objects (intent, snap), one CLI, zero dependencies; adds seconds to a workflow, not minutes
+
+The closest alternative is writing a `context.md` by hand. Intent trades that flexibility for consistency: a schema agents can rely on without per-project prompt engineering.
+
 ## Where This Is Going
 
 `.intent/` is a protocol, not just a tool.
