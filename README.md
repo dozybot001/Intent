@@ -51,12 +51,14 @@ start → snap → done
 
 ```bash
 pip install git-intent
-itt init
+itt init                    # creates .intent/ and .claude/instructions.md
 itt start "Fix login timeout"
 itt snap "Increase timeout to 30s" -m "5s too short for slow networks"
 git add . && git commit -m "fix timeout"
 itt done
 ```
+
+`itt init` also generates `.claude/instructions.md` so that Claude Code (and any agent that reads project instructions) automatically picks up the Intent workflow — no manual configuration needed.
 
 ## Where This Is Going
 
