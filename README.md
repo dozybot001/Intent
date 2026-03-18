@@ -95,16 +95,16 @@ The closest alternative is writing a `context.md` by hand. Intent trades that fl
 pipx install git-intent
 ```
 
-**Configure your agent:** Intent ships a ready-to-use skill file in [`skills/git-intent.md`](skills/git-intent.md). Copy it into your agent's skill directory so it knows the Intent workflow:
+**Configure your agent:** Intent ships a ready-to-use skill file ([`SKILL.md`](SKILL.md)). Copy it into your agent's skill directory so it knows the Intent workflow:
 
 ```bash
 # Claude Code
 mkdir -p .claude/skills
 curl -o .claude/skills/git-intent.md \
-  https://raw.githubusercontent.com/dozybot001/Intent/main/skills/git-intent.md
+  https://raw.githubusercontent.com/dozybot001/Intent/main/SKILL.md
 ```
 
-For other agents, adapt `skills/git-intent.md` to your platform's instruction format.
+For other agents, adapt `SKILL.md` to your platform's instruction format.
 
 **Contributors:**
 

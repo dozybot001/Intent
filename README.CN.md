@@ -95,15 +95,16 @@ itt done
 pipx install git-intent
 ```
 
-**配置你的 agent：** Intent 附带了一个现成的 skill 文件 [`skills/git-intent.md`](skills/git-intent.md)，复制到 agent 的 skill 目录即可让它了解 Intent 工作流：
+**配置你的 agent：** Intent 附带了一个现成的 skill 文件 ([`SKILL.md`](SKILL.md))，复制到 agent 的 skill 目录即可让它了解 Intent 工作流：
 
 ```bash
 # Claude Code
+mkdir -p .claude/skills
 curl -o .claude/skills/git-intent.md \
-  https://raw.githubusercontent.com/dozybot001/Intent/main/skills/git-intent.md
+  https://raw.githubusercontent.com/dozybot001/Intent/main/SKILL.md
 ```
 
-其他 agent 平台请将 `skills/git-intent.md` 的内容适配为对应的指令格式。
+其他 agent 平台请将 `SKILL.md` 的内容适配为对应的指令格式。
 
 **贡献者：**
 
