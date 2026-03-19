@@ -1,0 +1,14 @@
+{
+  "intent_version": "1.5.0",
+  "tag": "v1.5.0",
+  "cli": {
+    "name": "intent-cli-python",
+    "version": "2.0.0",
+    "pypi": "https://pypi.org/project/intent-cli-python/2.0.0/"
+  },
+  "hub": {
+    "name": "IntHub",
+    "version": "0.2.0"
+  },
+  "notes": "Project-level release index for the Intent monorepo. GitHub maintains one project release line; deliverable versions are described inside this release."
+}

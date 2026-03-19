@@ -4,6 +4,9 @@ backup/
 # Local Intent workspace metadata; do not commit to Git
 .intent/
 
+# Local IntHub runtime state; do not commit to Git
+.inthub/
+
 # Claude Code local settings (personal overrides)
 .claude/settings.local.json
 

@@ -80,7 +80,7 @@ IntHub 是构建在 Intent 之上的远端协作层。
 
 - PyPI 只分发 `itt` CLI
 - IntHub Web 和 API 不属于 PyPI 包
-- 当前 GitHub release 只维护一条项目版本线，例如 `v1.4.0`
+- 当前 GitHub release 只维护一条项目版本线，例如 `v1.5.0`
 - CLI 自己的包版本继续由 `pyproject.toml` 维护，并通过 PyPI 发布
 
 如果你要从源码运行当前 IntHub 原型：

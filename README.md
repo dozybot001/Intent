@@ -80,7 +80,7 @@ IntHub is the remote collaboration layer built on top of Intent.
 
 - PyPI ships only the `itt` CLI
 - IntHub Web and API are not part of the PyPI package
-- Current GitHub releases use a single project version line such as `v1.4.0`
+- Current GitHub releases use a single project version line such as `v1.5.0`
 - The CLI keeps its own package version in `pyproject.toml` and is published on PyPI
 
 If you want to run the current IntHub prototype from source:
