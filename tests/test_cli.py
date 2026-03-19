@@ -2,11 +2,11 @@
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import threading
-from importlib import metadata
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from urllib.request import urlopen
@@ -91,6 +91,23 @@ def _get_json(url):
         return json.loads(resp.read().decode("utf-8"))
 
 
+def _expected_cli_version():
+    text = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    in_project = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped == "[project]":
+            in_project = True
+            continue
+        if in_project and stripped.startswith("["):
+            break
+        if in_project:
+            match = re.match(r'version\s*=\s*"([^"]+)"', stripped)
+            if match:
+                return match.group(1)
+    raise AssertionError("Could not find project.version in pyproject.toml")
+
+
 # ---------------------------------------------------------------------------
 # Global commands
 # ---------------------------------------------------------------------------
@@ -99,7 +116,7 @@ class TestGlobal:
     def test_version(self, workspace):
         r = _run(workspace, "version")
         assert r["ok"] is True
-        assert r["result"]["version"] == metadata.version("intent-cli-python")
+        assert r["result"]["version"] == _expected_cli_version()
 
     def test_init_already_exists(self, workspace):
         r = _run(workspace, "init")

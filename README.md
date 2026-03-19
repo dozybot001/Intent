@@ -67,6 +67,17 @@ python -m apps.inthub_web --api-base-url http://127.0.0.1:8000
 
 Then use `itt hub login`, `itt hub link`, and `itt hub sync` from a local Intent workspace to populate the read-only IntHub project view.
 
+### Versioning and releases
+
+`Intent` is the umbrella project and monorepo. It does not maintain one shared project version anymore.
+
+Release versions now belong to concrete deliverables:
+
+- CLI releases use the PyPI package version from `pyproject.toml` and Git tags like `cli-v2.0.0`
+- IntHub releases use their own track and Git tags like `hub-v0.1.0`
+
+Historical bare tags such as `v1.3.0` remain as history, but new releases use deliverable-prefixed tags.
+
 ### Install the skills.sh skill
 
 ```bash

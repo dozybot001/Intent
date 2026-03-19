@@ -203,7 +203,7 @@ Recommended minimum payload:
   "generated_at": "2026-03-19T00:00:00Z",
   "client": {
     "name": "intent-cli-python",
-    "version": "1.3.0"
+    "version": "2.0.0"
   },
   "project_id": "proj_01J...",
   "repo": {

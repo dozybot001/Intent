@@ -67,6 +67,17 @@ python -m apps.inthub_web --api-base-url http://127.0.0.1:8000
 
 之后在本地 Intent workspace 中执行 `itt hub login`、`itt hub link`、`itt hub sync`，就能把数据推到只读 IntHub 项目视图里。
 
+### 版本与发布
+
+`Intent` 现在是 umbrella project / monorepo，不再维护一个统一的项目版本号。
+
+发布版本只属于具体 deliverable：
+
+- CLI 的版本以 `pyproject.toml` 中的 PyPI 包版本为准，Git tag 使用 `cli-v2.0.0` 这种形式
+- IntHub 未来单独发布时，使用自己的版本轨道和 `hub-v0.1.0` 这种 tag
+
+历史上的裸 tag，例如 `v1.3.0`，作为既有历史保留；新的发布一律使用带 deliverable 前缀的 tag。
+
 ### 通过 skills.sh 安装 skill
 
 ```bash
