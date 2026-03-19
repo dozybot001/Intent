@@ -8,8 +8,10 @@ from urllib.parse import parse_qs, urlparse
 from apps.inthub_api.common import APIError
 from apps.inthub_api.ingest import link_project, store_sync_batch
 from apps.inthub_api.queries import (
+    get_snap_detail,
     get_decision_detail,
     get_intent_detail,
+    list_projects,
     project_handoff,
     project_overview,
     search_project,
@@ -40,6 +42,9 @@ def make_handler(db_path):
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
             self.end_headers()
             self.wfile.write(body)
 
@@ -74,6 +79,10 @@ def make_handler(db_path):
             raise APIError("OBJECT_NOT_FOUND", f"Endpoint {path} not found.", status=404)
 
         def _route_get(self, path, query):
+            if path == "/api/v1/projects":
+                self._send_json(200, _json_success(list_projects(db_path)))
+                return
+
             if path.startswith("/api/v1/projects/") and path.endswith("/overview"):
                 project_id = path.split("/")[4]
                 self._send_json(200, _json_success(project_overview(db_path, project_id)))
@@ -92,6 +101,11 @@ def make_handler(db_path):
             if path.startswith("/api/v1/decisions/"):
                 remote_object_id = path.split("/")[4]
                 self._send_json(200, _json_success(get_decision_detail(db_path, remote_object_id)))
+                return
+
+            if path.startswith("/api/v1/snaps/"):
+                remote_object_id = path.split("/")[4]
+                self._send_json(200, _json_success(get_snap_detail(db_path, remote_object_id)))
                 return
 
             if path == "/api/v1/search":
@@ -121,6 +135,13 @@ def make_handler(db_path):
                 self._handle_api_error(exc)
             except Exception as exc:  # pragma: no cover - defensive fallback
                 self._send_json(500, _json_error("INTERNAL_ERROR", "Unhandled server error.", {"error": str(exc)}))
+
+        def do_OPTIONS(self):
+            self.send_response(204)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+            self.end_headers()
 
         def log_message(self, _format, *_args):
             return

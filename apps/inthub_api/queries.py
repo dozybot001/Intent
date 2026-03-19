@@ -156,6 +156,44 @@ def project_overview(db_path, project_id):
     }
 
 
+def list_projects(db_path):
+    with connect(db_path) as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                p.*,
+                COUNT(DISTINCT w.id) AS workspace_count,
+                MAX(sb.accepted_at) AS last_synced_at
+            FROM projects AS p
+            LEFT JOIN workspaces AS w
+                ON w.project_id = p.id
+            LEFT JOIN sync_batches AS sb
+                ON sb.project_id = p.id
+            GROUP BY p.id
+            ORDER BY COALESCE(MAX(sb.accepted_at), p.created_at) DESC, p.created_at DESC
+            """
+        ).fetchall()
+
+    return {
+        "projects": [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "repo": {
+                    "provider": row["provider"],
+                    "repo_id": row["repo_id"],
+                    "owner": row["owner"],
+                    "name": row["repo_name"],
+                },
+                "workspace_count": row["workspace_count"],
+                "last_synced_at": row["last_synced_at"],
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+    }
+
+
 def project_handoff(db_path, project_id):
     with connect(db_path) as conn:
         project = _project_row(conn, project_id)
@@ -259,6 +297,36 @@ def get_decision_detail(db_path, remote_object_id):
             "synced_at": payload.get("generated_at"),
         }
     raise APIError("OBJECT_NOT_FOUND", f"Decision {remote_object_id} not found.", status=404)
+
+
+def get_snap_detail(db_path, remote_object_id):
+    workspace_id, local_object_id = split_remote_object_id(remote_object_id)
+    with connect(db_path) as conn:
+        payload = _latest_payload_for_workspace(conn, workspace_id)
+
+    snapshot = payload.get("snapshot", {})
+    snaps = snapshot.get("snaps", [])
+    intents = snapshot.get("intents", [])
+    for snap in snaps:
+        if snap["id"] != local_object_id:
+            continue
+        parent_intent = None
+        intent_id = snap.get("intent_id")
+        if intent_id:
+            for intent in intents:
+                if intent["id"] == intent_id:
+                    parent_intent = intent
+                    break
+        return {
+            "remote_id": remote_object_id,
+            "workspace_id": workspace_id,
+            "id": local_object_id,
+            "snap": snap,
+            "intent": parent_intent,
+            "git": payload.get("git", {}),
+            "synced_at": payload.get("generated_at"),
+        }
+    raise APIError("OBJECT_NOT_FOUND", f"Snap {remote_object_id} not found.", status=404)
 
 
 def search_project(db_path, project_id, query):

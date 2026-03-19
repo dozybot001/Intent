@@ -292,8 +292,10 @@ itt hub sync
 
 - `GET /api/v1/projects/:project_id/overview`
 - `GET /api/v1/projects/:project_id/handoff`
+- `GET /api/v1/projects`
 - `GET /api/v1/intents/:remote_object_id`
 - `GET /api/v1/decisions/:remote_object_id`
+- `GET /api/v1/snaps/:remote_object_id`
 - `GET /api/v1/search`
 
 首版可以不急着提供：

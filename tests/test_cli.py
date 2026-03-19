@@ -13,7 +13,8 @@ from urllib.request import urlopen
 
 import pytest
 
-from apps.inthub_api.server import make_handler
+from apps.inthub_api.server import make_handler as make_inthub_api_handler
+from apps.inthub_web.server import make_handler as make_inthub_web_handler
 
 
 @pytest.fixture
@@ -33,7 +34,23 @@ def workspace(tmp_path):
 def inthub_server(tmp_path):
     server = ThreadingHTTPServer(
         ("127.0.0.1", 0),
-        make_handler(str(tmp_path / "inthub.db")),
+        make_inthub_api_handler(str(tmp_path / "inthub.db")),
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+@pytest.fixture
+def inthub_web_server(inthub_server):
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0),
+        make_inthub_web_handler(api_base_url=inthub_server),
     )
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -165,14 +182,37 @@ class TestHub:
         assert len(overview["result"]["active_intents"]) == 1
         assert overview["result"]["active_intents"][0]["id"] == "intent-001"
         assert len(overview["result"]["recent_snaps"]) == 1
+        snap_remote_id = overview["result"]["recent_snaps"][0]["remote_id"]
 
         handoff = _get_json(f"{inthub_server}/api/v1/projects/{project_id}/handoff")
         assert handoff["ok"] is True
         assert handoff["result"]["intents"][0]["latest_snap"]["id"] == "snap-001"
 
+        projects = _get_json(f"{inthub_server}/api/v1/projects")
+        assert projects["ok"] is True
+        assert projects["result"]["projects"][0]["id"] == project_id
+
         search = _get_json(f"{inthub_server}/api/v1/search?project_id={project_id}&q=Goal")
         assert search["ok"] is True
         assert search["result"]["matches"][0]["id"] == "intent-001"
+
+        snap_detail = _get_json(f"{inthub_server}/api/v1/snaps/{snap_remote_id}")
+        assert snap_detail["ok"] is True
+        assert snap_detail["result"]["snap"]["id"] == "snap-001"
+
+    def test_read_only_web_shell_serves_config(self, inthub_web_server, inthub_server):
+        config = _get_json(f"{inthub_web_server}/config.json")
+        assert config["apiBaseUrl"] == inthub_server
+        html = urlopen(f"{inthub_web_server}/").read().decode("utf-8")
+        assert "Read-only IntHub" in html
+        assert "Semantic history, shared without re-explaining it." in html
+        assert 'id="setup-guide"' in html
+        deep_link = urlopen(f"{inthub_web_server}/projects/demo").read().decode("utf-8")
+        assert "Read-only IntHub" in deep_link
+        js = urlopen(f"{inthub_web_server}/app.js").read().decode("utf-8")
+        assert "Open raw payload" in js
+        assert "Linked decisions" in js
+        assert "itt hub sync" in js
 
 
 # ---------------------------------------------------------------------------
