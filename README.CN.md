@@ -69,21 +69,22 @@ python -m apps.inthub_web --api-base-url http://127.0.0.1:8000
 
 ### 版本与发布
 
-`Intent` 现在是 umbrella project / monorepo，并采用三层发布模型。
+`Intent` 现在是 umbrella project / monorepo。GitHub 只维护一条项目版本线。
 
-三层含义分别是：
+发布职责分层如下：
 
-- 项目级 release 使用 `intent-v1.4.0` 这种 tag。它是 monorepo 的索引层，用来说明这个 Intent 版本对应哪一组 deliverable 版本。
-- CLI 的版本以 `pyproject.toml` 中的 PyPI 包版本为准，Git tag 使用 `cli-v2.0.0` 这种形式。
-- IntHub 使用自己的版本轨道和 `hub-v0.1.0` 这种 tag。
+- GitHub 仓库层面的 release 使用根目录 `VERSION` 文件中的项目版本，并沿用 `v1.4.0` 这种 tag。
+- 这个项目级 release 的 release note 负责说明它所对应的 CLI 版本和 Hub 版本。
+- CLI 包的版本仍然由 `pyproject.toml` 维护，但它通过 PyPI 发布，而不是在 GitHub 上单独维护一条 release 线。
+- IntHub 当前也不单独维护 GitHub release 线。
 
 这意味着：
 
+- 根目录 `VERSION` 文件是 GitHub 项目版本的真值来源
 - `pyproject.toml` 仍然只描述 CLI 包版本
-- GitHub 仓库层面的 latest release 通常应指向最新的 `intent-v*`
-- `cli-v*` 和 `hub-v*` 仍然分别是各 deliverable 的权威发布
+- GitHub 应该只展示一条最新的项目级 release，而不是并行维护 CLI 和 Hub 两条 release 轨道
 
-历史上的裸 tag，例如 `v1.3.0`，作为既有历史保留；新的发布一律使用 `intent-v*`、`cli-v*` 和 `hub-v*`。
+历史上的裸 tag，例如 `v1.3.0`，继续视为同一条项目版本线的一部分；新的 GitHub release 也继续沿用这条 `vX.Y.Z` 序列。
 
 ### 通过 skills.sh 安装 skill
 

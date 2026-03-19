@@ -69,21 +69,22 @@ Then use `itt hub login`, `itt hub link`, and `itt hub sync` from a local Intent
 
 ### Versioning and releases
 
-`Intent` is the umbrella project and monorepo. It now uses three release layers with different responsibilities.
+`Intent` is the umbrella project and monorepo. GitHub keeps a single project version line for the repository.
 
-Release layers:
+Release responsibilities:
 
-- Project releases use tags like `intent-v1.4.0`. They are index releases for the monorepo and summarize which deliverable versions belong to that Intent release.
-- CLI releases use the PyPI package version from `pyproject.toml` and tags like `cli-v2.0.0`.
-- IntHub releases use their own track and tags like `hub-v0.1.0`.
+- The repository-level GitHub release uses the project version from the root `VERSION` file and tags like `v1.4.0`.
+- The release notes for that project release explain which CLI version and Hub version belong to it.
+- The CLI package keeps its own version in `pyproject.toml`, but that version is published on PyPI rather than as a separate GitHub release line.
+- IntHub does not currently publish a separate GitHub release line.
 
 This means:
 
+- the root `VERSION` file is the source of truth for the GitHub project release version
 - `pyproject.toml` still describes only the CLI package version
-- the GitHub repo-level latest release should usually point to the newest `intent-v*`
-- `cli-v*` and `hub-v*` remain the authoritative releases for each deliverable
+- GitHub should show one latest project release, not parallel CLI and Hub release tracks
 
-Historical bare tags such as `v1.3.0` remain as history. New releases use `intent-v*`, `cli-v*`, and `hub-v*`.
+Historical bare tags such as `v1.3.0` remain part of the same project-version line. New GitHub releases continue that single `vX.Y.Z` sequence.
 
 ### Install the skills.sh skill
 
