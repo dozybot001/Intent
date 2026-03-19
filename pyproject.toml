@@ -32,12 +32,7 @@ Repository = "https://github.com/dozybot001/Intent"
 
 [project.scripts]
 itt = "intent_cli.cli:main"
-inthub-api = "apps.inthub_api.server:main"
-inthub-web = "apps.inthub_web.server:main"
 
 [tool.setuptools.packages.find]
-where = ["src", "."]
-include = ["intent_cli*", "apps*"]
-
-[tool.setuptools.package-data]
-"apps.inthub_web" = ["static/*.html", "static/*.css", "static/*.js"]
+where = ["src"]
+include = ["intent_cli*"]

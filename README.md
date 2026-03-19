@@ -48,16 +48,17 @@ pip install intent-cli-python
 
 Requires Python 3.9+ and Git.
 
-### Run the local IntHub shell
+### IntHub boundary
 
-The first read-only IntHub shell now ships with the package:
+`pipx install intent-cli-python` installs the CLI only.
 
-```bash
-inthub-api --db-path .inthub/inthub.db
-inthub-web --api-base-url http://127.0.0.1:8000
-```
+This repository is the umbrella project for both `Intent` and `IntHub`, but the distribution boundary is narrower than the repository boundary:
 
-If you are running from source instead of an installed package, the same entrypoints are available with:
+- PyPI ships only the `itt` CLI
+- IntHub Web is a separate static frontend and is a good fit for GitHub Pages
+- IntHub API is a separate service and is not part of the PyPI package
+
+If you are running IntHub from source inside this repository, the current local entrypoints are:
 
 ```bash
 python -m apps.inthub_api --db-path .inthub/inthub.db

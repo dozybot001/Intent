@@ -23,6 +23,7 @@
 - `.intent/` 必须继续留在本地工作区，不提交到 Git，也不作为 GitHub 内容被消费
 - IntHub Web 首版默认 **只读**
 - 本地 CLI 继续是主要写入口
+- PyPI 分发保持 CLI-only；IntHub Web 和 API 不属于 Python 包分发边界
 
 ## 2. 首版系统分工
 
@@ -52,6 +53,10 @@
 - 派生当前读模型
 - 为 Web 提供 overview / handoff / detail / search 数据
 
+部署说明：
+
+- 首版 API 可以继续和仓库放在一起开发，但不属于 PyPI 分发面
+
 ### GitHub
 
 负责：
@@ -64,6 +69,12 @@
 - semantic object 主存储
 - semantic object 查询
 - semantic object 关系计算
+
+### IntHub Web
+
+部署说明：
+
+- 首版 Web shell 是静态前端，适合通过 GitHub Pages 或其他静态托管方式发布
 
 ## 3. 首版 provider 与权限模型
 

@@ -16,6 +16,9 @@ import pytest
 from apps.inthub_api.server import make_handler as make_inthub_api_handler
 from apps.inthub_web.server import make_handler as make_inthub_web_handler
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SOURCE_PATHS = [str(REPO_ROOT), str(REPO_ROOT / "src")]
+
 
 @pytest.fixture
 def workspace(tmp_path):
@@ -64,9 +67,14 @@ def inthub_web_server(inthub_server):
 
 def _run(cwd, *args):
     """Run itt command and return parsed JSON."""
+    env = os.environ.copy()
+    existing = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = os.pathsep.join(
+        SOURCE_PATHS + ([existing] if existing else [])
+    )
     r = subprocess.run(
         [sys.executable, "-m", "intent_cli", *args],
-        cwd=cwd, capture_output=True, text=True,
+        cwd=cwd, capture_output=True, text=True, env=env,
     )
     return json.loads(r.stdout)
 

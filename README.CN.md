@@ -48,16 +48,17 @@ pip install intent-cli-python
 
 需要 Python 3.9+ 和 Git。
 
-### 运行本地 IntHub 只读壳
+### IntHub 分发边界
 
-首个只读版 IntHub shell 现在已经随包一起提供：
+`pipx install intent-cli-python` 只安装 CLI。
 
-```bash
-inthub-api --db-path .inthub/inthub.db
-inthub-web --api-base-url http://127.0.0.1:8000
-```
+当前仓库是 `Intent` 和 `IntHub` 的总项目仓库，但分发边界比仓库边界更窄：
 
-如果你是在源码仓库里直接运行，而不是通过已安装包运行，也可以使用：
+- PyPI 只分发 `itt` CLI
+- IntHub Web 是独立的静态前端，适合通过 GitHub Pages 托管
+- IntHub API 是独立服务，不属于 PyPI 包的一部分
+
+如果你是在这个源码仓库里直接运行 IntHub，当前本地入口是：
 
 ```bash
 python -m apps.inthub_api --db-path .inthub/inthub.db

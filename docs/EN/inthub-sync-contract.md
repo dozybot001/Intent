@@ -23,6 +23,7 @@ English | [中文](../CN/inthub-sync-contract.md)
 - `.intent/` must remain local workspace metadata, not committed to Git and not consumed as GitHub content
 - The first IntHub Web release is **read-only** by default
 - The local CLI remains the primary write path
+- PyPI distribution remains CLI-only; IntHub Web and API are outside the Python package boundary
 
 ## 2. First-release responsibility split
 
@@ -52,6 +53,10 @@ Responsible for:
 - deriving current read models
 - serving overview / handoff / detail / search data to the Web app
 
+Deployment note:
+
+- the first API may live in the same repository, but it is not part of the PyPI distribution surface
+
 ### GitHub
 
 Responsible for:
@@ -64,6 +69,12 @@ Not responsible for:
 - semantic object primary storage
 - semantic object querying
 - semantic relationship computation
+
+### IntHub Web
+
+Deployment note:
+
+- the first Web shell is a static frontend and is a good fit for GitHub Pages or another static host
 
 ## 3. Provider and auth model
 
