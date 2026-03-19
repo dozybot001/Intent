@@ -4,15 +4,13 @@
 
 Semantic history for agent-driven development. Records **what you did** and **why**.
 
-Intent CLI gives AI agents a structured way to track goals, interactions, and decisions across sessions. Instead of losing context when a conversation ends, agents persist their understanding into three simple objects stored alongside your code.
-
 ## Why
 
 Git records how code changes. But it doesn't record **why you're on this path**, what you decided along the way, or where you left off.
 
-Today that context lives in chat logs, PR threads, and your head. It works — until the session ends, the agent forgets, or a teammate picks up your work blind.
+Today that context lives in chat logs, PR threads, and your head. It works until the session ends, the agent forgets, or a teammate picks up your work blind.
 
-Intent treats these as a missing layer: **semantic history**. Not more docs, not better commit messages — a small set of formal objects that capture goals, interactions, and decisions so they survive context loss.
+Intent adds that missing layer: **semantic history**. Not more docs or better commit messages, but a small set of formal objects that survive context loss.
 
 > The shift is simple: development is moving from *writing code* to *guiding agents and distilling decisions*. The history layer should reflect that.
 
@@ -51,7 +49,7 @@ If you use Codex, Claude Code, or another skill-capable agent, install the `inte
 npx skills add dozybot001/Intent -g
 ```
 
-This matters. The CLI gives the commands, but the skill teaches the agent when and how to use them during real work.
+The CLI provides the commands; the skill teaches the agent when to use them.
 
 ## Quick start
 
@@ -83,13 +81,7 @@ IntHub is the remote collaboration layer built on top of Intent.
 - Current GitHub releases use a single project version line such as `v1.6.0`
 - The CLI keeps its own package version in `pyproject.toml` and is published on PyPI
 
-The intended first user experience is **IntHub Local**:
-- download the `IntHub Local` asset from a GitHub project release
-- start it on your machine
-- use `itt hub login / link / sync` inside your own repo
-- inspect your project's intents, snaps, and decisions in the local browser
-
-The user-facing commands stay simple:
+The first user-facing path is **IntHub Local**: download the asset from a GitHub release, start it locally, then connect your repo with:
 
 ```bash
 itt hub login --api-base-url http://127.0.0.1:7210
@@ -98,11 +90,6 @@ itt hub sync
 ```
 
 Then open `http://127.0.0.1:7210` in the browser.
-
-At a high level, the product flow is:
-- record semantic history locally in your own repo with `itt`
-- connect that repo to an IntHub instance
-- open IntHub in the browser to inspect the synced semantic history
 
 Current limitations:
 - IntHub V1 expects your local repo to have a GitHub `origin` remote
@@ -118,10 +105,6 @@ Current limitations:
 - [IntHub MVP](docs/EN/inthub-mvp.md) — first remote collaboration-layer scope
 - [IntHub Sync Contract](docs/EN/inthub-sync-contract.md) — first sync, identity, and API contract
 - [IntHub Local](docs/EN/inthub-local.md) — how to run the first local IntHub instance from a release asset
-
-## Agent use
-
-`itt` is new enough that models will sometimes forget to call it. A short reminder such as `use itt to record this` is usually enough.
 
 ## License
 

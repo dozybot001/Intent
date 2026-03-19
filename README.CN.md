@@ -4,15 +4,13 @@
 
 为 agent 驱动的开发提供语义历史。记录**你做了什么**以及**为什么**。
 
-Intent CLI 让 AI agent 能够跨会话地追踪目标、交互和决策。当对话结束时，agent 将理解持久化为三个简单对象，存储在代码仓库中。
-
 ## 为什么
 
 Git 记录代码怎么变的。但它不记录**你为什么走这条路**、途中做了什么决策、上次停在哪里。
 
-今天这些上下文散落在聊天记录、PR 讨论和你的脑子里。勉强能用——直到会话结束、agent 失忆、或者队友接手时一头雾水。
+今天这些上下文散落在聊天记录、PR 讨论和你的脑子里。勉强能用，直到会话结束、agent 失忆、或者队友接手时一头雾水。
 
-Intent 把这些视为缺失的一层：**语义历史**。不是更多文档，不是更好的 commit message，而是一组正式的对象来捕获目标、交互和决策，让它们不会随上下文一起消失。
+Intent 补上这层缺失的 **语义历史**。不是更多文档，也不是更好的 commit message，而是一组能穿越上下文丢失的正式对象。
 
 > 变化很简单：开发正在从"写代码"转向"引导 agent、沉淀决策"。历史层应该反映这一点。
 
@@ -51,7 +49,7 @@ pipx install intent-cli-python
 npx skills add dozybot001/Intent -g
 ```
 
-这一步很重要。CLI 只提供命令本身，skill 才负责教 agent 在真实工作里何时、如何调用 `itt`。
+CLI 只提供命令本身，skill 负责教 agent 在真实工作里何时调用 `itt`。
 
 ## 快速上手
 
@@ -83,13 +81,7 @@ IntHub 是构建在 Intent 之上的远端协作层。
 - 当前 GitHub release 只维护一条项目版本线，例如 `v1.6.0`
 - CLI 自己的包版本继续由 `pyproject.toml` 维护，并通过 PyPI 发布
 
-首个面向用户的体验形态应是 **IntHub Local**：
-- 从 GitHub 项目 release 下载 `IntHub Local` asset
-- 在本机启动它
-- 在你自己的仓库里执行 `itt hub login / link / sync`
-- 在本地浏览器中查看这个项目的 intents、snaps 和 decisions
-
-面向用户的命令保持很简单：
+首个面向用户的路径是 **IntHub Local**：从 GitHub release 下载 asset，在本机启动后，再在自己的仓库里执行：
 
 ```bash
 itt hub login --api-base-url http://127.0.0.1:7210
@@ -98,11 +90,6 @@ itt hub sync
 ```
 
 然后在浏览器中打开 `http://127.0.0.1:7210`。
-
-从产品角度看，整体流程是：
-- 在你自己的项目仓库里用 `itt` 记录语义历史
-- 把这个仓库连接到一个 IntHub 实例
-- 在浏览器里打开 IntHub 查看同步后的语义历史
 
 当前限制：
 - IntHub V1 目前要求你的本地仓库配置 GitHub `origin` remote
@@ -118,10 +105,6 @@ itt hub sync
 - [IntHub MVP 设计文档](docs/CN/inthub-mvp.md) — 首期远端协作层范围
 - [IntHub 同步契约（首版）](docs/CN/inthub-sync-contract.md) — 首版同步、身份与接口契约
 - [IntHub Local 使用说明](docs/CN/inthub-local.md) — 如何从 release asset 运行首个本地 IntHub 实例
-
-## Agent 使用提示
-
-`itt` 很新，模型有时会忘记调用。简单提醒一句“用 itt 记录一下”通常就够了。
 
 ## 许可证
 
