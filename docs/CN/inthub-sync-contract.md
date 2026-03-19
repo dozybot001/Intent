@@ -193,7 +193,7 @@ itt hub sync
   "generated_at": "2026-03-19T00:00:00Z",
   "client": {
     "name": "intent-cli-python",
-    "version": "1.2.0"
+    "version": "1.3.0"
   },
   "project_id": "proj_01J...",
   "repo": {

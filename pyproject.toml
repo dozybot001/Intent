@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "intent-cli-python"
-version = "1.2.0"
+version = "1.3.0"
 description = "Semantic history for agent-driven development. Records what you did and why."
 requires-python = ">=3.9"
 readme = "README.md"
@@ -32,9 +32,12 @@ Repository = "https://github.com/dozybot001/Intent"
 
 [project.scripts]
 itt = "intent_cli.cli:main"
-
-[tool.setuptools]
-package-dir = {"" = "src"}
+inthub-api = "apps.inthub_api.server:main"
+inthub-web = "apps.inthub_web.server:main"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["src", "."]
+include = ["intent_cli*", "apps*"]
+
+[tool.setuptools.package-data]
+"apps.inthub_web" = ["static/*.html", "static/*.css", "static/*.js"]

@@ -48,6 +48,24 @@ pip install intent-cli-python
 
 需要 Python 3.9+ 和 Git。
 
+### 运行本地 IntHub 只读壳
+
+首个只读版 IntHub shell 现在已经随包一起提供：
+
+```bash
+inthub-api --db-path .inthub/inthub.db
+inthub-web --api-base-url http://127.0.0.1:8000
+```
+
+如果你是在源码仓库里直接运行，而不是通过已安装包运行，也可以使用：
+
+```bash
+python -m apps.inthub_api --db-path .inthub/inthub.db
+python -m apps.inthub_web --api-base-url http://127.0.0.1:8000
+```
+
+之后在本地 Intent workspace 中执行 `itt hub login`、`itt hub link`、`itt hub sync`，就能把数据推到只读 IntHub 项目视图里。
+
 ### 通过 skills.sh 安装 skill
 
 ```bash

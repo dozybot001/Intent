@@ -48,6 +48,24 @@ pip install intent-cli-python
 
 Requires Python 3.9+ and Git.
 
+### Run the local IntHub shell
+
+The first read-only IntHub shell now ships with the package:
+
+```bash
+inthub-api --db-path .inthub/inthub.db
+inthub-web --api-base-url http://127.0.0.1:8000
+```
+
+If you are running from source instead of an installed package, the same entrypoints are available with:
+
+```bash
+python -m apps.inthub_api --db-path .inthub/inthub.db
+python -m apps.inthub_web --api-base-url http://127.0.0.1:8000
+```
+
+Then use `itt hub login`, `itt hub link`, and `itt hub sync` from a local Intent workspace to populate the read-only IntHub project view.
+
 ### Install the skills.sh skill
 
 ```bash
