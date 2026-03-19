@@ -36,158 +36,49 @@ Decisions require human involvement. Two paths:
 ## Install
 
 ```bash
-# Clone the repository
-git clone https://github.com/dozybot001/Intent.git
-
-# Install the CLI (pipx recommended)
 pipx install intent-cli-python
-
-# Or using pip
-pip install intent-cli-python
 ```
 
 Requires Python 3.9+ and Git.
 
-### IntHub boundary
-
-`pipx install intent-cli-python` installs the CLI only.
-
-This repository is the umbrella project for both `Intent` and `IntHub`, but the distribution boundary is narrower than the repository boundary:
-
-- PyPI ships only the `itt` CLI
-- IntHub Web is a separate static frontend and is a good fit for GitHub Pages
-- IntHub API is a separate service and is not part of the PyPI package
-
-If you are running IntHub from source inside this repository, the current local entrypoints are:
-
-```bash
-python -m apps.inthub_api --db-path .inthub/inthub.db
-python -m apps.inthub_web --api-base-url http://127.0.0.1:8000
-```
-
-Then use `itt hub login`, `itt hub link`, and `itt hub sync` from a local Intent workspace to populate the read-only IntHub project view.
-
-### Versioning and releases
-
-`Intent` is the umbrella project and monorepo. GitHub keeps a single project version line for the repository.
-
-Release responsibilities:
-
-- The repository-level GitHub release uses the project version from the root `VERSION` file and tags like `v1.4.0`.
-- The release notes for that project release explain which CLI version and Hub version belong to it.
-- The CLI package keeps its own version in `pyproject.toml`, but that version is published on PyPI rather than as a separate GitHub release line.
-- IntHub does not currently publish a separate GitHub release line.
-
-This means:
-
-- the root `VERSION` file is the source of truth for the GitHub project release version
-- `pyproject.toml` still describes only the CLI package version
-- GitHub should show one latest project release, not parallel CLI and Hub release tracks
-
-Historical bare tags such as `v1.3.0` remain part of the same project-version line. New GitHub releases continue that single `vX.Y.Z` sequence.
-
-### Install the skills.sh skill
-
-```bash
-npx skills add dozybot001/Intent -g
-```
-
-This installs the `intent-cli` skill into your global skills library for supported agents such as Codex and Claude Code.
-
-> **Tip:** `itt` is a new tool — current models have never seen it in training data. Your agent may forget to call it mid-conversation. A short nudge like *"use itt to record this"* is usually enough to bring it back on track.
->
-> This isn't busywork — every record is a **semantic asset**. An upcoming platform, **IntHub**, will turn these assets into searchable, shareable project intelligence.
+`.intent/` is local semantic-workspace metadata. It should stay out of Git history and remain ignored by `.gitignore`.
 
 ## Quick start
 
 ```bash
-# Initialize in any git repo
 itt init
 
-# Agent identifies a new intent from user query
 itt intent create "Fix the login timeout bug" \
   --query "why does login timeout after 5s?"
 
-# Record what the agent did
 itt snap create "Raise timeout to 30s" \
   --intent intent-001 \
   --query "login timeout still fails on slow networks" \
   --summary "Updated timeout config and ran the login test"
 
-# Capture a long-lived decision
 itt decision create "Timeout must stay configurable" \
   --rationale "Different deployments have different latency envelopes"
 
-# See the full object graph
 itt inspect
 ```
 
-## Commands
+For the full command surface and JSON contract, see the CLI design doc below.
 
-### Global
+## IntHub
 
-| Command | Description |
-|---|---|
-| `itt version` | Print version |
-| `itt init` | Initialize `.intent/` in current git repo |
-| `itt inspect` | Show the live object graph snapshot |
-| `itt doctor` | Validate the object graph for broken references and invalid states |
+IntHub is the remote collaboration layer built on top of Intent.
 
-### Intent
+- PyPI ships only the `itt` CLI
+- IntHub Web and API are not part of the PyPI package
+- Current GitHub releases use a single project version line such as `v1.4.0`
+- The CLI keeps its own package version in `pyproject.toml` and is published on PyPI
 
-| Command | Description |
-|---|---|
-| `itt intent create TITLE --query Q` | Create a new intent |
-| `itt intent list [--status S] [--decision ID]` | List intents |
-| `itt intent show ID` | Show intent details |
-| `itt intent activate ID` | Resume a suspended intent |
-| `itt intent suspend ID` | Suspend an active intent |
-| `itt intent done ID` | Mark intent as completed |
+If you want to run the current IntHub prototype from source:
 
-### Snap
-
-| Command | Description |
-|---|---|
-| `itt snap create TITLE --intent ID` | Record an interaction snapshot |
-| `itt snap list [--intent ID] [--status S]` | List snaps |
-| `itt snap show ID` | Show snap details |
-| `itt snap feedback ID TEXT` | Set or overwrite feedback |
-| `itt snap revert ID` | Mark a snap as reverted |
-
-### Decision
-
-| Command | Description |
-|---|---|
-| `itt decision create TITLE --rationale R` | Create a long-lived decision |
-| `itt decision list [--status S] [--intent ID]` | List decisions |
-| `itt decision show ID` | Show decision details |
-| `itt decision deprecate ID` | Deprecate a decision |
-| `itt decision attach ID --intent ID` | Manually link a decision to an intent |
-
-## Design principles
-
-- **Agent-first**: designed to be called by AI agents, not typed by hand
-- **Append-only history**: content fields are immutable after creation; correct mistakes in new snaps, don't rewrite old ones
-- **Relationships only grow**: no detach — deprecate a decision instead
-- **All output is JSON**: machine-readable by default
-- **Zero dependencies**: pure Python, stdlib only
-
-## Storage
-
-All data lives in `.intent/` at your git repo root:
-
+```bash
+python -m apps.inthub_api --db-path .inthub/inthub.db
+python -m apps.inthub_web --api-base-url http://127.0.0.1:8000
 ```
-.intent/
-  config.json
-  intents/
-    intent-001.json
-  snaps/
-    snap-001.json
-  decisions/
-    decision-001.json
-```
-
-`.intent/` is local semantic-workspace metadata. It should stay out of Git history and should remain ignored by `.gitignore`.
 
 ## Docs
 
@@ -196,6 +87,10 @@ All data lives in `.intent/` at your git repo root:
 - [Roadmap](docs/EN/roadmap.md) — phase plan
 - [IntHub MVP](docs/EN/inthub-mvp.md) — first remote collaboration-layer scope
 - [IntHub Sync Contract](docs/EN/inthub-sync-contract.md) — first sync, identity, and API contract
+
+## Agent use
+
+`itt` is new enough that models will sometimes forget to call it. A short reminder such as `use itt to record this` is usually enough.
 
 ## License
 

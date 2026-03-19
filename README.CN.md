@@ -36,158 +36,49 @@ Decision 需要人类参与，有两条路径：
 ## 安装
 
 ```bash
-# 克隆仓库
-git clone https://github.com/dozybot001/Intent.git
-
-# 安装 CLI（推荐 pipx）
 pipx install intent-cli-python
-
-# 或使用 pip
-pip install intent-cli-python
 ```
 
 需要 Python 3.9+ 和 Git。
 
-### IntHub 分发边界
-
-`pipx install intent-cli-python` 只安装 CLI。
-
-当前仓库是 `Intent` 和 `IntHub` 的总项目仓库，但分发边界比仓库边界更窄：
-
-- PyPI 只分发 `itt` CLI
-- IntHub Web 是独立的静态前端，适合通过 GitHub Pages 托管
-- IntHub API 是独立服务，不属于 PyPI 包的一部分
-
-如果你是在这个源码仓库里直接运行 IntHub，当前本地入口是：
-
-```bash
-python -m apps.inthub_api --db-path .inthub/inthub.db
-python -m apps.inthub_web --api-base-url http://127.0.0.1:8000
-```
-
-之后在本地 Intent workspace 中执行 `itt hub login`、`itt hub link`、`itt hub sync`，就能把数据推到只读 IntHub 项目视图里。
-
-### 版本与发布
-
-`Intent` 现在是 umbrella project / monorepo。GitHub 只维护一条项目版本线。
-
-发布职责分层如下：
-
-- GitHub 仓库层面的 release 使用根目录 `VERSION` 文件中的项目版本，并沿用 `v1.4.0` 这种 tag。
-- 这个项目级 release 的 release note 负责说明它所对应的 CLI 版本和 Hub 版本。
-- CLI 包的版本仍然由 `pyproject.toml` 维护，但它通过 PyPI 发布，而不是在 GitHub 上单独维护一条 release 线。
-- IntHub 当前也不单独维护 GitHub release 线。
-
-这意味着：
-
-- 根目录 `VERSION` 文件是 GitHub 项目版本的真值来源
-- `pyproject.toml` 仍然只描述 CLI 包版本
-- GitHub 应该只展示一条最新的项目级 release，而不是并行维护 CLI 和 Hub 两条 release 轨道
-
-历史上的裸 tag，例如 `v1.3.0`，继续视为同一条项目版本线的一部分；新的 GitHub release 也继续沿用这条 `vX.Y.Z` 序列。
-
-### 通过 skills.sh 安装 skill
-
-```bash
-npx skills add dozybot001/Intent -g
-```
-
-这会把 `intent-cli` 安装到你的全局 skill 库中，可供 Codex、Claude Code 等支持的 agent 使用。
-
-> **提示：** `itt` 是一个全新的工具，当前模型的训练数据中从未出现过它。对话过程中 agent 可能会忘记调用。遇到这种情况，简单提醒一句"用 itt 记录一下"就够了。
->
-> 这并不是徒增负担——每一条记录都是**语义资产**。后续平台 **IntHub** 将把这些资产转化为可检索、可共享的项目知识。
+`.intent/` 是本地语义工作区元数据，不应进入 Git 历史，且应始终由 `.gitignore` 忽略。
 
 ## 快速上手
 
 ```bash
-# 在任意 git 仓库中初始化
 itt init
 
-# Agent 从用户 query 中识别出新意图
 itt intent create "修复登录超时问题" \
   --query "为什么登录 5 秒就超时了？"
 
-# 记录 agent 做了什么
 itt snap create "将超时提升到 30s" \
   --intent intent-001 \
   --query "慢网络下登录仍然超时" \
   --summary "更新了超时配置并运行了登录测试"
 
-# 沉淀一条长期决策
 itt decision create "超时时间必须可配置" \
   --rationale "不同部署环境的延迟各不相同"
 
-# 查看完整的对象图
 itt inspect
 ```
 
-## 命令
+完整命令面和 JSON 契约请直接看下面的 CLI 设计文档。
 
-### 全局
+## IntHub
 
-| 命令 | 说明 |
-|---|---|
-| `itt version` | 打印版本 |
-| `itt init` | 在当前 git 仓库初始化 `.intent/` |
-| `itt inspect` | 显示实时对象图快照 |
-| `itt doctor` | 校验对象图中的断链引用和非法状态 |
+IntHub 是构建在 Intent 之上的远端协作层。
 
-### Intent
+- PyPI 只分发 `itt` CLI
+- IntHub Web 和 API 不属于 PyPI 包
+- 当前 GitHub release 只维护一条项目版本线，例如 `v1.4.0`
+- CLI 自己的包版本继续由 `pyproject.toml` 维护，并通过 PyPI 发布
 
-| 命令 | 说明 |
-|---|---|
-| `itt intent create TITLE --query Q` | 创建新 intent |
-| `itt intent list [--status S] [--decision ID]` | 列出 intent |
-| `itt intent show ID` | 查看 intent 详情 |
-| `itt intent activate ID` | 恢复挂起的 intent |
-| `itt intent suspend ID` | 挂起 active intent |
-| `itt intent done ID` | 标记 intent 为完成 |
+如果你要从源码运行当前 IntHub 原型：
 
-### Snap
-
-| 命令 | 说明 |
-|---|---|
-| `itt snap create TITLE --intent ID` | 记录一次交互快照 |
-| `itt snap list [--intent ID] [--status S]` | 列出 snap |
-| `itt snap show ID` | 查看 snap 详情 |
-| `itt snap feedback ID TEXT` | 设置或覆盖反馈 |
-| `itt snap revert ID` | 标记 snap 为已回退 |
-
-### Decision
-
-| 命令 | 说明 |
-|---|---|
-| `itt decision create TITLE --rationale R` | 创建长期决策 |
-| `itt decision list [--status S] [--intent ID]` | 列出 decision |
-| `itt decision show ID` | 查看 decision 详情 |
-| `itt decision deprecate ID` | 废弃一条 decision |
-| `itt decision attach ID --intent ID` | 手动补挂 decision 与 intent 的关系 |
-
-## 设计原则
-
-- **Agent-first**：为 AI agent 调用而设计，而非手动输入
-- **Append-only 历史**：内容字段创建后不可变；通过新 snap 修正，而非篡改旧记录
-- **关系只增不减**：没有 detach — 改用 deprecate
-- **全量 JSON 输出**：默认机器可读
-- **零依赖**：纯 Python，仅使用标准库
-
-## 存储结构
-
-所有数据存储在 git 仓库根目录的 `.intent/` 中：
-
+```bash
+python -m apps.inthub_api --db-path .inthub/inthub.db
+python -m apps.inthub_web --api-base-url http://127.0.0.1:8000
 ```
-.intent/
-  config.json
-  intents/
-    intent-001.json
-  snaps/
-    snap-001.json
-  decisions/
-    decision-001.json
-```
-
-`.intent/` 是本地语义工作区元数据，不应进入 Git 历史，且应始终由 `.gitignore` 忽略。
 
 ## 文档
 
@@ -196,6 +87,10 @@ itt inspect
 - [路线图](docs/CN/roadmap.md) — 阶段规划
 - [IntHub MVP 设计文档](docs/CN/inthub-mvp.md) — 首期远端协作层范围
 - [IntHub 同步契约（首版）](docs/CN/inthub-sync-contract.md) — 首版同步、身份与接口契约
+
+## Agent 使用提示
+
+`itt` 很新，模型有时会忘记调用。简单提醒一句“用 itt 记录一下”通常就够了。
 
 ## 许可证
 
