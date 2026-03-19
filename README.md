@@ -95,6 +95,7 @@ python -m apps.inthub_web --api-base-url http://127.0.0.1:8000
 - [Vision](docs/EN/vision.md) — why semantic history matters. **If this project interests you, start here.**
 - [CLI Design](docs/EN/cli.md) — object model, commands, JSON contract
 - [Roadmap](docs/EN/roadmap.md) — phase plan
+- [Dogfooding](docs/EN/dogfooding.md) — a real cross-agent case study built from the snap chain
 - [IntHub MVP](docs/EN/inthub-mvp.md) — first remote collaboration-layer scope
 - [IntHub Sync Contract](docs/EN/inthub-sync-contract.md) — first sync, identity, and API contract
 

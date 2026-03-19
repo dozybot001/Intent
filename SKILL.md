@@ -14,6 +14,8 @@ All `itt` output is JSON — parse it, don't guess.
 
 Git records how code changes. It does not record why you're changing it, what you tried, how the user reacted, or which decisions are still in effect.
 
+Intent does not replace Git; it supplies the semantic layer Git lacks. At minimum, every code-changing line of work should be explainable by an intent and its snaps, so the next session can recover not just the diff but the goal behind it.
+
 These semantics already exist — scattered across commit messages, PR discussions, chat, and agent conversations. The problem is not missing information but **missing stable object boundaries**: they can be read but not reliably tracked, referenced, or queried by the next session. Intent gives them formal object status.
 
 In agent-driven development, the central activity is no longer "writing code" — it is **guiding, connecting, and crystallizing**: proposing goals, progressing toward them, correcting course based on feedback, and distilling long-lived decisions. Recording these objects is not overhead on top of your work — it **is** part of the work.
@@ -65,7 +67,9 @@ Then act on what you find:
 
 - **`recent_snaps` has entries** → Read summaries to see what was recently attempted, what remains unfinished, and how the user reacted — even across different intents.
 
-- **Everything is empty** → Fresh workspace. Create an intent when the user's query implies a goal.
+- **Everything is empty** → Fresh workspace. Create an intent only when the user's query implies a goal a future session may need to resume.
+
+- **`warnings` is non-empty or the graph looks inconsistent** → Run `itt doctor` before acting. `inspect` is the recovery view; `doctor` is the structural validator.
 
 ### 2. Recognize intents from user queries
 
@@ -84,7 +88,13 @@ When a new query arrives, determine which path applies:
 3. Relates to a suspended intent → activate it, then snap
 4. Implies a new goal not covered by active intents → create a new intent, then snap
 
-When in doubt between paths, create the intent. A slightly over-recorded history is more useful than a gap.
+Before choosing path 4, apply the recovery test: **if a new agent session saw this in `itt inspect`, would it need this goal boundary to resume unfinished work or preserve an in-progress objective?** If no, do not create an intent.
+
+If you are about to make a code change and no active intent explains why, stop and create the intent first. Git will capture the diff; Intent must capture the goal that made the diff happen.
+
+When in doubt, prefer semantic clarity over raw coverage. Requests to read a skill, learn a workflow, align on collaboration conventions, or discuss whether something should be recorded are usually **not** intents by themselves. Create an intent only when the query implies a concrete goal worth resuming across sessions.
+
+Conversely, lack of code changes does **not** automatically mean "no intent". Documentation work, releases, migrations, investigations, or other non-code efforts can still be intents when they create a recoverable goal.
 
 ### 3. Snap every query interaction
 
@@ -177,6 +187,18 @@ itt intent done intent-001
 
 `done` is terminal. Mark an intent done when the user confirms the goal is resolved, or when your last snap summary shows no remaining work. If the same problem resurfaces, create a new intent.
 
+### 9. IntHub sync (when this repo uses it)
+
+`hub` commands do **not** replace local object commands. You still create intents, snaps, and decisions locally with `itt`. IntHub is the remote sync/share/read layer on top of that local semantic history.
+
+Use them with this boundary:
+
+- `itt hub login` configures local IntHub access (`api_base_url` and optional token) in `.intent/hub.json`
+- `itt hub link` binds the current local workspace to an IntHub project/workspace using GitHub repo context
+- `itt hub sync` pushes the current local semantic graph and Git context to IntHub
+
+`itt hub sync` is not a substitute for creating local snaps. First record the semantic history locally; then sync it.
+
 ## Command reference
 
 ### Global
@@ -185,14 +207,23 @@ itt intent done intent-001
 |---|---|
 | `itt init` | Create `.intent/` in current git repo |
 | `itt inspect` | Full object graph snapshot — **start every session here** |
+| `itt doctor` | Validate object graph structure and links when recovery looks inconsistent |
 | `itt version` | Print version |
+
+### Hub
+
+| Command | What it does |
+|---|---|
+| `itt hub login --api-base-url URL [--token TOKEN]` | Configure local IntHub access in `.intent/hub.json` |
+| `itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]` | Link current workspace to an IntHub project/workspace |
+| `itt hub sync [--api-base-url URL] [--token TOKEN] [--dry-run]` | Push local semantic history + Git context to IntHub |
 
 ### Intent
 
 | Command | What it does |
 |---|---|
 | `itt intent create TITLE --query Q [--rationale R]` | New intent (auto-attaches active decisions) |
-| `itt intent list [--status S]` | List intents (`active` / `suspend` / `done`) |
+| `itt intent list [--status S] [--decision ID]` | List intents (`active` / `suspend` / `done`), optionally filtered by decision |
 | `itt intent show ID` | Full intent detail |
 | `itt intent activate ID` | `suspend` → `active` (catches up on active decisions) |
 | `itt intent suspend ID` | `active` → `suspend` |
@@ -213,7 +244,7 @@ itt intent done intent-001
 | Command | What it does |
 |---|---|
 | `itt decision create TITLE --rationale R` | New decision (auto-attaches active intents) |
-| `itt decision list [--status S]` | List decisions (`active` / `deprecated`) |
+| `itt decision list [--status S] [--intent ID]` | List decisions (`active` / `deprecated`), optionally filtered by intent |
 | `itt decision show ID` | Full decision detail |
 | `itt decision deprecate ID` | `active` → `deprecated` (terminal) |
 | `itt decision attach ID --intent ID` | Manually link decision ↔ intent |
@@ -246,7 +277,9 @@ Good: `"Changed default timeout from 5s to 30s in config.py. Login flow now pass
 
 | Signal | Action |
 |---|---|
-| User's query implies a goal not covered by active intents | `itt intent create` |
+| User's query implies a recoverable goal not covered by active intents | `itt intent create` |
+| You are about to make a code change and no active intent explains it | `itt intent create` before editing |
+| Non-code work still creates a recoverable goal (docs, release, migration, investigation) | `itt intent create` |
 | You responded to a user query under an active intent | `itt snap create` |
 | User query contains `decision-[text]` | `itt decision create` directly |
 | A choice emerges that should constrain future work | Ask user first, then `itt decision create` if confirmed |
@@ -260,7 +293,9 @@ Good: `"Changed default timeout from 5s to 30s in config.py. Login flow now pass
 Intent records **only what's worth formally tracking, linking, and reusing across sessions**. Not everything deserves object status.
 
 - Trivial factual questions ("what does this function do?") — no intent, no snap
-- If no active intent covers the current query, create the intent first — never a snap without an intent
+- Requests to read a skill, understand a workflow, or align on collaboration conventions — do the work, but don't create an intent unless they imply a separate goal that future sessions may need to resume
+- Meta-discussion about whether an intent/snap/decision should exist — usually no new intent; correct existing history if needed
+- Queries fully satisfied in the current turn that leave no unfinished goal for the next session — no intent
 - Implementation details that won't matter next session — not a decision
 - A choice that only affects the current intent — snap it, don't decision it
 - If recording it wouldn't help the next session recover or continue — skip it
@@ -271,6 +306,8 @@ Intent records **only what's worth formally tracking, linking, and reusing acros
 - **Ignoring inspect** — always start with `itt inspect`. It's the single source of truth for recovery.
 - **Ignoring active decisions** — they are constraints, not suggestions. Check them before implementing.
 - **Intent per task** — one intent per goal, not per step. "Migrate auth to JWT", not "Add JWT token generation".
+- **Intent for workflow familiarization** — reading a skill, learning the tooling, or agreeing to use Intent in future turns does not by itself create a cross-session goal.
+- **Using code changes as the only test for intent** — code edits are a strong signal that an intent must exist, but non-code recoverable goals can require intents too.
 - **Vague summaries** — "fixed it" tells the next session nothing. Answer: what's done, what's not, what context matters.
 - **Skipping snaps** — every query under an active intent gets a snap. Don't cherry-pick which interactions to record.
 - **Trying to update objects** — objects are immutable after creation (except `snap feedback`). Correct mistakes in the next snap.
@@ -283,6 +320,7 @@ Intent records **only what's worth formally tracking, linking, and reusing acros
 Judge your Intent usage by outcomes, not compliance:
 
 - Could a new session run `itt inspect` and continue without the user re-explaining?
+- Can every code diff be traced back to an intent and the relevant snaps?
 - Are your summaries written for the **next session's agent**, not as a log for the current one?
 - Are active decisions actually constraining your implementation choices?
 - Would a human reading `inspect` output understand what's in progress and why?
@@ -303,13 +341,14 @@ If the answers are no, your objects are formally correct but semantically empty.
 
 When an error includes `suggested_fix`, follow it.
 
-**Error codes:** `NOT_INITIALIZED`, `ALREADY_EXISTS`, `GIT_STATE_INVALID`, `STATE_CONFLICT`, `OBJECT_NOT_FOUND`, `INVALID_INPUT`.
+**Error codes:** `NOT_INITIALIZED`, `ALREADY_EXISTS`, `GIT_STATE_INVALID`, `STATE_CONFLICT`, `OBJECT_NOT_FOUND`, `INVALID_INPUT`, `HUB_NOT_CONFIGURED`, `NOT_LINKED`, `NETWORK_ERROR`.
 
 ## Storage
 
 ```
 .intent/
   config.json              # {"schema_version": "1.0"}
+  hub.json                 # local IntHub access + workspace binding
   intents/intent-001.json
   snaps/snap-001.json
   decisions/decision-001.json

@@ -7,116 +7,42 @@
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
-    <div class="page-shell">
-      <header class="hero">
-        <div class="hero-copy">
-          <p class="eyebrow">Read-only IntHub</p>
-          <h1>Semantic history, shared without re-explaining it.</h1>
-          <p class="hero-text" id="status-line">
-            Loading project context...
-          </p>
+    <div class="shell" id="shell">
+      <header class="header">
+        <div class="header-left">
+          <span class="logo">IntHub</span>
+          <select id="project-select"></select>
         </div>
-        <div class="hero-controls panel">
-          <label class="field">
-            <span class="field-label">Project</span>
-            <select id="project-select"></select>
-          </label>
-          <div class="control-row">
-            <button id="refresh-button" type="button">Refresh</button>
-            <span class="api-chip" id="api-chip"></span>
-          </div>
+        <div class="header-right">
+          <button id="refresh-btn" type="button">Refresh</button>
+          <span class="chip" id="sync-chip"></span>
+          <span class="chip" id="api-chip"></span>
         </div>
       </header>
 
-      <main class="layout">
-        <section class="panel summary-panel">
-          <div class="section-head">
-            <div>
-              <p class="section-kicker">Current Project</p>
-              <h2 id="project-title">No project selected</h2>
-            </div>
-            <a class="repo-link" id="repo-link" href="#" target="_blank" rel="noreferrer">Repository</a>
+      <div class="main">
+        <nav class="sidebar" id="sidebar">
+          <div class="tab-bar">
+            <button class="tab is-active" data-tab="handoff">Handoff</button>
+            <button class="tab" data-tab="intents">Intents <span class="tab-count" id="intent-count"></span></button>
+            <button class="tab" data-tab="decisions">Decisions <span class="tab-count" id="decision-count"></span></button>
+            <button class="tab" data-tab="snaps">Snaps <span class="tab-count" id="snap-count"></span></button>
+            <button class="tab" data-tab="search">Search</button>
           </div>
-          <div class="stats-grid" id="project-stats"></div>
-          <div class="workspace-grid" id="workspace-grid"></div>
-        </section>
+          <div class="sidebar-body" id="sidebar-body"></div>
+        </nav>
 
-        <section class="panel setup-panel" id="setup-guide"></section>
-
-        <section class="panel board-panel">
-          <div class="section-head">
-            <div>
-              <p class="section-kicker">Overview</p>
-              <h2>Live Semantic Board</h2>
-            </div>
-          </div>
-          <div class="board-grid">
-            <section>
-              <div class="mini-head">
-                <h3>Active Intents</h3>
-                <span id="intent-count" class="count-pill">0</span>
-              </div>
-              <div id="intent-list" class="stack-list"></div>
-            </section>
-            <section>
-              <div class="mini-head">
-                <h3>Active Decisions</h3>
-                <span id="decision-count" class="count-pill">0</span>
-              </div>
-              <div id="decision-list" class="stack-list"></div>
-            </section>
-            <section>
-              <div class="mini-head">
-                <h3>Recent Snaps</h3>
-                <span id="snap-count" class="count-pill">0</span>
-              </div>
-              <div id="snap-list" class="stack-list"></div>
-            </section>
+        <section class="detail-pane" id="detail-pane">
+          <button class="back-btn" id="back-btn" type="button">&larr; Back</button>
+          <div class="detail-content" id="detail-content">
+            <div class="empty-state">Select an object to inspect.</div>
           </div>
         </section>
+      </div>
 
-        <div class="split-layout">
-          <section class="panel">
-            <div class="section-head">
-              <div>
-                <p class="section-kicker">Handoff</p>
-                <h2>What another agent needs now</h2>
-              </div>
-            </div>
-            <div id="handoff-list" class="handoff-list"></div>
-          </section>
-
-          <aside class="panel detail-panel">
-            <div class="section-head">
-              <div>
-                <p class="section-kicker">Detail</p>
-                <h2>Selected Object</h2>
-              </div>
-            </div>
-            <div id="detail-view" class="detail-view">
-              <div class="empty-state">
-                Select an intent, decision, or snap to inspect its remote detail.
-              </div>
-            </div>
-          </aside>
-        </div>
-
-        <section class="panel search-panel">
-          <div class="section-head">
-            <div>
-              <p class="section-kicker">Search</p>
-              <h2>Find semantic objects fast</h2>
-            </div>
-            <form id="search-form" class="search-form">
-              <input id="search-input" type="search" placeholder="Search title, query, summary, or rationale">
-              <button type="submit">Search</button>
-            </form>
-          </div>
-          <div id="search-results" class="stack-list">
-            <div class="empty-state">Search results will appear here.</div>
-          </div>
-        </section>
-      </main>
+      <footer class="footer">
+        <span id="status-line" class="muted">Loading&hellip;</span>
+      </footer>
     </div>
     <script src="/app.js" defer></script>
   </body>

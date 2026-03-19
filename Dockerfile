@@ -1,0 +1,15 @@
+FROM python:3.13-slim
+
+ENV PYTHONUNBUFFERED=1
+WORKDIR /app
+
+COPY . /app
+
+EXPOSE 8000
+
+ENV INTHUB_HOST=0.0.0.0
+ENV INTHUB_PORT=8000
+ENV INTHUB_DB_PATH=/data/inthub.db
+ENV INTHUB_SERVE_WEB=1
+
+CMD ["python", "-m", "apps.inthub_api"]

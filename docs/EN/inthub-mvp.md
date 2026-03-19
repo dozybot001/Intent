@@ -117,6 +117,23 @@ The first IntHub release should make at least these scenarios work:
 2. A reviewer can quickly understand why work is moving along the current path, not just what code changed.
 3. Across repeated sessions on the same repo, the user can see real recent progress instead of scattered chat history.
 
+### 4.3 Official showcase project
+
+The first IntHub release should include at least one official showcase project that demonstrates what this collaboration layer looks like in real work.
+
+The preferred first sample should be **Intent's own semantic history**, because:
+
+- it is real continuously produced data, not synthetic demo fixtures
+- it naturally covers the core value IntHub wants to prove: cross-agent handoff, feedback consumption, decision constraints, and error correction
+- project maintainers understand the context best, so the showcase can be kept accurate over time
+
+This showcase should not be treated as a one-off static story page. It should be a continuously updated live showcase. The product should expose two entry modes:
+
+- **showcase / case-study entry**: helps a first-time viewer quickly understand how the system is used in practice
+- **raw object entry**: lets the viewer drill into the actual intent / snap / decision views rather than stopping at the curated narrative
+
+In other words, case-study storytelling may exist, but it must not replace the raw object views. Both should coexist.
+
 ## 5. Minimum information architecture
 
 The first release should introduce only the collaboration-layer containers it actually needs:

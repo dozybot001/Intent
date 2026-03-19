@@ -12,6 +12,7 @@
 
 - 愿景与不变判断以 [vision](vision.md) 为准
 - 具体实现与行为 contract 以 [CLI 统一设计文档](cli.md) 为准
+- 真实跨 agent 协作案例可见 [dogfooding](dogfooding.md)
 - IntHub 首期协作层范围以 [IntHub MVP 设计文档](inthub-mvp.md) 为准
 
 ## 当前总原则

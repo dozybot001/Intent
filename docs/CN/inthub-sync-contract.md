@@ -74,7 +74,8 @@
 
 部署说明：
 
-- 首版 Web shell 是静态前端，适合通过 GitHub Pages 或其他静态托管方式发布
+- 首版 Web shell 仍然是静态前端，但当前主路径不是 GitHub Pages 纯静态部署，而是由 IntHub 后端实例直接服务
+- GitHub Pages 之类的纯静态托管可以作为后续可选形态，不是当前实现优先级
 
 ## 3. 首版 provider 与权限模型
 

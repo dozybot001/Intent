@@ -82,7 +82,9 @@ def project_overview(db_path, project_id):
         payloads = _latest_payloads(conn, project_id)
 
     active_intents = []
+    other_intents = []
     active_decisions = []
+    deprecated_decisions = []
     recent_snaps = []
     workspaces = []
 
@@ -97,9 +99,7 @@ def project_overview(db_path, project_id):
         decisions = snapshot.get("decisions", [])
 
         for intent in intents:
-            if intent.get("status") != "active":
-                continue
-            active_intents.append({
+            entry = {
                 "remote_id": make_remote_object_id(workspace_id, intent["id"]),
                 "workspace_id": workspace_id,
                 "id": intent["id"],
@@ -110,19 +110,25 @@ def project_overview(db_path, project_id):
                 "branch": git.get("branch"),
                 "head_commit": git.get("head_commit"),
                 "dirty": git.get("dirty"),
-            })
+            }
+            if intent.get("status") == "active":
+                active_intents.append(entry)
+            else:
+                other_intents.append(entry)
 
         for decision in decisions:
-            if decision.get("status") != "active":
-                continue
-            active_decisions.append({
+            entry = {
                 "remote_id": make_remote_object_id(workspace_id, decision["id"]),
                 "workspace_id": workspace_id,
                 "id": decision["id"],
                 "title": decision["title"],
                 "status": decision["status"],
                 "intent_ids": decision.get("intent_ids", []),
-            })
+            }
+            if decision.get("status") == "active":
+                active_decisions.append(entry)
+            elif decision.get("status") == "deprecated":
+                deprecated_decisions.append(entry)
 
         for snap in snaps:
             recent_snaps.append({
@@ -151,8 +157,10 @@ def project_overview(db_path, project_id):
         },
         "workspaces": workspaces,
         "active_intents": active_intents,
+        "other_intents": other_intents,
         "active_decisions": active_decisions,
-        "recent_snaps": recent_snaps[:10],
+        "deprecated_decisions": deprecated_decisions,
+        "recent_snaps": recent_snaps,
     }
 
 

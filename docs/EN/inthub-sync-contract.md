@@ -74,7 +74,8 @@ Not responsible for:
 
 Deployment note:
 
-- the first Web shell is a static frontend and is a good fit for GitHub Pages or another static host
+- the first Web shell is still a static frontend, but the current primary path is not a pure GitHub Pages deployment
+- the preferred first deployment shape is an IntHub backend instance that serves both the API and the web shell
 
 ## 3. Provider and auth model
 

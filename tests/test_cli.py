@@ -229,14 +229,13 @@ class TestHub:
         config = _get_json(f"{inthub_web_server}/config.json")
         assert config["apiBaseUrl"] == inthub_server
         html = urlopen(f"{inthub_web_server}/").read().decode("utf-8")
-        assert "Read-only IntHub" in html
-        assert "Semantic history, shared without re-explaining it." in html
-        assert 'id="setup-guide"' in html
+        assert "IntHub" in html
+        assert 'id="sidebar-body"' in html
         deep_link = urlopen(f"{inthub_web_server}/projects/demo").read().decode("utf-8")
-        assert "Read-only IntHub" in deep_link
+        assert "IntHub" in deep_link
         js = urlopen(f"{inthub_web_server}/app.js").read().decode("utf-8")
-        assert "Open raw payload" in js
-        assert "Linked decisions" in js
+        assert "Raw JSON" in js
+        assert "Linked Decisions" in js
         assert "itt hub sync" in js
 
 

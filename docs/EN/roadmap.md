@@ -12,6 +12,7 @@ English | [中文](../CN/roadmap.md)
 
 - For vision and invariant judgments, see [vision](vision.md)
 - For implementation and behavior contracts, see the [CLI design doc](cli.md)
+- For a concrete cross-agent case study, see [dogfooding](dogfooding.md)
 - For the first IntHub collaboration-layer scope, see the [IntHub MVP design doc](inthub-mvp.md)
 
 ## Current guiding principles

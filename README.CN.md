@@ -95,6 +95,7 @@ python -m apps.inthub_web --api-base-url http://127.0.0.1:8000
 - [愿景](docs/CN/vision.md) — 为什么需要语义历史。**如果你对这个项目感兴趣，强烈建议从这里开始。**
 - [CLI 设计文档](docs/CN/cli.md) — 对象模型、命令、JSON 契约
 - [路线图](docs/CN/roadmap.md) — 阶段规划
+- [Dogfooding 实录](docs/CN/dogfooding.md) — 基于真实 snap 链整理的跨 agent 协作案例
 - [IntHub MVP 设计文档](docs/CN/inthub-mvp.md) — 首期远端协作层范围
 - [IntHub 同步契约（首版）](docs/CN/inthub-sync-contract.md) — 首版同步、身份与接口契约
 
