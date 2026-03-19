@@ -69,14 +69,21 @@ Then use `itt hub login`, `itt hub link`, and `itt hub sync` from a local Intent
 
 ### Versioning and releases
 
-`Intent` is the umbrella project and monorepo. It does not maintain one shared project version anymore.
+`Intent` is the umbrella project and monorepo. It now uses three release layers with different responsibilities.
 
-Release versions now belong to concrete deliverables:
+Release layers:
 
-- CLI releases use the PyPI package version from `pyproject.toml` and Git tags like `cli-v2.0.0`
-- IntHub releases use their own track and Git tags like `hub-v0.1.0`
+- Project releases use tags like `intent-v1.4.0`. They are index releases for the monorepo and summarize which deliverable versions belong to that Intent release.
+- CLI releases use the PyPI package version from `pyproject.toml` and tags like `cli-v2.0.0`.
+- IntHub releases use their own track and tags like `hub-v0.1.0`.
 
-Historical bare tags such as `v1.3.0` remain as history, but new releases use deliverable-prefixed tags.
+This means:
+
+- `pyproject.toml` still describes only the CLI package version
+- the GitHub repo-level latest release should usually point to the newest `intent-v*`
+- `cli-v*` and `hub-v*` remain the authoritative releases for each deliverable
+
+Historical bare tags such as `v1.3.0` remain as history. New releases use `intent-v*`, `cli-v*`, and `hub-v*`.
 
 ### Install the skills.sh skill
 

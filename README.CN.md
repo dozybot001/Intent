@@ -69,14 +69,21 @@ python -m apps.inthub_web --api-base-url http://127.0.0.1:8000
 
 ### 版本与发布
 
-`Intent` 现在是 umbrella project / monorepo，不再维护一个统一的项目版本号。
+`Intent` 现在是 umbrella project / monorepo，并采用三层发布模型。
 
-发布版本只属于具体 deliverable：
+三层含义分别是：
 
-- CLI 的版本以 `pyproject.toml` 中的 PyPI 包版本为准，Git tag 使用 `cli-v2.0.0` 这种形式
-- IntHub 未来单独发布时，使用自己的版本轨道和 `hub-v0.1.0` 这种 tag
+- 项目级 release 使用 `intent-v1.4.0` 这种 tag。它是 monorepo 的索引层，用来说明这个 Intent 版本对应哪一组 deliverable 版本。
+- CLI 的版本以 `pyproject.toml` 中的 PyPI 包版本为准，Git tag 使用 `cli-v2.0.0` 这种形式。
+- IntHub 使用自己的版本轨道和 `hub-v0.1.0` 这种 tag。
 
-历史上的裸 tag，例如 `v1.3.0`，作为既有历史保留；新的发布一律使用带 deliverable 前缀的 tag。
+这意味着：
+
+- `pyproject.toml` 仍然只描述 CLI 包版本
+- GitHub 仓库层面的 latest release 通常应指向最新的 `intent-v*`
+- `cli-v*` 和 `hub-v*` 仍然分别是各 deliverable 的权威发布
+
+历史上的裸 tag，例如 `v1.3.0`，作为既有历史保留；新的发布一律使用 `intent-v*`、`cli-v*` 和 `hub-v*`。
 
 ### 通过 skills.sh 安装 skill
 
