@@ -83,12 +83,31 @@ IntHub 是构建在 Intent 之上的远端协作层。
 - 当前 GitHub release 只维护一条项目版本线，例如 `v1.5.0`
 - CLI 自己的包版本继续由 `pyproject.toml` 维护，并通过 PyPI 发布
 
-如果你要从源码运行当前 IntHub 原型：
+首个面向用户的体验形态应是 **IntHub Local**：
+- 从 GitHub 项目 release 下载 `IntHub Local` asset
+- 在本机启动它
+- 在你自己的仓库里执行 `itt hub login / link / sync`
+- 在本地浏览器中查看这个项目的 intents、snaps 和 decisions
+
+面向用户的命令保持很简单：
 
 ```bash
-python -m apps.inthub_api --db-path .inthub/inthub.db
-python -m apps.inthub_web --api-base-url http://127.0.0.1:8000
+itt hub login --api-base-url http://127.0.0.1:7210
+itt hub link
+itt hub sync
 ```
+
+然后在浏览器中打开 `http://127.0.0.1:7210`。
+
+从产品角度看，整体流程是：
+- 在你自己的项目仓库里用 `itt` 记录语义历史
+- 把这个仓库连接到一个 IntHub 实例
+- 在浏览器里打开 IntHub 查看同步后的语义历史
+
+当前限制：
+- IntHub V1 目前要求你的本地仓库配置 GitHub `origin` remote
+- IntHub Local 当前仍依赖 Python 3.9+
+- 托管版 IntHub 仍是后续阶段；当前首个可分发路径是本地实例优先
 
 ## 文档
 
@@ -98,6 +117,7 @@ python -m apps.inthub_web --api-base-url http://127.0.0.1:8000
 - [Dogfooding 实录](docs/CN/dogfooding.md) — 基于真实 snap 链整理的跨 agent 协作案例
 - [IntHub MVP 设计文档](docs/CN/inthub-mvp.md) — 首期远端协作层范围
 - [IntHub 同步契约（首版）](docs/CN/inthub-sync-contract.md) — 首版同步、身份与接口契约
+- [IntHub Local 使用说明](docs/CN/inthub-local.md) — 如何从 release asset 运行首个本地 IntHub 实例
 
 ## Agent 使用提示
 

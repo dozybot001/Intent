@@ -44,6 +44,10 @@ IntHub 不是新的语义层，也不是重型项目管理平台。
 - **low-friction by default**：不让远端协作层反过来把本地 workflow 变成官僚流程
 - **semantic data stays out of Git**：`.intent/` 属于本地语义工作区元数据，不应提交到 Git，也不应以 GitHub 作为语义对象主存储
 
+对于首期实际交付形态，还应增加一条：
+
+- **local-instance first for adoption**：在真正的远端托管形态成熟前，首个面向普通用户的 IntHub 体验应优先收敛为一个可分发的本地实例（IntHub Local），让用户能先在本机浏览器查看自己项目的语义历史
+
 ## 3. 当前非目标
 
 IntHub 首期不优先做：
@@ -56,6 +60,27 @@ IntHub 首期不优先做：
 - 脱离 Git 与本地 workspace 上下文的“纯网页对象系统”
 
 ## 4. MVP 范围
+
+### 4.0 首个可分发形态：IntHub Local
+
+为了让普通用户尽快体验 IntHub，首期不应把“先部署一个远端服务”当成唯一前提。
+
+更合理的第一步是提供一个 **可分发的本地 IntHub 实例（IntHub Local）**：
+
+- 通过 **GitHub Release assets** 分发
+- 安装后在用户本机启动一个 IntHub 后端实例
+- 默认只绑定 `127.0.0.1:7210`
+- 默认将 Web 与 API 一起服务
+- 用户在自己的项目仓库里执行 `itt hub login / link / sync`
+- 再在本地浏览器中打开 IntHub，查看自己项目同步上来的 `intent / snap / decision`
+
+这样做的价值是：
+
+- 不要求普通用户先理解云部署、域名或托管
+- 不破坏“PyPI 只分发 CLI”的边界
+- 保持 IntHub 的产品体验与未来远端实例一致，只是部署位置不同
+
+这里要明确一个边界：`IntHub Local` 是 **单独分发物**，不是 CLI PyPI 包的隐式组成部分。
 
 ### 4.1 必须有的用户可见能力
 

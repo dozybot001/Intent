@@ -44,6 +44,10 @@ So the most important first capability is not "editing objects online." It is:
 - **low-friction by default**: the collaboration layer must not turn the local workflow into process overhead
 - **semantic data stays out of Git**: `.intent/` is local semantic-workspace metadata and should not be committed to Git or treated as GitHub-hosted source of truth
 
+For the first practical delivery shape, add one more principle:
+
+- **local-instance first for adoption**: before the hosted remote shape is mature, the first user-facing IntHub experience should converge on a distributable local instance (IntHub Local) so users can inspect their own project's semantic history in a local browser first
+
 ## 3. Current non-goals
 
 Not prioritized for the first IntHub release:
@@ -56,6 +60,27 @@ Not prioritized for the first IntHub release:
 - a pure web object system detached from Git and local workspace context
 
 ## 4. MVP scope
+
+### 4.0 First distributable form: IntHub Local
+
+To make IntHub usable early, the MVP should not require ordinary users to deploy a remote service first.
+
+A better first step is a **distributable local IntHub instance (IntHub Local)**:
+
+- distributed through **GitHub Release assets**
+- starts an IntHub backend instance on the user's machine
+- binds by default to `127.0.0.1:7210` only
+- serves the Web shell and API together by default
+- lets the user run `itt hub login / link / sync` inside their own repo
+- then inspect the synced `intent / snap / decision` history in a local browser
+
+Why this is the right first product shape:
+
+- it does not require ordinary users to understand hosting, domains, or cloud deployment first
+- it preserves the boundary that PyPI distributes only the CLI
+- it keeps the product experience aligned with the future hosted IntHub shape; only the deployment location differs
+
+The boundary should be explicit: `IntHub Local` is a **separate deliverable**, not an implicit part of the CLI PyPI package.
 
 ### 4.1 Must-have user-facing capabilities
 

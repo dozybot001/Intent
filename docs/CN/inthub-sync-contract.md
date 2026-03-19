@@ -56,6 +56,8 @@
 部署说明：
 
 - 首版 API 可以继续和仓库放在一起开发，但不属于 PyPI 分发面
+- 面向普通用户的首个安装形态应优先收敛为 `IntHub Local`，并通过 GitHub Release assets 分发
+- `IntHub Local` 默认只绑定 `127.0.0.1:7210`
 
 ### GitHub
 
@@ -117,7 +119,7 @@
 
 ```json
 {
-  "api_base_url": "http://127.0.0.1:8000",
+  "api_base_url": "http://127.0.0.1:7210",
   "auth_token": "",
   "workspace_id": "wks_01J....",
   "project_id": "proj_01J....",
@@ -135,6 +137,7 @@
 设计意图：
 
 - `api_base_url` 与 `auth_token` 属于本地运行时配置
+- 当目标是 `IntHub Local` 时，默认 `api_base_url` 应为 `http://127.0.0.1:7210`
 - `workspace_id` 必须对同一份 checkout 稳定
 - 但它不属于 Git 内容，也不应跨 clone 自动共享
 - `project_id` 与 `repo_binding` 用于把当前工作区连到 IntHub

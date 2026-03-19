@@ -253,6 +253,27 @@ def make_handler(
     return IntHubHandler
 
 
+def build_server(
+    host,
+    port,
+    db_path,
+    serve_web=False,
+    public_api_base_url=None,
+    default_project_id=None,
+    web_static_dir=None,
+):
+    return ThreadingHTTPServer(
+        (host, port),
+        make_handler(
+            db_path,
+            serve_web=serve_web,
+            public_api_base_url=public_api_base_url,
+            default_project_id=default_project_id,
+            web_static_dir=web_static_dir,
+        ),
+    )
+
+
 def run_server(
     host,
     port,
@@ -262,15 +283,14 @@ def run_server(
     default_project_id=None,
     web_static_dir=None,
 ):
-    server = ThreadingHTTPServer(
-        (host, port),
-        make_handler(
-            db_path,
-            serve_web=serve_web,
-            public_api_base_url=public_api_base_url,
-            default_project_id=default_project_id,
-            web_static_dir=web_static_dir,
-        ),
+    server = build_server(
+        host,
+        port,
+        db_path,
+        serve_web=serve_web,
+        public_api_base_url=public_api_base_url,
+        default_project_id=default_project_id,
+        web_static_dir=web_static_dir,
     )
     web_status = " + Web" if serve_web else ""
     print(f"IntHub API{web_status} listening on http://{host}:{server.server_port} using {db_path}")

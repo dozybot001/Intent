@@ -56,6 +56,8 @@ Responsible for:
 Deployment note:
 
 - the first API may live in the same repository, but it is not part of the PyPI distribution surface
+- the first installable user-facing shape should converge on `IntHub Local`, distributed through GitHub Release assets
+- `IntHub Local` should bind to `127.0.0.1:7210` by default
 
 ### GitHub
 
@@ -116,7 +118,7 @@ Recommended minimum structure:
 
 ```json
 {
-  "api_base_url": "http://127.0.0.1:8000",
+  "api_base_url": "http://127.0.0.1:7210",
   "auth_token": "",
   "workspace_id": "wks_01J....",
   "project_id": "proj_01J....",
@@ -134,6 +136,7 @@ Recommended minimum structure:
 Intent behind this design:
 
 - `api_base_url` and `auth_token` are local runtime configuration
+- when the target is `IntHub Local`, the default `api_base_url` should be `http://127.0.0.1:7210`
 - `workspace_id` must stay stable for one checkout
 - but it is not Git content and should not automatically travel across clones
 - `project_id` and `repo_binding` connect the local workspace to IntHub

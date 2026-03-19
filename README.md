@@ -83,12 +83,31 @@ IntHub is the remote collaboration layer built on top of Intent.
 - Current GitHub releases use a single project version line such as `v1.5.0`
 - The CLI keeps its own package version in `pyproject.toml` and is published on PyPI
 
-If you want to run the current IntHub prototype from source:
+The intended first user experience is **IntHub Local**:
+- download the `IntHub Local` asset from a GitHub project release
+- start it on your machine
+- use `itt hub login / link / sync` inside your own repo
+- inspect your project's intents, snaps, and decisions in the local browser
+
+The user-facing commands stay simple:
 
 ```bash
-python -m apps.inthub_api --db-path .inthub/inthub.db
-python -m apps.inthub_web --api-base-url http://127.0.0.1:8000
+itt hub login --api-base-url http://127.0.0.1:7210
+itt hub link
+itt hub sync
 ```
+
+Then open `http://127.0.0.1:7210` in the browser.
+
+At a high level, the product flow is:
+- record semantic history locally in your own repo with `itt`
+- connect that repo to an IntHub instance
+- open IntHub in the browser to inspect the synced semantic history
+
+Current limitations:
+- IntHub V1 expects your local repo to have a GitHub `origin` remote
+- IntHub Local currently depends on Python 3.9+
+- hosted IntHub is still a later step; the first distributable path is local-instance-first
 
 ## Docs
 
@@ -98,6 +117,7 @@ python -m apps.inthub_web --api-base-url http://127.0.0.1:8000
 - [Dogfooding](docs/EN/dogfooding.md) — a real cross-agent case study built from the snap chain
 - [IntHub MVP](docs/EN/inthub-mvp.md) — first remote collaboration-layer scope
 - [IntHub Sync Contract](docs/EN/inthub-sync-contract.md) — first sync, identity, and API contract
+- [IntHub Local](docs/EN/inthub-local.md) — how to run the first local IntHub instance from a release asset
 
 ## Agent use
 
