@@ -160,6 +160,8 @@ Only the following transitions are allowed; all others return `STATE_CONFLICT`:
     decision-001.json
 ```
 
+`.intent/` is local workspace metadata, not repository source of truth. It should remain outside Git history and should be ignored by `.gitignore`.
+
 ### 4.1 config.json
 
 ```json
@@ -410,6 +412,53 @@ Behavior:
 
 - Must simultaneously update `decision.intent_ids` and `intent.decision_ids`
 
+### 5.5 Hub Commands (Experimental)
+
+These commands sync local `.intent/` data into the first IntHub collaboration layer.
+
+#### login
+
+Write local IntHub runtime config, at minimum the API base URL.
+
+```bash
+itt hub login --api-base-url http://127.0.0.1:8000
+itt hub login --api-base-url http://127.0.0.1:8000 --token dev-token
+```
+
+Behavior:
+
+- Writes `.intent/hub.json`
+- `token` is stored only in local runtime config, not in semantic objects
+
+#### link
+
+Bind the current GitHub repository to an IntHub project and initialize local workspace binding metadata.
+
+```bash
+itt hub link --project-name "Intent Dev"
+```
+
+Behavior:
+
+- Reads the current `origin` remote and requires it to be a GitHub repo
+- Initializes or reuses the local `workspace_id`
+- Writes returned `project_id`, `workspace_id`, and `repo_binding` into `.intent/hub.json`
+
+#### sync
+
+Package the current `.intent/` snapshot together with Git context and push it to IntHub.
+
+```bash
+itt hub sync
+itt hub sync --dry-run
+```
+
+Behavior:
+
+- Uploads a full object snapshot, not an incremental patch
+- Sync includes `branch`, `head_commit`, `dirty`, and `remote_url`
+- `--dry-run` prints the outgoing payload without performing a network request
+
 ## 6. JSON Output Contract
 
 ### 6.1 Success
@@ -461,6 +510,11 @@ Warnings do not affect `ok: true`; they are informational for the caller.
 | `STATE_CONFLICT` | Illegal state transition, e.g. `activate` on a `done` intent |
 | `OBJECT_NOT_FOUND` | ID does not match any object |
 | `INVALID_INPUT` | Parameter errors, missing object ID, missing `--intent`, etc. |
+| `HUB_NOT_CONFIGURED` | IntHub API base URL is not configured |
+| `NOT_LINKED` | Current workspace has not been linked to IntHub |
+| `PROVIDER_UNSUPPORTED` | Current Git remote is not a supported provider |
+| `NETWORK_ERROR` | IntHub server could not be reached |
+| `SERVER_ERROR` | IntHub returned an error status or invalid JSON |
 
 ## 8. ID Format
 

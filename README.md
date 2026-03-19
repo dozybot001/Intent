@@ -149,11 +149,15 @@ All data lives in `.intent/` at your git repo root:
     decision-001.json
 ```
 
+`.intent/` is local semantic-workspace metadata. It should stay out of Git history and should remain ignored by `.gitignore`.
+
 ## Docs
 
 - [Vision](docs/EN/vision.md) — why semantic history matters. **If this project interests you, start here.**
 - [CLI Design](docs/EN/cli.md) — object model, commands, JSON contract
 - [Roadmap](docs/EN/roadmap.md) — phase plan
+- [IntHub MVP](docs/EN/inthub-mvp.md) — first remote collaboration-layer scope
+- [IntHub Sync Contract](docs/EN/inthub-sync-contract.md) — first sync, identity, and API contract
 
 ## License
 

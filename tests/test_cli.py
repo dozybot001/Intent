@@ -5,10 +5,15 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 from importlib import metadata
+from http.server import ThreadingHTTPServer
 from pathlib import Path
+from urllib.request import urlopen
 
 import pytest
+
+from apps.inthub_api.server import make_handler
 
 
 @pytest.fixture
@@ -24,6 +29,22 @@ def workspace(tmp_path):
     return tmp_path
 
 
+@pytest.fixture
+def inthub_server(tmp_path):
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0),
+        make_handler(str(tmp_path / "inthub.db")),
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
 def _run(cwd, *args):
     """Run itt command and return parsed JSON."""
     r = subprocess.run(
@@ -31,6 +52,18 @@ def _run(cwd, *args):
         cwd=cwd, capture_output=True, text=True,
     )
     return json.loads(r.stdout)
+
+
+def _add_github_remote(cwd, remote_url="git@github.com:example/demo.git"):
+    subprocess.run(
+        ["git", "remote", "add", "origin", remote_url],
+        cwd=cwd, capture_output=True, check=True,
+    )
+
+
+def _get_json(url):
+    with urlopen(url) as resp:
+        return json.loads(resp.read().decode("utf-8"))
 
 
 # ---------------------------------------------------------------------------
@@ -75,6 +108,71 @@ class TestGlobal:
         assert r["ok"] is True
         assert r["result"]["healthy"] is True
         assert r["result"]["issue_count"] == 0
+
+
+class TestHub:
+    def test_login_and_link(self, workspace, inthub_server):
+        _add_github_remote(workspace)
+        r = _run(workspace, "hub", "login", "--api-base-url", inthub_server)
+        assert r["ok"] is True
+        r = _run(workspace, "hub", "link", "--project-name", "Demo Project")
+        assert r["ok"] is True
+        hub_config = json.loads((workspace / ".intent" / "hub.json").read_text())
+        assert hub_config["api_base_url"] == inthub_server
+        assert hub_config["project_id"].startswith("proj_")
+        assert hub_config["workspace_id"].startswith("wks_")
+        assert hub_config["repo_binding"]["repo_id"] == "example/demo"
+
+    def test_link_requires_github_remote(self, workspace, inthub_server):
+        _add_github_remote(workspace, "git@example.com:foo/bar.git")
+        _run(workspace, "hub", "login", "--api-base-url", inthub_server)
+        r = _run(workspace, "hub", "link")
+        assert r["ok"] is False
+        assert r["error"]["code"] == "PROVIDER_UNSUPPORTED"
+
+    def test_sync_requires_link(self, workspace, inthub_server):
+        _add_github_remote(workspace)
+        _run(workspace, "hub", "login", "--api-base-url", inthub_server)
+        r = _run(workspace, "hub", "sync")
+        assert r["ok"] is False
+        assert r["error"]["code"] == "NOT_LINKED"
+
+    def test_sync_dry_run(self, workspace, inthub_server):
+        _add_github_remote(workspace)
+        _run(workspace, "hub", "login", "--api-base-url", inthub_server)
+        _run(workspace, "hub", "link", "--project-name", "Demo Project")
+        _run(workspace, "intent", "create", "Goal", "--query", "q")
+        r = _run(workspace, "hub", "sync", "--dry-run")
+        assert r["ok"] is True
+        assert r["result"]["dry_run"] is True
+        assert r["result"]["payload"]["snapshot"]["intents"][0]["id"] == "intent-001"
+
+    def test_sync_updates_overview_and_handoff(self, workspace, inthub_server):
+        _add_github_remote(workspace)
+        _run(workspace, "hub", "login", "--api-base-url", inthub_server)
+        _run(workspace, "hub", "link", "--project-name", "Demo Project")
+        _run(workspace, "intent", "create", "Goal", "--query", "why?")
+        _run(workspace, "decision", "create", "Rule", "--rationale", "r")
+        _run(workspace, "snap", "create", "Did X", "--intent", "intent-001",
+             "--summary", "details")
+        r = _run(workspace, "hub", "sync")
+        assert r["ok"] is True
+
+        hub_config = json.loads((workspace / ".intent" / "hub.json").read_text())
+        project_id = hub_config["project_id"]
+        overview = _get_json(f"{inthub_server}/api/v1/projects/{project_id}/overview")
+        assert overview["ok"] is True
+        assert len(overview["result"]["active_intents"]) == 1
+        assert overview["result"]["active_intents"][0]["id"] == "intent-001"
+        assert len(overview["result"]["recent_snaps"]) == 1
+
+        handoff = _get_json(f"{inthub_server}/api/v1/projects/{project_id}/handoff")
+        assert handoff["ok"] is True
+        assert handoff["result"]["intents"][0]["latest_snap"]["id"] == "snap-001"
+
+        search = _get_json(f"{inthub_server}/api/v1/search?project_id={project_id}&q=Goal")
+        assert search["ok"] is True
+        assert search["result"]["matches"][0]["id"] == "intent-001"
 
 
 # ---------------------------------------------------------------------------

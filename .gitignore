@@ -1,7 +1,7 @@
 # Historical materials not meant for the main repo
 backup/
 
-# Local Intent workspace metadata
+# Local Intent workspace metadata; do not commit to Git
 .intent/
 
 # Claude Code local settings (personal overrides)

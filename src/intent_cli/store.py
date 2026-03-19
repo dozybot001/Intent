@@ -2,10 +2,12 @@
 
 import json
 import subprocess
+import uuid
 from pathlib import Path
 
 INTENT_DIR = ".intent"
 SUBDIRS = {"intent": "intents", "snap": "snaps", "decision": "decisions"}
+HUB_CONFIG = "hub.json"
 VALID_STATUSES = {
     "intent": {"active", "suspend", "done"},
     "snap": {"active", "reverted"},
@@ -52,6 +54,11 @@ def init_workspace():
     return d, None
 
 
+def make_runtime_id(prefix):
+    """Generate a runtime-scoped ID for local hub state."""
+    return f"{prefix}_{uuid.uuid4().hex[:12]}"
+
+
 def next_id(base, object_type):
     """Generate next zero-padded ID for a given object type."""
     subdir = base / SUBDIRS[object_type]
@@ -93,6 +100,95 @@ def list_objects(base, object_type, status=None):
 def read_config(base):
     """Read config.json. Returns dict."""
     return json.loads((base / "config.json").read_text())
+
+
+def read_hub_config(base):
+    """Read hub.json if present. Returns dict or None."""
+    path = base / HUB_CONFIG
+    if not path.is_file():
+        return None
+    return json.loads(path.read_text())
+
+
+def write_hub_config(base, data):
+    """Write hub.json."""
+    (base / HUB_CONFIG).write_text(json.dumps(data, indent=2, ensure_ascii=False))
+
+
+def git_current_branch():
+    """Return current branch name, or None."""
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True, text=True, check=True,
+        )
+        return out.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
+
+def git_head_commit():
+    """Return HEAD commit SHA, or None."""
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, check=True,
+        )
+        return out.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
+
+def git_is_dirty():
+    """Return True when the working tree has tracked or untracked changes."""
+    try:
+        out = subprocess.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True, text=True, check=True,
+        )
+        return bool(out.stdout.strip())
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
+
+def git_remote_url(name="origin"):
+    """Return the configured git remote URL, or None."""
+    try:
+        out = subprocess.run(
+            ["git", "remote", "get-url", name],
+            capture_output=True, text=True, check=True,
+        )
+        return out.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
+
+def parse_github_remote(remote_url):
+    """Parse a GitHub remote URL into owner/name metadata."""
+    if not remote_url:
+        return None
+
+    cleaned = remote_url.strip()
+    marker = "github.com"
+    if marker not in cleaned:
+        return None
+
+    tail = cleaned.split(marker, 1)[1]
+    tail = tail.lstrip(":/")
+    if tail.endswith(".git"):
+        tail = tail[:-4]
+
+    parts = [part for part in tail.split("/") if part]
+    if len(parts) < 2:
+        return None
+
+    owner, name = parts[0], parts[1]
+    return {
+        "provider": "github",
+        "repo_id": f"{owner}/{name}",
+        "owner": owner,
+        "name": name,
+    }
 
 
 def validate_graph(base):
