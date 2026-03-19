@@ -43,6 +43,16 @@ Requires Python 3.9+ and Git.
 
 `.intent/` is local semantic-workspace metadata. It should stay out of Git history and remain ignored by `.gitignore`.
 
+## Agent skill
+
+If you use Codex, Claude Code, or another skill-capable agent, install the `intent-cli` skill too:
+
+```bash
+npx skills add dozybot001/Intent -g
+```
+
+This matters. The CLI gives the commands, but the skill teaches the agent when and how to use them during real work.
+
 ## Quick start
 
 ```bash

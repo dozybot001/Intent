@@ -43,6 +43,16 @@ pipx install intent-cli-python
 
 `.intent/` 是本地语义工作区元数据，不应进入 Git 历史，且应始终由 `.gitignore` 忽略。
 
+## Agent skill
+
+如果你使用 Codex、Claude Code 或其他支持 skill 的 agent，也应该安装 `intent-cli` skill：
+
+```bash
+npx skills add dozybot001/Intent -g
+```
+
+这一步很重要。CLI 只提供命令本身，skill 才负责教 agent 在真实工作里何时、如何调用 `itt`。
+
 ## 快速上手
 
 ```bash
