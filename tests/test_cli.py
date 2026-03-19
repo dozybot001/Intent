@@ -1,4 +1,4 @@
-"""Tests for Intent CLI — covers all 19 commands, state machines, and error codes."""
+"""Tests for Intent CLI — covers all 20 commands, state machines, and error codes."""
 
 import json
 import os
@@ -68,6 +68,12 @@ class TestGlobal:
         assert r["ok"] is False
         assert r["error"]["code"] == "NOT_INITIALIZED"
 
+    def test_doctor_healthy(self, workspace):
+        r = _run(workspace, "doctor")
+        assert r["ok"] is True
+        assert r["result"]["healthy"] is True
+        assert r["result"]["issue_count"] == 0
+
 
 # ---------------------------------------------------------------------------
 # Intent commands
@@ -100,6 +106,20 @@ class TestIntent:
         r = _run(workspace, "intent", "list", "--status", "active")
         assert len(r["result"]) == 1
         assert r["result"][0]["id"] == "intent-002"
+
+    def test_list_filter_decision(self, workspace):
+        _run(workspace, "intent", "create", "A", "--query", "q")
+        _run(workspace, "intent", "create", "B", "--query", "q")
+        _run(workspace, "decision", "create", "Rule", "--rationale", "r")
+        _run(workspace, "decision", "deprecate", "decision-001")
+        _run(workspace, "decision", "create", "Rule 2", "--rationale", "r")
+        r = _run(workspace, "intent", "list", "--decision", "decision-001")
+        assert len(r["result"]) == 2
+
+    def test_list_invalid_status(self, workspace):
+        r = _run(workspace, "intent", "list", "--status", "paused")
+        assert r["ok"] is False
+        assert r["error"]["code"] == "INVALID_INPUT"
 
     def test_show(self, workspace):
         _run(workspace, "intent", "create", "A", "--query", "q")
@@ -188,6 +208,11 @@ class TestSnap:
         assert len(r["result"]) == 1
         assert r["result"][0]["id"] == "snap-002"
 
+    def test_list_invalid_status(self, workspace):
+        r = _run(workspace, "snap", "list", "--status", "done")
+        assert r["ok"] is False
+        assert r["error"]["code"] == "INVALID_INPUT"
+
     def test_feedback(self, workspace):
         _run(workspace, "intent", "create", "Goal", "--query", "q")
         _run(workspace, "snap", "create", "S", "--intent", "intent-001")
@@ -239,6 +264,22 @@ class TestDecision:
         _run(workspace, "decision", "create", "R2", "--rationale", "r")
         r = _run(workspace, "decision", "list")
         assert len(r["result"]) == 2
+
+    def test_list_filter_intent(self, workspace):
+        _run(workspace, "intent", "create", "A", "--query", "q")
+        _run(workspace, "intent", "create", "B", "--query", "q")
+        _run(workspace, "decision", "create", "Rule A", "--rationale", "r")
+        _run(workspace, "decision", "deprecate", "decision-001")
+        _run(workspace, "intent", "done", "intent-002")
+        _run(workspace, "decision", "create", "Rule B", "--rationale", "r")
+        r = _run(workspace, "decision", "list", "--intent", "intent-002")
+        assert len(r["result"]) == 1
+        assert r["result"][0]["id"] == "decision-001"
+
+    def test_list_invalid_status(self, workspace):
+        r = _run(workspace, "decision", "list", "--status", "activeish")
+        assert r["ok"] is False
+        assert r["error"]["code"] == "INVALID_INPUT"
 
     def test_deprecate(self, workspace):
         _run(workspace, "decision", "create", "R", "--rationale", "r")
@@ -302,3 +343,24 @@ class TestInspect:
         intent_file.unlink()
         r = _run(workspace, "inspect")
         assert any("Orphan" in w for w in r["warnings"])
+
+    def test_doctor_reports_broken_links(self, workspace):
+        _run(workspace, "intent", "create", "Goal", "--query", "q")
+        _run(workspace, "snap", "create", "S", "--intent", "intent-001")
+        snap_file = workspace / ".intent" / "snaps" / "snap-001.json"
+        data = json.loads(snap_file.read_text())
+        data["intent_id"] = "intent-999"
+        snap_file.write_text(json.dumps(data, indent=2))
+        r = _run(workspace, "doctor")
+        assert r["result"]["healthy"] is False
+        assert any(issue["code"] == "MISSING_REFERENCE" for issue in r["result"]["issues"])
+
+    def test_doctor_reports_invalid_status(self, workspace):
+        _run(workspace, "intent", "create", "Goal", "--query", "q")
+        intent_file = workspace / ".intent" / "intents" / "intent-001.json"
+        data = json.loads(intent_file.read_text())
+        data["status"] = "paused"
+        intent_file.write_text(json.dumps(data, indent=2))
+        r = _run(workspace, "doctor")
+        assert r["result"]["healthy"] is False
+        assert any(issue["code"] == "INVALID_STATUS" for issue in r["result"]["issues"])

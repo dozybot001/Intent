@@ -48,11 +48,13 @@ pip install intent-cli-python
 
 需要 Python 3.9+ 和 Git。
 
-### 安装 Claude Code skill
+### 通过 skills.sh 安装 skill
 
 ```bash
-npx skills add dozybot001/Intent
+npx skills add dozybot001/Intent -g
 ```
+
+这会把 `intent-cli` 安装到你的全局 skill 库中，可供 Codex、Claude Code 等支持的 agent 使用。
 
 > **提示：** `itt` 是一个全新的工具，当前模型的训练数据中从未出现过它。对话过程中 agent 可能会忘记调用。遇到这种情况，简单提醒一句"用 itt 记录一下"就够了。
 >
@@ -91,13 +93,14 @@ itt inspect
 | `itt version` | 打印版本 |
 | `itt init` | 在当前 git 仓库初始化 `.intent/` |
 | `itt inspect` | 显示实时对象图快照 |
+| `itt doctor` | 校验对象图中的断链引用和非法状态 |
 
 ### Intent
 
 | 命令 | 说明 |
 |---|---|
 | `itt intent create TITLE --query Q` | 创建新 intent |
-| `itt intent list [--status S]` | 列出 intent |
+| `itt intent list [--status S] [--decision ID]` | 列出 intent |
 | `itt intent show ID` | 查看 intent 详情 |
 | `itt intent activate ID` | 恢复挂起的 intent |
 | `itt intent suspend ID` | 挂起 active intent |
@@ -118,7 +121,7 @@ itt inspect
 | 命令 | 说明 |
 |---|---|
 | `itt decision create TITLE --rationale R` | 创建长期决策 |
-| `itt decision list [--status S]` | 列出 decision |
+| `itt decision list [--status S] [--intent ID]` | 列出 decision |
 | `itt decision show ID` | 查看 decision 详情 |
 | `itt decision deprecate ID` | 废弃一条 decision |
 | `itt decision attach ID --intent ID` | 手动补挂 decision 与 intent 的关系 |

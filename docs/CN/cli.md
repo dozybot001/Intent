@@ -198,6 +198,14 @@ itt init
 itt inspect
 ```
 
+#### doctor
+
+校验当前对象图是否存在断链引用、非法状态或只写了一侧的关系。
+
+```bash
+itt doctor
+```
+
 示例：
 
 ```json
@@ -261,6 +269,7 @@ itt intent list
 itt intent list --status active
 itt intent list --status suspend
 itt intent list --status done
+itt intent list --decision decision-001
 ```
 
 #### show
@@ -368,6 +377,7 @@ itt decision create "Timeout must stay configurable" \
 itt decision list
 itt decision list --status active
 itt decision list --status deprecated
+itt decision list --intent intent-001
 ```
 
 #### show
@@ -436,6 +446,7 @@ itt decision attach decision-001 --intent intent-002
 - 创建 intent 时没有任何 `active` decision 可挂载
 - 创建 decision 时没有任何 `active` intent 可挂载
 - `inspect` 发现存在孤立 snap（其 `intent_id` 指向的 intent 文件缺失）
+- `doctor` 发现结构问题，但仍通过 `healthy: false` 返回成功 JSON 包
 - 对象文件中出现未识别的字段（前向兼容提示）
 
 warnings 不影响 `ok: true`，仅供调用方参考。

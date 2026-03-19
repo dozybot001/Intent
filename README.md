@@ -48,11 +48,13 @@ pip install intent-cli-python
 
 Requires Python 3.9+ and Git.
 
-### Add the Claude Code skill
+### Install the skills.sh skill
 
 ```bash
-npx skills add dozybot001/Intent
+npx skills add dozybot001/Intent -g
 ```
+
+This installs the `intent-cli` skill into your global skills library for supported agents such as Codex and Claude Code.
 
 > **Tip:** `itt` is a new tool — current models have never seen it in training data. Your agent may forget to call it mid-conversation. A short nudge like *"use itt to record this"* is usually enough to bring it back on track.
 >
@@ -91,13 +93,14 @@ itt inspect
 | `itt version` | Print version |
 | `itt init` | Initialize `.intent/` in current git repo |
 | `itt inspect` | Show the live object graph snapshot |
+| `itt doctor` | Validate the object graph for broken references and invalid states |
 
 ### Intent
 
 | Command | Description |
 |---|---|
 | `itt intent create TITLE --query Q` | Create a new intent |
-| `itt intent list [--status S]` | List intents |
+| `itt intent list [--status S] [--decision ID]` | List intents |
 | `itt intent show ID` | Show intent details |
 | `itt intent activate ID` | Resume a suspended intent |
 | `itt intent suspend ID` | Suspend an active intent |
@@ -118,7 +121,7 @@ itt inspect
 | Command | Description |
 |---|---|
 | `itt decision create TITLE --rationale R` | Create a long-lived decision |
-| `itt decision list [--status S]` | List decisions |
+| `itt decision list [--status S] [--intent ID]` | List decisions |
 | `itt decision show ID` | Show decision details |
 | `itt decision deprecate ID` | Deprecate a decision |
 | `itt decision attach ID --intent ID` | Manually link a decision to an intent |

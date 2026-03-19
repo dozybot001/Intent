@@ -9,6 +9,7 @@ from intent_cli.output import success, error
 from intent_cli.store import (
     git_root, ensure_init, init_workspace,
     next_id, read_object, write_object, list_objects, read_config,
+    validate_graph, VALID_STATUSES,
 )
 
 VERSION = "1.0.0"
@@ -28,6 +29,19 @@ def _require_init():
               suggested_fix="cd into a git repo and run: itt init")
     error("NOT_INITIALIZED", ".intent/ directory not found.",
           suggested_fix="itt init")
+
+
+def _validate_status_filter(object_type, status):
+    """Validate a --status filter against the object's state machine."""
+    if status is None:
+        return
+    allowed = sorted(VALID_STATUSES[object_type])
+    if status not in allowed:
+        error(
+            "INVALID_INPUT",
+            f"Invalid status '{status}' for {object_type}. Allowed values: {', '.join(allowed)}.",
+            suggested_fix=f"Use one of: {', '.join(allowed)}",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -107,6 +121,11 @@ def cmd_inspect(_args):
     }, indent=2, ensure_ascii=False))
 
 
+def cmd_doctor(_args):
+    base = _require_init()
+    success("doctor", validate_graph(base))
+
+
 # ---------------------------------------------------------------------------
 # Intent commands
 # ---------------------------------------------------------------------------
@@ -145,7 +164,11 @@ def cmd_intent_create(args):
 
 def cmd_intent_list(args):
     base = _require_init()
-    success("intent.list", list_objects(base, "intent", status=args.status))
+    _validate_status_filter("intent", args.status)
+    objects = list_objects(base, "intent", status=args.status)
+    if args.decision:
+        objects = [obj for obj in objects if args.decision in obj.get("decision_ids", [])]
+    success("intent.list", objects)
 
 
 def cmd_intent_show(args):
@@ -249,6 +272,7 @@ def cmd_snap_create(args):
 
 def cmd_snap_list(args):
     base = _require_init()
+    _validate_status_filter("snap", args.status)
     objects = list_objects(base, "snap", status=args.status)
     if args.intent:
         objects = [s for s in objects if s.get("intent_id") == args.intent]
@@ -324,7 +348,11 @@ def cmd_decision_create(args):
 
 def cmd_decision_list(args):
     base = _require_init()
-    success("decision.list", list_objects(base, "decision", status=args.status))
+    _validate_status_filter("decision", args.status)
+    objects = list_objects(base, "decision", status=args.status)
+    if args.intent:
+        objects = [obj for obj in objects if args.intent in obj.get("intent_ids", [])]
+    success("decision.list", objects)
 
 
 def cmd_decision_show(args):
@@ -384,6 +412,7 @@ def main():
     sub.add_parser("version")
     sub.add_parser("init")
     sub.add_parser("inspect")
+    sub.add_parser("doctor")
 
     # --- intent ---
     p_intent = sub.add_parser("intent")
@@ -396,6 +425,7 @@ def main():
 
     p = s_intent.add_parser("list")
     p.add_argument("--status", default=None)
+    p.add_argument("--decision", default=None)
 
     p = s_intent.add_parser("show")
     p.add_argument("id")
@@ -445,6 +475,7 @@ def main():
 
     p = s_decision.add_parser("list")
     p.add_argument("--status", default=None)
+    p.add_argument("--intent", default=None)
 
     p = s_decision.add_parser("show")
     p.add_argument("id")
@@ -467,6 +498,7 @@ def main():
         "version": cmd_version,
         "init": cmd_init,
         "inspect": cmd_inspect,
+        "doctor": cmd_doctor,
     }
     if args.command in dispatch_global:
         dispatch_global[args.command](args)

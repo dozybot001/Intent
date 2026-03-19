@@ -198,6 +198,14 @@ Output the current object graph snapshot, rather than a single active intent vie
 itt inspect
 ```
 
+#### doctor
+
+Validate the stored object graph for broken references, invalid statuses, and one-way relationships.
+
+```bash
+itt doctor
+```
+
 Example:
 
 ```json
@@ -261,6 +269,7 @@ itt intent list
 itt intent list --status active
 itt intent list --status suspend
 itt intent list --status done
+itt intent list --decision decision-001
 ```
 
 #### show
@@ -368,6 +377,7 @@ Behavior:
 itt decision list
 itt decision list --status active
 itt decision list --status deprecated
+itt decision list --intent intent-001
 ```
 
 #### show
@@ -436,6 +446,7 @@ Except for `inspect`, success responses follow this format:
 - No `active` decisions to attach when creating an intent
 - No `active` intents to attach when creating a decision
 - `inspect` finds orphan snaps (their `intent_id` points to a missing intent file)
+- `doctor` finds structural issues but still returns a successful JSON envelope with `healthy: false`
 - Unrecognized fields in object files (forward-compatibility hint)
 
 Warnings do not affect `ok: true`; they are informational for the caller.
