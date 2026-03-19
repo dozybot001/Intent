@@ -1,6 +1,6 @@
 # Intent CLI
 
-中文 | [English](README.md)
+中文  |  [English](README.md)
 
 为 agent 驱动的开发提供语义历史。记录**你做了什么**以及**为什么**。
 
