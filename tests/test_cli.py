@@ -3,7 +3,9 @@
 import json
 import os
 import subprocess
+import sys
 import tempfile
+from importlib import metadata
 from pathlib import Path
 
 import pytest
@@ -25,7 +27,7 @@ def workspace(tmp_path):
 def _run(cwd, *args):
     """Run itt command and return parsed JSON."""
     r = subprocess.run(
-        ["itt", *args],
+        [sys.executable, "-m", "intent_cli", *args],
         cwd=cwd, capture_output=True, text=True,
     )
     return json.loads(r.stdout)
@@ -39,7 +41,7 @@ class TestGlobal:
     def test_version(self, workspace):
         r = _run(workspace, "version")
         assert r["ok"] is True
-        assert "version" in r["result"]
+        assert r["result"]["version"] == metadata.version("intent-cli-python")
 
     def test_init_already_exists(self, workspace):
         r = _run(workspace, "init")

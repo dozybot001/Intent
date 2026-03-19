@@ -5,14 +5,13 @@ import json
 import sys
 from datetime import datetime, timezone
 
+from intent_cli import __version__
 from intent_cli.output import success, error
 from intent_cli.store import (
     git_root, ensure_init, init_workspace,
     next_id, read_object, write_object, list_objects, read_config,
     validate_graph, VALID_STATUSES,
 )
-
-VERSION = "1.0.0"
 
 
 def _now():
@@ -49,7 +48,7 @@ def _validate_status_filter(object_type, status):
 # ---------------------------------------------------------------------------
 
 def cmd_version(_args):
-    success("version", {"version": VERSION})
+    success("version", {"version": __version__})
 
 
 def cmd_init(_args):
