@@ -14,13 +14,13 @@ Intent adds that missing layer: **semantic history** — a small set of formal o
 
 ```mermaid
 flowchart LR
-  subgraph traditional["Traditional"]
+  subgraph traditional["Traditional Coding"]
     direction TB
     H1["Human"]
     C1["Code"]
     H1 -->|"Git"| C1
   end
-  subgraph agent["Agent Era"]
+  subgraph agent["Agent Driven Development"]
     direction TB
     H2["Human"]
     AG["Agent"]
