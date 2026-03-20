@@ -23,6 +23,33 @@
 
 ## 1. Core thesis
 
+```mermaid
+flowchart LR
+  subgraph traditional["Traditional Coding"]
+    direction TB
+    H1["Human"]
+    C1["Code"]
+    H1 -->|"Git"| C1
+  end
+  subgraph agent["Agent Driven Development"]
+    direction TB
+    H2["Human"]
+    AG["Agent"]
+    C2["Code"]
+    H2 -."❌ no semantic history".-> AG
+    AG -->|"Git"| C2
+  end
+  subgraph withintent["Agent with Intent"]
+    direction TB
+    H3["Human"]
+    AG2["Agent"]
+    C3["Code"]
+    H3 -->|"Intent"| AG2
+    AG2 -->|"Git"| C3
+  end
+  traditional ~~~ agent ~~~ withintent
+```
+
 Git remains foundational infrastructure for the code world. That hasn't changed.
 
 What has changed is how software development works:

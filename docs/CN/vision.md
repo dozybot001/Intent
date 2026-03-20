@@ -23,6 +23,33 @@
 
 ## 1. 核心判断
 
+```mermaid
+flowchart LR
+  subgraph traditional["古法编程"]
+    direction TB
+    H1["人"]
+    C1["代码"]
+    H1 -->|"Git"| C1
+  end
+  subgraph agent["Agent 驱动开发"]
+    direction TB
+    H2["人"]
+    AG["Agent"]
+    C2["代码"]
+    H2 -."❌ 无语义历史".-> AG
+    AG -->|"Git"| C2
+  end
+  subgraph withintent["有 Intent 的 Agent"]
+    direction TB
+    H3["人"]
+    AG2["Agent"]
+    C3["代码"]
+    H3 -->|"Intent"| AG2
+    AG2 -->|"Git"| C3
+  end
+  traditional ~~~ agent ~~~ withintent
+```
+
 Git 仍然是代码世界的基础设施，这一点没有变。
 
 变化的是软件开发的工作方式：
