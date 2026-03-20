@@ -2,19 +2,6 @@
 
 [中文](../CN/roadmap.md) | English
 
-## What this document answers
-
-- What to do first and what to do later in the current phase
-- Why the current implementation is CLI-centric
-- Which directions belong to future phases, not the current deliverable
-
-## Relationship to other documents
-
-- For vision and invariant judgments, see [vision](vision.md)
-- For implementation and behavior contracts, see the [CLI design doc](cli.md)
-- For a concrete cross-agent case study, see [dogfooding](dogfooding.md)
-- For the first IntHub collaboration-layer scope, see the [IntHub MVP design doc](inthub-mvp.md)
-
 ## Current guiding principles
 
 - The current implementation follows the [CLI design doc](cli.md)

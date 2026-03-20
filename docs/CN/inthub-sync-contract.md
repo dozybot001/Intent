@@ -2,19 +2,6 @@
 
 中文 | [English](../EN/inthub-sync-contract.md)
 
-## 这篇文档回答什么
-
-- IntHub 首版如何在本地 Intent CLI、IntHub 服务端和 GitHub 之间分工
-- 首版同步数据到底长什么样
-- 首版的身份、幂等、对象归属和最小 API 面应该如何定义
-- 什么能力是首版必须做的，什么能力要明确延后
-
-## 与其他文档的边界
-
-- 产品定位与首期范围以 [IntHub MVP 设计文档](inthub-mvp.md) 为准
-- 本地对象模型以 [CLI 统一设计文档](cli.md) 为准
-- 本文只回答 “如何把本地 `.intent/` 安全同步到 IntHub，并在远端形成可读协作视图”
-
 ## 1. 首版不变约束
 
 - 首版只支持 **GitHub-first** 的仓库来源

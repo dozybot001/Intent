@@ -2,19 +2,6 @@
 
 [中文](../CN/inthub-sync-contract.md) | English
 
-## What this document answers
-
-- How the first IntHub release should divide responsibility across the local Intent CLI, the IntHub backend, and GitHub
-- What the first synchronization payload should look like
-- How identity, idempotency, object ownership, and the minimum API surface should work
-- Which capabilities are required for v1, and which should be explicitly deferred
-
-## Relationship to other documents
-
-- For product positioning and first-phase scope, see the [IntHub MVP design doc](inthub-mvp.md)
-- For the local object model, see the [CLI design doc](cli.md)
-- This document answers only: "how local `.intent/` data syncs safely into IntHub and becomes a remote collaboration view"
-
 ## 1. V1 invariants
 
 - V1 supports **GitHub-first** repositories only

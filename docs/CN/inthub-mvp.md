@@ -2,21 +2,6 @@
 
 中文 | [English](../EN/inthub-mvp.md)
 
-## 这篇文档回答什么
-
-- IntHub 首期到底做什么
-- 它和本地 Intent CLI 的分工是什么
-- 先做哪些能力，明确不做哪些能力
-- 从文档进入实现时，最小的信息架构和同步模型应该是什么
-
-## 与其他文档的边界
-
-- 愿景与层次边界以 [vision](vision.md) 为准
-- 阶段顺序以 [roadmap](roadmap.md) 为准
-- 本地对象模型与行为 contract 以 [CLI 统一设计文档](cli.md) 为准
-- 首版同步与接口规范以 [IntHub 同步契约（首版）](inthub-sync-contract.md) 为准
-- 本文只定义 IntHub 的首期协作层 MVP
-
 ## 1. 产品定位
 
 IntHub 不是新的语义层，也不是重型项目管理平台。

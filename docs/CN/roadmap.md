@@ -2,19 +2,6 @@
 
 中文 | [English](../EN/roadmap.md)
 
-## 这篇文档回答什么
-
-- 当前阶段先做什么、后做什么
-- 为什么当前实现以 CLI 为中心
-- 哪些方向属于后续路线，而不是当前交付范围
-
-## 与其他文档的边界
-
-- 愿景与不变判断以 [vision](vision.md) 为准
-- 具体实现与行为 contract 以 [CLI 统一设计文档](cli.md) 为准
-- 真实跨 agent 协作案例可见 [dogfooding](dogfooding.md)
-- IntHub 首期协作层范围以 [IntHub MVP 设计文档](inthub-mvp.md) 为准
-
 ## 当前总原则
 
 - 当前实现以 [CLI 统一设计文档](cli.md) 为准

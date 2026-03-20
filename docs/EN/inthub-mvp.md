@@ -2,21 +2,6 @@
 
 [中文](../CN/inthub-mvp.md) | English
 
-## What this document answers
-
-- What IntHub should do in its first phase
-- How it should divide responsibility with the local Intent CLI
-- Which capabilities belong in scope first, and which explicitly do not
-- What the minimum information architecture and sync model should be when implementation starts
-
-## Relationship to other documents
-
-- For vision and layer boundaries, see [vision](vision.md)
-- For phase ordering, see [roadmap](roadmap.md)
-- For the local object model and behavior contract, see the [CLI design doc](cli.md)
-- For the first sync and interface contract, see the [IntHub Sync Contract (V1)](inthub-sync-contract.md)
-- This document defines only the first collaboration-layer MVP for IntHub
-
 ## 1. Product positioning
 
 IntHub is not a new semantic layer, and it is not a heavyweight project-management platform.
