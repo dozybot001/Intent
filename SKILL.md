@@ -14,7 +14,7 @@ All `itt` output is JSON — parse it, don't guess.
 
 Git records how code changes. It does not record why you're changing it, what you tried, how the user reacted, or which decisions are still in effect.
 
-Intent does not replace Git; it supplies the semantic layer Git lacks. At minimum, every code-changing line of work should be explainable by an intent and its snaps, so the next session can recover not just the diff but the goal behind it.
+Intent does not replace Git; it supplies the semantic layer Git lacks. Git records how code changes. Intent should only capture the goal-level semantics Git cannot independently preserve for recovery: why this work exists, what state it reached, and what should happen next.
 
 These semantics already exist — scattered across commit messages, PR discussions, chat, and agent conversations. The problem is not missing information but **missing stable object boundaries**: they can be read but not reliably tracked, referenced, or queried by the next session. Intent gives them formal object status.
 
@@ -90,7 +90,7 @@ When a new query arrives, determine which path applies:
 
 Before choosing path 4, apply the recovery test: **if a new agent session saw this in `itt inspect`, would it need this goal boundary to resume unfinished work or preserve an in-progress objective?** If no, do not create an intent.
 
-If you are about to make a code change and no active intent explains why, stop and create the intent first. Git will capture the diff; Intent must capture the goal that made the diff happen.
+If you are about to begin a meaningful code work chunk and no active intent explains the goal behind it, stop and create the intent first. Git will capture the diff; use Intent only when the next session would not be able to recover the goal or state from Git alone.
 
 When in doubt, prefer semantic clarity over raw coverage. Requests to read a skill, learn a workflow, align on collaboration conventions, or discuss whether something should be recorded are usually **not** intents by themselves. Create an intent only when the query implies a concrete goal worth resuming across sessions.
 
@@ -320,7 +320,7 @@ Intent records **only what's worth formally tracking, linking, and reusing acros
 Judge your Intent usage by outcomes, not compliance:
 
 - Could a new session run `itt inspect` and continue without the user re-explaining?
-- Can every code diff be traced back to an intent and the relevant snaps?
+- For code work that requires semantic recovery, can the next session trace it to the relevant intent and snaps?
 - Are your summaries written for the **next session's agent**, not as a log for the current one?
 - Are active decisions actually constraining your implementation choices?
 - Would a human reading `inspect` output understand what's in progress and why?
