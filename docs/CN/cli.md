@@ -156,13 +156,13 @@ stateDiagram-v2
     done --> [*]
   }
   state "Snap" as S {
-    [*] --> active: create
+    [*] --> active2: create
     active2 --> reverted: revert
     reverted --> [*]
   }
   state "Decision" as D {
-    [*] --> active: create
-    active --> deprecated: deprecate
+    [*] --> active3: create
+    active3 --> deprecated: deprecate
     deprecated --> [*]
   }
 ```
