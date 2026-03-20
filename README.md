@@ -30,7 +30,7 @@ flowchart LR
     H2 -."❌ no semantic history".-> AG
     AG -->|"Git"| C2
   end
-  subgraph withintent["With Intent"]
+  subgraph withintent["Agent with Intent"]
     direction TB
     H3["Human"]
     AG2["Agent"]

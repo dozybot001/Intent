@@ -30,7 +30,7 @@ flowchart LR
     H2 -."❌ 无语义历史".-> AG
     AG -->|"Git"| C2
   end
-  subgraph withintent["有 Intent"]
+  subgraph withintent["有 Intent 的 Agent"]
     direction TB
     H3["人"]
     AG2["Agent"]
