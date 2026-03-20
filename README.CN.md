@@ -78,7 +78,7 @@ npx skills add dozybot001/Intent -g  # Agent skill
 
 需要 Python 3.9+ 和 Git。CLI 提供命令，skill 教 agent 何时使用。
 
-> **Tips：** 建议在每个 session 开始时提一下 skill，让 agent 加载工作流。Claude Code 和 Codex 都可以直接 `/intent-cli`，很方便。
+> **Tips：** 在 Claude Code 或 Codex 里，直接打 `/`，上下选到技能，回车就进入工作流了。
 
 ## IntHub
 
