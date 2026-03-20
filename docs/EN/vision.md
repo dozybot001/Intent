@@ -2,25 +2,6 @@
 
 [中文](../CN/vision.md) | English
 
-## What this document answers
-
-- Why the agent era needs a new layer of semantic history
-- What layer Intent fills — and what it does not replace
-- Why this is more urgent in the agent era
-- What criteria should be used to judge whether Intent is valid
-
-## What this document does not answer
-
-- How specific objects, commands, and states should be designed
-- JSON schemas, state machines, and machine-readable contracts
-- Current implementation details
-- Roadmap and priority planning
-
-## Relationship to other documents
-
-- For implementation and object semantics, see the [CLI design doc](cli.md)
-- For roadmap and phasing, see the [Roadmap](roadmap.md)
-
 ## 1. Core thesis
 
 ```mermaid
