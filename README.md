@@ -27,6 +27,7 @@ flowchart LR
     H2["Human"]
     AG["Agent"]
     C2["Code"]
+    H2 -."❌ no semantic history".-> AG
     H2 -->|"Intent"| AG
     AG -->|"Git"| C2
   end
