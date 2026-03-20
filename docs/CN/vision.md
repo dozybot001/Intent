@@ -1,6 +1,6 @@
 # Intent 的愿景
 
-[English](../EN/vision.md) | 中文
+中文 | [English](../EN/vision.md)
 
 ## 这篇文档回答什么
 

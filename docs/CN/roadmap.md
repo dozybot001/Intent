@@ -1,6 +1,6 @@
 # Intent 路线图
 
-[English](../EN/roadmap.md) | 中文
+中文 | [English](../EN/roadmap.md)
 
 ## 这篇文档回答什么
 

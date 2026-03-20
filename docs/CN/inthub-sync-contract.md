@@ -1,6 +1,6 @@
 # IntHub 同步契约（首版）
 
-[English](../EN/inthub-sync-contract.md) | 中文
+中文 | [English](../EN/inthub-sync-contract.md)
 
 ## 这篇文档回答什么
 

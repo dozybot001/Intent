@@ -1,6 +1,6 @@
 # IntHub Local 使用说明
 
-[English](../EN/inthub-local.md) | 中文
+中文 | [English](../EN/inthub-local.md)
 
 ## 它是什么
 

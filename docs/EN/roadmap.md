@@ -1,6 +1,6 @@
 # Intent Roadmap
 
-English | [中文](../CN/roadmap.md)
+[中文](../CN/roadmap.md) | English
 
 ## What this document answers
 

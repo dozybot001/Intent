@@ -1,6 +1,6 @@
 # IntHub Sync Contract (V1)
 
-English | [中文](../CN/inthub-sync-contract.md)
+[中文](../CN/inthub-sync-contract.md) | English
 
 ## What this document answers
 

@@ -1,6 +1,6 @@
 # Intent CLI Design Document
 
-English | [中文](../CN/cli.md)
+[中文](../CN/cli.md) | English
 
 Schema version: **1.0**
 

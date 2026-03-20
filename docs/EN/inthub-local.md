@@ -1,6 +1,6 @@
 # IntHub Local
 
-English | [中文](../CN/inthub-local.md)
+[中文](../CN/inthub-local.md) | English
 
 ## What it is
 

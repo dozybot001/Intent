@@ -1,6 +1,6 @@
 # Intent Vision
 
-English | [中文](../CN/vision.md)
+[中文](../CN/vision.md) | English
 
 ## What this document answers
 

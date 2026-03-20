@@ -1,6 +1,6 @@
 # IntHub MVP Design Doc
 
-English | [中文](../CN/inthub-mvp.md)
+[中文](../CN/inthub-mvp.md) | English
 
 ## What this document answers
 
