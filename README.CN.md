@@ -78,7 +78,7 @@ npx skills add dozybot001/Intent -g  # Agent skill
 
 需要 Python 3.9+ 和 Git。CLI 提供命令，skill 教 agent 何时使用。
 
-> **小发现：** Claude Code 里输入 `/` 选 `intent-cli` 回车，agent 就直接进入工作流了。Codex 的话，每个 session 提一次 skill 就够，后面会自己保持。
+> **使用 Tips：** Claude Code 的跨轮记忆不太好，建议在 session 开始时 `/intent-cli` 一下，或者在你有明确任务时 `/` 一下。Codex 在单次 session 内记忆很好，一般在 session 开始时提一下 intent-cli skill，让它过一遍 SKILL 文档，基本上整个 session 都会保持工作流。
 
 ## IntHub
 
