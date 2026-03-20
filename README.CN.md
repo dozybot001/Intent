@@ -57,7 +57,6 @@ flowchart LR
 flowchart LR
   D1["🔶 Decision 1"]
   D2["🔶 Decision 2"]
-  D1 ~~~ D2
 
   subgraph Intent1["🎯 Intent 1"]
     direction LR
