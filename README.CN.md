@@ -22,23 +22,15 @@ flowchart LR
     C1["代码"]
     H1 -->|"Git"| C1
   end
-  subgraph agent["Agent 时代"]
+  subgraph agent["Agent 驱动"]
     direction TB
     H2["人"]
     AG["Agent"]
     C2["代码"]
-    H2 -."❌ 无历史".-> AG
+    H2 -->|"Intent"| AG
     AG -->|"Git"| C2
   end
-  subgraph withintent["有 Intent"]
-    direction TB
-    H3["人"]
-    AG2["Agent"]
-    C3["代码"]
-    H3 -->|"Intent"| AG2
-    AG2 -->|"Git"| C3
-  end
-  traditional ~~~ agent ~~~ withintent
+  traditional ~~~ agent
 ```
 
 在传统开发里，Git 足以连接人的意图和代码历史。进入 agent 驱动开发后，Git 仍然记录代码变化，但人和 agent 之间的语义层没有稳定的历史追踪。Intent 补上了这个缺口 — 它是人与 Agent 之间的记录桥梁，正如 Git 是 Agent 与代码之间的记录桥梁。
