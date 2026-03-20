@@ -161,23 +161,27 @@ Intent 的边界很明确：
 
 ## 6. 为什么这在 agent 时代更迫切
 
-在传统开发里，很多高层语义虽然没有被正式建模，但至少还在程序员脑中，或者散落在日常协作材料里。
+```mermaid
+sequenceDiagram
+  participant H as 人
+  participant A as Agent A
+  participant I as Intent
+  participant B as Agent B
 
-在 agent 时代，情况变了：
+  H->>A: “修复登录超时”
+  A->>I: intent create + snap（summary）
+  A-->>H: 今天到这里
 
-- 大量实现由 agent 承担
-- 人更像 reviewer、coordinator、director
-- 用户与 agent 的 query、修正、反馈和回退，本身开始成为开发过程的一部分
-- session 更容易中断，而语义连续性更容易丢失
+  Note over A,B: session 结束，上下文丢失
 
-这意味着，系统不能只记录“代码如何变化”，还要能记录“为什么当前沿着这条路径继续推进”。
+  H->>B: “接着上次继续”
+  B->>I: itt inspect
+  I-->>B: active intents、decisions、latest snap
+  B->>B: 读 summary → 知道做了什么、还差什么
+  B->>I: snap（继续推进）
+```
 
-对 agent 来说，这层能力尤其重要，因为它需要的是：
-
-- 稳定的对象边界
-- 明确的状态
-- 可查询的上下文
-- 可持续复用的长期决策
+在传统开发里，语义在程序员脑中。在 agent 时代，session 会中断、agent 会切换、上下文会丢失。Intent 让这个交接变成结构化的，而不是口头的。
 
 ## 7. 判断这件事是否成立
 

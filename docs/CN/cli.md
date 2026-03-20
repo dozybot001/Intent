@@ -146,41 +146,28 @@ Decision 状态：
 
 ## 3. 状态模型
 
-Intent CLI 不再维护单一的 workspace active intent 状态，而是维护对象集合。
+```mermaid
+stateDiagram-v2
+  state "Intent" as I {
+    [*] --> active
+    active --> suspend: pause
+    suspend --> active: resume
+    active --> done: complete
+    done --> [*]
+  }
+  state "Snap" as S {
+    [*] --> active2: create
+    active2 --> reverted: revert
+    reverted --> [*]
+  }
+  state "Decision" as D {
+    [*] --> active3: create
+    active3 --> deprecated: deprecate
+    deprecated --> [*]
+  }
+```
 
-### 3.1 公共状态名
-
-- `active`：对象当前有效
-
-### 3.2 类型专属状态
-
-- intent：`suspend`、`done`
-- snap：`reverted`
-- decision：`deprecated`
-
-### 3.3 合法状态转换
-
-状态转换只允许以下路径，其余均返回 `STATE_CONFLICT`：
-
-**Intent：**
-
-- `active` → `suspend`（挂起）
-- `active` → `done`（完成）
-- `suspend` → `active`（恢复，触发补挂 active decision）
-
-`done` 是终态，不可回退。如需重新推进同一问题，应创建新 intent。
-
-**Snap：**
-
-- `active` → `reverted`（回退）
-
-`reverted` 是终态，不可回退。
-
-**Decision：**
-
-- `active` → `deprecated`（废弃）
-
-`deprecated` 是终态，不可回退。如需恢复同一决策，应创建新 decision 并说明原因。
+终态（`done`、`reverted`、`deprecated`）不可回退。如需恢复同一问题或重新启用同一决策，应创建新对象。
 
 ## 4. 存储结构
 

@@ -146,41 +146,28 @@ All attachment relationships must be persisted bidirectionally.
 
 ## 3. State Model
 
-Intent CLI no longer maintains a single workspace active intent state, but manages object collections.
+```mermaid
+stateDiagram-v2
+  state "Intent" as I {
+    [*] --> active
+    active --> suspend: pause
+    suspend --> active: resume
+    active --> done: complete
+    done --> [*]
+  }
+  state "Snap" as S {
+    [*] --> active2: create
+    active2 --> reverted: revert
+    reverted --> [*]
+  }
+  state "Decision" as D {
+    [*] --> active3: create
+    active3 --> deprecated: deprecate
+    deprecated --> [*]
+  }
+```
 
-### 3.1 Common State Names
-
-- `active`: Object is currently valid
-
-### 3.2 Type-Specific States
-
-- intent: `suspend`, `done`
-- snap: `reverted`
-- decision: `deprecated`
-
-### 3.3 Valid State Transitions
-
-Only the following transitions are allowed; all others return `STATE_CONFLICT`:
-
-**Intent:**
-
-- `active` → `suspend` (pause)
-- `active` → `done` (complete)
-- `suspend` → `active` (resume, triggers catch-up of active decisions)
-
-`done` is terminal and cannot be reversed. To resume the same problem, create a new intent.
-
-**Snap:**
-
-- `active` → `reverted` (revert)
-
-`reverted` is terminal and cannot be reversed.
-
-**Decision:**
-
-- `active` → `deprecated` (retire)
-
-`deprecated` is terminal and cannot be reversed. To reinstate the same decision, create a new decision with rationale.
+Terminal states (`done`, `reverted`, `deprecated`) cannot be reversed. To resume the same problem or reinstate the same decision, create a new object.
 
 ## 4. Storage Structure
 

@@ -161,23 +161,27 @@ Intent's boundary is clear:
 
 ## 6. Why this is more urgent in the agent era
 
-In traditional development, much high-level semantics — though not formally modeled — at least lived in the programmer's head, or scattered across daily collaboration artifacts.
+```mermaid
+sequenceDiagram
+  participant H as Human
+  participant A as Agent A
+  participant I as Intent
+  participant B as Agent B
 
-In the agent era, things have changed:
+  H->>A: "fix the login timeout"
+  A->>I: intent create + snap (summary)
+  A-->>H: done for today
 
-- Much of the implementation is handled by agents
-- People are more like reviewers, coordinators, directors
-- User queries, corrections, feedback, and reverts with agents are themselves becoming part of the development process
-- Sessions are more easily interrupted, and semantic continuity is more easily lost
+  Note over A,B: session ends, context lost
 
-This means the system can't only record "how code changed" — it must also record "why we're continuing along this path."
+  H->>B: "continue where we left off"
+  B->>I: itt inspect
+  I-->>B: active intents, decisions, latest snap
+  B->>B: reads summary → knows what's done, what's not
+  B->>I: snap (continues work)
+```
 
-For agents, this capability is especially important because they need:
-
-- Stable object boundaries
-- Clear states
-- Queryable context
-- Reusable long-term decisions
+In traditional development, semantics lived in the programmer's head. In the agent era, sessions are interrupted, agents are swapped, and context is lost between turns. Intent makes this handoff structural — not verbal.
 
 ## 7. Judging whether this works
 
