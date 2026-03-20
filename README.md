@@ -54,24 +54,17 @@ In traditional development, Git is enough to bridge human intent and code histor
 Objects link automatically: creating an intent attaches all active decisions; creating a decision attaches all active intents. Relationships are always bidirectional and append-only.
 
 ```mermaid
-flowchart LR
-  subgraph Scope["Decision scope — all intents inherit active decisions"]
-    D1["🔶 Timeout configurable"]
-    D2["🔶 APIs use envelope"]
-
+flowchart TB
+  subgraph Decision["🔶 Decision — long-lived constraint"]
     subgraph IntentA["🎯 Intent A — Fix login timeout"]
-      S1["Snap 1"] --> S2["Snap 2"] --> S3["..."]
+      direction LR
+      S1["Snap 1\nquery → summary"] -->|next| S2["Snap 2\nquery → summary"] -->|next| S3["Snap 3\nquery → summary"]
     end
-
     subgraph IntentB["🎯 Intent B — Migrate auth to JWT"]
-      S4["Snap 1"] --> S5["Snap 2"] --> S6["..."]
+      direction LR
+      S4["Snap 1\nquery → summary"] -->|next| S5["Snap 2\nquery → summary"] -->|next| S6["..."]
     end
   end
-
-  D1 -- auto-attach --> IntentA
-  D2 -- auto-attach --> IntentA
-  D1 -- auto-attach --> IntentB
-  D2 -- auto-attach --> IntentB
 ```
 
 ### How decisions are created
