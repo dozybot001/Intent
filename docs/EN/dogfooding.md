@@ -1,3 +1,5 @@
+[中文](../CN/dogfooding.md) | English
+
 # Dogfooding: Cross-Agent Collaboration in Practice
 
 This document records a real cross-agent, cross-session collaboration using Intent + IntHub. It is distilled from the snap chain in `.intent/` (snap-050 through snap-061), rather than invented after the fact.

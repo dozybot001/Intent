@@ -1,3 +1,5 @@
+中文 | [English](../EN/dogfooding.md)
+
 # Dogfooding: 跨 Agent 协作实录
 
 本文记录了 Intent + IntHub 在真实开发中的一次跨 agent、跨 session 协作过程。内容基于 `.intent/` 中的 snap 链（snap-050 至 snap-061）整理而成，不是事后虚构的案例。
