@@ -55,18 +55,22 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  D1["🔶 超时必须可配置"]
-  D2["🔶 API 使用 envelope 格式"]
-  D1 ~~~ D2
+  subgraph Scope["Decision 作用域 — 所有 Intent 继承 active Decision"]
+    subgraph Decisions[" "]
+      direction TB
+      D1["🔶 超时必须可配置"]
+      D2["🔶 API 使用 envelope 格式"]
+    end
 
-  subgraph IntentA["🎯 Intent A — 修复登录超时"]
-    direction LR
-    S1["Snap 1"] --> S2["Snap 2"] --> S3["Snap 3"]
-  end
+    subgraph IntentA["🎯 Intent A — 修复登录超时"]
+      direction LR
+      S1["Snap 1"] --> S2["Snap 2"] --> S3["..."]
+    end
 
-  subgraph IntentB["🎯 Intent B — 迁移认证到 JWT"]
-    direction LR
-    S4["Snap 1"] --> S5["Snap 2"] --> S6["..."]
+    subgraph IntentB["🎯 Intent B — 迁移认证到 JWT"]
+      direction LR
+      S4["Snap 1"] --> S5["Snap 2"] --> S6["..."]
+    end
   end
 
   D1 -- auto-attach --> IntentA
