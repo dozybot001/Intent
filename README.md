@@ -82,10 +82,10 @@ Requires Python 3.9+ and Git. The CLI provides the commands; the skill teaches t
 
 ```mermaid
 flowchart TB
-  Hub["☁️ IntHub — Collaboration Layer"]
-  Intent["📐 Intent — Semantic History Layer"]
-  Git["🔀 Git — Code History Layer"]
-  Hub <--> Intent <--> Git
+  Hub["☁️ IntHub"] <--> Intent["📐 Intent"]
+  GH["🐙 GitHub"] <--> Git["🔀 Git"]
+  Intent <--> Git
+  Hub ~~~ GH
 ```
 
 IntHub is the remote collaboration layer on top of Intent. The first path is **IntHub Local** — download from a [GitHub release](https://github.com/dozybot001/Intent/releases), then:
