@@ -123,6 +123,14 @@ Intent 要解决的不是“记录更多信息”，而是：
 
 Intent 不替代 Git。它补的是 Git 天然没有被设计去承载的那层历史。
 
+```mermaid
+flowchart TB
+  Hub["☁️ IntHub — 协作层"]
+  Intent["📐 Intent — 语义历史层"]
+  Git["🔀 Git — 代码历史层"]
+  Hub <--> Intent <--> Git
+```
+
 | 层 | 负责什么 | 典型内容 |
 | --- | --- | --- |
 | Git | code history | commit、branch、diff |
