@@ -27,7 +27,7 @@ flowchart LR
     H2["人"]
     AG["Agent"]
     C2["代码"]
-    H2 -->|"Intent"| AG
+    H2 -->|"缺失语义历史追踪（Intent）"| AG
     AG -->|"Git"| C2
   end
   traditional ~~~ agent
