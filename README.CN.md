@@ -54,17 +54,23 @@ flowchart LR
 对象自动关联：创建 intent 时挂载所有 active decision；创建 decision 时挂载所有 active intent。关系始终双向且只增不减。
 
 ```mermaid
-flowchart TB
-  subgraph Decision["🔶 Decision — 长期约束"]
-    subgraph IntentA["🎯 Intent A — 修复登录超时"]
-      direction LR
-      S1["Snap 1\nquery → summary"] -->|next| S2["Snap 2\nquery → summary"] -->|next| S3["Snap 3\nquery → summary"]
-    end
-    subgraph IntentB["🎯 Intent B — 迁移认证到 JWT"]
-      direction LR
-      S4["Snap 1\nquery → summary"] -->|next| S5["Snap 2\nquery → summary"] -->|next| S6["..."]
-    end
+flowchart LR
+  D1["🔶 超时必须可配置"]
+  D2["🔶 API 使用 envelope 格式"]
+  D1 ~~~ D2
+
+  subgraph IntentA["🎯 Intent A — 修复登录超时"]
+    direction LR
+    S1["Snap 1"] --> S2["Snap 2"] --> S3["Snap 3"]
   end
+
+  subgraph IntentB["🎯 Intent B — 迁移认证到 JWT"]
+    direction LR
+    S4["Snap 1"] --> S5["Snap 2"] --> S6["..."]
+  end
+
+  D1 -- auto-attach --> IntentA
+  D1 -- auto-attach --> IntentB
 ```
 
 ### Decision 如何创建
