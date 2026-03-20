@@ -22,15 +22,23 @@ flowchart LR
     C1["Code"]
     H1 -->|"Git"| C1
   end
-  subgraph agent["Agent-Driven"]
+  subgraph agent["Agent Era"]
     direction TB
     H2["Human"]
     AG["Agent"]
     C2["Code"]
-    H2 -->|"Intent"| AG
+    H2 -."❌ no history".-> AG
     AG -->|"Git"| C2
   end
-  traditional ~~~ agent
+  subgraph withintent["With Intent"]
+    direction TB
+    H3["Human"]
+    AG2["Agent"]
+    C3["Code"]
+    H3 -->|"Intent"| AG2
+    AG2 -->|"Git"| C3
+  end
+  traditional ~~~ agent ~~~ withintent
 ```
 
 In traditional development, Git is enough to bridge human intent and code history. In agent-driven development, Git still records code changes, but the human–agent semantic layer has no durable history. Intent fills this gap — it is the recorded bridge between Human and Agent, just as Git is the recorded bridge between Agent and Code.
