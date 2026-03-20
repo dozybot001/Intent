@@ -55,9 +55,7 @@ Objects link automatically: creating an intent attaches all active decisions; cr
 
 ```mermaid
 flowchart LR
-  D1["🔶 Timeout configurable"]
-  D2["🔶 APIs use envelope"]
-  D1 ~~~ D2
+  D1["🔶 Decision"]
 
   subgraph IntentA["🎯 Intent A — Fix login timeout"]
     direction LR

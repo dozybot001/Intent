@@ -55,9 +55,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  D1["🔶 超时必须可配置"]
-  D2["🔶 API 使用 envelope 格式"]
-  D1 ~~~ D2
+  D1["🔶 Decision"]
 
   subgraph IntentA["🎯 Intent A — 修复登录超时"]
     direction LR
