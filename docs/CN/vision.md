@@ -159,6 +159,21 @@ Intent 的边界很明确：
 
 **只记录那些值得被正式追踪、衔接、修正、回退和复用的语义节点。**
 
+## 工作流
+
+```mermaid
+flowchart LR
+  S1["1. Inspect"] --> S2["2. Recognize"] --> S3["3. Record"] --> S4["4. Crystallize"] --> S5["5. Sync"]
+```
+
+| 步骤 | 做什么 |
+|---|---|
+| **Inspect** | Agent 运行 `itt inspect` — 完整上下文恢复 |
+| **Recognize** | 用户 query 暗示目标 → 创建 Intent |
+| **Record** | 每次交互记录为 Snap |
+| **Crystallize** | 长期约束沉淀为 Decision |
+| **Sync** | 通过 `itt hub sync` 推送到 IntHub |
+
 ## 6. 为什么这在 agent 时代更迫切
 
 在传统开发里，很多高层语义虽然没有被正式建模，但至少还在程序员脑中，或者散落在日常协作材料里。
