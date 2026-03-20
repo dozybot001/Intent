@@ -14,13 +14,13 @@ Intent 补上这层缺失的 **语义历史** — 一组能穿越上下文丢失
 
 ```mermaid
 flowchart LR
-  subgraph traditional["传统"]
+  subgraph traditional["古法编程"]
     direction TB
     H1["人"]
     C1["代码"]
     H1 -->|"Git"| C1
   end
-  subgraph agent["Agent 时代"]
+  subgraph agent["Agent 驱动开发"]
     direction TB
     H2["人"]
     AG["Agent"]
