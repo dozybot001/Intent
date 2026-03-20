@@ -56,25 +56,22 @@ Objects link automatically: creating an intent attaches all active decisions; cr
 ```mermaid
 flowchart LR
   subgraph Scope["Decision scope — all intents inherit active decisions"]
-    subgraph Decisions[" "]
-      direction TB
-      D1["🔶 Timeout configurable"]
-      D2["🔶 APIs use envelope"]
-    end
+    D1["🔶 Timeout configurable"]
+    D2["🔶 APIs use envelope"]
 
     subgraph IntentA["🎯 Intent A — Fix login timeout"]
-      direction LR
       S1["Snap 1"] --> S2["Snap 2"] --> S3["..."]
     end
 
     subgraph IntentB["🎯 Intent B — Migrate auth to JWT"]
-      direction LR
       S4["Snap 1"] --> S5["Snap 2"] --> S6["..."]
     end
   end
 
   D1 -- auto-attach --> IntentA
+  D2 -- auto-attach --> IntentA
   D1 -- auto-attach --> IntentB
+  D2 -- auto-attach --> IntentB
 ```
 
 ### How decisions are created
