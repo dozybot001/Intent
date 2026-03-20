@@ -56,6 +56,8 @@ flowchart LR
 ```mermaid
 flowchart LR
   D1["🔶 Decision"]
+  D2["🔶 Decision"]
+  D1 ~~~ D2
 
   subgraph IntentA["🎯 Intent A — 修复登录超时"]
     direction LR
