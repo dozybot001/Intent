@@ -18,6 +18,21 @@ Design principles:
 - Creating an `intent` auto-attaches all `active` decisions
 - Multiple intents can be active simultaneously
 
+## Workflow
+
+```mermaid
+flowchart LR
+  S1["1. Inspect"] --> S2["2. Recognize"] --> S3["3. Record"] --> S4["4. Crystallize"] --> S5["5. Sync"]
+```
+
+| Step | What happens |
+|---|---|
+| **Inspect** | Agent runs `itt inspect` — full context recovery |
+| **Recognize** | User query implies a goal → create Intent |
+| **Record** | Each interaction becomes a Snap under the active Intent |
+| **Crystallize** | Long-lived constraints become Decisions |
+| **Sync** | Push to IntHub via `itt hub sync` |
+
 ## 1. Object Model
 
 ```mermaid

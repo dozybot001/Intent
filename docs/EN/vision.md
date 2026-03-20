@@ -159,21 +159,6 @@ Intent's boundary is clear:
 
 **Only record the semantic nodes worth formally tracking, linking, correcting, reverting, and reusing.**
 
-## The workflow
-
-```mermaid
-flowchart LR
-  S1["1. Inspect"] --> S2["2. Recognize"] --> S3["3. Record"] --> S4["4. Crystallize"] --> S5["5. Sync"]
-```
-
-| Step | What happens |
-|---|---|
-| **Inspect** | Agent runs `itt inspect` — full context recovery |
-| **Recognize** | User query implies a goal → create Intent |
-| **Record** | Each interaction becomes a Snap under the active Intent |
-| **Crystallize** | Long-lived constraints become Decisions |
-| **Sync** | Push to IntHub via `itt hub sync` |
-
 ## 6. Why this is more urgent in the agent era
 
 In traditional development, much high-level semantics — though not formally modeled — at least lived in the programmer's head, or scattered across daily collaboration artifacts.
