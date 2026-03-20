@@ -55,19 +55,17 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  subgraph Graph["三个对象，一张图"]
-    D1["🔶 Decision 1"]
-    D2["🔶 Decision 2"]
+  D1["🔶 Decision 1"]
+  D2["🔶 Decision 2"]
 
-    subgraph Intent1["🎯 Intent 1"]
-      direction LR
-      S1["Snap 1"] --> S2["Snap 2"] --> S3["..."]
-    end
+  subgraph Intent1["🎯 Intent 1"]
+    direction LR
+    S1["Snap 1"] --> S2["Snap 2"] --> S3["..."]
+  end
 
-    subgraph Intent2["🎯 Intent 2"]
-      direction LR
-      S4["Snap 1"] --> S5["Snap 2"] --> S6["..."]
-    end
+  subgraph Intent2["🎯 Intent 2"]
+    direction LR
+    S4["Snap 1"] --> S5["Snap 2"] --> S6["..."]
   end
 
   D1 -- auto-attach --> Intent1
