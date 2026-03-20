@@ -82,10 +82,10 @@ npx skills add dozybot001/Intent -g  # Agent skill
 
 ```mermaid
 flowchart TB
-  Hub["☁️ IntHub"] <--> Intent["📐 Intent"]
-  GH["🐙 GitHub"] <--> Git["🔀 Git"]
+  Hub["☁️ IntHub"] ~~~ GH["🐙 GitHub"]
+  Hub <--> Intent["📐 Intent"]
+  GH <--> Git["🔀 Git"]
   Intent <--> Git
-  Hub ~~~ GH
 ```
 
 IntHub 是构建在 Intent 之上的远端协作层。首个路径是 **IntHub Local** — 从 [GitHub release](https://github.com/dozybot001/Intent/releases) 下载，然后：

@@ -125,10 +125,10 @@ Intent does not replace Git. It fills the layer of history that Git was never de
 
 ```mermaid
 flowchart TB
-  Hub["☁️ IntHub"] <--> Intent["📐 Intent"]
-  GH["🐙 GitHub"] <--> Git["🔀 Git"]
+  Hub["☁️ IntHub"] ~~~ GH["🐙 GitHub"]
+  Hub <--> Intent["📐 Intent"]
+  GH <--> Git["🔀 Git"]
   Intent <--> Git
-  Hub ~~~ GH
 ```
 
 | Layer | Responsible for | Typical content |
