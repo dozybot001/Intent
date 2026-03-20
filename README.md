@@ -55,17 +55,19 @@ Objects link automatically: creating an intent attaches all active decisions; cr
 
 ```mermaid
 flowchart LR
-  D1["🔶 Decision 1"]
-  D2["🔶 Decision 2"]
+  subgraph Graph["Three objects, one graph"]
+    D1["🔶 Decision 1"]
+    D2["🔶 Decision 2"]
 
-  subgraph Intent1["🎯 Intent 1"]
-    direction LR
-    S1["Snap 1"] --> S2["Snap 2"] --> S3["..."]
-  end
+    subgraph Intent1["🎯 Intent 1"]
+      direction LR
+      S1["Snap 1"] --> S2["Snap 2"] --> S3["..."]
+    end
 
-  subgraph Intent2["🎯 Intent 2"]
-    direction LR
-    S4["Snap 1"] --> S5["Snap 2"] --> S6["..."]
+    subgraph Intent2["🎯 Intent 2"]
+      direction LR
+      S4["Snap 1"] --> S5["Snap 2"] --> S6["..."]
+    end
   end
 
   D1 -- auto-attach --> Intent1
