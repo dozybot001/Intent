@@ -15,37 +15,21 @@ Intent adds that missing layer: **semantic history**. Not more docs or better co
 > The shift is simple: development is moving from *writing code* to *guiding agents and distilling decisions*. The history layer should reflect that.
 
 ```mermaid
-flowchart TB
-  subgraph compare[" "]
-    direction LR
-
-    subgraph traditional["Traditional"]
-      direction TB
-      th["Human"]
-      tc["Code"]
-      th -->|"Git"| tc
-    end
-
-    subgraph agent["Agent era"]
-      direction TB
-      ah["Human"]
-      aa["Agent"]
-      ac["Code"]
-      ah -. "❌ no history" .-> aa
-      aa -->|"Git"| ac
-    end
-
-    subgraph intent["With Intent"]
-      direction TB
-      ih["Human"]
-      ia["Agent"]
-      ic["Code"]
-      ih -->|"Intent"| ia
-      ia -->|"Git"| ic
-    end
+flowchart LR
+  subgraph traditional["Traditional"]
+    direction TB
+    th["Human"] -->|"Git"| tc["Code"]
   end
 
-  style compare fill:transparent,stroke:transparent
+  subgraph agent["Agent era"]
+    direction TB
+    ah["Human"] -. "❌ no history" .-> aa["Agent"] -->|"Git"| ac["Code"]
+  end
+
+  subgraph intent["With Intent"]
+    direction TB
+    ih["Human"] -->|"Intent"| ia["Agent"] -->|"Git"| ic["Code"]
+  end
 ```
 
 In traditional development, Git is enough to bridge human intent and code history. In agent-driven development, Git still records code changes, but the human–agent semantic layer has no durable history. Intent fills this gap — it is the recorded bridge between Human and Agent, just as Git is the recorded bridge between Agent and Code.
