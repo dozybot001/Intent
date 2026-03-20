@@ -27,7 +27,7 @@ flowchart LR
     H2["人"]
     AG["Agent"]
     C2["代码"]
-    H2 -."❌ 无历史".-> AG
+    H2 -."❌ 无语义历史".-> AG
     AG -->|"Git"| C2
   end
   subgraph withintent["有 Intent"]
