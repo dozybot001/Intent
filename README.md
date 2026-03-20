@@ -95,7 +95,7 @@ Open `http://127.0.0.1:7210` in the browser.
 - [Vision](docs/EN/vision.md) — why semantic history matters
 - [CLI Design](docs/EN/cli.md) — object model, commands, JSON contract
 - [Roadmap](docs/EN/roadmap.md) — phase plan
-- [Dogfooding](docs/EN/dogfooding.md) — cross-agent case study
+- Dogfooding — cross-agent case study ([EN](docs/EN/dogfooding.md) | [中文](docs/CN/dogfooding.md))
 - [IntHub Local](docs/EN/inthub-local.md) — run a local IntHub instance
 
 ## License

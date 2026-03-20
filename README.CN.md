@@ -95,7 +95,7 @@ itt hub sync
 - [愿景](docs/CN/vision.md) — 为什么需要语义历史
 - [CLI 设计文档](docs/CN/cli.md) — 对象模型、命令、JSON 契约
 - [路线图](docs/CN/roadmap.md) — 阶段规划
-- [Dogfooding 实录](docs/CN/dogfooding.md) — 跨 agent 协作案例
+- Dogfooding 实录 — 跨 agent 协作案例 ([中文](docs/CN/dogfooding.md) | [EN](docs/EN/dogfooding.md))
 - [IntHub Local](docs/CN/inthub-local.md) — 运行本地 IntHub 实例
 
 ## 许可证

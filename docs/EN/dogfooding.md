@@ -18,7 +18,7 @@ At this point IntHub was live at `http://127.0.0.1:3000`, displaying the project
 
 ### Phase 2: Claude Code rewrites the frontend (snap-053 → 059)
 
-After viewing IntHub in the browser, the user found display issues. Claude Code made a quick-fix pass (snap-053), but the user's feedback was clear:
+After viewing IntHub in the browser, the user found display issues. It‘s heard that Claude Code is good at frontend development, then switched to it. Claude Code made a quick-fix pass (snap-053), but the user's feedback was clear:
 
 > "I've decided to tear down the entire frontend and start over. The patches are no longer needed."
 
@@ -69,14 +69,3 @@ It then diffed the two files, confirmed the quality of Codex's work, and synced 
 **Decisions are live constraints, not memos.** Throughout the process, 5 active decisions continuously constrained implementation choices (e.g., `.intent/` stays out of Git, Hub isn't distributed via PyPI). These constraints aren't "remembered" by agents — they're structurally loaded from `itt inspect` every session and checked before implementation.
 
 **Mistakes are structurally captured.** Codex edited the wrong file. Claude Code caught it via diff. Without Intent, this error might not surface until the next `npx skills add` — because the local skill looked correct, but the repository source wasn't updated. snap-060's feedback permanently records this mistake and why it happened, making it easier for future agents to see and avoid the same class of error.
-
-## Data source
-
-Everything above can be reproduced with:
-
-```bash
-itt inspect
-itt snap show snap-050   # through snap-061
-```
-
-Or in the IntHub Web interface: open intent-013's detail → Snap Timeline → expand older snaps.

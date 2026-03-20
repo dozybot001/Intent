@@ -18,7 +18,7 @@ Codex 负责前期工作：推送 README 中的 skill 安装说明，说明 IntH
 
 ### 第二阶段：Claude Code 重写前端（snap-053 → 059）
 
-用户在浏览器中查看 IntHub 后，发现前端有显示问题。Claude Code 先做了一轮快速修复（snap-053），但用户给出反馈：
+用户在浏览器中查看 IntHub 后，发现前端有显示问题。听说 Claude Code 在前端开发方面很擅长，于是切换到了 Claude Code。Claude Code 先做了一轮快速修复（snap-053），但用户给出反馈：
 
 > "决定推翻当前前端，完全重来。之前的修补不再需要。"
 
@@ -69,14 +69,3 @@ Claude Code 在 snap-060 上记录了 feedback：
 **Decision 是活的约束，不是备忘录。** 整个过程中 5 条 active decisions 持续约束着实现选择（比如 `.intent/` 不进 Git、Hub 不放进 PyPI 分发）。这些约束不是 agent "记住"的——每次 `itt inspect` 都会重新加载，并在实现前检查。
 
 **错误被结构化捕获。** Codex 改错了文件位置，Claude Code 通过 diff 发现了问题。如果没有 Intent，这个错误可能在下次 `npx skills add` 时才会暴露——因为本机 skill 看起来是对的，但仓库源文件没有更新。snap-060 的 feedback 永久记录了这个失误和原因，未来 agent 更容易看到并避免重复这类错误。
-
-## 数据来源
-
-以上所有内容可通过以下命令复现：
-
-```bash
-itt inspect
-itt snap show snap-050   # 到 snap-061
-```
-
-或在 IntHub Web 界面中查看：打开 intent-013 的 detail → Snap Timeline → 展开 older snaps。
