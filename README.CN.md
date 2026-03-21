@@ -74,10 +74,11 @@ flowchart LR
 ```bash
 git clone https://github.com/dozybot001/Intent.git
 cd Intent
-pip install . && npx skills add dozybot001/Intent -g
+pipx install .
+npx skills add dozybot001/Intent -g
 ```
 
-从源码安装 CLI 并添加 agent skill。需要 Python 3.9+、Git 和 Node.js。
+从源码安装 CLI 并添加 agent skill。需要 Python 3.9+、Git、Node.js 和 [pipx](https://pipx.pypa.io/)。
 
 想在浏览器中查看语义历史，在 clone 的仓库目录下启动 **IntHub Local**：
 
