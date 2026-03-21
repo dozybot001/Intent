@@ -241,6 +241,18 @@ input {
   margin-top: 10px;
 }
 
+.card-muted {
+  opacity: 0.5;
+}
+
+.card-deprecated {
+  opacity: 0.5;
+}
+
+.card-deprecated .card-title {
+  text-decoration: line-through;
+}
+
 .card:hover {
   transform: translateY(-1px);
   border-color: rgba(112, 63, 24, 0.25);
@@ -548,8 +560,16 @@ input {
   background: rgba(255, 243, 226, 0.98);
 }
 
-.relation-item.muted {
-  opacity: 0.6;
+.relation-item.rel-muted {
+  opacity: 0.5;
+}
+
+.relation-item.rel-deprecated {
+  opacity: 0.5;
+}
+
+.relation-item.rel-deprecated .relation-title {
+  text-decoration: line-through;
 }
 
 .relation-id {

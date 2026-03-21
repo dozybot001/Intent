@@ -181,8 +181,8 @@ function linkButton(type, rId, label, meta) {
 }
 
 function relationItem(type, rId, id, title, meta, status) {
-  const statusClass = status === "deprecated" || status === "done" ? " muted" : "";
-  return `<button type="button" class="relation-item${statusClass}" data-detail-type="${esc(type)}" data-remote-id="${esc(rId)}">
+  const cls = status === "deprecated" ? " rel-deprecated" : status === "done" ? " rel-muted" : "";
+  return `<button type="button" class="relation-item${cls}" data-detail-type="${esc(type)}" data-remote-id="${esc(rId)}">
     <span class="relation-id"><span class="badge">${esc(id)}</span>${status ? `<span class="badge${status === "deprecated" ? " warn" : ""}">${esc(status)}</span>` : ""}</span>
     <span class="relation-title">${esc(title)}</span>
     ${meta ? `<span class="relation-meta">${esc(meta)}</span>` : ""}
@@ -264,8 +264,9 @@ function renderHandoffTab() {
 }
 
 function intentCard(intent) {
+  const cls = intent.status === "done" ? " card-muted" : "";
   return `
-    <article class="card" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
+    <article class="card${cls}" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
       <h4 class="card-title">${esc(intent.title)}</h4>
       <p class="card-body">${esc(intent.source_query || intent.rationale || "")}</p>
       <div class="card-meta">
@@ -312,8 +313,9 @@ function renderIntentsTab() {
 }
 
 function decisionCard(d) {
+  const cls = d.status === "deprecated" ? " card-deprecated" : "";
   return `
-    <article class="card" data-detail-type="decision" data-remote-id="${esc(d.remote_id)}">
+    <article class="card${cls}" data-detail-type="decision" data-remote-id="${esc(d.remote_id)}">
       <h4 class="card-title">${esc(d.title)}</h4>
       <p class="card-body">${d.intent_ids?.length || 0} linked intents</p>
       <div class="card-meta">
