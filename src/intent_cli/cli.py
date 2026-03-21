@@ -17,7 +17,7 @@ from intent_cli.commands.core import (
     cmd_snap_feedback,
     cmd_version,
 )
-from intent_cli.commands.hub import cmd_hub_link, cmd_hub_sync
+from intent_cli.commands.hub import cmd_hub_link, cmd_hub_start, cmd_hub_sync
 
 
 def main():
@@ -33,6 +33,10 @@ def main():
     # --- hub ---
     p_hub = sub.add_parser("hub")
     s_hub = p_hub.add_subparsers(dest="sub")
+
+    p = s_hub.add_parser("start")
+    p.add_argument("--port", type=int, default=None)
+    p.add_argument("--no-open", action="store_true")
 
     p = s_hub.add_parser("link")
     p.add_argument("--project-name", default=None)
@@ -118,6 +122,7 @@ def main():
         sys.exit(1)
 
     dispatch = {
+        ("hub", "start"):              cmd_hub_start,
         ("hub", "link"):               cmd_hub_link,
         ("hub", "sync"):               cmd_hub_sync,
         ("intent", "create"):          cmd_intent_create,

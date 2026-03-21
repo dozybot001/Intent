@@ -8,7 +8,7 @@ IntHub Local 是 IntHub 的首个可分发形态。
 
 它会在你的机器上运行一个本地 IntHub 实例，同时服务 API 和 Web UI，让你可以在浏览器里查看自己仓库中的语义历史。
 
-预构建的 `bin/inthub-local.pyz` 直接随仓库提供。
+在 clone 的 Intent 仓库目录下运行 `itt hub start` 即可启动。
 
 ## 依赖前提
 
@@ -18,8 +18,10 @@ IntHub Local 是 IntHub 的首个可分发形态。
 
 ## 启动 IntHub Local
 
+在 clone 的 Intent 仓库目录下：
+
 ```bash
-python3 bin/inthub-local.pyz
+itt hub start
 ```
 
 默认行为：
@@ -44,9 +46,8 @@ itt hub sync
 ## 常用参数
 
 ```bash
-python3 bin/inthub-local.pyz --no-open
-python3 bin/inthub-local.pyz --port 7211
-python3 bin/inthub-local.pyz --db-path /path/to/inthub.db
+itt hub start --no-open
+itt hub start --port 7211
 ```
 
 如果你改了端口，记得在 `itt hub link --api-base-url ...` 里使用同一个地址。

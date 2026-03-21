@@ -1,5 +1,8 @@
 """Hub command handlers for the Intent CLI."""
 
+import sys
+from pathlib import Path
+
 from intent_cli.commands.common import require_init
 from intent_cli.hub.client import http_json
 from intent_cli.hub.payload import build_sync_payload, current_github_repo
@@ -11,6 +14,30 @@ from intent_cli.hub.runtime import (
 )
 from intent_cli.output import error, success
 from intent_cli.store import make_runtime_id, write_hub_config
+
+
+def cmd_hub_start(args):
+    launcher = Path.cwd() / "apps" / "inthub_local" / "launcher.py"
+    if not launcher.exists():
+        error(
+            "HUB_NOT_CONFIGURED",
+            "IntHub Local source not found in current directory.",
+            suggested_fix="cd into the cloned Intent repo, then run: itt hub start",
+        )
+
+    # Add repo root to sys.path so `apps.*` imports resolve
+    repo_root = str(Path.cwd())
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+
+    from apps.inthub_local.launcher import main as launch_main
+
+    argv = []
+    if getattr(args, "port", None) is not None:
+        argv += ["--port", str(args.port)]
+    if getattr(args, "no_open", False):
+        argv += ["--no-open"]
+    launch_main(argv or None)
 
 
 def cmd_hub_link(args):

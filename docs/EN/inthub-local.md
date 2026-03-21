@@ -8,7 +8,7 @@ IntHub Local is the first distributable IntHub form.
 
 It runs a local IntHub instance on your machine, serves both the API and the Web UI, and lets you inspect the semantic history from your own repositories in a browser.
 
-The pre-built `bin/inthub-local.pyz` is shipped directly in the repository.
+Run `itt hub start` from the cloned Intent repo to launch it.
 
 ## Requirements
 
@@ -18,8 +18,10 @@ The pre-built `bin/inthub-local.pyz` is shipped directly in the repository.
 
 ## Start IntHub Local
 
+From the cloned Intent repo directory:
+
 ```bash
-python3 bin/inthub-local.pyz
+itt hub start
 ```
 
 By default, IntHub Local:
@@ -44,9 +46,8 @@ If you record more Intent data later, run `itt hub sync` again to refresh the lo
 ## Useful options
 
 ```bash
-python3 bin/inthub-local.pyz --no-open
-python3 bin/inthub-local.pyz --port 7211
-python3 bin/inthub-local.pyz --db-path /path/to/inthub.db
+itt hub start --no-open
+itt hub start --port 7211
 ```
 
 If you change the port, use the same URL in `itt hub link --api-base-url ...`.

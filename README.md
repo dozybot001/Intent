@@ -79,10 +79,10 @@ pip install intent-cli-python && npx skills add dozybot001/Intent -g
 
 This installs the CLI and adds the agent skill. Requires Python 3.9+, Git, and Node.js.
 
-To browse semantic history in a browser, start **IntHub Local**:
+To browse semantic history in a browser, start **IntHub Local** from the cloned repo:
 
 ```bash
-python3 bin/inthub-local.pyz
+itt hub start
 ```
 
 Then, in your own project repo:
