@@ -97,8 +97,11 @@ def project_overview(db_path, project_id):
         intents = snapshot.get("intents", [])
         snaps = snapshot.get("snaps", [])
         decisions = snapshot.get("decisions", [])
+        snap_map = {s["id"]: s for s in snaps}
 
         for intent in intents:
+            latest_snap_id = intent.get("snap_ids", [])[-1] if intent.get("snap_ids") else None
+            latest_snap = snap_map.get(latest_snap_id) if latest_snap_id else None
             entry = {
                 "remote_id": make_remote_object_id(workspace_id, intent["id"]),
                 "workspace_id": workspace_id,
@@ -106,7 +109,8 @@ def project_overview(db_path, project_id):
                 "title": intent["title"],
                 "status": intent["status"],
                 "decision_ids": intent.get("decision_ids", []),
-                "latest_snap_id": intent.get("snap_ids", [None])[-1] if intent.get("snap_ids") else None,
+                "latest_snap_id": latest_snap_id,
+                "origin": latest_snap.get("origin", "") if latest_snap else "",
                 "branch": git.get("branch"),
                 "head_commit": git.get("head_commit"),
                 "dirty": git.get("dirty"),

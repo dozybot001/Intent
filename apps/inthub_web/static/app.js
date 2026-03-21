@@ -271,6 +271,7 @@ function intentCard(intent) {
       <div class="card-meta">
         <span class="badge">${esc(intent.id)}</span>
         <span class="badge">${esc(intent.status)}</span>
+        ${intent.origin ? `<span class="badge">${esc(intent.origin)}</span>` : ""}
       </div>
     </article>`;
 }
