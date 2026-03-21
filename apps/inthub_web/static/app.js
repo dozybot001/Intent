@@ -28,6 +28,10 @@ const el = {
   intentCount: document.getElementById("intent-count"),
   decisionCount: document.getElementById("decision-count"),
   snapCount: document.getElementById("snap-count"),
+  drawer: document.getElementById("drawer"),
+  drawerOverlay: document.getElementById("drawer-overlay"),
+  drawerClose: document.getElementById("drawer-close"),
+  drawerContent: document.getElementById("drawer-content"),
 };
 
 /* ---- Helpers ---- */
@@ -481,6 +485,30 @@ function renderProjectSummary() {
     <div class="empty-state">Select an object from the left panel to inspect.</div>`;
 }
 
+function openDrawer() {
+  el.drawer.classList.add("open");
+  el.drawerOverlay.classList.add("open");
+}
+
+function closeDrawer() {
+  el.drawer.classList.remove("open");
+  el.drawerOverlay.classList.remove("open");
+  el.drawerContent.innerHTML = "";
+}
+
+async function openInDrawer(type, rId) {
+  el.drawerContent.innerHTML = '<div class="empty-state loading">Loading\u2026</div>';
+  openDrawer();
+
+  const pathMap = { intent: "intents", decision: "decisions", snap: "snaps" };
+  const payload = await fetchJson(apiUrl(`/api/v1/${pathMap[type]}/${rId}`));
+
+  const target = el.drawerContent;
+  if (type === "intent") renderIntentDetailTo(target, payload);
+  else if (type === "decision") renderDecisionDetailTo(target, payload);
+  else renderSnapDetailTo(target, payload);
+}
+
 async function openDetail(type, rId) {
   state.selectedDetail = { type, remoteId: rId };
   el.shell.classList.add("detail-open");
@@ -514,7 +542,7 @@ function activeDecisionIds() {
   return ids;
 }
 
-function renderIntentDetail(payload) {
+function buildIntentDetailHtml(payload) {
   const intent = payload.intent;
   const latestSnap = payload.snaps[payload.snaps.length - 1];
   const activeIds = activeDecisionIds();
@@ -580,7 +608,7 @@ function renderIntentDetail(payload) {
        ${olderSnapLinks.length ? `<details class="collapse-toggle"><summary>${olderSnaps.length} older snap(s)</summary><div class="relation-list">${olderSnapLinks.join("")}</div></details>` : ""}`
     : '<div class="empty-state">No snaps recorded.</div>';
 
-  el.detailContent.innerHTML = `
+  return `
     <div class="detail-header">
       <span class="detail-id">${esc(intent.id)} \u00b7 Intent</span>
       <h2 class="detail-title">${esc(intent.title)}</h2>
@@ -607,6 +635,14 @@ function renderIntentDetail(payload) {
     ${rawToggle({ intent, snaps: payload.snaps })}`;
 }
 
+function renderIntentDetail(payload) {
+  el.detailContent.innerHTML = buildIntentDetailHtml(payload);
+}
+
+function renderIntentDetailTo(target, payload) {
+  target.innerHTML = buildIntentDetailHtml(payload);
+}
+
 function collapsibleLinks(allLinks, visibleCount, olderLabel) {
   if (!allLinks.length) return "";
   const visible = allLinks.slice(0, visibleCount);
@@ -618,7 +654,7 @@ function collapsibleLinks(allLinks, visibleCount, olderLabel) {
   return html;
 }
 
-function renderDecisionDetail(payload) {
+function buildDecisionDetailHtml(payload) {
   const decision = payload.decision;
   const intentLinks = payload.intents.map((i) =>
     relationItem(
@@ -635,7 +671,7 @@ function renderDecisionDetail(payload) {
     ? collapsibleLinks(intentLinks, 5, "more intent(s)")
     : '<div class="empty-state">No linked intents.</div>';
 
-  el.detailContent.innerHTML = `
+  return `
     <div class="detail-header">
       <span class="detail-id">${esc(decision.id)} \u00b7 Decision</span>
       <h2 class="detail-title">${esc(decision.title)}</h2>
@@ -659,7 +695,15 @@ function renderDecisionDetail(payload) {
     ${rawToggle({ decision, intents: payload.intents })}`;
 }
 
-function renderSnapDetail(payload) {
+function renderDecisionDetail(payload) {
+  el.detailContent.innerHTML = buildDecisionDetailHtml(payload);
+}
+
+function renderDecisionDetailTo(target, payload) {
+  target.innerHTML = buildDecisionDetailHtml(payload);
+}
+
+function buildSnapDetailHtml(payload) {
   const snap = payload.snap;
   const parentLink = payload.intent
     ? `<div class="relation-list">${relationItem(
@@ -672,7 +716,7 @@ function renderSnapDetail(payload) {
       )}</div>`
     : '<div class="empty-state">No linked intent.</div>';
 
-  el.detailContent.innerHTML = `
+  return `
     <div class="detail-header">
       <span class="detail-id">${esc(snap.id)} \u00b7 Snap</span>
       <h2 class="detail-title">${esc(snap.title)}</h2>
@@ -692,11 +736,18 @@ function renderSnapDetail(payload) {
       `<div class="detail-kv">
         ${kvRow("Workspace", payload.workspace_id)}
         ${kvRow("Branch", payload.git.branch || "\u2014")}
-
         ${kvRow("Synced at", fmtDate(payload.synced_at))}
       </div>`,
     )}
     ${rawToggle({ snap, intent: payload.intent })}`;
+}
+
+function renderSnapDetail(payload) {
+  el.detailContent.innerHTML = buildSnapDetailHtml(payload);
+}
+
+function renderSnapDetailTo(target, payload) {
+  target.innerHTML = buildSnapDetailHtml(payload);
 }
 
 /* ---- Setup guide ---- */
@@ -883,12 +934,21 @@ function bindEvents() {
   document.addEventListener("click", async (e) => {
     const card = e.target.closest("[data-detail-type][data-remote-id]");
     if (!card) return;
+    const inDetailPane = card.closest("#detail-content") || card.closest("#drawer-content");
     try {
-      await openDetail(card.dataset.detailType, card.dataset.remoteId);
+      if (inDetailPane) {
+        await openInDrawer(card.dataset.detailType, card.dataset.remoteId);
+      } else {
+        closeDrawer();
+        await openDetail(card.dataset.detailType, card.dataset.remoteId);
+      }
     } catch (err) {
       setStatus(err.message, true);
     }
   });
+
+  el.drawerClose.addEventListener("click", closeDrawer);
+  el.drawerOverlay.addEventListener("click", closeDrawer);
 }
 
 /* ---- Init ---- */
