@@ -73,10 +73,10 @@ flowchart LR
 
 ```bash
 # macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.sh | bash
 
 # Windows (PowerShell)
-irm https://raw.githubusercontent.com/dozybot001/Intent/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.ps1 | iex
 
 # 克隆仓库 & 添加 agent skill
 git clone https://github.com/dozybot001/Intent.git
