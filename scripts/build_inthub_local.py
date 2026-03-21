@@ -17,11 +17,9 @@ WINDOWS_LAUNCHER_NAME = "inthub-local.cmd"
 
 def current_versions(repo_root):
     project_version = (repo_root / "VERSION").read_text(encoding="utf-8").strip()
-    manifest_path = repo_root / "releases" / f"v{project_version}.json"
-    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     return {
         "project_version": project_version,
-        "hub_version": payload["hub"]["version"],
+        "hub_version": project_version,
     }
 
 
