@@ -90,14 +90,11 @@ flowchart TB
   Hub <--> Intent <--> Git
 ```
 
-IntHub 是构建在 Intent 之上的远端协作层。首个路径是 **IntHub Local** — 从 [GitHub release](https://github.com/dozybot001/Intent/releases) 下载，然后：
+IntHub 是构建在 Intent 之上的协作层。运行 **IntHub Local** 即可在浏览器中查看语义历史：
 
 ```bash
-itt hub link --api-base-url http://127.0.0.1:7210
-itt hub sync
+python3 bin/inthub-local.pyz
 ```
-
-在浏览器中打开 `http://127.0.0.1:7210`。
 
 ## 文档
 

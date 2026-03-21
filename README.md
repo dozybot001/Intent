@@ -90,14 +90,11 @@ flowchart TB
   Hub <--> Intent <--> Git
 ```
 
-IntHub is the remote collaboration layer on top of Intent. The first path is **IntHub Local** — download from a [GitHub release](https://github.com/dozybot001/Intent/releases), then:
+IntHub is the collaboration layer on top of Intent. Run **IntHub Local** to browse semantic history in your browser:
 
 ```bash
-itt hub link --api-base-url http://127.0.0.1:7210
-itt hub sync
+python3 bin/inthub-local.pyz
 ```
-
-Open `http://127.0.0.1:7210` in the browser.
 
 ## Docs
 

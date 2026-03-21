@@ -8,7 +8,7 @@ IntHub Local is the first distributable IntHub form.
 
 It runs a local IntHub instance on your machine, serves both the API and the Web UI, and lets you inspect the semantic history from your own repositories in a browser.
 
-It is distributed through GitHub Release assets, not PyPI.
+The pre-built `bin/inthub-local.pyz` is shipped directly in the repository.
 
 ## Requirements
 
@@ -16,35 +16,10 @@ It is distributed through GitHub Release assets, not PyPI.
 - a local repository that already uses Intent
 - a GitHub `origin` remote in that repository for IntHub V1 linking
 
-## Download
-
-Open the latest project release on GitHub and download the `IntHub Local` asset bundle.
-
-The bundle contains:
-
-- `inthub-local.pyz`
-- `inthub-local`
-- `inthub-local.cmd`
-- `README.txt`
-
 ## Start IntHub Local
 
-On macOS or Linux:
-
 ```bash
-./inthub-local
-```
-
-On Windows:
-
-```bat
-inthub-local.cmd
-```
-
-Or, on any platform with Python:
-
-```bash
-python3 inthub-local.pyz
+python3 bin/inthub-local.pyz
 ```
 
 By default, IntHub Local:
@@ -69,9 +44,9 @@ If you record more Intent data later, run `itt hub sync` again to refresh the lo
 ## Useful options
 
 ```bash
-./inthub-local --no-open
-./inthub-local --port 7211
-./inthub-local --db-path /path/to/inthub.db
+python3 bin/inthub-local.pyz --no-open
+python3 bin/inthub-local.pyz --port 7211
+python3 bin/inthub-local.pyz --db-path /path/to/inthub.db
 ```
 
 If you change the port, use the same URL in `itt hub link --api-base-url ...`.
