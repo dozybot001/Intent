@@ -462,7 +462,6 @@ function renderProjectSummary() {
                 (w) => `
             <div class="workspace-row">
               <strong>${esc(w.branch || "\u2014")}</strong>
-              <span class="badge">${esc(shortCommit(w.head_commit))}</span>
               ${dirtyBadge(w.dirty)}
               <span class="badge">${esc(fmtDate(w.last_synced_at))}</span>
             </div>`,
@@ -601,7 +600,7 @@ function renderIntentDetail(payload) {
       `<div class="detail-kv">
         ${kvRow("Workspace", payload.workspace_id)}
         ${kvRow("Branch", payload.git.branch || "\u2014")}
-        ${kvRow("Commit", shortCommit(payload.git.head_commit))}
+
         ${kvRow("Synced at", fmtDate(payload.synced_at))}
       </div>`,
     )}
@@ -693,7 +692,7 @@ function renderSnapDetail(payload) {
       `<div class="detail-kv">
         ${kvRow("Workspace", payload.workspace_id)}
         ${kvRow("Branch", payload.git.branch || "\u2014")}
-        ${kvRow("Commit", shortCommit(payload.git.head_commit))}
+
         ${kvRow("Synced at", fmtDate(payload.synced_at))}
       </div>`,
     )}
