@@ -254,8 +254,8 @@ function renderHandoffTab() {
           <p class="card-body">${esc(truncate(intent.latest_snap?.summary || intent.rationale || intent.source_query || "", 200))}</p>
           <div class="card-meta">
             <span class="badge">${esc(intent.id)}</span>
+            <span class="badge">${esc(intent.status)}</span>
             ${intent.latest_snap?.origin ? `<span class="badge">${esc(intent.latest_snap.origin)}</span>` : ""}
-            <span class="badge">${decisions.length} constraints</span>
           </div>
         </article>`,
         )
@@ -271,7 +271,6 @@ function intentCard(intent) {
       <div class="card-meta">
         <span class="badge">${esc(intent.id)}</span>
         <span class="badge">${esc(intent.status)}</span>
-        <span class="badge">${intent.decision_ids?.length || 0} decisions</span>
       </div>
     </article>`;
 }
@@ -312,14 +311,13 @@ function renderIntentsTab() {
 }
 
 function decisionCard(d) {
-  const isDeprecated = d.status === "deprecated";
   return `
     <article class="card" data-detail-type="decision" data-remote-id="${esc(d.remote_id)}">
       <h4 class="card-title">${esc(d.title)}</h4>
       <p class="card-body">${d.intent_ids?.length || 0} linked intents</p>
       <div class="card-meta">
         <span class="badge">${esc(d.id)}</span>
-        ${isDeprecated ? '<span class="badge warn">deprecated</span>' : ""}
+        <span class="badge${d.status === "deprecated" ? " warn" : ""}">${esc(d.status)}</span>
       </div>
     </article>`;
 }
@@ -343,9 +341,7 @@ function snapCard(snap) {
       <p class="card-body">${esc(truncate(snap.summary || "", 140))}</p>
       <div class="card-meta">
         <span class="badge">${esc(snap.id)}</span>
-        <span class="badge">${esc(snap.intent_id || "")}</span>
         ${snap.origin ? `<span class="badge">${esc(snap.origin)}</span>` : ""}
-        <span class="badge">${esc(fmtDate(snap.created_at))}</span>
       </div>
     </article>`;
 }
