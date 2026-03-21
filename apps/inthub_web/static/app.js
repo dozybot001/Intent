@@ -840,10 +840,15 @@ function bindEvents() {
   });
 
   el.refreshBtn.addEventListener("click", async () => {
+    el.refreshBtn.disabled = true;
+    el.refreshBtn.textContent = "Refreshing…";
     try {
       await loadProjects();
     } catch (err) {
       setStatus(err.message, true);
+    } finally {
+      el.refreshBtn.disabled = false;
+      el.refreshBtn.textContent = "Refresh";
     }
   });
 
