@@ -254,7 +254,7 @@ function intentCard(intent) {
   return `
     <article class="card" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
       <h4 class="card-title">${esc(intent.title)}</h4>
-      <p class="card-body">${esc(intent.branch || "\u2014")} \u00b7 ${esc(shortCommit(intent.head_commit))}</p>
+      <p class="card-body">${esc(intent.source_query || intent.rationale || "")}</p>
       <div class="card-meta">
         <span class="badge">${esc(intent.id)}</span>
         <span class="badge">${esc(intent.status)}</span>
