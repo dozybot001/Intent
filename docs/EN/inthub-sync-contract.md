@@ -156,16 +156,14 @@ So if two different workspaces both contain `intent-001`, the server must not as
 V1 should introduce only the minimum entrypoints:
 
 ```bash
-itt hub login
 itt hub link
 itt hub sync
 ```
 
 Responsibilities:
 
-- `itt hub login`
-  - obtain an IntHub access token
 - `itt hub link`
+  - configure local IntHub access when needed
   - create or select an IntHub project
   - bind the current GitHub repo
   - initialize local `.intent/hub.json`
@@ -224,6 +222,7 @@ Recommended minimum payload:
 Notes:
 
 - `snapshot.intents / snaps / decisions` carry the current local object JSON directly
+- snap objects may include optional fields such as `origin` (short string, CLI auto-filled from the host environment)
 - the client does not need to precompute derived views
 - the client does not upload full shell logs or raw chat transcripts
 
@@ -340,9 +339,9 @@ Show:
 Cover only:
 
 - title
-- query
+- intent source query
 - summary
-- rationale
+- rationale where applicable
 
 ## 12. Security and privacy boundary
 

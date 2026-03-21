@@ -157,16 +157,14 @@
 首版建议只引入最小入口：
 
 ```bash
-itt hub login
 itt hub link
 itt hub sync
 ```
 
 职责划分：
 
-- `itt hub login`
-  - 获取 IntHub 访问令牌
 - `itt hub link`
+  - 必要时配置本地 IntHub 访问
   - 选择或创建 IntHub project
   - 绑定当前 GitHub repo
   - 初始化本地 `.intent/hub.json`
@@ -225,6 +223,7 @@ itt hub sync
 其中：
 
 - `snapshot.intents / snaps / decisions` 直接承载当前本地对象 JSON
+- snap 对象可含可选字段，例如 `origin`（短字符串，由 CLI 根据运行环境自动写入）
 - 不要求客户端先算派生视图
 - 不要求客户端上传完整终端日志或原始聊天记录
 
@@ -341,9 +340,9 @@ Web 首版只需要 4 个高价值视图：
 仅覆盖：
 
 - title
-- query
+- intent source query
 - summary
-- rationale
+- 适用对象上的 rationale
 
 ## 12. 安全与隐私边界
 

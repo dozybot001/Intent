@@ -140,6 +140,7 @@ def project_overview(db_path, project_id):
                 "status": snap["status"],
                 "summary": snap.get("summary", ""),
                 "feedback": snap.get("feedback", ""),
+                "origin": snap.get("origin", ""),
                 "created_at": snap.get("created_at"),
             })
 

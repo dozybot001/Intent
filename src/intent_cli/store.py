@@ -10,7 +10,7 @@ SUBDIRS = {"intent": "intents", "snap": "snaps", "decision": "decisions"}
 HUB_CONFIG = "hub.json"
 VALID_STATUSES = {
     "intent": {"active", "suspend", "done"},
-    "snap": {"active", "reverted"},
+    "snap": {"active"},
     "decision": {"active", "deprecated"},
 }
 
@@ -313,12 +313,5 @@ def validate_graph(base):
 
     return {
         "healthy": not issues,
-        "issue_count": len(issues),
-        "summary": {
-            "schema_version": config.get("schema_version", "1.0"),
-            "intent_count": len(intents),
-            "snap_count": len(snaps),
-            "decision_count": len(decisions),
-        },
         "issues": issues,
     }

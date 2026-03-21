@@ -56,7 +56,7 @@ A better first step is a **distributable local IntHub instance (IntHub Local)**:
 - starts an IntHub backend instance on the user's machine
 - binds by default to `127.0.0.1:7210` only
 - serves the Web shell and API together by default
-- lets the user run `itt hub login / link / sync` inside their own repo
+- lets the user run `itt hub link / sync` inside their own repo
 - then inspect the synced `intent / snap / decision` history in a local browser
 
 Why this is the right first product shape:
@@ -113,9 +113,9 @@ At minimum show:
 The first search surface only needs high-signal fields:
 
 - object title
-- source query / snap query
+- intent source query
 - summary
-- rationale
+- rationale where applicable
 
 No complex syntax is required at first, and full chat search is out of scope.
 

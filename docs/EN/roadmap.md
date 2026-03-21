@@ -15,7 +15,7 @@ Current focus:
 - Align CLI implementation with [cli.md](cli.md)
 - Validate through real agent workflows whether `intent / snap / decision` is a stable enough object set
 - Validate core scenarios: interrupt recovery, continuation, long-term decision crystallization
-- Converge basic behaviors: inspect, list, show, create, state transitions
+- Converge basic behaviors: inspect, doctor, create, minimal state transitions, and low-noise recording
 
 The goal of this phase is not "as many features as possible" but "as stable a semantic layer as possible."
 

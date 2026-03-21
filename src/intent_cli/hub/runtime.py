@@ -24,7 +24,7 @@ def hub_api_base(base, args):
         error(
             "HUB_NOT_CONFIGURED",
             "IntHub API base URL is not configured.",
-            suggested_fix="Run: itt hub login --api-base-url http://127.0.0.1:8000",
+            suggested_fix="Run: itt hub link --api-base-url http://127.0.0.1:8000",
         )
     return api_base_url.rstrip("/")
 

@@ -58,8 +58,7 @@ By default, IntHub Local:
 Inside your own project repository:
 
 ```bash
-itt hub login --api-base-url http://127.0.0.1:7210
-itt hub link
+itt hub link --api-base-url http://127.0.0.1:7210
 itt hub sync
 ```
 
@@ -75,4 +74,4 @@ If you record more Intent data later, run `itt hub sync` again to refresh the lo
 ./inthub-local --db-path /path/to/inthub.db
 ```
 
-If you change the port, use the same URL in `itt hub login`.
+If you change the port, use the same URL in `itt hub link --api-base-url ...`.

@@ -1,4 +1,4 @@
-"""Tests for Intent CLI — covers all 20 commands, state machines, and error codes."""
+"""Tests for Intent CLI — covers the command surface, state machines, and error codes."""
 
 import json
 import os
@@ -65,13 +65,15 @@ def inthub_web_server(inthub_server):
         server.server_close()
 
 
-def _run(cwd, *args):
+def _run(cwd, *args, extra_env=None):
     """Run itt command and return parsed JSON."""
     env = os.environ.copy()
     existing = env.get("PYTHONPATH")
     env["PYTHONPATH"] = os.pathsep.join(
         SOURCE_PATHS + ([existing] if existing else [])
     )
+    if extra_env:
+        env.update(extra_env)
     r = subprocess.run(
         [sys.executable, "-m", "intent_cli", *args],
         cwd=cwd, capture_output=True, text=True, env=env,
@@ -133,7 +135,8 @@ class TestGlobal:
         assert r["ok"] is True
         assert r["active_intents"] == []
         assert r["active_decisions"] == []
-        assert r["recent_snaps"] == []
+        assert r["suspended"] == []
+        assert r["warnings"] == []
 
     def test_not_initialized(self, tmp_path):
         subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
@@ -149,15 +152,15 @@ class TestGlobal:
         r = _run(workspace, "doctor")
         assert r["ok"] is True
         assert r["result"]["healthy"] is True
-        assert r["result"]["issue_count"] == 0
+        assert r["result"]["issues"] == []
+        assert "summary" not in r["result"]
 
 
 class TestHub:
-    def test_login_and_link(self, workspace, inthub_server):
+    def test_link_configures_and_binds(self, workspace, inthub_server):
         _add_github_remote(workspace)
-        r = _run(workspace, "hub", "login", "--api-base-url", inthub_server)
-        assert r["ok"] is True
-        r = _run(workspace, "hub", "link", "--project-name", "Demo Project")
+        r = _run(workspace, "hub", "link", "--api-base-url", inthub_server,
+                 "--project-name", "Demo Project")
         assert r["ok"] is True
         hub_config = json.loads((workspace / ".intent" / "hub.json").read_text())
         assert hub_config["api_base_url"] == inthub_server
@@ -167,22 +170,20 @@ class TestHub:
 
     def test_link_requires_github_remote(self, workspace, inthub_server):
         _add_github_remote(workspace, "git@example.com:foo/bar.git")
-        _run(workspace, "hub", "login", "--api-base-url", inthub_server)
-        r = _run(workspace, "hub", "link")
+        r = _run(workspace, "hub", "link", "--api-base-url", inthub_server)
         assert r["ok"] is False
         assert r["error"]["code"] == "PROVIDER_UNSUPPORTED"
 
     def test_sync_requires_link(self, workspace, inthub_server):
         _add_github_remote(workspace)
-        _run(workspace, "hub", "login", "--api-base-url", inthub_server)
-        r = _run(workspace, "hub", "sync")
+        r = _run(workspace, "hub", "sync", "--api-base-url", inthub_server)
         assert r["ok"] is False
         assert r["error"]["code"] == "NOT_LINKED"
 
     def test_sync_dry_run(self, workspace, inthub_server):
         _add_github_remote(workspace)
-        _run(workspace, "hub", "login", "--api-base-url", inthub_server)
-        _run(workspace, "hub", "link", "--project-name", "Demo Project")
+        _run(workspace, "hub", "link", "--api-base-url", inthub_server,
+             "--project-name", "Demo Project")
         _run(workspace, "intent", "create", "Goal", "--query", "q")
         r = _run(workspace, "hub", "sync", "--dry-run")
         assert r["ok"] is True
@@ -191,8 +192,8 @@ class TestHub:
 
     def test_sync_updates_overview_and_handoff(self, workspace, inthub_server):
         _add_github_remote(workspace)
-        _run(workspace, "hub", "login", "--api-base-url", inthub_server)
-        _run(workspace, "hub", "link", "--project-name", "Demo Project")
+        _run(workspace, "hub", "link", "--api-base-url", inthub_server,
+             "--project-name", "Demo Project")
         _run(workspace, "intent", "create", "Goal", "--query", "why?")
         _run(workspace, "decision", "create", "Rule", "--rationale", "r")
         _run(workspace, "snap", "create", "Did X", "--intent", "intent-001",
@@ -255,44 +256,9 @@ class TestIntent:
         _run(workspace, "intent", "create", "Goal A", "--query", "q")
         _run(workspace, "decision", "create", "Rule 1", "--rationale", "r")
         r = _run(workspace, "intent", "create", "Goal B", "--query", "q")
-        assert "decision-001" in r["result"]["decision_ids"]
-
-    def test_list(self, workspace):
-        _run(workspace, "intent", "create", "A", "--query", "q")
-        _run(workspace, "intent", "create", "B", "--query", "q")
-        r = _run(workspace, "intent", "list")
-        assert len(r["result"]) == 2
-
-    def test_list_filter_status(self, workspace):
-        _run(workspace, "intent", "create", "A", "--query", "q")
-        _run(workspace, "intent", "create", "B", "--query", "q")
-        _run(workspace, "intent", "suspend", "intent-001")
-        r = _run(workspace, "intent", "list", "--status", "active")
-        assert len(r["result"]) == 1
-        assert r["result"][0]["id"] == "intent-002"
-
-    def test_list_filter_decision(self, workspace):
-        _run(workspace, "intent", "create", "A", "--query", "q")
-        _run(workspace, "intent", "create", "B", "--query", "q")
-        _run(workspace, "decision", "create", "Rule", "--rationale", "r")
-        _run(workspace, "decision", "deprecate", "decision-001")
-        _run(workspace, "decision", "create", "Rule 2", "--rationale", "r")
-        r = _run(workspace, "intent", "list", "--decision", "decision-001")
-        assert len(r["result"]) == 2
-
-    def test_list_invalid_status(self, workspace):
-        r = _run(workspace, "intent", "list", "--status", "paused")
-        assert r["ok"] is False
-        assert r["error"]["code"] == "INVALID_INPUT"
-
-    def test_show(self, workspace):
-        _run(workspace, "intent", "create", "A", "--query", "q")
-        r = _run(workspace, "intent", "show", "intent-001")
-        assert r["result"]["title"] == "A"
-
-    def test_show_not_found(self, workspace):
-        r = _run(workspace, "intent", "show", "intent-999")
-        assert r["error"]["code"] == "OBJECT_NOT_FOUND"
+        assert "decision_ids" not in r["result"]
+        intent = json.loads((workspace / ".intent" / "intents" / "intent-002.json").read_text())
+        assert "decision-001" in intent["decision_ids"]
 
     def test_suspend_activate(self, workspace):
         _run(workspace, "intent", "create", "A", "--query", "q")
@@ -301,12 +267,36 @@ class TestIntent:
         r = _run(workspace, "intent", "activate", "intent-001")
         assert r["result"]["status"] == "active"
 
+    def test_suspend_omits_id_when_single_active(self, workspace):
+        _run(workspace, "intent", "create", "A", "--query", "q")
+        r = _run(workspace, "intent", "suspend")
+        assert r["ok"] is True
+        assert r["result"]["id"] == "intent-001"
+        assert any("Inferred intent intent-001" in w for w in r["warnings"])
+
+    def test_done_omits_id_when_single_active(self, workspace):
+        _run(workspace, "intent", "create", "A", "--query", "q")
+        r = _run(workspace, "intent", "done")
+        assert r["ok"] is True
+        assert r["result"]["id"] == "intent-001"
+        assert any("Inferred intent intent-001" in w for w in r["warnings"])
+
+    def test_activate_omits_id_when_single_suspended(self, workspace):
+        _run(workspace, "intent", "create", "A", "--query", "q")
+        _run(workspace, "intent", "suspend", "intent-001")
+        r = _run(workspace, "intent", "activate")
+        assert r["ok"] is True
+        assert r["result"]["id"] == "intent-001"
+        assert any("Inferred intent intent-001" in w for w in r["warnings"])
+
     def test_activate_catches_up_decisions(self, workspace):
         _run(workspace, "intent", "create", "A", "--query", "q")
         _run(workspace, "intent", "suspend", "intent-001")
         _run(workspace, "decision", "create", "New rule", "--rationale", "r")
         r = _run(workspace, "intent", "activate", "intent-001")
-        assert "decision-001" in r["result"]["decision_ids"]
+        assert "decision_ids" not in r["result"]
+        intent = json.loads((workspace / ".intent" / "intents" / "intent-001.json").read_text())
+        assert "decision-001" in intent["decision_ids"]
 
     def test_done(self, workspace):
         _run(workspace, "intent", "create", "A", "--query", "q")
@@ -325,6 +315,26 @@ class TestIntent:
         r = _run(workspace, "intent", "suspend", "intent-001")
         assert r["error"]["code"] == "STATE_CONFLICT"
 
+    def test_suspend_without_id_requires_unique_active_intent(self, workspace):
+        r = _run(workspace, "intent", "suspend")
+        assert r["error"]["code"] == "NO_ACTIVE_INTENT"
+        _run(workspace, "intent", "create", "A", "--query", "q")
+        _run(workspace, "intent", "create", "B", "--query", "q")
+        r = _run(workspace, "intent", "suspend")
+        assert r["error"]["code"] == "MULTIPLE_ACTIVE_INTENTS"
+        assert {c["id"] for c in r["error"]["details"]["candidates"]} == {"intent-001", "intent-002"}
+
+    def test_activate_without_id_requires_unique_suspended_intent(self, workspace):
+        r = _run(workspace, "intent", "activate")
+        assert r["error"]["code"] == "NO_SUSPENDED_INTENT"
+        _run(workspace, "intent", "create", "A", "--query", "q")
+        _run(workspace, "intent", "create", "B", "--query", "q")
+        _run(workspace, "intent", "suspend", "intent-001")
+        _run(workspace, "intent", "suspend", "intent-002")
+        r = _run(workspace, "intent", "activate")
+        assert r["error"]["code"] == "MULTIPLE_SUSPENDED_INTENTS"
+        assert {c["id"] for c in r["error"]["details"]["candidates"]} == {"intent-001", "intent-002"}
+
 
 # ---------------------------------------------------------------------------
 # Snap commands
@@ -338,70 +348,96 @@ class TestSnap:
         assert r["ok"] is True
         assert r["result"]["id"] == "snap-001"
         assert r["result"]["intent_id"] == "intent-001"
+        assert r["result"]["summary"] == "details"
+        assert r["result"]["feedback"] == ""
+        assert "query" not in r["result"]
+        assert "rationale" not in r["result"]
+        assert r["warnings"] == []
+        assert "origin" in r["result"]
+
+    def test_create_sets_origin_from_env(self, workspace):
+        _run(workspace, "intent", "create", "Goal", "--query", "q")
+        r = _run(
+            workspace,
+            "snap",
+            "create",
+            "S",
+            "--intent",
+            "intent-001",
+            "--summary",
+            "x",
+            extra_env={"ITT_ORIGIN": "fixture-origin"},
+        )
+        assert r["ok"] is True
+        assert r["result"]["origin"] == "fixture-origin"
+
+    def test_create_origin_flag_overrides_env(self, workspace):
+        _run(workspace, "intent", "create", "Goal", "--query", "q")
+        r = _run(
+            workspace,
+            "snap",
+            "create",
+            "S",
+            "--intent",
+            "intent-001",
+            "--origin",
+            "cli-override",
+            "--summary",
+            "x",
+            extra_env={"ITT_ORIGIN": "from-env"},
+        )
+        assert r["result"]["origin"] == "cli-override"
+
+    def test_create_omits_intent_when_single_active(self, workspace):
+        _run(workspace, "intent", "create", "Goal", "--query", "q")
+        r = _run(workspace, "snap", "create", "Did X", "--summary", "details")
+        assert r["ok"] is True
+        assert r["result"]["intent_id"] == "intent-001"
+        assert any("Inferred intent intent-001" in w for w in r["warnings"])
+
+    def test_create_no_active_intent(self, workspace):
+        r = _run(workspace, "snap", "create", "S", "--summary", "x")
+        assert r["ok"] is False
+        assert r["error"]["code"] == "NO_ACTIVE_INTENT"
+
+    def test_create_multiple_active_requires_intent(self, workspace):
+        _run(workspace, "intent", "create", "A", "--query", "q")
+        _run(workspace, "intent", "create", "B", "--query", "q")
+        r = _run(workspace, "snap", "create", "S", "--summary", "x")
+        assert r["ok"] is False
+        assert r["error"]["code"] == "MULTIPLE_ACTIVE_INTENTS"
+        cand = r["error"]["details"]["candidates"]
+        assert {c["id"] for c in cand} == {"intent-001", "intent-002"}
 
     def test_create_updates_intent_snap_ids(self, workspace):
         _run(workspace, "intent", "create", "Goal", "--query", "q")
-        _run(workspace, "snap", "create", "S1", "--intent", "intent-001")
-        _run(workspace, "snap", "create", "S2", "--intent", "intent-001")
-        r = _run(workspace, "intent", "show", "intent-001")
-        assert r["result"]["snap_ids"] == ["snap-001", "snap-002"]
+        _run(workspace, "snap", "create", "S1", "--intent", "intent-001", "--summary", "a")
+        _run(workspace, "snap", "create", "S2", "--intent", "intent-001", "--summary", "b")
+        intent = json.loads((workspace / ".intent" / "intents" / "intent-001.json").read_text())
+        assert intent["snap_ids"] == ["snap-001", "snap-002"]
 
     def test_create_requires_active_intent(self, workspace):
         _run(workspace, "intent", "create", "Goal", "--query", "q")
         _run(workspace, "intent", "done", "intent-001")
-        r = _run(workspace, "snap", "create", "S", "--intent", "intent-001")
+        r = _run(workspace, "snap", "create", "S", "--intent", "intent-001", "--summary", "x")
         assert r["error"]["code"] == "STATE_CONFLICT"
 
     def test_create_intent_not_found(self, workspace):
-        r = _run(workspace, "snap", "create", "S", "--intent", "intent-999")
+        r = _run(workspace, "snap", "create", "S", "--intent", "intent-999", "--summary", "x")
         assert r["error"]["code"] == "OBJECT_NOT_FOUND"
-
-    def test_list(self, workspace):
-        _run(workspace, "intent", "create", "Goal", "--query", "q")
-        _run(workspace, "snap", "create", "S1", "--intent", "intent-001")
-        _run(workspace, "snap", "create", "S2", "--intent", "intent-001")
-        r = _run(workspace, "snap", "list")
-        assert len(r["result"]) == 2
-
-    def test_list_filter_intent(self, workspace):
-        _run(workspace, "intent", "create", "A", "--query", "q")
-        _run(workspace, "intent", "create", "B", "--query", "q")
-        _run(workspace, "snap", "create", "S1", "--intent", "intent-001")
-        _run(workspace, "snap", "create", "S2", "--intent", "intent-002")
-        r = _run(workspace, "snap", "list", "--intent", "intent-002")
-        assert len(r["result"]) == 1
-        assert r["result"][0]["id"] == "snap-002"
-
-    def test_list_invalid_status(self, workspace):
-        r = _run(workspace, "snap", "list", "--status", "done")
-        assert r["ok"] is False
-        assert r["error"]["code"] == "INVALID_INPUT"
 
     def test_feedback(self, workspace):
         _run(workspace, "intent", "create", "Goal", "--query", "q")
-        _run(workspace, "snap", "create", "S", "--intent", "intent-001")
+        _run(workspace, "snap", "create", "S", "--intent", "intent-001", "--summary", "x")
         r = _run(workspace, "snap", "feedback", "snap-001", "looks good")
         assert r["result"]["feedback"] == "looks good"
 
     def test_feedback_overwrites(self, workspace):
         _run(workspace, "intent", "create", "Goal", "--query", "q")
-        _run(workspace, "snap", "create", "S", "--intent", "intent-001")
+        _run(workspace, "snap", "create", "S", "--intent", "intent-001", "--summary", "x")
         _run(workspace, "snap", "feedback", "snap-001", "first")
         r = _run(workspace, "snap", "feedback", "snap-001", "second")
         assert r["result"]["feedback"] == "second"
-
-    def test_revert(self, workspace):
-        _run(workspace, "intent", "create", "Goal", "--query", "q")
-        _run(workspace, "snap", "create", "S", "--intent", "intent-001")
-        r = _run(workspace, "snap", "revert", "snap-001")
-        assert r["result"]["status"] == "reverted"
-
-    def test_revert_is_terminal(self, workspace):
-        _run(workspace, "intent", "create", "Goal", "--query", "q")
-        _run(workspace, "snap", "create", "S", "--intent", "intent-001")
-        _run(workspace, "snap", "revert", "snap-001")
-        r = _run(workspace, "snap", "revert", "snap-001")
-        assert r["error"]["code"] == "STATE_CONFLICT"
 
 
 # ---------------------------------------------------------------------------
@@ -419,31 +455,8 @@ class TestDecision:
         _run(workspace, "intent", "create", "A", "--query", "q")
         r = _run(workspace, "decision", "create", "Rule", "--rationale", "r")
         assert "intent-001" in r["result"]["intent_ids"]
-        # Verify bidirectional
-        i = _run(workspace, "intent", "show", "intent-001")
-        assert "decision-001" in i["result"]["decision_ids"]
-
-    def test_list(self, workspace):
-        _run(workspace, "decision", "create", "R1", "--rationale", "r")
-        _run(workspace, "decision", "create", "R2", "--rationale", "r")
-        r = _run(workspace, "decision", "list")
-        assert len(r["result"]) == 2
-
-    def test_list_filter_intent(self, workspace):
-        _run(workspace, "intent", "create", "A", "--query", "q")
-        _run(workspace, "intent", "create", "B", "--query", "q")
-        _run(workspace, "decision", "create", "Rule A", "--rationale", "r")
-        _run(workspace, "decision", "deprecate", "decision-001")
-        _run(workspace, "intent", "done", "intent-002")
-        _run(workspace, "decision", "create", "Rule B", "--rationale", "r")
-        r = _run(workspace, "decision", "list", "--intent", "intent-002")
-        assert len(r["result"]) == 1
-        assert r["result"][0]["id"] == "decision-001"
-
-    def test_list_invalid_status(self, workspace):
-        r = _run(workspace, "decision", "list", "--status", "activeish")
-        assert r["ok"] is False
-        assert r["error"]["code"] == "INVALID_INPUT"
+        intent = json.loads((workspace / ".intent" / "intents" / "intent-001.json").read_text())
+        assert "decision-001" in intent["decision_ids"]
 
     def test_deprecate(self, workspace):
         _run(workspace, "decision", "create", "R", "--rationale", "r")
@@ -460,21 +473,9 @@ class TestDecision:
         _run(workspace, "decision", "create", "R", "--rationale", "r")
         _run(workspace, "decision", "deprecate", "decision-001")
         r = _run(workspace, "intent", "create", "New goal", "--query", "q")
-        assert "decision-001" not in r["result"]["decision_ids"]
-
-    def test_attach(self, workspace):
-        _run(workspace, "intent", "create", "A", "--query", "q")
-        _run(workspace, "intent", "create", "B", "--query", "q")
-        _run(workspace, "decision", "create", "R", "--rationale", "r")
-        # decision-001 auto-attached to both. Manually attach to verify idempotency.
-        r = _run(workspace, "decision", "attach", "decision-001", "--intent", "intent-001")
-        assert r["ok"] is True
-
-    def test_attach_not_found(self, workspace):
-        _run(workspace, "decision", "create", "R", "--rationale", "r")
-        r = _run(workspace, "decision", "attach", "decision-001", "--intent", "intent-999")
-        assert r["error"]["code"] == "OBJECT_NOT_FOUND"
-
+        assert "decision_ids" not in r["result"]
+        intent = json.loads((workspace / ".intent" / "intents" / "intent-001.json").read_text())
+        assert "decision-001" not in intent["decision_ids"]
 
 # ---------------------------------------------------------------------------
 # Inspect
@@ -493,15 +494,20 @@ class TestInspect:
         assert r["ok"] is True
         assert len(r["active_intents"]) == 1
         assert r["active_intents"][0]["id"] == "intent-001"
-        assert r["active_intents"][0]["latest_snap_id"] == "snap-001"
-        assert len(r["suspend_intents"]) == 1
-        assert r["suspend_intents"][0]["id"] == "intent-002"
+        assert r["active_intents"][0]["latest_snap"]["id"] == "snap-001"
+        assert r["active_intents"][0]["latest_snap"]["summary"] == "did something"
+        assert len(r["suspended"]) == 1
+        assert r["suspended"][0]["id"] == "intent-002"
+        assert r["suspended"][0]["latest_snap_id"] is None
         assert len(r["active_decisions"]) == 1
-        assert len(r["recent_snaps"]) == 1
+        assert r["active_decisions"][0] == {
+            "id": "decision-001",
+            "title": "Rule",
+        }
 
     def test_orphan_snap_warning(self, workspace):
         _run(workspace, "intent", "create", "Goal", "--query", "q")
-        _run(workspace, "snap", "create", "S", "--intent", "intent-001")
+        _run(workspace, "snap", "create", "S", "--intent", "intent-001", "--summary", "x")
         # Delete intent file to create orphan
         intent_file = workspace / ".intent" / "intents" / "intent-001.json"
         intent_file.unlink()
@@ -510,13 +516,14 @@ class TestInspect:
 
     def test_doctor_reports_broken_links(self, workspace):
         _run(workspace, "intent", "create", "Goal", "--query", "q")
-        _run(workspace, "snap", "create", "S", "--intent", "intent-001")
+        _run(workspace, "snap", "create", "S", "--intent", "intent-001", "--summary", "x")
         snap_file = workspace / ".intent" / "snaps" / "snap-001.json"
         data = json.loads(snap_file.read_text())
         data["intent_id"] = "intent-999"
         snap_file.write_text(json.dumps(data, indent=2))
         r = _run(workspace, "doctor")
         assert r["result"]["healthy"] is False
+        assert "summary" not in r["result"]
         assert any(issue["code"] == "MISSING_REFERENCE" for issue in r["result"]["issues"])
 
     def test_doctor_reports_invalid_status(self, workspace):
@@ -527,4 +534,5 @@ class TestInspect:
         intent_file.write_text(json.dumps(data, indent=2))
         r = _run(workspace, "doctor")
         assert r["result"]["healthy"] is False
+        assert "summary" not in r["result"]
         assert any(issue["code"] == "INVALID_STATUS" for issue in r["result"]["issues"])

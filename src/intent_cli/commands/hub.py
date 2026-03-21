@@ -13,33 +13,26 @@ from intent_cli.output import error, success
 from intent_cli.store import make_runtime_id, write_hub_config
 
 
-def cmd_hub_login(args):
+def cmd_hub_link(args):
     base = require_init()
     hub = load_hub(base)
+    repo = current_github_repo()
 
-    api_base_url = args.api_base_url or hub.get("api_base_url")
+    if args.api_base_url:
+        hub["api_base_url"] = args.api_base_url.rstrip("/")
+    api_base_url = hub.get("api_base_url")
     if not api_base_url:
         error(
-            "INVALID_INPUT",
-            "Missing IntHub API base URL.",
-            suggested_fix="Run: itt hub login --api-base-url http://127.0.0.1:8000",
+            "HUB_NOT_CONFIGURED",
+            "IntHub API base URL is not configured.",
+            suggested_fix="Run: itt hub link --api-base-url http://127.0.0.1:8000",
         )
 
-    hub["api_base_url"] = api_base_url.rstrip("/")
     if args.token:
         hub["auth_token"] = args.token
     elif "auth_token" not in hub:
         hub["auth_token"] = ""
 
-    write_hub_config(base, hub)
-    success("hub.login", sanitize_hub_config(hub))
-
-
-def cmd_hub_link(args):
-    base = require_init()
-    hub = load_hub(base)
-    repo = current_github_repo()
-    api_base_url = hub_api_base(base, args)
     token = hub_auth_token(base, args)
 
     workspace_id = hub.get("workspace_id") or make_runtime_id("wks")
@@ -59,7 +52,7 @@ def cmd_hub_link(args):
 
     updated = {
         "api_base_url": api_base_url,
-        "auth_token": token or hub.get("auth_token", ""),
+        "auth_token": hub.get("auth_token", ""),
         "workspace_id": result["workspace_id"],
         "project_id": result["project_id"],
         "repo_binding": result["repo_binding"],

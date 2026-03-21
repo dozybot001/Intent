@@ -1,502 +1,255 @@
-# Intent CLI Design Document
+# Intent CLI
 
 [中文](../CN/cli.md) | English
 
 Schema version: **1.0**
 
-Intent CLI is an object-centric, agent-first CLI. The system models only three types of objects: **intent**, **snap**, and **decision**.
+Intent CLI is the local semantic-history CLI for Intent. It manages only three object types:
 
-Design principles:
+- `intent`: a recoverable goal
+- `snap`: a semantic checkpoint under an intent
+- `decision`: a long-lived constraint across intents
 
-- `decision` is the highest-level object, representing crystallized long-term decisions that can link to multiple intents
-- `intent` is a goal the agent identified from a user query, linking to multiple decisions and snaps
-- `snap` is a snapshot of one user-agent interaction, recording query, a brief summary of what the agent did, and user feedback
-- Schema version is a workspace-level config, stored only in `config.json`
-- All objects share `id`, `object`, `created_at`, `title`, `status`
-- All objects no longer have `updated_at`
-- Creating a `decision` auto-attaches all `active` intents
-- Creating an `intent` auto-attaches all `active` decisions
-- Multiple intents can be active simultaneously
+The CLI is intentionally small:
 
-## Workflow
+- Recovery uses `itt inspect`
+- Structural diagnosis uses `itt doctor`
+- Graph browsing belongs to IntHub
+- There are no `list` commands
 
-```mermaid
-flowchart LR
-  S1["1. Inspect"] --> S2["2. Recognize"] --> S3["3. Record"] --> S4["4. Crystallize"] --> S5["5. Sync"]
-```
+## Command Surface
 
-| Step | What happens |
-|---|---|
-| **Inspect** | Agent runs `itt inspect` — full context recovery |
-| **Recognize** | User query implies a goal → create Intent |
-| **Record** | Each interaction becomes a Snap under the active Intent |
-| **Crystallize** | Long-lived constraints become Decisions |
-| **Sync** | Push to IntHub via `itt hub sync` |
+### Global
 
-## 1. Object Model
+| Command | Role |
+| --- | --- |
+| `itt version` | Print CLI version |
+| `itt init` | Initialize `.intent/` in the current Git repo |
+| `itt inspect` | Resume-first recovery view |
+| `itt doctor` | Structure diagnosis view |
 
-```mermaid
-flowchart LR
-  D1["🔶 Decision 1"]
-  D2["🔶 Decision 2"]
+### Intent
 
-  subgraph Intent1["🎯 Intent 1"]
-    direction LR
-    S1["Snap 1"] --> S2["Snap 2"] --> S3["..."]
-  end
+| Command | Role |
+| --- | --- |
+| `itt intent create TITLE --query Q [--rationale R]` | Create a new intent |
+| `itt intent activate [ID]` | `suspend` → `active` |
+| `itt intent suspend [ID]` | `active` → `suspend` |
+| `itt intent done [ID]` | `active` → `done` |
 
-  subgraph Intent2["🎯 Intent 2"]
-    direction LR
-    S4["Snap 1"] --> S5["Snap 2"] --> S6["..."]
-  end
+### Snap
 
-  D1 -- auto-attach --> Intent1
-  D1 -- auto-attach --> Intent2
-  D2 -- auto-attach --> Intent2
-```
+| Command | Role |
+| --- | --- |
+| `itt snap create TITLE [--intent ID] [--origin LABEL] --summary S` | Create one semantic checkpoint (omit `--intent` when exactly one active intent; `origin` is auto-filled from env unless overridden) |
+| `itt snap feedback ID TEXT` | Overwrite snap feedback |
 
-### 1.1 Shared Fields
+### Decision
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `id` | string | Object ID, e.g. `intent-001` |
-| `object` | string | Object type: `intent`, `snap`, `decision` |
-| `created_at` | string | ISO 8601 UTC |
-| `title` | string | Object title |
-| `status` | string | Object status, enum varies by type |
+| Command | Role |
+| --- | --- |
+| `itt decision create TITLE --rationale R` | Create a new decision |
+| `itt decision deprecate ID` | `active` → `deprecated` |
+### Hub
 
-### 1.2 Intent
+| Command | Role |
+| --- | --- |
+| `itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]` | Configure local IntHub access if needed, then link the current workspace |
+| `itt hub sync [--api-base-url URL] [--token TOKEN] [--dry-run]` | Push the local semantic snapshot to IntHub |
 
-An intent represents what the user wants to solve. It comes from the agent's intent recognition of a user query, not from the user "manually opening a task."
+## Global Commands
 
-| Field | Type | Description |
-| --- | --- | --- |
-| Shared fields | - | See above |
-| `source_query` | string | Original user query that triggered this intent |
-| `rationale` | string | Why this goal matters; filled when the user's query contains explanatory context, otherwise empty |
-| `decision_ids` | string[] | Linked decision IDs, preserving historical relationships |
-| `snap_ids` | string[] | Currently linked snap IDs |
+### `itt version`
 
-Intent states:
-
-- `active`: Currently valid and being progressed
-- `suspend`: Temporarily paused, not included in new decision auto-attachment
-- `done`: This intent has been completed
-
-### 1.3 Snap
-
-A snap represents one complete user-agent interaction snapshot. It belongs to one intent and records what was asked, what the agent did, and how the user responded.
-
-| Field | Type | Description |
-| --- | --- | --- |
-| Shared fields | - | See above |
-| `intent_id` | string | Parent intent ID |
-| `query` | string | Original user query for this interaction |
-| `rationale` | string | Why this approach was chosen; filled when the user explains reasoning, otherwise empty |
-| `summary` | string | Brief summary of what the agent did; not a detailed operation log |
-| `feedback` | string | User feedback; empty string `""` if user moved on to another topic |
-
-`summary` is a summary field, not a step-by-step execution log. It does not require storing complete commands, file-level operation details, or terminal output.
-
-Snap states:
-
-- `active`: This interaction record is currently valid
-- `reverted`: This interaction was explicitly reverted later
-
-### 1.4 Decision
-
-A decision represents a crystallized long-term decision. It is the highest-level object, effective across multiple intents.
-
-| Field | Type | Description |
-| --- | --- | --- |
-| Shared fields | - | See above |
-| `rationale` | string | Why this long-term decision was made |
-| `intent_ids` | string[] | Linked intent IDs, preserving historical relationships |
-
-Decision states:
-
-- `active`: Currently in effect, auto-attaches to new intents
-- `deprecated`: This decision has been retired; history preserved but no longer auto-attaches to new intents
-
-## 2. Relationship Rules
-
-All attachment relationships must be persisted bidirectionally.
-
-- When `decision ↔ intent` relationship changes, both `decision.intent_ids` and `intent.decision_ids` must be updated
-- When `intent ↔ snap` relationship changes, both `snap.intent_id` and `intent.snap_ids` must be updated
-- Object files themselves are the single source of truth; no separate state index files are maintained
-- `decision ↔ intent` relationships preserve history by default; `decision deprecated` does not remove existing links, only stops future auto-attachment
-
-### 2.1 Decision → Intent
-
-- One decision can link to multiple intents
-- One intent can also link to multiple decisions simultaneously
-- When creating a decision, the system auto-adds all `active` intents to `intent_ids`
-- When creating an intent, the system auto-adds all `active` decisions to `decision_ids`
-- When reactivating a suspended intent to `active`, it should catch up on all current `active` decisions
-- Manual attachment must also update both sides
-
-### 2.2 Intent → Snap
-
-- One intent can link to multiple snaps
-- One snap can only belong to one intent
-- Creating a snap requires explicitly specifying `intent_id`
-- Creating a snap must simultaneously write `snap.intent_id` and the corresponding `intent.snap_ids`
-- Only `active` intents can accept new snaps
-
-## 3. State Model
-
-```mermaid
-stateDiagram-v2
-  state "Intent" as I {
-    [*] --> active
-    active --> suspend: pause
-    suspend --> active: resume
-    active --> done: complete
-    done --> [*]
-  }
-  state "Snap" as S {
-    [*] --> active2: create
-    active2 --> reverted: revert
-    reverted --> [*]
-  }
-  state "Decision" as D {
-    [*] --> active3: create
-    active3 --> deprecated: deprecate
-    deprecated --> [*]
-  }
-```
-
-Terminal states (`done`, `reverted`, `deprecated`) cannot be reversed. To resume the same problem or reinstate the same decision, create a new object.
-
-## 4. Storage Structure
-
-```text
-.intent/
-  config.json
-  intents/
-    intent-001.json
-  snaps/
-    snap-001.json
-  decisions/
-    decision-001.json
-```
-
-`.intent/` is local workspace metadata, not repository source of truth. It should remain outside Git history and should be ignored by `.gitignore`.
-
-### 4.1 config.json
-
-```json
-{
-  "schema_version": "1.0"
-}
-```
-
-## 5. Command Design
-
-All commands output JSON. The CLI uses object-subcommand style, no longer using scattered verbs like `start`, `resume`, `decide` as core entry points.
-
-### 5.1 Global Commands
-
-#### version
+Print the current CLI version.
 
 ```bash
 itt version
 ```
 
-#### init
+### `itt init`
 
-Initialize the `.intent/` directory in the current Git repository.
+Initialize `.intent/` inside the current Git repository.
 
 ```bash
 itt init
 ```
 
-#### inspect
+### `itt inspect`
 
-Output the current object graph snapshot, rather than a single active intent view. `inspect` computes results in real-time by scanning object files.
+Resume-first recovery view.
 
-`recent_snaps` returns the 10 most recent snaps globally (sorted by `created_at` descending), regardless of intent affiliation or status.
+- Use it at the start of a session.
+- Default output: `active_intents`, `active_decisions`, `suspended`, `warnings`.
+- It is not a full graph browser.
 
 ```bash
 itt inspect
 ```
 
-#### doctor
+### `itt doctor`
 
-Validate the stored object graph for broken references, invalid statuses, and one-way relationships.
+Structure diagnosis view.
+
+- Use it when `inspect` shows warnings or the graph looks inconsistent.
+- Default output: `healthy`, `issues`.
+- It validates broken references, invalid statuses, and one-way links.
 
 ```bash
 itt doctor
 ```
 
-Example:
+## Object Commands
 
-```json
-{
-  "ok": true,
-  "schema_version": "1.0",
-  "active_intents": [
-    {
-      "id": "intent-001",
-      "title": "Fix the login timeout bug",
-      "status": "active",
-      "decision_ids": ["decision-001"],
-      "latest_snap_id": "snap-002"
-    }
-  ],
-  "suspend_intents": [],
-  "active_decisions": [
-    {
-      "id": "decision-001",
-      "title": "Timeout must stay configurable",
-      "status": "active",
-      "intent_ids": ["intent-001", "intent-003"]
-    }
-  ],
-  "recent_snaps": [
-    {
-      "id": "snap-002",
-      "title": "Raise timeout to 30s",
-      "intent_id": "intent-001",
-      "status": "active",
-      "summary": "Updated timeout config and ran the login test",
-      "feedback": ""
-    }
-  ],
-  "warnings": []
-}
-```
+### Intent
 
-### 5.2 Intent Commands
-
-#### create
-
-Create a new intent. Typically called by the agent after recognizing a new goal in the user query.
+`create` recognizes a new recoverable goal. `activate`, `suspend`, and `done` are state transitions.
 
 ```bash
 itt intent create "Fix the login timeout bug" \
   --query "why does login timeout after 5s?" \
   --rationale "users on slow networks get logged out mid-session"
-```
 
-Behavior:
-
-- New object status is `active`
-- Auto-attaches all `active` decisions
-- New attachment relationships must be persisted bidirectionally to intent and decision
-
-#### list
-
-```bash
-itt intent list
-itt intent list --status active
-itt intent list --status suspend
-itt intent list --status done
-itt intent list --decision decision-001
-```
-
-#### show
-
-```bash
-itt intent show intent-001
-```
-
-#### activate
-
-Reactivate a `suspend` intent to `active`.
-
-```bash
-itt intent activate intent-001
-```
-
-Behavior:
-
-- Catches up all current `active` decisions to the intent
-- New attachment relationships must be persisted bidirectionally to intent and decision
-
-#### suspend
-
-```bash
 itt intent suspend intent-001
-```
-
-#### done
-
-```bash
+itt intent activate intent-001
 itt intent done intent-001
 ```
 
-### 5.3 Snap Commands
+Notes:
 
-#### create
+- New intents start as `active`
+- Creating an intent auto-attaches all current `active` decisions
+- Reactivating an intent catches up any current `active` decisions
+- `activate`, `suspend`, and `done` accept `ID` or infer it when there is exactly one matching candidate
+- Omitting `ID` when none match returns `NO_ACTIVE_INTENT` or `NO_SUSPENDED_INTENT`
+- Omitting `ID` when several match returns `MULTIPLE_ACTIVE_INTENTS` or `MULTIPLE_SUSPENDED_INTENTS`, with `error.details.candidates`
 
-Record one interaction snapshot under a specified intent.
+### Snap
+
+`create` writes one semantic checkpoint under an active intent. A semantic checkpoint preserves what changed, what was learned, and later user feedback. `feedback` is deliberately separate and overwrite-only.
 
 ```bash
 itt snap create "Raise timeout to 30s" \
+  --summary "Updated timeout config and ran the login test"
+
+# When several intents are active at once, disambiguate:
+itt snap create "Raise timeout to 30s" \
   --intent intent-001 \
-  --query "login timeout still fails on slow networks" \
-  --rationale "30s covers 99th-percentile latency without hurting UX" \
-  --summary "updated timeout config and ran the login test" \
-  --feedback "works in staging"
+  --summary "Updated timeout config and ran the login test"
+
+itt snap feedback snap-001 "works in staging"
 ```
 
-Behavior:
+Notes:
 
-- New object status defaults to `active`
-- Simultaneously writes `snap.intent_id` and the target intent's `snap_ids`
-- `--feedback` is optional, defaults to `""`; if the user gives no feedback and moves on, keep the default
+- `--summary` is required
+- `--intent` is optional: if omitted and exactly one intent is `active`, that intent is used; if none are active, the CLI errors with `NO_ACTIVE_INTENT`; if more than one is active, it errors with `MULTIPLE_ACTIVE_INTENTS` and lists `candidates` in `error.details` for the agent to choose
+- `origin` on the stored snap is filled automatically from the process environment (inherited by the `itt` subprocess). Set `ITT_ORIGIN` or `INTENT_ORIGIN` to a stable label in your shell profile or IDE integration when heuristics are not enough. Built-in hints include: `CURSOR_TRACE_ID` → `cursor`, `CODEX_INTERNAL_ORIGINATOR_OVERRIDE="Codex Desktop"` → `codex-desktop`, `CODEX_THREAD_ID` / `CODEX_SHELL` / `CODEX_CI` → `codex`, `TERM_PROGRAM=vscode` → `vscode`, plus Codespaces / GitHub Actions / Gitpod. Use `--origin LABEL` only when you need to override detection for that one command.
+- New snaps start as `active`
+- Creating a snap writes both `snap.intent_id` and the parent intent's `snap_ids`
+- Feedback is stored later via `itt snap feedback`
+- Correction happens by feedback or by writing a later snap, not by reverting the old one
 
-#### list
+### Decision
 
-```bash
-itt snap list
-itt snap list --intent intent-001
-itt snap list --status active
-```
-
-#### show
-
-```bash
-itt snap show snap-001
-```
-
-#### feedback
-
-Add or overwrite user feedback. Each snap keeps only the latest feedback value.
-
-```bash
-itt snap feedback snap-001 "timeout issue is fixed"
-```
-
-#### revert
-
-Mark an interaction as `reverted`.
-
-```bash
-itt snap revert snap-001
-```
-
-### 5.4 Decision Commands
-
-#### create
-
-Create a new long-term decision.
+`create` records a long-lived constraint.
 
 ```bash
 itt decision create "Timeout must stay configurable" \
   --rationale "Different deployments have different latency envelopes"
-```
 
-Behavior:
-
-- New object status is `active`
-- Auto-attaches all `active` intents
-- New attachment relationships must be persisted bidirectionally to decision and intent
-
-#### list
-
-```bash
-itt decision list
-itt decision list --status active
-itt decision list --status deprecated
-itt decision list --intent intent-001
-```
-
-#### show
-
-```bash
-itt decision show decision-001
-```
-
-#### deprecate
-
-```bash
 itt decision deprecate decision-001
 ```
 
-Behavior:
+Notes:
 
-- Changes decision status to `deprecated`
-- Preserves existing `decision.intent_ids` and corresponding `intent.decision_ids`
-- `deprecated` decisions no longer auto-attach to new intents
+- New decisions start as `active`
+- Creating a decision auto-attaches all current `active` intents
+- `deprecate` preserves history; it only stops future auto-attachment
 
-#### attach
+There are no `show` commands.
 
-Manually attach a decision to an intent, for backfilling historical relationships.
+- Default recovery belongs to `itt inspect`
+- Human-oriented browsing belongs to IntHub
 
-```bash
-itt decision attach decision-001 --intent intent-002
-```
+## Hub Commands
 
-Behavior:
+### `itt hub link`
 
-- Must simultaneously update `decision.intent_ids` and `intent.decision_ids`
-
-### 5.5 Hub Commands (Experimental)
-
-These commands sync local `.intent/` data into the first IntHub collaboration layer.
-
-#### login
-
-Write local IntHub runtime config, at minimum the API base URL.
+Configure local IntHub access if needed, then link the current GitHub-backed workspace.
 
 ```bash
-itt hub login --api-base-url http://127.0.0.1:8000
-itt hub login --api-base-url http://127.0.0.1:8000 --token dev-token
+itt hub link --api-base-url http://127.0.0.1:7210 --project-name "Intent"
+itt hub link --api-base-url http://127.0.0.1:7210 --token dev-token --project-name "Intent"
 ```
 
-Behavior:
+Notes:
 
+- Requires the current `origin` remote to be a supported GitHub repo
 - Writes `.intent/hub.json`
-- `token` is stored only in local runtime config, not in semantic objects
+- Persists `api_base_url`, optional local token, `workspace_id`, `project_id`, and `repo_binding`
 
-#### link
+### `itt hub sync`
 
-Bind the current GitHub repository to an IntHub project and initialize local workspace binding metadata.
-
-```bash
-itt hub link --project-name "Intent Dev"
-```
-
-Behavior:
-
-- Reads the current `origin` remote and requires it to be a GitHub repo
-- Initializes or reuses the local `workspace_id`
-- Writes returned `project_id`, `workspace_id`, and `repo_binding` into `.intent/hub.json`
-
-#### sync
-
-Package the current `.intent/` snapshot together with Git context and push it to IntHub.
+Push the current `.intent/` snapshot plus Git context to IntHub.
 
 ```bash
 itt hub sync
 itt hub sync --dry-run
 ```
 
-Behavior:
+Notes:
 
-- Uploads a full object snapshot, not an incremental patch
-- Sync includes `branch`, `head_commit`, `dirty`, and `remote_url`
-- `--dry-run` prints the outgoing payload without performing a network request
+- Sync uploads a full snapshot, not an incremental patch
+- Sync includes Git context such as `branch`, `head_commit`, `dirty`, and `remote_url`
+- `--dry-run` prints the outgoing payload instead of sending it
 
-## 6. JSON Output Contract
+## JSON Output
 
-### 6.1 Success
+### Standard success envelope
 
-Except for `inspect`, success responses follow this format:
+All successful commands except `inspect` use:
 
 ```json
 {
   "ok": true,
   "action": "<command-name>",
-  "result": { ... },
+  "result": {},
   "warnings": []
 }
 ```
 
-### 6.2 Error
+### `inspect`
+
+`inspect` returns:
+
+```json
+{
+  "ok": true,
+  "active_intents": [],
+  "active_decisions": [],
+  "suspended": [],
+  "warnings": []
+}
+```
+
+### `doctor`
+
+`doctor` returns:
+
+```json
+{
+  "ok": true,
+  "action": "doctor",
+  "result": {
+    "healthy": true,
+    "issues": []
+  },
+  "warnings": []
+}
+```
+
+### Error envelope
 
 ```json
 {
@@ -510,56 +263,29 @@ Except for `inspect`, success responses follow this format:
 }
 ```
 
-### 6.3 Warnings
+## Error Codes
 
-`warnings` is a string array for non-blocking hints. Possible scenarios:
-
-- No `active` decisions to attach when creating an intent
-- No `active` intents to attach when creating a decision
-- `inspect` finds orphan snaps (their `intent_id` points to a missing intent file)
-- `doctor` finds structural issues but still returns a successful JSON envelope with `healthy: false`
-- Unrecognized fields in object files (forward-compatibility hint)
-
-Warnings do not affect `ok: true`; they are informational for the caller.
-
-## 7. Error Codes
-
-| Code | Trigger scenario |
+| Code | Meaning |
 | --- | --- |
 | `NOT_INITIALIZED` | `.intent/` does not exist |
 | `ALREADY_EXISTS` | `.intent/` already exists when running `init` |
 | `GIT_STATE_INVALID` | Not inside a Git worktree |
-| `STATE_CONFLICT` | Illegal state transition, e.g. `activate` on a `done` intent |
-| `OBJECT_NOT_FOUND` | ID does not match any object |
-| `INVALID_INPUT` | Parameter errors, missing object ID, missing `--intent`, etc. |
-| `HUB_NOT_CONFIGURED` | IntHub API base URL is not configured |
+| `STATE_CONFLICT` | Illegal state transition |
+| `OBJECT_NOT_FOUND` | Object ID not found |
+| `INVALID_INPUT` | Invalid arguments or missing required input |
+| `NO_ACTIVE_INTENT` | `snap create`, `intent suspend`, or `intent done` omitted the target intent and none is `active` |
+| `MULTIPLE_ACTIVE_INTENTS` | `snap create`, `intent suspend`, or `intent done` omitted the target intent and several are `active` |
+| `NO_SUSPENDED_INTENT` | `intent activate` omitted the target intent and none is `suspend` |
+| `MULTIPLE_SUSPENDED_INTENTS` | `intent activate` omitted the target intent and several are `suspend` |
+| `HUB_NOT_CONFIGURED` | IntHub API base URL is missing |
 | `NOT_LINKED` | Current workspace has not been linked to IntHub |
-| `PROVIDER_UNSUPPORTED` | Current Git remote is not a supported provider |
-| `NETWORK_ERROR` | IntHub server could not be reached |
-| `SERVER_ERROR` | IntHub returned an error status or invalid JSON |
+| `PROVIDER_UNSUPPORTED` | Current Git remote is not supported |
+| `NETWORK_ERROR` | IntHub could not be reached |
+| `SERVER_ERROR` | IntHub returned an error or invalid JSON |
 
-## 8. ID Format
+## Operational Notes
 
-- Intent: `intent-001`, `intent-002`, ...
-- Snap: `snap-001`, `snap-002`, ...
-- Decision: `decision-001`, `decision-002`, ...
-
-IDs are zero-padded to 3 digits, auto-incremented per type. New ID = current max number for that type + 1. Deleted numbers are not reused.
-
-## 9. Design Constraints
-
-### 9.1 Object Immutability
-
-After creation, content fields (title, summary, rationale, source_query, etc.) have no update command.
-
-This is intentional: semantic history should be append-only records. If a title or summary was written incorrectly, the right approach is to correct it in a subsequent snap, not rewrite history. The only field that allows post-hoc changes is `snap.feedback` (overwritten via the `snap feedback` command), because feedback is inherently delayed.
-
-### 9.2 Relationships Only Grow
-
-`decision attach` is for backfilling relationships, but there is no `detach` command.
-
-Relationships record the fact that "this decision has/is influencing this intent." Removing a relationship would erase history. If a decision no longer applies, `deprecate` it — existing links are preserved; only future auto-attachment stops.
-
-### 9.3 `snap feedback` Uses Overwrite Semantics
-
-`snap feedback` performs a full overwrite of the `feedback` field, not an append. Each snap keeps only the latest feedback.
+- `.intent/` is local workspace metadata and should stay out of Git history
+- Object content is append-only; do not rewrite old titles or summaries
+- `snap feedback` is the only post-creation overwrite path
+- IDs are zero-padded and monotonic per object type: `intent-001`, `snap-001`, `decision-001`

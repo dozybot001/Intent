@@ -37,7 +37,7 @@ What has changed is how software development works:
 
 - People increasingly shape code indirectly through agents
 - The development process looks more like "propose a goal, drive toward results, continuously correct, crystallize decisions"
-- The development process reliably produces higher-level semantic nodes: current intent, interaction snapshots, long-term decisions, reverts and continuations
+- The development process reliably produces higher-level semantic nodes: current intent, semantic checkpoints, long-term decisions, corrections, and continuations
 
 The new question is therefore not "how to replace Git", but:
 
@@ -85,7 +85,7 @@ Four main problems:
 - Semantics are expressed in a scattered way, not formally modeled
 - Semantic node boundaries are unstable — hard to reference, compare, and trace back
 - For agents, there's no stable entry point or queryable context
-- "Progress, correction, revert, decision crystallization" remain scattered across different media
+- "Progress, correction, and decision crystallization" remain scattered across different media
 
 In traditional development, the central action is more like "writing code."
 
@@ -95,7 +95,6 @@ In agent-driven development, the increasingly critical actions are:
 - Driving implementation
 - Continuously correcting
 - Recording interaction feedback
-- Reverting when necessary
 - Crystallizing long-lived decisions
 
 The center of gravity in development is shifting from "writing" to "guiding, connecting, and crystallizing."
@@ -115,7 +114,7 @@ flowchart TB
 | Layer | Responsible for | Typical content |
 | --- | --- | --- |
 | Git | code history | commits, branches, diffs |
-| Intent | semantic history | current intent, interaction snapshots, long-term decisions, reverts and continuations |
+| Intent | semantic history | current intent, semantic checkpoints, long-term decisions, corrections, and continuations |
 | Collaboration layer | remote organization & collaboration | timelines, shared views, collaboration context |
 
 Intent can be understood as:
@@ -138,7 +137,7 @@ Intent currently does not intend to:
 
 Intent's boundary is clear:
 
-**Only record the semantic nodes worth formally tracking, linking, correcting, reverting, and reusing.**
+**Only record the semantic nodes worth formally tracking, linking, correcting, and reusing.**
 
 ## 6. Why this is more urgent in the agent era
 
@@ -179,14 +178,14 @@ If these benefits don't materialize, then no matter how elegant the schema or ho
 
 ## 8. One-line definition
 
-Intent is a Git-compatible semantic history layer for agent-driven software development.
+Intent is a Git-compatible semantic history layer for agent-driven software development, centered on product formation history and cross-session / cross-agent recovery.
 
 ## 9. Summary
 
 Intent focuses not on Git's version control capability, but on the semantic history beyond Git:
 
-- What problem is currently being solved
-- What did the last interaction accomplish
+- How the product, workflow, or design direction gradually took shape
+- How a later session or another agent can resume work without losing that semantic context
 - How the user responded to that progress
 - Which long-term decisions are still in effect
-- How the current path was formed, and how to record reverts or corrections when necessary
+- How the current path was formed, and how later corrections should be understood

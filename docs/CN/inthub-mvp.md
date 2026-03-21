@@ -56,7 +56,7 @@ IntHub 首期不优先做：
 - 安装后在用户本机启动一个 IntHub 后端实例
 - 默认只绑定 `127.0.0.1:7210`
 - 默认将 Web 与 API 一起服务
-- 用户在自己的项目仓库里执行 `itt hub login / link / sync`
+- 用户在自己的项目仓库里执行 `itt hub link / sync`
 - 再在本地浏览器中打开 IntHub，查看自己项目同步上来的 `intent / snap / decision`
 
 这样做的价值是：
@@ -113,9 +113,9 @@ IntHub 首期不优先做：
 首期搜索只要求高信号字段：
 
 - object title
-- source query / snap query
+- intent source query
 - summary
-- rationale
+- 适用对象上的 rationale
 
 不要求首期支持复杂语法，也不要求全量聊天检索。
 

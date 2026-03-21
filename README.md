@@ -2,13 +2,13 @@
 
 [中文](README.CN.md) | English
 
-Semantic history for agent-driven development. Records **what you did** and **why**.
+Semantic history for agent-driven development. Preserves **how the product took shape** and **how work resumes across sessions and agents**.
 
 ## Why
 
 Git records how code changes. But it doesn't record **why you're on this path**, what you decided along the way, or where you left off.
 
-Intent adds that missing layer: **semantic history** — a small set of formal objects that survive context loss.
+Intent adds that missing layer: **semantic history** — a small set of formal objects that preserve product formation history and survive context loss.
 
 > Development is moving from *writing code* to *guiding agents and distilling decisions*. The history layer should reflect that.
 
@@ -44,7 +44,7 @@ flowchart LR
 | Object | What it captures |
 |---|---|
 | **Intent** | A goal recognized from your query |
-| **Snap** | One query-response interaction — query, summary, feedback |
+| **Snap** | A semantic checkpoint that captures what changed, what was learned, and later feedback |
 | **Decision** | A long-lived constraint that spans multiple intents |
 
 Objects link automatically. Decisions auto-attach to every active intent; intents auto-attach to every active decision. Relationships are bidirectional and append-only.
@@ -78,7 +78,7 @@ npx skills add dozybot001/Intent -g  # Agent skill
 
 Requires Python 3.9+ and Git. The CLI provides the commands; the skill teaches the agent when to use them.
 
-> **Tips:** Type `/` at the start of each session, scroll to the skill, hit Enter — the agent enters the workflow.
+> **Tips:** Because `itt` is a new command, agents are not trained on it yet. We recommend typing `/` at the start of each session, selecting the skill, and pressing Enter to enter the workflow.
 
 ## IntHub
 
@@ -93,8 +93,7 @@ flowchart TB
 IntHub is the remote collaboration layer on top of Intent. The first path is **IntHub Local** — download from a [GitHub release](https://github.com/dozybot001/Intent/releases), then:
 
 ```bash
-itt hub login --api-base-url http://127.0.0.1:7210
-itt hub link
+itt hub link --api-base-url http://127.0.0.1:7210
 itt hub sync
 ```
 

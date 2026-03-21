@@ -3,15 +3,15 @@
 import json
 
 from intent_cli import __version__
-from intent_cli.commands.common import now_utc, require_init, validate_status_filter
+from intent_cli.commands.common import now_utc, require_init
 from intent_cli.output import error, success
+from intent_cli.origin import detect_origin
 from intent_cli.store import (
     VALID_STATUSES,
     git_root,
     init_workspace,
     list_objects,
     next_id,
-    read_config,
     read_object,
     validate_graph,
     write_object,
@@ -41,43 +41,43 @@ def cmd_init(_args):
 
 def cmd_inspect(_args):
     base = require_init()
-    config = read_config(base)
+
+    all_snaps = list_objects(base, "snap")
+    snap_by_id = {snap["id"]: snap for snap in all_snaps}
 
     active_intents = []
-    suspend_intents = []
+    suspended = []
     for obj in list_objects(base, "intent"):
-        entry = {
-            "id": obj["id"],
-            "title": obj["title"],
-            "status": obj["status"],
-            "decision_ids": obj.get("decision_ids", []),
-            "latest_snap_id": obj["snap_ids"][-1] if obj.get("snap_ids") else None,
-        }
+        latest_snap_id = obj["snap_ids"][-1] if obj.get("snap_ids") else None
         if obj["status"] == "active":
-            active_intents.append(entry)
+            latest_snap = None
+            if latest_snap_id:
+                snap = snap_by_id.get(latest_snap_id)
+                if snap is not None:
+                    latest_snap = {
+                        "id": snap["id"],
+                        "title": snap["title"],
+                        "summary": snap.get("summary", ""),
+                        "feedback": snap.get("feedback", ""),
+                        "origin": snap.get("origin", ""),
+                    }
+            active_intents.append({
+                "id": obj["id"],
+                "title": obj["title"],
+                "latest_snap": latest_snap,
+            })
         elif obj["status"] == "suspend":
-            suspend_intents.append(entry)
+            suspended.append({
+                "id": obj["id"],
+                "title": obj["title"],
+                "latest_snap_id": latest_snap_id,
+            })
 
     active_decisions = []
     for obj in list_objects(base, "decision", status="active"):
         active_decisions.append({
             "id": obj["id"],
             "title": obj["title"],
-            "status": obj["status"],
-            "intent_ids": obj.get("intent_ids", []),
-        })
-
-    all_snaps = list_objects(base, "snap")
-    all_snaps.sort(key=lambda s: s.get("created_at", ""), reverse=True)
-    recent_snaps = []
-    for snap in all_snaps[:10]:
-        recent_snaps.append({
-            "id": snap["id"],
-            "title": snap["title"],
-            "intent_id": snap["intent_id"],
-            "status": snap["status"],
-            "summary": snap.get("summary", ""),
-            "feedback": snap.get("feedback", ""),
         })
 
     warnings = []
@@ -88,11 +88,9 @@ def cmd_inspect(_args):
 
     print(json.dumps({
         "ok": True,
-        "schema_version": config.get("schema_version", "1.0"),
         "active_intents": active_intents,
-        "suspend_intents": suspend_intents,
         "active_decisions": active_decisions,
-        "recent_snaps": recent_snaps,
+        "suspended": suspended,
         "warnings": warnings,
     }, indent=2, ensure_ascii=False))
 
@@ -100,6 +98,45 @@ def cmd_inspect(_args):
 def cmd_doctor(_args):
     base = require_init()
     success("doctor", validate_graph(base))
+
+
+def _intent_result_for_json(intent):
+    result = dict(intent)
+    result.pop("decision_ids", None)
+    return result
+
+
+def _resolve_inferred_intent_id(
+    base,
+    explicit_id,
+    *,
+    status,
+    none_code,
+    none_message,
+    multi_code,
+    multi_message,
+    suggested_fix,
+):
+    if explicit_id:
+        return explicit_id, False
+
+    candidates = sorted(
+        (
+            {"id": obj["id"], "title": obj["title"]}
+            for obj in list_objects(base, "intent", status=status)
+        ),
+        key=lambda c: c["id"],
+    )
+    if not candidates:
+        error(none_code, none_message, suggested_fix=suggested_fix)
+    if len(candidates) > 1:
+        error(
+            multi_code,
+            multi_message,
+            details={"candidates": candidates},
+            suggested_fix=suggested_fix,
+        )
+    return candidates[0]["id"], True
 
 
 def cmd_intent_create(args):
@@ -131,36 +168,29 @@ def cmd_intent_create(args):
             decision.setdefault("intent_ids", []).append(obj_id)
             write_object(base, "decision", decision["id"], decision)
 
-    success("intent.create", intent, warnings)
-
-
-def cmd_intent_list(args):
-    base = require_init()
-    validate_status_filter("intent", args.status)
-    objects = list_objects(base, "intent", status=args.status)
-    if args.decision:
-        objects = [obj for obj in objects if args.decision in obj.get("decision_ids", [])]
-    success("intent.list", objects)
-
-
-def cmd_intent_show(args):
-    base = require_init()
-    obj = read_object(base, "intent", args.id)
-    if obj is None:
-        error("OBJECT_NOT_FOUND", f"Intent {args.id} not found.")
-    success("intent.show", obj)
-
+    success("intent.create", _intent_result_for_json(intent), warnings)
 
 def cmd_intent_activate(args):
     base = require_init()
-    obj = read_object(base, "intent", args.id)
+    intent_id, inferred = _resolve_inferred_intent_id(
+        base,
+        args.id,
+        status="suspend",
+        none_code="NO_SUSPENDED_INTENT",
+        none_message="No suspended intent to activate.",
+        multi_code="MULTIPLE_SUSPENDED_INTENTS",
+        multi_message="Multiple suspended intents; specify which one with ID.",
+        suggested_fix="itt intent activate <id> or use: itt inspect",
+    )
+
+    obj = read_object(base, "intent", intent_id)
     if obj is None:
-        error("OBJECT_NOT_FOUND", f"Intent {args.id} not found.")
+        error("OBJECT_NOT_FOUND", f"Intent {intent_id} not found.")
     if obj["status"] != "suspend":
         error(
             "STATE_CONFLICT",
             f"Cannot activate intent with status '{obj['status']}'. Only 'suspend' intents can be activated.",
-            suggested_fix=f"itt intent show {args.id}",
+            suggested_fix="Use: itt inspect",
         )
 
     obj["status"] = "active"
@@ -169,51 +199,105 @@ def cmd_intent_activate(args):
     for decision in active_decisions:
         if decision["id"] not in obj["decision_ids"]:
             obj["decision_ids"].append(decision["id"])
-        if args.id not in decision.get("intent_ids", []):
-            decision.setdefault("intent_ids", []).append(args.id)
+        if intent_id not in decision.get("intent_ids", []):
+            decision.setdefault("intent_ids", []).append(intent_id)
             write_object(base, "decision", decision["id"], decision)
 
-    write_object(base, "intent", args.id, obj)
-    success("intent.activate", obj)
+    write_object(base, "intent", intent_id, obj)
+    warnings = []
+    if inferred:
+        warnings.append(f"Inferred intent {intent_id} (only suspended intent).")
+    success("intent.activate", _intent_result_for_json(obj), warnings)
 
 
 def cmd_intent_suspend(args):
     base = require_init()
-    obj = read_object(base, "intent", args.id)
+    intent_id, inferred = _resolve_inferred_intent_id(
+        base,
+        args.id,
+        status="active",
+        none_code="NO_ACTIVE_INTENT",
+        none_message="No active intent to suspend.",
+        multi_code="MULTIPLE_ACTIVE_INTENTS",
+        multi_message="Multiple active intents; specify which one with ID.",
+        suggested_fix="itt intent suspend <id> or use: itt inspect",
+    )
+
+    obj = read_object(base, "intent", intent_id)
     if obj is None:
-        error("OBJECT_NOT_FOUND", f"Intent {args.id} not found.")
+        error("OBJECT_NOT_FOUND", f"Intent {intent_id} not found.")
     if obj["status"] != "active":
         error(
             "STATE_CONFLICT",
             f"Cannot suspend intent with status '{obj['status']}'. Only 'active' intents can be suspended.",
-            suggested_fix=f"itt intent show {args.id}",
+            suggested_fix="Use: itt inspect",
         )
 
     obj["status"] = "suspend"
-    write_object(base, "intent", args.id, obj)
-    success("intent.suspend", obj)
+    write_object(base, "intent", intent_id, obj)
+    warnings = []
+    if inferred:
+        warnings.append(f"Inferred intent {intent_id} (only active intent).")
+    success("intent.suspend", _intent_result_for_json(obj), warnings)
 
 
 def cmd_intent_done(args):
     base = require_init()
-    obj = read_object(base, "intent", args.id)
+    intent_id, inferred = _resolve_inferred_intent_id(
+        base,
+        args.id,
+        status="active",
+        none_code="NO_ACTIVE_INTENT",
+        none_message="No active intent to mark done.",
+        multi_code="MULTIPLE_ACTIVE_INTENTS",
+        multi_message="Multiple active intents; specify which one with ID.",
+        suggested_fix="itt intent done <id> or use: itt inspect",
+    )
+
+    obj = read_object(base, "intent", intent_id)
     if obj is None:
-        error("OBJECT_NOT_FOUND", f"Intent {args.id} not found.")
+        error("OBJECT_NOT_FOUND", f"Intent {intent_id} not found.")
     if obj["status"] != "active":
         error(
             "STATE_CONFLICT",
             f"Cannot mark intent as done with status '{obj['status']}'. Only 'active' intents can be marked done.",
-            suggested_fix=f"itt intent show {args.id}",
+            suggested_fix="Use: itt inspect",
         )
 
     obj["status"] = "done"
-    write_object(base, "intent", args.id, obj)
-    success("intent.done", obj)
+    write_object(base, "intent", intent_id, obj)
+    warnings = []
+    if inferred:
+        warnings.append(f"Inferred intent {intent_id} (only active intent).")
+    success("intent.done", _intent_result_for_json(obj), warnings)
 
 
 def cmd_snap_create(args):
     base = require_init()
-    intent_id = args.intent
+    if args.intent:
+        intent_id = args.intent
+        inferred = False
+    else:
+        active = list_objects(base, "intent", status="active")
+        if not active:
+            error(
+                "NO_ACTIVE_INTENT",
+                "No active intent to attach the snap to.",
+                suggested_fix='Create or activate an intent first, e.g. itt intent create "TITLE" --query "..." or itt intent activate <id>',
+            )
+        if len(active) > 1:
+            candidates = sorted(
+                ({"id": o["id"], "title": o["title"]} for o in active),
+                key=lambda c: c["id"],
+            )
+            error(
+                "MULTIPLE_ACTIVE_INTENTS",
+                "Multiple active intents; specify which one with --intent ID.",
+                details={"candidates": candidates},
+                suggested_fix="itt snap create TITLE --intent <id> --summary ...",
+            )
+        intent_id = active[0]["id"]
+        inferred = True
 
     intent = read_object(base, "intent", intent_id)
     if intent is None:
@@ -225,6 +309,11 @@ def cmd_snap_create(args):
             suggested_fix=f"itt intent activate {intent_id}",
         )
 
+    if args.origin is not None:
+        origin = (args.origin or "").strip()
+    else:
+        origin = detect_origin()
+
     obj_id = next_id(base, "snap")
     snap = {
         "id": obj_id,
@@ -233,34 +322,19 @@ def cmd_snap_create(args):
         "title": args.title,
         "status": "active",
         "intent_id": intent_id,
-        "query": args.query,
-        "rationale": args.rationale,
         "summary": args.summary,
-        "feedback": args.feedback,
+        "feedback": "",
+        "origin": origin,
     }
     write_object(base, "snap", obj_id, snap)
 
     intent.setdefault("snap_ids", []).append(obj_id)
     write_object(base, "intent", intent_id, intent)
 
-    success("snap.create", snap)
-
-
-def cmd_snap_list(args):
-    base = require_init()
-    validate_status_filter("snap", args.status)
-    objects = list_objects(base, "snap", status=args.status)
-    if args.intent:
-        objects = [snap for snap in objects if snap.get("intent_id") == args.intent]
-    success("snap.list", objects)
-
-
-def cmd_snap_show(args):
-    base = require_init()
-    obj = read_object(base, "snap", args.id)
-    if obj is None:
-        error("OBJECT_NOT_FOUND", f"Snap {args.id} not found.")
-    success("snap.show", obj)
+    warnings = []
+    if inferred:
+        warnings.append(f"Inferred intent {intent_id} (only active intent).")
+    success("snap.create", snap, warnings)
 
 
 def cmd_snap_feedback(args):
@@ -271,23 +345,6 @@ def cmd_snap_feedback(args):
     obj["feedback"] = args.feedback
     write_object(base, "snap", args.id, obj)
     success("snap.feedback", obj)
-
-
-def cmd_snap_revert(args):
-    base = require_init()
-    obj = read_object(base, "snap", args.id)
-    if obj is None:
-        error("OBJECT_NOT_FOUND", f"Snap {args.id} not found.")
-    if obj["status"] != "active":
-        error(
-            "STATE_CONFLICT",
-            f"Cannot revert snap with status '{obj['status']}'. Only 'active' snaps can be reverted.",
-            suggested_fix=f"itt snap show {args.id}",
-        )
-
-    obj["status"] = "reverted"
-    write_object(base, "snap", args.id, obj)
-    success("snap.revert", obj)
 
 
 def cmd_decision_create(args):
@@ -320,23 +377,6 @@ def cmd_decision_create(args):
     success("decision.create", decision, warnings)
 
 
-def cmd_decision_list(args):
-    base = require_init()
-    validate_status_filter("decision", args.status)
-    objects = list_objects(base, "decision", status=args.status)
-    if args.intent:
-        objects = [obj for obj in objects if args.intent in obj.get("intent_ids", [])]
-    success("decision.list", objects)
-
-
-def cmd_decision_show(args):
-    base = require_init()
-    obj = read_object(base, "decision", args.id)
-    if obj is None:
-        error("OBJECT_NOT_FOUND", f"Decision {args.id} not found.")
-    success("decision.show", obj)
-
-
 def cmd_decision_deprecate(args):
     base = require_init()
     obj = read_object(base, "decision", args.id)
@@ -346,31 +386,10 @@ def cmd_decision_deprecate(args):
         error(
             "STATE_CONFLICT",
             f"Cannot deprecate decision with status '{obj['status']}'. Only 'active' decisions can be deprecated.",
-            suggested_fix=f"itt decision show {args.id}",
+            suggested_fix="Use: itt inspect",
         )
 
     obj["status"] = "deprecated"
     write_object(base, "decision", args.id, obj)
     success("decision.deprecate", obj)
 
-
-def cmd_decision_attach(args):
-    base = require_init()
-    decision = read_object(base, "decision", args.id)
-    if decision is None:
-        error("OBJECT_NOT_FOUND", f"Decision {args.id} not found.")
-
-    intent_id = args.intent
-    intent = read_object(base, "intent", intent_id)
-    if intent is None:
-        error("OBJECT_NOT_FOUND", f"Intent {intent_id} not found.")
-
-    if intent_id not in decision.get("intent_ids", []):
-        decision.setdefault("intent_ids", []).append(intent_id)
-        write_object(base, "decision", args.id, decision)
-
-    if args.id not in intent.get("decision_ids", []):
-        intent.setdefault("decision_ids", []).append(args.id)
-        write_object(base, "intent", intent_id, intent)
-
-    success("decision.attach", decision)

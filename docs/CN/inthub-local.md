@@ -58,8 +58,7 @@ python3 inthub-local.pyz
 在你自己的项目仓库里执行：
 
 ```bash
-itt hub login --api-base-url http://127.0.0.1:7210
-itt hub link
+itt hub link --api-base-url http://127.0.0.1:7210
 itt hub sync
 ```
 
@@ -75,4 +74,4 @@ itt hub sync
 ./inthub-local --db-path /path/to/inthub.db
 ```
 
-如果你改了端口，记得在 `itt hub login` 里使用同一个地址。
+如果你改了端口，记得在 `itt hub link --api-base-url ...` 里使用同一个地址。

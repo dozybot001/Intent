@@ -15,7 +15,7 @@
 - 让 CLI 实现和 [cli.md](cli.md) 对齐
 - 用真实 agent workflow 验证 `intent / snap / decision` 这组对象是否足够稳定
 - 验证中断恢复、续做、长期决策沉淀这些核心场景
-- 收敛 inspect、list、show、create、状态流转等基础行为
+- 收敛 inspect、doctor、create、最小状态流转和低噪声记录等基础行为
 
 这一阶段的目标不是“功能尽可能多”，而是“语义层尽可能稳”。
 

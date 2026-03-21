@@ -62,8 +62,7 @@ This asset starts a local IntHub instance on http://127.0.0.1:7210 by default.
 Quick start:
 1. Run ./inthub-local (or inthub-local.cmd on Windows)
 2. In your project repo, run:
-   itt hub login --api-base-url http://127.0.0.1:7210
-   itt hub link
+   itt hub link --api-base-url http://127.0.0.1:7210
    itt hub sync
 3. Open http://127.0.0.1:7210 in your browser
 

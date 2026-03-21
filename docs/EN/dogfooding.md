@@ -14,7 +14,7 @@ Under this single intent, the user naturally switched between multiple agents to
 
 ### Phase 1: Codex sets up IntHub (snap-050 → 052)
 
-Codex handled the groundwork: pushed skill installation guidance to the README, documented IntHub Web entry points, and launched the local IntHub API + Web services. It completed the full `itt hub login → link → sync` pipeline.
+Codex handled the groundwork: pushed skill installation guidance to the README, documented IntHub Web entry points, and launched the local IntHub API + Web services. It completed the full `itt hub link → sync` pipeline.
 
 At this point IntHub was live at `http://127.0.0.1:3000`, displaying the project's semantic history.
 
@@ -46,7 +46,7 @@ Codex ran `itt inspect` and saw all of Claude Code's frontend work (snap-053 thr
 
 > "I had Claude Code refactor the frontend. Also, some new commands aren't taught in the skill yet — that needs fixing."
 
-Codex didn't ask what happened. It read the snap chain and went straight to its own task: documenting `doctor`, `hub login/link/sync`, updating filter parameters, and refining intent creation criteria.
+Codex didn't ask what happened. It read the snap chain and went straight to its own task: documenting `doctor`, `hub link/sync`, updating filter parameters, and refining intent creation criteria.
 
 ### Phase 4: Claude Code catches a mistake (snap-061)
 
@@ -62,7 +62,7 @@ It then diffed the two files, confirmed the quality of Codex's work, and synced 
 
 ## What this demonstrates
 
-**Agent switching needs no handoff meeting.** The user switched between agents multiple times. Not once did they need to re-explain context. Each agent read current state via `itt inspect`, read the previous agent's summary via `itt snap show`, and started working immediately.
+**Agent switching needs no handoff meeting.** The user switched between agents multiple times. Not once did they need to re-explain context. Each agent read current state and the latest summary via `itt inspect`, and started working immediately.
 
 **Feedback is consumed where it matters.** snap-053's feedback ("tear it down") directly shaped snap-054's direction. snap-060's feedback ("wrong file") directly caused snap-061's correction. Feedback isn't a post-mortem — it's input to the next step.
 

@@ -241,6 +241,7 @@ function renderHandoffTab() {
           <p class="card-body">${esc(truncate(intent.latest_snap?.summary || intent.rationale || intent.source_query || "", 200))}</p>
           <div class="card-meta">
             <span class="badge">${esc(intent.id)}</span>
+            ${intent.latest_snap?.origin ? `<span class="badge">${esc(intent.latest_snap.origin)}</span>` : ""}
             <span class="badge">${esc(intent.git.branch || "\u2014")}</span>
             <span class="badge">${esc(shortCommit(intent.git.head_commit))}</span>
             ${dirtyBadge(intent.git.dirty)}
@@ -352,6 +353,7 @@ function renderSnapsTab() {
       <div class="card-meta">
         <span class="badge">${esc(snap.id)}</span>
         <span class="badge">${esc(snap.intent_id || "")}</span>
+        ${snap.origin ? `<span class="badge">${esc(snap.origin)}</span>` : ""}
         <span class="badge">${esc(fmtDate(snap.created_at))}</span>
       </div>
     </article>`,
@@ -571,6 +573,7 @@ function renderIntentDetail(payload) {
       </div>
     </div>
     ${detailSection("Latest Summary", formatText(latestSnap?.summary) || `<p>No snap summary yet.</p>`)}
+    ${latestSnap?.origin ? detailSection("Origin", `<p>${esc(latestSnap.origin)}</p>`) : ""}
     ${intent.rationale ? detailSection("Rationale", formatText(intent.rationale)) : ""}
     ${intent.source_query ? detailSection("Source Query", formatText(intent.source_query)) : ""}
     ${detailSection("Linked Decisions", decisionsBody)}
@@ -662,6 +665,7 @@ function renderSnapDetail(payload) {
       </div>
     </div>
     ${detailSection("Summary", formatText(snap.summary) || `<p>No summary.</p>`)}
+    ${snap.origin ? detailSection("Origin", `<p>${esc(snap.origin)}</p>`) : ""}
     ${snap.query ? detailSection("Query", formatText(snap.query)) : ""}
     ${snap.rationale ? detailSection("Rationale", formatText(snap.rationale)) : ""}
     ${detailSection("Feedback", formatText(snap.feedback) || `<p>No feedback recorded.</p>`)}
@@ -681,33 +685,28 @@ function renderSnapDetail(payload) {
 /* ---- Setup guide ---- */
 
 function renderSetupGuide(mode) {
-  const loginCmd = `itt hub login --api-base-url ${state.config.apiBaseUrl}`;
+  const linkCmd = `itt hub link --api-base-url ${state.config.apiBaseUrl}`;
   let steps = [];
 
   if (mode === "unlinked") {
     steps = [
       { title: "1. Initialize", desc: "Run once per repo.", cmd: ["itt init"] },
       {
-        title: "2. Login",
-        desc: "Point CLI at this hub.",
-        cmd: [loginCmd],
-      },
-      {
-        title: "3. Link & Sync",
-        desc: "Create binding, push snapshot.",
-        cmd: ["itt hub link", "itt hub sync"],
+        title: "2. Link & Sync",
+        desc: "Point CLI here, create binding, push snapshot.",
+        cmd: [linkCmd, "itt hub sync"],
       },
     ];
   } else {
     steps = [
       {
-        title: "1. Login",
-        desc: "Ensure CLI points here.",
-        cmd: [loginCmd],
+        title: "1. Link & Sync",
+        desc: "Ensure CLI points here, then push the next snapshot.",
+        cmd: [linkCmd, "itt hub sync"],
       },
       {
-        title: "2. Sync",
-        desc: "Push first snapshot.",
+        title: "2. Sync Again Later",
+        desc: "Push new semantic history after more work.",
         cmd: ["itt hub sync"],
       },
     ];

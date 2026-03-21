@@ -2,13 +2,13 @@
 
 中文 | [English](README.md)
 
-为 agent 驱动的开发提供语义历史。记录**你做了什么**以及**为什么**。
+为 agent 驱动的开发提供语义历史。保留**产品如何逐步成形**，以及**工作如何跨 session 与 agent 恢复**。
 
 ## 为什么
 
 Git 记录代码怎么变的。但它不记录**你为什么走这条路**、途中做了什么决策、上次停在哪里。
 
-Intent 补上这层缺失的 **语义历史** — 一组能穿越上下文丢失的正式对象。
+Intent 补上这层缺失的 **语义历史** — 一组既能保留产品形成历史、又能穿越上下文丢失的正式对象。
 
 > 开发正在从"写代码"转向"引导 agent、沉淀决策"。历史层应该反映这一点。
 
@@ -44,7 +44,7 @@ flowchart LR
 | 对象 | 记录什么 |
 |---|---|
 | **Intent** | 从用户 query 中识别出的目标 |
-| **Snap** | 一次 query-response 交互 — query、摘要、反馈 |
+| **Snap** | 一个语义检查点，记录发生了什么变化、学到了什么，以及后续反馈 |
 | **Decision** | 跨多个 intent 持续生效的长期约束 |
 
 对象自动关联。Decision 自动挂载到每个 active intent；intent 自动挂载到每个 active decision。关系始终双向且只增不减。
@@ -78,7 +78,7 @@ npx skills add dozybot001/Intent -g  # Agent skill
 
 需要 Python 3.9+ 和 Git。CLI 提供命令，skill 教 agent 何时使用。
 
-> **Tips：** 每个 session 开始时打个 `/`，选到技能，回车就进入工作流了。
+> **Tips：** 由于`itt`是一个全新的命令，agent 没有被训练过，建议每个 session 开始时打个 `/`，选到技能，回车就进入工作流了。
 
 ## IntHub
 
@@ -93,8 +93,7 @@ flowchart TB
 IntHub 是构建在 Intent 之上的远端协作层。首个路径是 **IntHub Local** — 从 [GitHub release](https://github.com/dozybot001/Intent/releases) 下载，然后：
 
 ```bash
-itt hub login --api-base-url http://127.0.0.1:7210
-itt hub link
+itt hub link --api-base-url http://127.0.0.1:7210
 itt hub sync
 ```
 
