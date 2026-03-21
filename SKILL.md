@@ -6,7 +6,7 @@ description: Track what you're doing and why with structured semantic history (.
 # Intent — semantic history
 
 This repo uses Intent (`.intent/`) to track what you're doing and why.
-Install: `pip install intent-cli-python`
+Install: `git clone https://github.com/dozybot001/Intent.git && cd Intent && pip install .`
 
 Structured `itt` command outputs are JSON — parse them, don't guess. `argparse` help and usage text are not JSON.
 

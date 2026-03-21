@@ -68,6 +68,6 @@ It then diffed the two files, confirmed the quality of Codex's work, and synced 
 
 **Summaries are written for the next session's agent.** Every snap summary answers three questions: what's done, what's not, what context shapes the next step. This isn't logging — it's a handoff document.
 
-**Decisions are live constraints, not memos.** Throughout the process, 5 active decisions continuously constrained implementation choices (e.g., `.intent/` stays out of Git, Hub isn't distributed via PyPI). These constraints aren't "remembered" by agents — they're structurally loaded from `itt inspect` every session and checked before implementation.
+**Decisions are live constraints, not memos.** Throughout the process, 5 active decisions continuously constrained implementation choices (e.g., `.intent/` stays out of Git, IntHub runs from repo source). These constraints aren't "remembered" by agents — they're structurally loaded from `itt inspect` every session and checked before implementation.
 
 **Mistakes are structurally captured.** Codex edited the wrong file. Claude Code caught it via diff. Without Intent, this error might not surface until the next `npx skills add` — because the local skill looked correct, but the repository source wasn't updated. snap-060's feedback permanently records this mistake and why it happened, making it easier for future agents to see and avoid the same class of error.

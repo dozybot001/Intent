@@ -68,6 +68,6 @@ Claude Code 在 snap-060 上记录了 feedback：
 
 **Summary 为下一个 session 而写。** 每条 snap 的 summary 都回答三个问题：做了什么、没做什么、下一步需要什么上下文。这不是日志，是交接文档。
 
-**Decision 是活的约束，不是备忘录。** 整个过程中 5 条 active decisions 持续约束着实现选择（比如 `.intent/` 不进 Git、Hub 不放进 PyPI 分发）。这些约束不是 agent "记住"的——每次 `itt inspect` 都会重新加载，并在实现前检查。
+**Decision 是活的约束，不是备忘录。** 整个过程中 5 条 active decisions 持续约束着实现选择（比如 `.intent/` 不进 Git、IntHub 从仓库源码启动）。这些约束不是 agent "记住"的——每次 `itt inspect` 都会重新加载，并在实现前检查。
 
 **错误被结构化捕获。** Codex 改错了文件位置，Claude Code 通过 diff 发现了问题。如果没有 Intent，这个错误可能在下次 `npx skills add` 时才会暴露——因为本机 skill 看起来是对的，但仓库源文件没有更新。snap-060 的 feedback 永久记录了这个失误和原因，未来 agent 更容易看到并避免重复这类错误。

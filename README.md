@@ -74,10 +74,10 @@ flowchart LR
 ```bash
 git clone https://github.com/dozybot001/Intent.git
 cd Intent
-pip install intent-cli-python && npx skills add dozybot001/Intent -g
+pip install . && npx skills add dozybot001/Intent -g
 ```
 
-This installs the CLI and adds the agent skill. Requires Python 3.9+, Git, and Node.js.
+This installs the CLI from source and adds the agent skill. Requires Python 3.9+, Git, and Node.js.
 
 To browse semantic history in a browser, start **IntHub Local** from the cloned repo:
 

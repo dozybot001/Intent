@@ -10,7 +10,7 @@
 - `.intent/` must remain local workspace metadata, not committed to Git and not consumed as GitHub content
 - The first IntHub Web release is **read-only** by default
 - The local CLI remains the primary write path
-- PyPI distribution remains CLI-only; IntHub Web and API are outside the Python package boundary
+- CLI is installed from source (`pip install .`); IntHub Local runs from the cloned repo via `itt hub start`
 
 ## 2. First-release responsibility split
 
@@ -42,7 +42,7 @@ Responsible for:
 
 Deployment note:
 
-- the first API may live in the same repository, but it is not part of the PyPI distribution surface
+- the first API lives in the same repository and runs from source via `itt hub start`
 - the first installable user-facing shape should converge on `IntHub Local`, launched via `itt hub start` from the cloned repo
 - `IntHub Local` should bind to `127.0.0.1:7210` by default
 

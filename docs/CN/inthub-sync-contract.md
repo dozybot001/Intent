@@ -10,7 +10,7 @@
 - `.intent/` 必须继续留在本地工作区，不提交到 Git，也不作为 GitHub 内容被消费
 - IntHub Web 首版默认 **只读**
 - 本地 CLI 继续是主要写入口
-- PyPI 分发保持 CLI-only；IntHub Web 和 API 不属于 Python 包分发边界
+- CLI 从源码安装（`pip install .`）；IntHub Local 通过 `itt hub start` 从 clone 的仓库启动
 
 ## 2. 首版系统分工
 
@@ -42,7 +42,7 @@
 
 部署说明：
 
-- 首版 API 可以继续和仓库放在一起开发，但不属于 PyPI 分发面
+- 首版 API 和仓库放在一起，通过 `itt hub start` 从源码启动
 - 面向普通用户的首个安装形态应优先收敛为 `IntHub Local`，在 clone 的仓库目录下通过 `itt hub start` 启动
 - `IntHub Local` 默认只绑定 `127.0.0.1:7210`
 

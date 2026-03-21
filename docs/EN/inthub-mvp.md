@@ -62,10 +62,9 @@ A better first step is a **distributable local IntHub instance (IntHub Local)**:
 Why this is the right first product shape:
 
 - it does not require ordinary users to understand hosting, domains, or cloud deployment first
-- it preserves the boundary that PyPI distributes only the CLI
 - it keeps the product experience aligned with the future hosted IntHub shape; only the deployment location differs
 
-The boundary should be explicit: `IntHub Local` is a **separate deliverable**, not an implicit part of the CLI PyPI package.
+The boundary should be explicit: `IntHub Local` runs from the cloned repo source via `itt hub start`, separate from the CLI installation.
 
 ### 4.1 Must-have user-facing capabilities
 
