@@ -17,9 +17,12 @@
           <select id="project-select"></select>
         </div>
         <div class="header-right">
+          <input type="search" id="header-search" class="header-search" placeholder="Search…">
           <button id="refresh-btn" type="button">Refresh</button>
-          <span class="chip" id="sync-chip"></span>
-          <span class="chip" id="api-chip"></span>
+          <div class="header-meta">
+            <span class="header-meta-text" id="sync-chip"></span>
+            <span class="header-meta-text" id="api-chip"></span>
+          </div>
         </div>
       </header>
 
@@ -30,7 +33,6 @@
             <button class="tab" data-tab="intents">Intents <span class="tab-count" id="intent-count"></span></button>
             <button class="tab" data-tab="decisions">Decisions <span class="tab-count" id="decision-count"></span></button>
             <button class="tab" data-tab="snaps">Snaps <span class="tab-count" id="snap-count"></span></button>
-            <button class="tab" data-tab="search">Search</button>
           </div>
           <div class="sidebar-body" id="sidebar-body"></div>
         </nav>

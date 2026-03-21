@@ -1,6 +1,6 @@
 /* ---- State ---- */
 
-const TABS = ["handoff", "intents", "decisions", "snaps", "search"];
+const TABS = ["handoff", "intents", "decisions", "snaps"];
 
 const state = {
   config: null,
@@ -276,7 +276,7 @@ function intentCard(intent) {
     </article>`;
 }
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 30;
 
 function renderPaged(container, items, renderFn, tabKey) {
   if (!state._pageState) state._pageState = {};
@@ -403,7 +403,7 @@ function renderSearchTab() {
 }
 
 function renderSearchResults(result) {
-  const container = document.getElementById("search-results");
+  const container = el.sidebarBody;
   if (!result.matches?.length) {
     container.innerHTML =
       '<div class="empty-state">No matches found.</div>';
@@ -938,6 +938,23 @@ function bindEvents() {
 
   el.drawerClose.addEventListener("click", closeDrawer);
   el.drawerOverlay.addEventListener("click", closeDrawer);
+
+  const headerSearch = document.getElementById("header-search");
+  headerSearch.addEventListener("keydown", async (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const q = headerSearch.value.trim();
+    state.searchQuery = q;
+    if (!q || !state.currentProjectId) return;
+    try {
+      const result = await fetchJson(
+        apiUrl(`/api/v1/search?project_id=${encodeURIComponent(state.currentProjectId)}&q=${encodeURIComponent(q)}`),
+      );
+      renderSearchResults(result);
+    } catch (err) {
+      el.sidebarBody.innerHTML = `<div class="empty-state">${esc(err.message)}</div>`;
+    }
+  });
 }
 
 /* ---- Init ---- */
