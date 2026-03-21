@@ -176,6 +176,15 @@ function linkButton(type, rId, label, meta) {
   return `<button type="button" class="detail-link" data-detail-type="${esc(type)}" data-remote-id="${esc(rId)}"><span class="detail-link-label">${esc(label)}</span>${meta ? `<span class="detail-link-meta">${esc(meta)}</span>` : ""}</button>`;
 }
 
+function relationItem(type, rId, id, title, meta, status) {
+  const statusClass = status === "deprecated" || status === "done" ? " muted" : "";
+  return `<button type="button" class="relation-item${statusClass}" data-detail-type="${esc(type)}" data-remote-id="${esc(rId)}">
+    <span class="relation-id"><span class="badge">${esc(id)}</span>${status ? `<span class="badge${status === "deprecated" ? " warn" : ""}">${esc(status)}</span>` : ""}</span>
+    <span class="relation-title">${esc(title)}</span>
+    ${meta ? `<span class="relation-meta">${esc(meta)}</span>` : ""}
+  </button>`;
+}
+
 function relatedLinks(items, emptyMsg) {
   return items.length
     ? `<div class="detail-link-list">${items.join("")}</div>`
@@ -516,28 +525,32 @@ function renderIntentDetail(payload) {
   const activeLinks = allIds
     .filter((dId) => activeIds.has(dId))
     .map((dId) =>
-      linkButton(
+      relationItem(
         "decision",
         remoteId(payload.workspace_id, dId),
-        dMap[dId]?.title || dId,
         dId,
+        dMap[dId]?.title || dId,
+        dMap[dId]?.rationale || "",
+        "active",
       ),
     );
   const deprecatedLinks = allIds
     .filter((dId) => !activeIds.has(dId))
     .map((dId) =>
-      linkButton(
+      relationItem(
         "decision",
         remoteId(payload.workspace_id, dId),
+        dId,
         dMap[dId]?.title || dId,
-        `${dId} · deprecated`,
+        dMap[dId]?.rationale || "",
+        "deprecated",
       ),
     );
 
   const decisionsBody =
     activeLinks.length || deprecatedLinks.length
-      ? `${activeLinks.length ? `<div class="detail-link-list">${activeLinks.join("")}</div>` : '<div class="empty-state">No active constraints.</div>'}
-         ${deprecatedLinks.length ? `<details class="collapse-toggle is-deprecated"><summary>${deprecatedLinks.length} deprecated</summary><div class="detail-link-list">${deprecatedLinks.join("")}</div></details>` : ""}`
+      ? `${activeLinks.length ? `<div class="relation-list">${activeLinks.join("")}</div>` : '<div class="empty-state">No active constraints.</div>'}
+         ${deprecatedLinks.length ? `<details class="collapse-toggle is-deprecated"><summary>${deprecatedLinks.length} deprecated</summary><div class="relation-list">${deprecatedLinks.join("")}</div></details>` : ""}`
       : '<div class="empty-state">No decisions linked.</div>';
 
   const allSnaps = [...payload.snaps].reverse();
@@ -545,25 +558,27 @@ function renderIntentDetail(payload) {
   const olderSnaps = allSnaps.slice(5);
 
   const recentSnapLinks = recentSnaps.map((s) =>
-    linkButton(
+    relationItem(
       "snap",
       remoteId(payload.workspace_id, s.id),
+      s.id,
       s.title || s.id,
-      truncate(s.summary || "", 60),
+      truncate(s.summary || "", 80),
     ),
   );
   const olderSnapLinks = olderSnaps.map((s) =>
-    linkButton(
+    relationItem(
       "snap",
       remoteId(payload.workspace_id, s.id),
+      s.id,
       s.title || s.id,
-      truncate(s.summary || "", 60),
+      truncate(s.summary || "", 80),
     ),
   );
 
   const snapTimelineBody = allSnaps.length
-    ? `<div class="detail-link-list">${recentSnapLinks.join("")}</div>
-       ${olderSnapLinks.length ? `<details class="collapse-toggle"><summary>${olderSnaps.length} older snap(s)</summary><div class="detail-link-list">${olderSnapLinks.join("")}</div></details>` : ""}`
+    ? `<div class="relation-list">${recentSnapLinks.join("")}</div>
+       ${olderSnapLinks.length ? `<details class="collapse-toggle"><summary>${olderSnaps.length} older snap(s)</summary><div class="relation-list">${olderSnapLinks.join("")}</div></details>` : ""}`
     : '<div class="empty-state">No snaps recorded.</div>';
 
   el.detailContent.innerHTML = `
@@ -607,10 +622,12 @@ function collapsibleLinks(allLinks, visibleCount, olderLabel) {
 function renderDecisionDetail(payload) {
   const decision = payload.decision;
   const intentLinks = payload.intents.map((i) =>
-    linkButton(
+    relationItem(
       "intent",
       remoteId(payload.workspace_id, i.id),
+      i.id,
       i.title || i.id,
+      truncate(i.source_query || i.rationale || "", 80),
       i.status,
     ),
   );
@@ -646,17 +663,14 @@ function renderDecisionDetail(payload) {
 function renderSnapDetail(payload) {
   const snap = payload.snap;
   const parentLink = payload.intent
-    ? relatedLinks(
-        [
-          linkButton(
-            "intent",
-            remoteId(payload.workspace_id, payload.intent.id),
-            payload.intent.title || payload.intent.id,
-            payload.intent.status,
-          ),
-        ],
-        "",
-      )
+    ? `<div class="relation-list">${relationItem(
+        "intent",
+        remoteId(payload.workspace_id, payload.intent.id),
+        payload.intent.id,
+        payload.intent.title || payload.intent.id,
+        truncate(payload.intent.source_query || payload.intent.rationale || "", 80),
+        payload.intent.status,
+      )}</div>`
     : '<div class="empty-state">No linked intent.</div>';
 
   el.detailContent.innerHTML = `

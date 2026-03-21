@@ -495,6 +495,57 @@ input {
   overflow: hidden;
 }
 
+/* ---- Relation items (unified linked-object cards) ---- */
+
+.relation-list {
+  display: grid;
+  gap: 8px;
+}
+
+.relation-item {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: rgba(255, 248, 238, 0.92);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 100ms;
+}
+
+.relation-item:hover {
+  background: rgba(255, 243, 226, 0.98);
+}
+
+.relation-item.muted {
+  opacity: 0.6;
+}
+
+.relation-id {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.relation-title {
+  font-weight: 600;
+  font-size: 0.88rem;
+  line-height: 1.3;
+}
+
+.relation-meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* ---- Collapsible sections ---- */
 
 .collapse-toggle {
