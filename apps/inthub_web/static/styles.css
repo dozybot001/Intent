@@ -196,6 +196,22 @@ input {
   min-width: 0;
 }
 
+.load-more-btn {
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.load-more-btn:hover {
+  background: var(--primary-light);
+}
+
 /* ---- Sidebar cards ---- */
 
 .card {

@@ -276,6 +276,29 @@ function intentCard(intent) {
     </article>`;
 }
 
+const PAGE_SIZE = 50;
+
+function renderPaged(container, items, renderFn, tabKey) {
+  if (!state._pageState) state._pageState = {};
+  const shown = state._pageState[tabKey] || PAGE_SIZE;
+
+  const visible = items.slice(0, shown);
+  const remaining = items.length - visible.length;
+
+  container.innerHTML = visible.map(renderFn).join("")
+    + (remaining > 0
+      ? `<button type="button" class="load-more-btn" id="load-more-${tabKey}">Load more (${remaining})</button>`
+      : "");
+
+  const btn = document.getElementById(`load-more-${tabKey}`);
+  if (btn) {
+    btn.addEventListener("click", () => {
+      state._pageState[tabKey] = shown + PAGE_SIZE;
+      renderSidebar();
+    });
+  }
+}
+
 function renderIntentsTab() {
   const all = [...(state.overview.active_intents || []), ...(state.overview.other_intents || [])];
 
@@ -285,63 +308,36 @@ function renderIntentsTab() {
     return;
   }
 
-  el.sidebarBody.innerHTML = [...all].reverse().map(intentCard).join("");
+  renderPaged(el.sidebarBody, [...all].reverse(), intentCard, "intents");
 }
 
-function renderDecisionsTab() {
-  const active = state.overview.active_decisions || [];
-  const deprecated = state.overview.deprecated_decisions || [];
-
-  if (!active.length && !deprecated.length) {
-    el.sidebarBody.innerHTML =
-      '<div class="empty-state">No decisions.</div>';
-    return;
-  }
-
-  const activeHtml = [...active].reverse()
-    .map(
-      (d) => `
+function decisionCard(d) {
+  const isDeprecated = d.status === "deprecated";
+  return `
     <article class="card" data-detail-type="decision" data-remote-id="${esc(d.remote_id)}">
       <h4 class="card-title">${esc(d.title)}</h4>
       <p class="card-body">${d.intent_ids?.length || 0} linked intents</p>
       <div class="card-meta">
         <span class="badge">${esc(d.id)}</span>
+        ${isDeprecated ? '<span class="badge warn">deprecated</span>' : ""}
       </div>
-    </article>`,
-    )
-    .join("");
-
-  const deprecatedHtml = deprecated.length
-    ? `<details class="collapse-toggle is-deprecated">
-        <summary>${deprecated.length} deprecated decision(s)</summary>
-        ${[...deprecated].reverse()
-          .map(
-            (d) => `
-          <article class="card" data-detail-type="decision" data-remote-id="${esc(d.remote_id)}">
-            <h4 class="card-title">${esc(d.title)}</h4>
-            <div class="card-meta">
-              <span class="badge">${esc(d.id)}</span>
-              <span class="badge warn">deprecated</span>
-            </div>
-          </article>`,
-          )
-          .join("")}
-       </details>`
-    : "";
-
-  el.sidebarBody.innerHTML = activeHtml + deprecatedHtml;
+    </article>`;
 }
 
-function renderSnapsTab() {
-  const snaps = state.overview.recent_snaps || [];
-  if (!snaps.length) {
+function renderDecisionsTab() {
+  const all = [...(state.overview.active_decisions || []), ...(state.overview.deprecated_decisions || [])];
+
+  if (!all.length) {
     el.sidebarBody.innerHTML =
-      '<div class="empty-state">No snaps synced yet.</div>';
+      '<div class="empty-state">No decisions.</div>';
     return;
   }
-  el.sidebarBody.innerHTML = snaps
-    .map(
-      (snap) => `
+
+  renderPaged(el.sidebarBody, [...all].reverse(), decisionCard, "decisions");
+}
+
+function snapCard(snap) {
+  return `
     <article class="card" data-detail-type="snap" data-remote-id="${esc(snap.remote_id)}">
       <h4 class="card-title">${esc(snap.title)}</h4>
       <p class="card-body">${esc(truncate(snap.summary || "", 140))}</p>
@@ -351,9 +347,17 @@ function renderSnapsTab() {
         ${snap.origin ? `<span class="badge">${esc(snap.origin)}</span>` : ""}
         <span class="badge">${esc(fmtDate(snap.created_at))}</span>
       </div>
-    </article>`,
-    )
-    .join("");
+    </article>`;
+}
+
+function renderSnapsTab() {
+  const snaps = state.overview.recent_snaps || [];
+  if (!snaps.length) {
+    el.sidebarBody.innerHTML =
+      '<div class="empty-state">No snaps synced yet.</div>';
+    return;
+  }
+  renderPaged(el.sidebarBody, snaps, snapCard, "snaps");
 }
 
 function renderSearchTab() {
