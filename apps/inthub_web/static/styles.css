@@ -360,7 +360,7 @@ input {
 }
 
 .detail-content {
-  max-width: 720px;
+  max-width: 100%;
   overflow-wrap: break-word;
   word-break: break-word;
 }
