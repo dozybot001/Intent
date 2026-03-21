@@ -843,7 +843,10 @@ function bindEvents() {
     el.refreshBtn.disabled = true;
     el.refreshBtn.textContent = "Refreshing…";
     try {
-      await loadProjects();
+      await Promise.all([
+        loadProjects(),
+        new Promise((r) => setTimeout(r, 1000)),
+      ]);
     } catch (err) {
       setStatus(err.message, true);
     } finally {
