@@ -563,26 +563,13 @@ function buildIntentDetailHtml(payload) {
       ),
     );
 
-  const decisionsBody =
-    activeLinks.length || deprecatedLinks.length
-      ? `${activeLinks.length ? `<div class="relation-list">${activeLinks.join("")}</div>` : '<div class="empty-state">No active constraints.</div>'}
-         ${deprecatedLinks.length ? `<details class="collapse-toggle is-deprecated"><summary>${deprecatedLinks.length} deprecated</summary><div class="relation-list">${deprecatedLinks.join("")}</div></details>` : ""}`
-      : '<div class="empty-state">No decisions linked.</div>';
+  const allDecisionLinks = [...activeLinks, ...deprecatedLinks];
+  const decisionsBody = allDecisionLinks.length
+    ? collapsibleRelation(allDecisionLinks, 5, "more decision(s)")
+    : '<div class="empty-state">No decisions linked.</div>';
 
   const allSnaps = [...payload.snaps].reverse();
-  const recentSnaps = allSnaps.slice(0, 5);
-  const olderSnaps = allSnaps.slice(5);
-
-  const recentSnapLinks = recentSnaps.map((s) =>
-    relationItem(
-      "snap",
-      remoteId(payload.workspace_id, s.id),
-      s.id,
-      s.title || s.id,
-      truncate(s.summary || "", 80),
-    ),
-  );
-  const olderSnapLinks = olderSnaps.map((s) =>
+  const snapLinks = allSnaps.map((s) =>
     relationItem(
       "snap",
       remoteId(payload.workspace_id, s.id),
@@ -592,9 +579,8 @@ function buildIntentDetailHtml(payload) {
     ),
   );
 
-  const snapTimelineBody = allSnaps.length
-    ? `<div class="relation-list">${recentSnapLinks.join("")}</div>
-       ${olderSnapLinks.length ? `<details class="collapse-toggle"><summary>${olderSnaps.length} older snap(s)</summary><div class="relation-list">${olderSnapLinks.join("")}</div></details>` : ""}`
+  const snapTimelineBody = snapLinks.length
+    ? collapsibleRelation(snapLinks, 5, "older snap(s)")
     : '<div class="empty-state">No snaps recorded.</div>';
 
   return `
@@ -632,13 +618,13 @@ function renderIntentDetailTo(target, payload) {
   target.innerHTML = buildIntentDetailHtml(payload);
 }
 
-function collapsibleLinks(allLinks, visibleCount, olderLabel) {
-  if (!allLinks.length) return "";
-  const visible = allLinks.slice(0, visibleCount);
-  const rest = allLinks.slice(visibleCount);
-  let html = `<div class="detail-link-list">${visible.join("")}</div>`;
+function collapsibleRelation(allItems, visibleCount, moreLabel) {
+  if (!allItems.length) return "";
+  const visible = allItems.slice(0, visibleCount);
+  const rest = allItems.slice(visibleCount);
+  let html = `<div class="relation-list">${visible.join("")}</div>`;
   if (rest.length) {
-    html += `<details class="collapse-toggle"><summary>${rest.length} ${olderLabel}</summary><div class="detail-link-list">${rest.join("")}</div></details>`;
+    html += `<details class="collapse-toggle"><summary>${rest.length} ${moreLabel}</summary><div class="relation-list">${rest.join("")}</div></details>`;
   }
   return html;
 }
@@ -657,7 +643,7 @@ function buildDecisionDetailHtml(payload) {
   );
 
   const intentsBody = intentLinks.length
-    ? collapsibleLinks(intentLinks, 5, "more intent(s)")
+    ? collapsibleRelation(intentLinks, 5, "more intent(s)")
     : '<div class="empty-state">No linked intents.</div>';
 
   return `
