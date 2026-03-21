@@ -390,6 +390,9 @@ def cmd_decision_deprecate(args):
         )
 
     obj["status"] = "deprecated"
+    reason = getattr(args, "reason", "") or ""
+    if reason:
+        obj["deprecated_reason"] = reason
     write_object(base, "decision", args.id, obj)
     success("decision.deprecate", obj)
 

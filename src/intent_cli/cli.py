@@ -95,6 +95,7 @@ def main():
 
     p = s_decision.add_parser("deprecate")
     p.add_argument("id")
+    p.add_argument("--reason", default="")
 
     args = parser.parse_args()
 

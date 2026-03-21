@@ -626,6 +626,7 @@ function renderDecisionDetail(payload) {
       </div>
     </div>
     ${detailSection("Rationale", formatText(decision.rationale) || `<p>No rationale provided.</p>`)}
+    ${decision.deprecated_reason ? detailSection("Deprecated Reason", formatText(decision.deprecated_reason)) : ""}
     ${detailSection("Affected Intents (" + payload.intents.length + ")", intentsBody)}
     ${detailSection(
       "Scope",

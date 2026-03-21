@@ -256,7 +256,7 @@ Use them with this boundary:
 | Command | What it does |
 |---|---|
 | `itt decision create TITLE --rationale R` | New decision (auto-attaches active intents) |
-| `itt decision deprecate ID` | `active` → `deprecated` (terminal) |
+| `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` (terminal); `--reason` records why and/or what replaced it |
 There are no `show` commands. For resume, use `itt inspect`. For browsing, use IntHub.
 
 ## State machines
