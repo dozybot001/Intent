@@ -75,7 +75,7 @@ flowchart LR
 git clone https://github.com/dozybot001/Intent.git
 cd Intent
 pipx install .
-npx skills add dozybot001/Intent -g
+npx skills add dozybot001/Intent -g --all
 ```
 
 This installs the CLI from source and adds the agent skill. Requires Python 3.9+, Git, Node.js, and [pipx](https://pipx.pypa.io/).
