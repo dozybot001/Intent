@@ -277,30 +277,15 @@ function intentCard(intent) {
 }
 
 function renderIntentsTab() {
-  const active = state.overview.active_intents || [];
-  const others = state.overview.other_intents || [];
+  const all = [...(state.overview.active_intents || []), ...(state.overview.other_intents || [])];
 
-  if (!active.length && !others.length) {
+  if (!all.length) {
     el.sidebarBody.innerHTML =
       '<div class="empty-state">No intents.</div>';
     return;
   }
 
-  const activeHtml = active.length
-    ? `<div class="sidebar-section">
-        <span class="section-label">Active (${active.length})</span>
-        ${[...active].reverse().map(intentCard).join("")}
-       </div>`
-    : "";
-
-  const othersHtml = others.length
-    ? `<div class="sidebar-section">
-        <span class="section-label">Completed / Suspended (${others.length})</span>
-        ${[...others].reverse().map(intentCard).join("")}
-       </div>`
-    : "";
-
-  el.sidebarBody.innerHTML = activeHtml + othersHtml;
+  el.sidebarBody.innerHTML = [...all].reverse().map(intentCard).join("");
 }
 
 function renderDecisionsTab() {
@@ -829,9 +814,9 @@ async function loadProject(projectId) {
   state.overview = overview;
   state.handoff = handoff;
 
-  el.intentCount.textContent = overview.active_intents?.length || "";
-  el.decisionCount.textContent = overview.active_decisions?.length || "";
-  el.snapCount.textContent = overview.recent_snaps?.length || "";
+  el.intentCount.textContent = (overview.active_intents?.length || 0) + (overview.other_intents?.length || 0) || "";
+  el.decisionCount.textContent = (overview.active_decisions?.length || 0) + (overview.deprecated_decisions?.length || 0) || "";
+  el.snapCount.textContent = overview.total_snaps ?? overview.recent_snaps?.length ?? "";
 
   const ws = overview.workspaces?.[0];
   el.syncChip.textContent = ws
