@@ -324,15 +324,21 @@ function decisionCard(d) {
 }
 
 function renderDecisionsTab() {
-  const all = [...(state.overview.active_decisions || []), ...(state.overview.deprecated_decisions || [])];
+  const active = [...(state.overview.active_decisions || [])].reverse();
+  const deprecated = [...(state.overview.deprecated_decisions || [])].reverse();
 
-  if (!all.length) {
+  if (!active.length && !deprecated.length) {
     el.sidebarBody.innerHTML =
       '<div class="empty-state">No decisions.</div>';
     return;
   }
 
-  renderPaged(el.sidebarBody, [...all].reverse(), decisionCard, "decisions");
+  const activeHtml = active.map(decisionCard).join("");
+  const deprecatedHtml = deprecated.length
+    ? `<details class="collapse-toggle is-deprecated"><summary>${deprecated.length} deprecated</summary>${deprecated.map(decisionCard).join("")}</details>`
+    : "";
+
+  el.sidebarBody.innerHTML = activeHtml + deprecatedHtml;
 }
 
 function snapCard(snap) {
