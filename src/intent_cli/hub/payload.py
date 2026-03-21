@@ -47,7 +47,7 @@ def build_sync_payload(base, hub_config):
         "sync_batch_id": hub_config["sync_batch_id"],
         "generated_at": now_utc(),
         "client": {
-            "name": "intent-cli-python",
+            "name": "intent-cli",
             "version": __version__,
         },
         "project_id": hub_config["project_id"],

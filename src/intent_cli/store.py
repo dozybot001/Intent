@@ -50,7 +50,7 @@ def init_workspace():
     d.mkdir()
     for sub in SUBDIRS.values():
         (d / sub).mkdir()
-    (d / "config.json").write_text(json.dumps({"schema_version": "1.0"}, indent=2))
+    (d / "config.json").write_text(json.dumps({"schema_version": "1.0"}, indent=2), encoding="utf-8")
     return d, None
 
 
@@ -77,13 +77,13 @@ def read_object(base, object_type, obj_id):
     path = base / SUBDIRS[object_type] / f"{obj_id}.json"
     if not path.is_file():
         return None
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def write_object(base, object_type, obj_id, data):
     """Write object dict to JSON file."""
     path = base / SUBDIRS[object_type] / f"{obj_id}.json"
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def list_objects(base, object_type, status=None):
@@ -91,7 +91,7 @@ def list_objects(base, object_type, status=None):
     subdir = base / SUBDIRS[object_type]
     result = []
     for f in sorted(subdir.glob(f"{object_type}-*.json")):
-        obj = json.loads(f.read_text())
+        obj = json.loads(f.read_text(encoding="utf-8"))
         if status is None or obj.get("status") == status:
             result.append(obj)
     return result
@@ -99,7 +99,7 @@ def list_objects(base, object_type, status=None):
 
 def read_config(base):
     """Read config.json. Returns dict."""
-    return json.loads((base / "config.json").read_text())
+    return json.loads((base / "config.json").read_text(encoding="utf-8"))
 
 
 def read_hub_config(base):
@@ -107,12 +107,12 @@ def read_hub_config(base):
     path = base / HUB_CONFIG
     if not path.is_file():
         return None
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def write_hub_config(base, data):
     """Write hub.json."""
-    (base / HUB_CONFIG).write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    (base / HUB_CONFIG).write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def git_current_branch():

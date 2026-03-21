@@ -30,7 +30,7 @@ def _resolve_version():
     if source_version is not None:
         return source_version
     try:
-        return version("intent-cli-python")
+        return version("intent-cli")
     except PackageNotFoundError:
         return "0.0.0"
 
