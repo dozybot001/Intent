@@ -603,8 +603,7 @@ function buildIntentDetailHtml(payload) {
       `<div class="detail-kv">
         ${kvRow("Workspace", payload.workspace_id)}
         ${kvRow("Branch", payload.git.branch || "\u2014")}
-
-        ${kvRow("Synced at", fmtDate(payload.synced_at))}
+        ${kvRow("Created at", fmtDate(intent.created_at))}
       </div>`,
     )}
     ${rawToggle({ intent, snaps: payload.snaps })}`;
@@ -664,7 +663,7 @@ function buildDecisionDetailHtml(payload) {
         ${kvRow("Workspace", payload.workspace_id)}
         ${kvRow("Status", decision.status || "\u2014")}
         ${kvRow("Linked intents", String(payload.intents.length))}
-        ${kvRow("Synced at", fmtDate(payload.synced_at))}
+        ${kvRow("Created at", fmtDate(decision.created_at))}
       </div>`,
     )}
     ${rawToggle({ decision, intents: payload.intents })}`;
@@ -711,7 +710,7 @@ function buildSnapDetailHtml(payload) {
       `<div class="detail-kv">
         ${kvRow("Workspace", payload.workspace_id)}
         ${kvRow("Branch", payload.git.branch || "\u2014")}
-        ${kvRow("Synced at", fmtDate(payload.synced_at))}
+        ${kvRow("Created at", fmtDate(snap.created_at))}
       </div>`,
     )}
     ${rawToggle({ snap, intent: payload.intent })}`;
