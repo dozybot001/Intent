@@ -69,32 +69,26 @@ flowchart LR
   D2 -- auto-attach --> Intent2
 ```
 
-## Install
+## Quick Start
 
 ```bash
-pipx install intent-cli-python   # CLI
-npx skills add dozybot001/Intent -g  # Agent skill
+git clone https://github.com/dozybot001/Intent.git
+cd Intent
+pip install intent-cli-python && npx skills add dozybot001/Intent -g && python3 bin/inthub-local.pyz
 ```
 
-Requires Python 3.9+ and Git. The CLI provides the commands; the skill teaches the agent when to use them.
+This installs the CLI, adds the agent skill, and starts **IntHub Local** (opens in browser at `http://127.0.0.1:7210`).
+
+Then, in your own project repo:
+
+```bash
+itt hub link --api-base-url http://127.0.0.1:7210
+itt hub sync
+```
+
+Requires Python 3.9+, Git, and Node.js. The CLI provides the commands; the skill teaches the agent when to use them.
 
 > **Tips:** Because `itt` is a new command, agents are not trained on it yet. We recommend typing `/` at the start of each session, selecting the skill, and pressing Enter to enter the workflow.
-
-## IntHub
-
-```mermaid
-flowchart TB
-  Hub["IntHub — Collaboration Layer"]
-  Intent["Intent — Semantic History Layer"]
-  Git["Git — Code History Layer"]
-  Hub <--> Intent <--> Git
-```
-
-IntHub is the collaboration layer on top of Intent. Run **IntHub Local** to browse semantic history in your browser:
-
-```bash
-python3 bin/inthub-local.pyz
-```
 
 ## Docs
 

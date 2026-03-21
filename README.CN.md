@@ -69,32 +69,26 @@ flowchart LR
   D2 -- auto-attach --> Intent2
 ```
 
-## 安装
+## 快速开始
 
 ```bash
-pipx install intent-cli-python   # CLI
-npx skills add dozybot001/Intent -g  # Agent skill
+git clone https://github.com/dozybot001/Intent.git
+cd Intent
+pip install intent-cli-python && npx skills add dozybot001/Intent -g && python3 bin/inthub-local.pyz
 ```
 
-需要 Python 3.9+ 和 Git。CLI 提供命令，skill 教 agent 何时使用。
+安装 CLI、添加 agent skill、启动 **IntHub Local**（浏览器自动打开 `http://127.0.0.1:7210`），一步到位。
 
-> **Tips：** 由于`itt`是一个全新的命令，agent 没有被训练过，建议每个 session 开始时打个 `/`，选到技能，回车就进入工作流了。
-
-## IntHub
-
-```mermaid
-flowchart TB
-  Hub["IntHub — 协作层"]
-  Intent["Intent — 语义历史层"]
-  Git["Git — 代码历史层"]
-  Hub <--> Intent <--> Git
-```
-
-IntHub 是构建在 Intent 之上的协作层。运行 **IntHub Local** 即可在浏览器中查看语义历史：
+然后在你自己的项目仓库里：
 
 ```bash
-python3 bin/inthub-local.pyz
+itt hub link --api-base-url http://127.0.0.1:7210
+itt hub sync
 ```
+
+需要 Python 3.9+、Git 和 Node.js。CLI 提供命令，skill 教 agent 何时使用。
+
+> **Tips：** 由于 `itt` 是一个全新的命令，agent 没有被训练过，建议每个 session 开始时打个 `/`，选到技能，回车就进入工作流了。
 
 ## 文档
 
