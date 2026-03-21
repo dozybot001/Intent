@@ -3,8 +3,8 @@
   "tag": "v1.7.0",
   "cli": {
     "name": "intent-cli-python",
-    "version": "2.0.0",
-    "pypi": "https://pypi.org/project/intent-cli-python/2.0.0/"
+    "version": "2.1.0",
+    "pypi": "https://pypi.org/project/intent-cli-python/2.1.0/"
   },
   "hub": {
     "name": "IntHub",
