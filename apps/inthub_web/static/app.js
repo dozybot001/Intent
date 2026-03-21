@@ -593,7 +593,7 @@ function renderIntentDetail(payload) {
     ${latestSnap?.origin ? detailSection("Origin", `<p>${esc(latestSnap.origin)}</p>`) : ""}
     ${intent.rationale ? detailSection("Rationale", formatText(intent.rationale)) : ""}
     ${intent.source_query ? detailSection("Source Query", formatText(intent.source_query)) : ""}
-    ${detailSection("Linked Decisions", decisionsBody)}
+    ${detailSection("Linked Decisions (" + allIds.length + ")", decisionsBody)}
     ${detailSection("Snap Timeline (" + allSnaps.length + ")", snapTimelineBody)}
     ${detailSection(
       "Git Context",
