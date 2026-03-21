@@ -311,12 +311,28 @@ input {
   text-overflow: ellipsis;
 }
 
-.badge.good {
-  color: var(--good);
+.badge.good, .badge.status-active {
+  color: #fff;
+  background: var(--good);
+  border-color: var(--good);
 }
 
-.badge.warn {
-  color: var(--warn);
+.badge.warn, .badge.status-deprecated {
+  color: #fff;
+  background: var(--warn);
+  border-color: var(--warn);
+}
+
+.badge.status-done {
+  color: #fff;
+  background: #8a8078;
+  border-color: #8a8078;
+}
+
+.badge.status-suspend {
+  color: #fff;
+  background: #4a7fa5;
+  border-color: #4a7fa5;
 }
 
 /* ---- Sidebar sections ---- */

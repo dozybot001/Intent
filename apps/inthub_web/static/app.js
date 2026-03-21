@@ -76,6 +76,11 @@ function formatText(v) {
     .join("");
 }
 
+function statusBadge(status) {
+  const cls = status ? ` status-${status}` : "";
+  return `<span class="badge${cls}">${esc(status || "")}</span>`;
+}
+
 function dirtyBadge(dirty) {
   return dirty
     ? '<span class="badge warn">dirty</span>'
@@ -183,7 +188,7 @@ function linkButton(type, rId, label, meta) {
 function relationItem(type, rId, id, title, meta, status) {
   const cls = status === "deprecated" ? " rel-deprecated" : status === "done" ? " rel-muted" : "";
   return `<button type="button" class="relation-item${cls}" data-detail-type="${esc(type)}" data-remote-id="${esc(rId)}">
-    <span class="relation-id"><span class="badge">${esc(id)}</span>${status ? `<span class="badge${status === "deprecated" ? " warn" : ""}">${esc(status)}</span>` : ""}</span>
+    <span class="relation-id"><span class="badge">${esc(id)}</span>${status ? statusBadge(status) : ""}</span>
     <span class="relation-title">${esc(title)}</span>
     ${meta ? `<span class="relation-meta">${esc(meta)}</span>` : ""}
   </button>`;
@@ -254,7 +259,7 @@ function renderHandoffTab() {
           <p class="card-body">${esc(truncate(intent.latest_snap?.summary || intent.rationale || intent.source_query || "", 200))}</p>
           <div class="card-meta">
             <span class="badge">${esc(intent.id)}</span>
-            <span class="badge">${esc(intent.status)}</span>
+            ${statusBadge(intent.status)}
             ${intent.origin ? `<span class="badge">${esc(intent.origin)}</span>` : ""}
           </div>
         </article>`,
@@ -271,7 +276,7 @@ function intentCard(intent) {
       <p class="card-body">${esc(intent.source_query || intent.rationale || "")}</p>
       <div class="card-meta">
         <span class="badge">${esc(intent.id)}</span>
-        <span class="badge">${esc(intent.status)}</span>
+        ${statusBadge(intent.status)}
         ${intent.origin ? `<span class="badge">${esc(intent.origin)}</span>` : ""}
       </div>
     </article>`;
@@ -320,7 +325,7 @@ function decisionCard(d) {
       <p class="card-body">${d.intent_ids?.length || 0} linked intents</p>
       <div class="card-meta">
         <span class="badge">${esc(d.id)}</span>
-        <span class="badge${d.status === "deprecated" ? " warn" : ""}">${esc(d.status)}</span>
+        ${statusBadge(d.status)}
       </div>
     </article>`;
 }
@@ -593,7 +598,7 @@ function buildIntentDetailHtml(payload) {
       <span class="detail-id">${esc(intent.id)} \u00b7 Intent</span>
       <h2 class="detail-title">${esc(intent.title)}</h2>
       <div class="detail-meta">
-        <span class="badge">${esc(intent.status)}</span>
+        ${statusBadge(intent.status)}
         ${intent.origin ? `<span class="badge">${esc(intent.origin)}</span>` : ""}
       </div>
     </div>
@@ -654,7 +659,7 @@ function buildDecisionDetailHtml(payload) {
       <span class="detail-id">${esc(decision.id)} \u00b7 Decision</span>
       <h2 class="detail-title">${esc(decision.title)}</h2>
       <div class="detail-meta">
-        <span class="badge">${esc(decision.status)}</span>
+        ${statusBadge(decision.status)}
         ${decision.origin ? `<span class="badge">${esc(decision.origin)}</span>` : ""}
       </div>
     </div>
@@ -699,7 +704,7 @@ function buildSnapDetailHtml(payload) {
       <span class="detail-id">${esc(snap.id)} \u00b7 Snap</span>
       <h2 class="detail-title">${esc(snap.title)}</h2>
       <div class="detail-meta">
-        <span class="badge">${esc(snap.status)}</span>
+        ${statusBadge(snap.status)}
         ${snap.origin ? `<span class="badge">${esc(snap.origin)}</span>` : ""}
       </div>
     </div>
