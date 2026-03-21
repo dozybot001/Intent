@@ -7,8 +7,8 @@ backup/
 # Local IntHub runtime state; do not commit to Git
 .inthub/
 
-# Claude Code local settings (personal overrides)
-.claude/settings.local.json
+# Claude Code local settings and personal workspace overrides
+.claude/
 
 # Editor settings
 .vscode/
