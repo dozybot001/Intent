@@ -1,0 +1,27 @@
+{
+  "id": "intent-034",
+  "object": "intent",
+  "created_at": "2026-03-21T08:43:34.100546+00:00",
+  "title": "decision deprecate 增加 --reason 参数",
+  "status": "done",
+  "source_query": "被废弃的decision应该给个理由或者是被哪些新的decision替代",
+  "rationale": "废弃原因是重要的语义信息，不追踪的话下一个 session 不知道为什么废弃、用什么替代",
+  "decision_ids": [
+    "decision-001",
+    "decision-003",
+    "decision-009",
+    "decision-010",
+    "decision-011",
+    "decision-013",
+    "decision-014",
+    "decision-015",
+    "decision-016",
+    "decision-018",
+    "decision-019",
+    "decision-020",
+    "decision-022"
+  ],
+  "snap_ids": [
+    "snap-158"
+  ]
+}

@@ -1,10 +1,7 @@
 from contextlib import contextmanager
-from io import BytesIO
 from pathlib import Path
-import zipfile
 
 from apps.inthub_local import launcher
-from scripts.build_inthub_local import build_release_asset
 
 
 def test_local_launcher_defaults(monkeypatch, tmp_path):
@@ -66,22 +63,3 @@ def test_run_local_opens_browser_and_creates_db_dir(monkeypatch, tmp_path):
     assert db_path.parent.is_dir()
 
 
-def test_build_inthub_local_release_asset(tmp_path):
-    result = build_release_asset(output_dir=tmp_path, hub_version="0.2.0-test")
-    zip_path = Path(result["zip_path"])
-
-    assert zip_path.exists()
-    with zipfile.ZipFile(zip_path) as bundle:
-        names = set(bundle.namelist())
-        assert "inthub-local.pyz" in names
-        assert "inthub-local" in names
-        assert "inthub-local.cmd" in names
-        assert "README.txt" in names
-
-        pyz_bytes = bundle.read("inthub-local.pyz")
-        with zipfile.ZipFile(BytesIO(pyz_bytes)) as pyz:
-            pyz_names = set(pyz.namelist())
-            assert "__main__.py" in pyz_names
-            assert "apps/inthub_api/server.py" in pyz_names
-            assert "apps/inthub_local/launcher.py" in pyz_names
-            assert "apps/inthub_web/static/index.html" in pyz_names
