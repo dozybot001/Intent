@@ -155,13 +155,15 @@ input {
 
 .tab-bar {
   display: flex;
+  overflow-x: auto;
   border-bottom: 1px solid var(--line);
   background: rgba(255, 250, 241, 0.6);
 }
 
 .tab {
-  flex: 1;
-  padding: 10px 2px;
+  flex: none;
+  padding: 10px 10px;
+  white-space: nowrap;
   font-family: var(--mono);
   font-size: 0.68rem;
   letter-spacing: 0.03em;
