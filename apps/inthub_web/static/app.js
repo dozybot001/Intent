@@ -592,11 +592,10 @@ function buildIntentDetailHtml(payload) {
       <h2 class="detail-title">${esc(intent.title)}</h2>
       <div class="detail-meta">
         <span class="badge">${esc(intent.status)}</span>
-        ${payload.git.branch ? `<span class="badge">${esc(payload.git.branch)}</span>` : ""}
+        ${intent.origin ? `<span class="badge">${esc(intent.origin)}</span>` : ""}
       </div>
     </div>
     ${detailSection("Latest Summary", formatText(latestSnap?.summary) || `<p>No snap summary yet.</p>`)}
-    ${intent.origin ? detailSection("Origin", `<p>${esc(intent.origin)}</p>`) : ""}
     ${intent.rationale ? detailSection("Rationale", formatText(intent.rationale)) : ""}
     ${intent.source_query ? detailSection("Source Query", formatText(intent.source_query)) : ""}
     ${detailSection("Linked Decisions (" + allIds.length + ")", decisionsBody)}
@@ -654,7 +653,7 @@ function buildDecisionDetailHtml(payload) {
       <h2 class="detail-title">${esc(decision.title)}</h2>
       <div class="detail-meta">
         <span class="badge">${esc(decision.status)}</span>
-        <span class="badge">${payload.intents.length} linked intents</span>
+        ${decision.origin ? `<span class="badge">${esc(decision.origin)}</span>` : ""}
       </div>
     </div>
     ${detailSection("Rationale", formatText(decision.rationale) || `<p>No rationale provided.</p>`)}
@@ -699,11 +698,10 @@ function buildSnapDetailHtml(payload) {
       <h2 class="detail-title">${esc(snap.title)}</h2>
       <div class="detail-meta">
         <span class="badge">${esc(snap.status)}</span>
-        <span class="badge">${esc(snap.intent_id || "\u2014")}</span>
+        ${snap.origin ? `<span class="badge">${esc(snap.origin)}</span>` : ""}
       </div>
     </div>
     ${detailSection("Summary", formatText(snap.summary) || `<p>No summary.</p>`)}
-    ${snap.origin ? detailSection("Origin", `<p>${esc(snap.origin)}</p>`) : ""}
     ${snap.query ? detailSection("Query", formatText(snap.query)) : ""}
     ${snap.rationale ? detailSection("Rationale", formatText(snap.rationale)) : ""}
     ${detailSection("Feedback", formatText(snap.feedback) || `<p>No feedback recorded.</p>`)}
