@@ -206,10 +206,11 @@ itt intent done intent-001
 
 ### 9. IntHub sync (when this repo uses it)
 
-`hub` commands do **not** replace local object commands. You still create intents, snaps, and decisions locally with `itt`. IntHub is the remote sync/share/read layer on top of that local semantic history.
+`hub` commands do **not** replace local object commands. You still create intents, snaps, and decisions locally with `itt`. IntHub is the sync/share/read layer on top of that local semantic history.
 
 Use them with this boundary:
 
+- `itt hub start` launches IntHub Local from the cloned Intent repo source. Run it from the Intent repo directory — it detects `apps/inthub_local/` and starts the server on `http://127.0.0.1:7210` by default. The user must keep this running while using IntHub
 - `itt hub link` configures local IntHub access when needed (`api_base_url` and optional token), then binds the current workspace to an IntHub project/workspace using GitHub repo context
 - `itt hub sync` pushes the current local semantic graph and Git context to IntHub
 
@@ -230,6 +231,7 @@ Use them with this boundary:
 
 | Command | What it does |
 |---|---|
+| `itt hub start [--port PORT] [--no-open]` | Launch IntHub Local from the cloned Intent repo directory (must be run from that directory) |
 | `itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]` | Configure local IntHub access if needed, then link current workspace to an IntHub project/workspace |
 | `itt hub sync [--api-base-url URL] [--token TOKEN] [--dry-run]` | Push local semantic history + Git context to IntHub |
 
@@ -346,7 +348,7 @@ If the answers are no, your objects are formally correct but semantically empty.
 {"ok": true, "action": "snap.create", "result": {...}, "warnings": []}
 ```
 
-Typical `action` values: `version`, `init`, `doctor`, `intent.create`, `intent.activate`, `intent.suspend`, `intent.done`, `snap.create`, `snap.feedback`, `decision.create`, `decision.deprecate`, `hub.link`, `hub.sync`.
+Typical `action` values: `version`, `init`, `doctor`, `intent.create`, `intent.activate`, `intent.suspend`, `intent.done`, `snap.create`, `snap.feedback`, `decision.create`, `decision.deprecate`, `hub.start`, `hub.link`, `hub.sync`.
 
 **`inspect`** is different: it returns top-level `ok`, `active_intents`, `active_decisions`, `suspended`, and `warnings` (no `action` / `result` envelope).
 

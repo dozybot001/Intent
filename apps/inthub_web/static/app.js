@@ -279,14 +279,14 @@ function renderIntentsTab() {
   const activeHtml = active.length
     ? `<div class="sidebar-section">
         <span class="section-label">Active (${active.length})</span>
-        ${active.map(intentCard).join("")}
+        ${[...active].reverse().map(intentCard).join("")}
        </div>`
     : "";
 
   const othersHtml = others.length
     ? `<details class="collapse-toggle">
         <summary>${others.length} completed / suspended</summary>
-        ${others.map(intentCard).join("")}
+        ${[...others].reverse().map(intentCard).join("")}
        </details>`
     : "";
 
@@ -303,7 +303,7 @@ function renderDecisionsTab() {
     return;
   }
 
-  const activeHtml = active
+  const activeHtml = [...active].reverse()
     .map(
       (d) => `
     <article class="card" data-detail-type="decision" data-remote-id="${esc(d.remote_id)}">
@@ -319,7 +319,7 @@ function renderDecisionsTab() {
   const deprecatedHtml = deprecated.length
     ? `<details class="collapse-toggle is-deprecated">
         <summary>${deprecated.length} deprecated decision(s)</summary>
-        ${deprecated
+        ${[...deprecated].reverse()
           .map(
             (d) => `
           <article class="card" data-detail-type="decision" data-remote-id="${esc(d.remote_id)}">
