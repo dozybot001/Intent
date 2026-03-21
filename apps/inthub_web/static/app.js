@@ -255,7 +255,7 @@ function renderHandoffTab() {
           <div class="card-meta">
             <span class="badge">${esc(intent.id)}</span>
             <span class="badge">${esc(intent.status)}</span>
-            ${intent.latest_snap?.origin ? `<span class="badge">${esc(intent.latest_snap.origin)}</span>` : ""}
+            ${intent.origin ? `<span class="badge">${esc(intent.origin)}</span>` : ""}
           </div>
         </article>`,
         )
@@ -590,7 +590,7 @@ function buildIntentDetailHtml(payload) {
       </div>
     </div>
     ${detailSection("Latest Summary", formatText(latestSnap?.summary) || `<p>No snap summary yet.</p>`)}
-    ${latestSnap?.origin ? detailSection("Origin", `<p>${esc(latestSnap.origin)}</p>`) : ""}
+    ${intent.origin ? detailSection("Origin", `<p>${esc(intent.origin)}</p>`) : ""}
     ${intent.rationale ? detailSection("Rationale", formatText(intent.rationale)) : ""}
     ${intent.source_query ? detailSection("Source Query", formatText(intent.source_query)) : ""}
     ${detailSection("Linked Decisions (" + allIds.length + ")", decisionsBody)}
