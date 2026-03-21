@@ -52,7 +52,7 @@ IntHub 首期不优先做：
 
 更合理的第一步是提供一个 **可分发的本地 IntHub 实例（IntHub Local）**：
 
-- 通过 **GitHub Release assets** 分发
+- 在 clone 的 Intent 仓库目录下通过 `itt hub start` 启动
 - 安装后在用户本机启动一个 IntHub 后端实例
 - 默认只绑定 `127.0.0.1:7210`
 - 默认将 Web 与 API 一起服务

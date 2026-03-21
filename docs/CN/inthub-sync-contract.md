@@ -43,7 +43,7 @@
 部署说明：
 
 - 首版 API 可以继续和仓库放在一起开发，但不属于 PyPI 分发面
-- 面向普通用户的首个安装形态应优先收敛为 `IntHub Local`，并通过 GitHub Release assets 分发
+- 面向普通用户的首个安装形态应优先收敛为 `IntHub Local`，在 clone 的仓库目录下通过 `itt hub start` 启动
 - `IntHub Local` 默认只绑定 `127.0.0.1:7210`
 
 ### GitHub

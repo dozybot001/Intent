@@ -52,7 +52,7 @@ To make IntHub usable early, the MVP should not require ordinary users to deploy
 
 A better first step is a **distributable local IntHub instance (IntHub Local)**:
 
-- distributed through **GitHub Release assets**
+- launched via `itt hub start` from the cloned Intent repo
 - starts an IntHub backend instance on the user's machine
 - binds by default to `127.0.0.1:7210` only
 - serves the Web shell and API together by default

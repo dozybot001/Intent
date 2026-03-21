@@ -43,7 +43,7 @@ Responsible for:
 Deployment note:
 
 - the first API may live in the same repository, but it is not part of the PyPI distribution surface
-- the first installable user-facing shape should converge on `IntHub Local`, distributed through GitHub Release assets
+- the first installable user-facing shape should converge on `IntHub Local`, launched via `itt hub start` from the cloned repo
 - `IntHub Local` should bind to `127.0.0.1:7210` by default
 
 ### GitHub
