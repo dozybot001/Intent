@@ -74,10 +74,16 @@ flowchart LR
 ```bash
 git clone https://github.com/dozybot001/Intent.git
 cd Intent
-pip install intent-cli-python && npx skills add dozybot001/Intent -g && python3 bin/inthub-local.pyz
+pip install intent-cli-python && npx skills add dozybot001/Intent -g
 ```
 
-This installs the CLI, adds the agent skill, and starts **IntHub Local** (opens in browser at `http://127.0.0.1:7210`).
+This installs the CLI and adds the agent skill. Requires Python 3.9+, Git, and Node.js.
+
+To browse semantic history in a browser, start **IntHub Local**:
+
+```bash
+python3 bin/inthub-local.pyz
+```
 
 Then, in your own project repo:
 
@@ -85,8 +91,6 @@ Then, in your own project repo:
 itt hub link --api-base-url http://127.0.0.1:7210
 itt hub sync
 ```
-
-Requires Python 3.9+, Git, and Node.js. The CLI provides the commands; the skill teaches the agent when to use them.
 
 > **Tips:** Because `itt` is a new command, agents are not trained on it yet. We recommend typing `/` at the start of each session, selecting the skill, and pressing Enter to enter the workflow.
 

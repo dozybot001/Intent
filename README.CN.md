@@ -74,10 +74,16 @@ flowchart LR
 ```bash
 git clone https://github.com/dozybot001/Intent.git
 cd Intent
-pip install intent-cli-python && npx skills add dozybot001/Intent -g && python3 bin/inthub-local.pyz
+pip install intent-cli-python && npx skills add dozybot001/Intent -g
 ```
 
-安装 CLI、添加 agent skill、启动 **IntHub Local**（浏览器自动打开 `http://127.0.0.1:7210`），一步到位。
+安装 CLI 并添加 agent skill。需要 Python 3.9+、Git 和 Node.js。
+
+想在浏览器中查看语义历史，启动 **IntHub Local**：
+
+```bash
+python3 bin/inthub-local.pyz
+```
 
 然后在你自己的项目仓库里：
 
@@ -85,8 +91,6 @@ pip install intent-cli-python && npx skills add dozybot001/Intent -g && python3 
 itt hub link --api-base-url http://127.0.0.1:7210
 itt hub sync
 ```
-
-需要 Python 3.9+、Git 和 Node.js。CLI 提供命令，skill 教 agent 何时使用。
 
 > **Tips：** 由于 `itt` 是一个全新的命令，agent 没有被训练过，建议每个 session 开始时打个 `/`，选到技能，回车就进入工作流了。
 
