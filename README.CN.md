@@ -77,20 +77,17 @@ curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/install.sh |
 
 # Windows (PowerShell)
 irm https://raw.githubusercontent.com/dozybot001/Intent/main/install.ps1 | iex
-```
 
-然后添加 agent skill：
-
-```bash
+# 克隆仓库 & 添加 agent skill
+git clone https://github.com/dozybot001/Intent.git
 npx skills add dozybot001/Intent -g --all
 ```
 
-需要 Python 3.9+ 和 Git。脚本会自动处理 pipx 安装。
+需要 Python 3.9+ 和 Git。安装脚本会自动处理 pipx。
 
-想在浏览器中查看语义历史，clone 仓库后启动 **IntHub Local**：
+想在浏览器中查看语义历史，启动 **IntHub Local**：
 
 ```bash
-git clone https://github.com/dozybot001/Intent.git
 cd Intent
 itt hub start
 ```

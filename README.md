@@ -77,20 +77,17 @@ curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/install.sh |
 
 # Windows (PowerShell)
 irm https://raw.githubusercontent.com/dozybot001/Intent/main/install.ps1 | iex
-```
 
-Then add the agent skill:
-
-```bash
+# Clone repo & add agent skill
+git clone https://github.com/dozybot001/Intent.git
 npx skills add dozybot001/Intent -g --all
 ```
 
-Requires Python 3.9+ and Git. The script handles pipx automatically.
+Requires Python 3.9+ and Git. The install script handles pipx automatically.
 
-To browse semantic history in a browser, clone the repo and start **IntHub Local**:
+To browse semantic history in a browser, start **IntHub Local**:
 
 ```bash
-git clone https://github.com/dozybot001/Intent.git
 cd Intent
 itt hub start
 ```
