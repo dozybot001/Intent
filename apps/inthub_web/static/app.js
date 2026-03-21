@@ -564,6 +564,7 @@ function renderIntentDetail(payload) {
       <h2 class="detail-title">${esc(intent.title)}</h2>
       <div class="detail-meta">
         <span class="badge">${esc(intent.status)}</span>
+        ${payload.git.branch ? `<span class="badge">${esc(payload.git.branch)}</span>` : ""}
       </div>
     </div>
     ${detailSection("Latest Summary", formatText(latestSnap?.summary) || `<p>No snap summary yet.</p>`)}
