@@ -37,7 +37,7 @@ def cmd_hub_start(args):
         argv += ["--port", str(args.port)]
     if getattr(args, "no_open", False):
         argv += ["--no-open"]
-    launch_main(argv or None)
+    launch_main(argv)
 
 
 def cmd_hub_link(args):
