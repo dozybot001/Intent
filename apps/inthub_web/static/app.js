@@ -939,22 +939,6 @@ function bindEvents() {
   el.drawerClose.addEventListener("click", closeDrawer);
   el.drawerOverlay.addEventListener("click", closeDrawer);
 
-  const headerSearch = document.getElementById("header-search");
-  headerSearch.addEventListener("keydown", async (e) => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    const q = headerSearch.value.trim();
-    state.searchQuery = q;
-    if (!q || !state.currentProjectId) return;
-    try {
-      const result = await fetchJson(
-        apiUrl(`/api/v1/search?project_id=${encodeURIComponent(state.currentProjectId)}&q=${encodeURIComponent(q)}`),
-      );
-      renderSearchResults(result);
-    } catch (err) {
-      el.sidebarBody.innerHTML = `<div class="empty-state">${esc(err.message)}</div>`;
-    }
-  });
 }
 
 /* ---- Init ---- */
