@@ -1,0 +1,11 @@
+{
+  "id": "snap-157",
+  "object": "snap",
+  "created_at": "2026-03-21T08:35:12.708498+00:00",
+  "title": "Showcase 及 IntHub 自动导入完成",
+  "status": "active",
+  "intent_id": "intent-033",
+  "summary": "1) 将 .intent/ 完整数据（33 intents, 156 snaps, 22 decisions）复制到 showcase/intent-project/。2) launcher.py 新增 _load_showcase()，启动时检测 showcase/ 目录并自动导入为 IntHub 项目，用户在项目选择器下拉即可切换查看。导入使用幂等的 sync batch（duplicate 检测），重复启动不会重复导入。3) README 双语新增 Showcase 段落，说明格式迭代历史。4) IntHub 展示逻辑已兼容新旧格式：origin/rationale 用安全访问，有就显示没有就跳过；旧 snap 的 query 字段也保留展示。测试通过（66 passed）。",
+  "feedback": "",
+  "origin": "claude-code"
+}
