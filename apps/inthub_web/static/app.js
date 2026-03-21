@@ -242,9 +242,6 @@ function renderHandoffTab() {
           <div class="card-meta">
             <span class="badge">${esc(intent.id)}</span>
             ${intent.latest_snap?.origin ? `<span class="badge">${esc(intent.latest_snap.origin)}</span>` : ""}
-            <span class="badge">${esc(intent.git.branch || "\u2014")}</span>
-            <span class="badge">${esc(shortCommit(intent.git.head_commit))}</span>
-            ${dirtyBadge(intent.git.dirty)}
             <span class="badge">${decisions.length} constraints</span>
           </div>
         </article>`,
