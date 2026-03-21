@@ -491,6 +491,13 @@ async function openDetail(type, rId) {
   writeRoute();
 }
 
+function allDecisionsMap() {
+  const map = {};
+  for (const d of state.overview?.active_decisions || []) map[d.id] = d;
+  for (const d of state.overview?.deprecated_decisions || []) map[d.id] = d;
+  return map;
+}
+
 function activeDecisionIds() {
   const ids = new Set();
   for (const d of state.overview?.active_decisions || []) {
@@ -504,6 +511,7 @@ function renderIntentDetail(payload) {
   const latestSnap = payload.snaps[payload.snaps.length - 1];
   const activeIds = activeDecisionIds();
 
+  const dMap = allDecisionsMap();
   const allIds = intent.decision_ids || [];
   const activeLinks = allIds
     .filter((dId) => activeIds.has(dId))
@@ -511,8 +519,8 @@ function renderIntentDetail(payload) {
       linkButton(
         "decision",
         remoteId(payload.workspace_id, dId),
+        dMap[dId]?.title || dId,
         dId,
-        "active constraint",
       ),
     );
   const deprecatedLinks = allIds
@@ -521,8 +529,8 @@ function renderIntentDetail(payload) {
       linkButton(
         "decision",
         remoteId(payload.workspace_id, dId),
-        dId,
-        "deprecated",
+        dMap[dId]?.title || dId,
+        `${dId} · deprecated`,
       ),
     );
 
