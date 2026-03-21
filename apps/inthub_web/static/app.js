@@ -294,10 +294,10 @@ function renderIntentsTab() {
     : "";
 
   const othersHtml = others.length
-    ? `<details class="collapse-toggle">
-        <summary>${others.length} completed / suspended</summary>
+    ? `<div class="sidebar-section">
+        <span class="section-label">Completed / Suspended (${others.length})</span>
         ${[...others].reverse().map(intentCard).join("")}
-       </details>`
+       </div>`
     : "";
 
   el.sidebarBody.innerHTML = activeHtml + othersHtml;
