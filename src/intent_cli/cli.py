@@ -20,7 +20,21 @@ from intent_cli.commands.core import (
 from intent_cli.commands.hub import cmd_hub_link, cmd_hub_start, cmd_hub_sync
 
 
+def _ensure_utf8_stdio():
+    """Force UTF-8 on stdout/stderr so Windows doesn't fall back to GBK."""
+    import io
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name)
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+        elif stream.encoding and stream.encoding.lower().replace("-", "") != "utf8":
+            setattr(sys, stream_name, io.TextIOWrapper(
+                stream.buffer, encoding="utf-8", errors="backslashreplace",
+            ))
+
+
 def main():
+    _ensure_utf8_stdio()
     parser = argparse.ArgumentParser(prog="itt", description="Intent CLI")
     sub = parser.add_subparsers(dest="command")
 
