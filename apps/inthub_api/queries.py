@@ -110,7 +110,7 @@ def project_overview(db_path, project_id):
                 "status": intent["status"],
                 "decision_ids": intent.get("decision_ids", []),
                 "latest_snap_id": latest_snap_id,
-                "origin": latest_snap.get("origin", "") if latest_snap else "",
+                "origin": intent.get("origin", "") or (latest_snap.get("origin", "") if latest_snap else ""),
                 "branch": git.get("branch"),
                 "head_commit": git.get("head_commit"),
                 "dirty": git.get("dirty"),
