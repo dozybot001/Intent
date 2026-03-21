@@ -80,9 +80,13 @@ def _load_showcase(db_path, showcase_dir):
                     if f.suffix == ".json":
                         target.append(json.loads(f.read_text(encoding="utf-8")))
 
+        # Use the latest object timestamp as generated_at
+        all_objects = intents + snaps + decisions
+        latest_ts = max((o.get("created_at", "") for o in all_objects), default="")
+
         payload = {
             "sync_batch_id": f"sync_showcase_{project_name}",
-            "generated_at": "",
+            "generated_at": latest_ts,
             "client": {"name": "showcase", "version": "0"},
             "project_id": result["project_id"],
             "repo": repo,

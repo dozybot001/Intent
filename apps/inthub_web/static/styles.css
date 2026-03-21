@@ -13,8 +13,8 @@
   --radius: 12px;
   --radius-sm: 8px;
   --sidebar-w: 380px;
-  --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
-  --serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  --serif: "Noto Serif SC", "Palatino Linotype", Georgia, serif;
 }
 
 *,
