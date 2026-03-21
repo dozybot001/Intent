@@ -1,0 +1,5 @@
+{
+  "intent_version": "1.8.0",
+  "tag": "v1.8.0",
+  "notes": "Single distribution path: clone repo, pip install ., itt hub start. No more PyPI publishing or pre-built assets."
+}
