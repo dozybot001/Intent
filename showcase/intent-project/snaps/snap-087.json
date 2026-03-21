@@ -1,0 +1,12 @@
+{
+  "id": "snap-087",
+  "object": "snap",
+  "created_at": "2026-03-19T20:11:06.483211+00:00",
+  "title": "提交 IntHub Local 基础实现批次",
+  "status": "active",
+  "intent_id": "intent-017",
+  "query": "可以",
+  "rationale": "",
+  "summary": "已将当前 IntHub Local 相关改动整理成一笔提交 514c1ef（Add IntHub Local release-asset workflow）。这笔提交收口了三类内容：一，运行与分发基础，包括 apps/inthub_local 启动器、apps/inthub_api/server.py 中可复用的 build_server，以及 scripts/build_inthub_local.py 产出的 IntHub Local release assets；二，用户可见文档，包括 README 中将 IntHub 入口收敛为 IntHub Local 优先，以及新增 docs/EN/inthub-local.md 和 docs/CN/inthub-local.md；三，GitHub Release assets 发布流程，包括 .github/workflows/release-inthub-local.yml。提交前重新运行了 .venv/bin/python -m pytest -q tests/test_inthub_local.py tests/test_inthub_api_server.py tests/test_cli.py，结果为 55 passed。当前这批 IntHub Local 基础实现已经进入已提交状态。",
+  "feedback": ""
+}

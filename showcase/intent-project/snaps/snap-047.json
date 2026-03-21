@@ -1,0 +1,12 @@
+{
+  "id": "snap-047",
+  "object": "snap",
+  "created_at": "2026-03-19T13:54:36.164243+00:00",
+  "title": "纠正 GitHub 发布为单一项目版本线",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "",
+  "rationale": "",
+  "summary": "已按用户澄清后的目标，将 GitHub 发布模型从错误的多轨制纠正为单一 Intent 项目版本线。首先回答了遗留问题：之前的 decision-005 已经在上一轮显式 deprecated；本轮继续补充纠偏，新增 decision-008，明确 GitHub 只维护 Intent 项目版本，CLI 只在 PyPI 独立发布，Hub 当前不单独发布；与之冲突的 decision-006 和 decision-007 也已显式 deprecated。仓库侧，为让项目版本拥有稳定的版本源，新增根目录 VERSION 文件，当前值为 1.4.0；README.md 与 README.CN.md 的版本说明已经改成单轨模型；release manifest 也从 releases/intent-v1.4.0.json 改为 releases/v1.4.0.json，用于记录当前项目版本所对应的 CLI 2.0.0 与 Hub 0.1.0。发布方面，先在提交 a11dd14（Align GitHub releases to project version line）上创建并推送 bare tag v1.4.0，再发布 GitHub release https://github.com/dozybot001/Intent/releases/tag/v1.4.0 并设为 Latest。随后删除了刚才误发的三条 GitHub release/tag：cli-v2.0.0、hub-v0.1.0、intent-v1.4.0，使仓库层面重新只剩一条项目版本线；本地 tag 列表现在也只保留 v1.4.0，而 PyPI 上的 CLI 2.0.0 保持不变。当前 release 关系已经收敛为：GitHub 用 v1.4.0 说明当前项目状态，release note 内说明 CLI 2.0.0 与 Hub 0.1.0；CLI 安装版本继续通过 PyPI 2.0.0 对外提供。当前 git status 干净。",
+  "feedback": ""
+}

@@ -1,0 +1,12 @@
+{
+  "id": "snap-026",
+  "object": "snap",
+  "created_at": "2026-03-19T12:09:18.831455+00:00",
+  "title": "拆分 CLI 与 IntHub API 的内部结构",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "可以，采纳你的建议",
+  "rationale": "在 IntHub 第一版继续扩展前，先按 concern 做轻量文件级拆分，降低单文件职责堆积和后续迭代摩擦。",
+  "summary": "已完成一次不改行为的轻量解耦重构。CLI 侧把原先集中在 src/intent_cli/cli.py 中的参数解析、对象命令、hub 命令、HTTP 客户端与 sync payload 组装拆成 parser/dispatch、commands.core、commands.hub、hub.client、hub.payload 等模块，使 cli.py 从约 788 行降到 178 行。API 侧把原先集中在 apps/inthub_api/store.py 中的 SQLite schema、sync ingest 与 overview/handoff/detail/search 查询拆为 db、ingest、queries 三层，并保留一个极薄的兼容 export 层，避免 server 路由继续依赖单个大 store 文件。当前主要文件规模为：src/intent_cli/commands/core.py 376 行，src/intent_cli/commands/hub.py 107 行，apps/inthub_api/ingest.py 170 行，apps/inthub_api/queries.py 298 行，职责边界比之前清晰得多。全量测试已通过，结果为 .venv/bin/python -m pytest -q => 49 passed in 13.47s。当前行为保持不变，工作区仍包含此前 IntHub 文档与实现的未提交变更，intent-013 保持 active，便于继续推进 Web 或 GitHub auth。",
+  "feedback": ""
+}

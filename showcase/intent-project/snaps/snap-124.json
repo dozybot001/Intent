@@ -1,0 +1,12 @@
+{
+  "id": "snap-124",
+  "object": "snap",
+  "created_at": "2026-03-20T18:31:44.015028+00:00",
+  "title": "确认 inspect 中 decision 与 intent 的并列结构",
+  "status": "active",
+  "intent_id": "intent-025",
+  "query": "",
+  "rationale": "",
+  "summary": "已确认 inspect 的默认结构应进一步收成并列的全局恢复视图，而不是把 decision 重复挂到每个 intent 下。当前达成的一版方向是：顶层保留 active_intents、active_decisions、suspended、warnings；active_intents 只展开最小恢复字段（id、title、latest_snap）；active_decisions 与 active_intents 并列，只保留 id 和 title，用来表示当前所有 active intents 共享的全局约束。这样既避免每个 intent 重复挂同一组 decision，又保持 inspect 的 resume-first 定位。",
+  "feedback": ""
+}

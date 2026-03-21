@@ -1,0 +1,12 @@
+{
+  "id": "snap-128",
+  "object": "snap",
+  "created_at": "2026-03-20T19:14:39.783911+00:00",
+  "title": "收紧 doctor 的默认诊断输出",
+  "status": "active",
+  "intent_id": "intent-025",
+  "query": "",
+  "rationale": "",
+  "summary": "已将 doctor 的默认输出收紧为 diagnosis-first 视图：result 仅保留 healthy、issue_count、issues，移除了对象计数和 schema_version 汇总 summary。同步更新了 tests/test_cli.py，明确断言 summary 不再出现，并在中英文 CLI 文档中补充 doctor 的默认输出字段说明。",
+  "feedback": ""
+}

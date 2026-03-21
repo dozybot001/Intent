@@ -1,0 +1,10 @@
+{
+  "id": "snap-138",
+  "object": "snap",
+  "created_at": "2026-03-21T05:22:59.006337+00:00",
+  "title": "删除 snap revert 并收紧 snap 语义",
+  "status": "active",
+  "intent_id": "intent-025",
+  "summary": "已从 CLI 中删除 snap revert，并把 snap 状态从 active 或 reverted 收为仅 active。对应地清理了 parser、dispatch、core handler、状态校验、CLI 测试、cli.md、两份 SKILL，以及 vision 中对 revert 的过时表述。新的边界是：snap 作为追加式 recovery checkpoint 被保留；纠正旧 checkpoint 通过 feedback 或新的 snap 完成，而不是回滚旧 snap。验证已通过：.venv/bin/python -m pytest -q tests/test_cli.py 返回 38 passed，且 itt snap --help 现在只剩 create、show、feedback。",
+  "feedback": ""
+}

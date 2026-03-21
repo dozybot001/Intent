@@ -1,0 +1,10 @@
+{
+  "id": "snap-139",
+  "object": "snap",
+  "created_at": "2026-03-21T05:41:21.326020+00:00",
+  "title": "删除所有 show 命令",
+  "status": "active",
+  "intent_id": "intent-025",
+  "summary": "已从 CLI 中删除 intent show、snap show、decision show，并同步清理了 parser、dispatch、core handlers、测试、cli.md、两份 SKILL 和 dogfooding 文档里的相关表述。新的边界是：CLI 只保留写入与状态流转命令；恢复统一走 inspect；面向人的对象浏览交给 IntHub。验证已通过：.venv/bin/python -m pytest -q tests/test_cli.py 返回 36 passed，且 intent、snap、decision 帮助输出中都已不再包含 show。",
+  "feedback": ""
+}

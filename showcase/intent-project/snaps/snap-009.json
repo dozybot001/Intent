@@ -1,0 +1,12 @@
+{
+  "id": "snap-009",
+  "object": "snap",
+  "created_at": "2026-03-19T10:34:31.222409+00:00",
+  "title": "实现 doctor、关系过滤和状态校验",
+  "status": "active",
+  "intent_id": "intent-008",
+  "query": "装完了，你检查一下，没问题我们就开始你上面说的优化。",
+  "rationale": "在不破坏三对象极简设计的前提下，优先补足结构校验、关系查询和输入约束这三类最直接影响可用性的能力。",
+  "summary": "已在 CLI 中新增全局命令 {\n  \"ok\": true,\n  \"action\": \"doctor\",\n  \"result\": {\n    \"healthy\": true,\n    \"issue_count\": 0,\n    \"summary\": {\n      \"schema_version\": \"1.0\",\n      \"intent_count\": 8,\n      \"snap_count\": 8,\n      \"decision_count\": 2\n    },\n    \"issues\": []\n  },\n  \"warnings\": []\n}，用于检查 schema 版本、对象类型、状态是否合法，以及 intent/snap/decision 之间的双向链接是否一致。 新增  过滤， 新增  过滤；三类  现在会返回 JSON ，不再对错误状态值静默返回空列表。实现修改集中在 src/intent_cli/cli.py 和 src/intent_cli/store.py，并为这些能力补充了 tests/test_cli.py 覆盖，测试从 36 个扩展到 44 个，当前使用 .venv 跑通为 。同时更新了 docs/EN/cli.md 与 docs/CN/cli.md，补充  和新过滤参数说明；README.md / README.CN.md 当前有用户自己的未提交改动，因此本轮未触碰它们，以避免覆盖或混入无关变更。",
+  "feedback": ""
+}

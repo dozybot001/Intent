@@ -1,0 +1,25 @@
+{
+  "id": "intent-033",
+  "object": "intent",
+  "created_at": "2026-03-21T08:30:32.970740+00:00",
+  "title": "添加 showcase 及 IntHub 自动导入",
+  "status": "active",
+  "source_query": "把 Intent 项目自身的语义历史作为官方 showcase，IntHub 启动时自动导入",
+  "rationale": "让用户开箱就能看到真实的产品形成历史，作为 Intent 的最佳使用示范",
+  "decision_ids": [
+    "decision-001",
+    "decision-003",
+    "decision-009",
+    "decision-010",
+    "decision-011",
+    "decision-013",
+    "decision-014",
+    "decision-015",
+    "decision-016",
+    "decision-018",
+    "decision-019",
+    "decision-020",
+    "decision-022"
+  ],
+  "snap_ids": []
+}

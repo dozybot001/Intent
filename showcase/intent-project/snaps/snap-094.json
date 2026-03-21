@@ -1,0 +1,12 @@
+{
+  "id": "snap-094",
+  "object": "snap",
+  "created_at": "2026-03-20T06:39:38.146756+00:00",
+  "title": "完成架构图页面从暗色主题到学术论文风格的全面重构",
+  "status": "active",
+  "intent_id": "intent-021",
+  "query": "检查itt，重构架构图页面，目前不好看，有没有那种简约、美观、清晰的科研论文架构图，不要过于简单了，有色彩，有图像，有点缀",
+  "rationale": "学术论文风格更专业、更清晰，适合技术受众",
+  "summary": "已将 docs/architecture.html 从暗色科技风完全重构为学术论文风格。主要变化：一，视觉风格从深色背景切换为浅色纸质背景，使用 Crimson Pro 衬线字体做标题、DM Sans 做正文、JetBrains Mono 做代码，营造论文排版感；二，添加了点阵网格背景装饰、双线边框标题区、Abstract 段落等学术论文元素；三，所有架构图改用精致的 SVG 绘制，包含圆角矩形节点、渐变填充、投影阴影和箭头标记，达到论文级 figure 质量；四，Fig.1 展示三面板对比（传统开发→Agent 时代→With Intent），Fig.2 是实体关系图（Intent/Snap/Decision 含属性和基数标注），Fig.3 是三层堆栈图，Fig.4 是五步流水线图；五，每个图均带 figure caption（Fig. 1–4 + Table 1），Section 使用数字编号和大号灰色装饰数字；六，添加了滚动渐显动画和卡片 hover 效果。所有原始内容和链接保持不变。页面为单文件自包含，仅依赖 Google Fonts。待用户确认视觉效果后可能需要微调。",
+  "feedback": ""
+}

@@ -1,0 +1,12 @@
+{
+  "id": "snap-053",
+  "object": "snap",
+  "created_at": "2026-03-19T14:55:03.309571+00:00",
+  "title": "优化 IntHub Web 前端显示问题",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "尝试优化IntHub的前端显示问题",
+  "rationale": "真实数据（890字符摘要、长 decision 标题、长 workspace ID）暴露了首版前端在卡片密度和视觉层级上的缺陷",
+  "summary": "修复了 IntHub Web 前端的 7 个显示问题。CSS 方面：(1) 将 mini-head h3 从 1.45rem 降到 1.08rem，修复与 section h2 视觉层级混淆；(2) 给 object-card/handoff-card 的标题和正文加了 -webkit-line-clamp（标题 2 行、正文 3 行），防止长文本撑开卡片；(3) Board 列表加了 max-height 520px + overflow-y auto，防止 snap 长列表拉伸整页；(4) Badge 加了 text-overflow ellipsis 防溢出；(5) handoff-card 加了左侧 3px primary 色边框以区分于普通 object-card，且正文允许 4 行。(6) 修复了 .detail-pre 闭合花括号的缩进错误。JS 方面：(1) 新增 truncate() 和 shortWorkspace() 辅助函数；(2) objectCard 中移除了 workspace_id badge（视觉噪音），并对 subtitle 做截断（普通卡 140 字符、handoff 200 字符）；(3) renderHandoff 改用 objectCard('handoff', ...) 确保使用正确的 CSS 类；(4) workspace 卡片的 ID 显示从完整 wks_bd5ec4e50bb8 缩短为 bd5ec4e5。Web 服务直接从 static/ 目录读取，刷新浏览器即可看到效果。没有代码行为变化，没有运行测试。",
+  "feedback": "决定推翻当前前端，完全重来。之前的修补不再需要。"
+}

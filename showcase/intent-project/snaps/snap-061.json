@@ -1,0 +1,12 @@
+{
+  "id": "snap-061",
+  "object": "snap",
+  "created_at": "2026-03-19T16:50:34.528255+00:00",
+  "title": "将 Codex 的 SKILL 改动同步回仓库",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "Codex改了本机skill副本而不是仓库SKILL.md，需要同步回来",
+  "rationale": "仓库的 SKILL.md 是发布源，npx skills add 拿到的是仓库版本；本机副本改了不影响其他人",
+  "summary": "将 Codex 在 /Users/dozy/.agents/skills/intent-cli/SKILL.md 上的改动同步回仓库 SKILL.md。Codex 的改动包括：新增 itt doctor 命令说明和使用时机（inspect 出现 warnings 时）；新增 Hub 章节（itt hub login / link / sync 的职责边界、不替代本地 snap 的原则）；更新 intent list 和 decision list 支持 --decision / --intent 过滤；细化了 intent 创建判断标准（recovery test、代码改动必须可追溯到 intent、非代码工作也可以是 intent）；补充了反模式（workflow familiarization 不应成为 intent、不应仅以代码变更作为 intent 判断标准）；新增 hub 相关错误码和 hub.json 存储说明。已在 snap-060 上记录 feedback 指出改错位置的问题。两个文件现在完全一致。50 tests passed。",
+  "feedback": ""
+}

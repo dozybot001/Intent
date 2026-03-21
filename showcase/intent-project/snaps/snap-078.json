@@ -1,0 +1,12 @@
+{
+  "id": "snap-078",
+  "object": "snap",
+  "created_at": "2026-03-19T19:27:48.174913+00:00",
+  "title": "补充 IntHub 本地演示与截图说明",
+  "status": "active",
+  "intent_id": "intent-015",
+  "query": "Readme好像没有写IntHub相关的，怎么启动也不知道。主要是我想截几张图展示Intent的语义，用于Intent推广。",
+  "rationale": "",
+  "summary": "已更新 README.md 和 README.CN.md 的 IntHub 段落，补上可直接用于本地演示和截图的完整最小流程：先用 python3 -m apps.inthub_api --serve-web --db-path .inthub/inthub.db 启动一体化后端，再顺序执行 itt hub login --api-base-url http://127.0.0.1:8000、itt hub link --project-name Intent、itt hub sync，最后打开 http://127.0.0.1:8000 并点击 Intent 项目。文档中也明确说明这一进程同时服务 API 和 Web，且后续只需重复运行 itt hub sync 即可刷新截图数据。为验证文档可用性，实际启动了本地 IntHub 服务，确认 /、/config.json、/healthz 均返回 200；并顺序执行 hub login、hub link、hub sync 成功，把当前仓库的语义历史同步到了本地 IntHub 数据库。由于服务正在运行以便用户立即截图，这轮只做了文档修正和手动验证，没有运行测试。",
+  "feedback": ""
+}

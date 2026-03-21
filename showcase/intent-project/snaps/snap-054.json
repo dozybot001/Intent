@@ -1,0 +1,12 @@
+{
+  "id": "snap-054",
+  "object": "snap",
+  "created_at": "2026-03-19T15:14:52.603313+00:00",
+  "title": "重写 IntHub Web 前端为两栏 Handoff-first 布局",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "我决定整个前端页面，完全推倒重来",
+  "rationale": "原页面将所有区域平铺在一条长滚动里，不符合 IntHub 核心场景——来看的人只想知道'现在怎么了，从哪接手'",
+  "summary": "完全重写了 IntHub Web 前端的三个文件（index.html / styles.css / app.js）。结构从单页长滚动改为两栏布局：左侧 380px sidebar 带 tab 导航（Handoff / Intents / Decisions / Snaps / Search），右侧固定 detail pane 展示选中对象的完整信息。Handoff 作为默认 tab，打开即看到 active constraints（紧凑的 decision 行）和 active intents（带 latest snap summary 的卡片）。未选中对象时，detail pane 显示 project overview（workspace 状态 + 统计数字）。视觉上保留了暖色调设计系统（beige 渐变背景、--primary brown、Georgia serif），但重新整理了组件：card 标题 2 行截断、正文 3 行截断、badge 溢出保护。移动端（<768px）降级为单栏：默认显示 sidebar，点击卡片切到 detail 并出现返回按钮。URL state 完整保留（project / tab / detail / search query）。API 端点完全不变，只改了前端消费方式。Web 服务器无需重启，直接从 static/ 读取。当前仍有可能需要微调的地方：tab 在 5 项窄屏下的文字可能偏小、handoff 为空时的引导文案可以更友好。",
+  "feedback": "比较满意。有溢出BUG；handoff tab 里 decision 和 intent.decision_ids 有冗余；deprecated decisions 也显示出来了，需要讨论处理方式。"
+}

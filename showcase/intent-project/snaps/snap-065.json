@@ -1,0 +1,12 @@
+{
+  "id": "snap-065",
+  "object": "snap",
+  "created_at": "2026-03-19T17:09:02.539659+00:00",
+  "title": "记录跨 agent 协作的长期约束",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "其实我们刚刚的交互也是跨agent，我估计后续的开发这样的场景会非常非常多",
+  "rationale": "这不是一次性的使用感受，而是在真实协作中反复出现的模式，值得上升为长期 decision 来约束后续产品和文档方向。",
+  "summary": "已将‘跨 agent 协作会是高频主场景’记录为长期 decision。新 decision 明确两层含义：第一，Intent 的核心价值不只是单 agent 的上下文恢复，而是为多 agent 接力提供共享目标边界、交互链和长期约束；第二，dogfooding 后续不应只写单篇案例，而应持续围绕多 agent 切换、接手、纠错和 handoff 模式收敛。这会影响后续文档、IntHub 视图和 workflow 评估标准。此轮只更新 .intent 语义历史，没有改仓库代码，也没有运行测试。",
+  "feedback": ""
+}

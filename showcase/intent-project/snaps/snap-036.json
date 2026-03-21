@@ -1,0 +1,12 @@
+{
+  "id": "snap-036",
+  "object": "snap",
+  "created_at": "2026-03-19T13:03:55.608425+00:00",
+  "title": "发布 v1.3.0 minor 版本",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "把当前 IntHub Web/API 升级推上去并发一版",
+  "rationale": "在只读版 IntHub Web shell、支撑它的 API 读接口、打包修正和本地运行入口都已经完成并验证后，发布一个新的 minor 版本，把 IntHub 的首个可交付远端读取面正式对外提供。",
+  "summary": "已完成 v1.3.0 的完整发布。为保证发布结果真实可用，先补修了分发边界：pyproject.toml 版本提升到 1.3.0；新增 inthub-api 与 inthub-web entrypoint；将 package discovery 扩展到 intent_cli 与 apps 两组包；并通过 setuptools package-data 把 apps/inthub_web/static 下的 HTML、CSS、JS 静态资源一起纳入发布产物。同时更新了 README.md、README.CN.md 和中英文 IntHub sync contract 文档，使本地 IntHub shell 的运行方式和新版本号与实现保持一致。验证链路全部通过：.venv/bin/python -m pytest -q => 50 passed；.venv/bin/python -m build --sdist --wheel 成功且 wheel 中已包含 apps.inthub_api、apps.inthub_web 与 static 资源；.venv/bin/python -m twine check 通过；在全新虚拟环境中安装后，itt version 返回 1.3.0，inthub-api --help 与 inthub-web --help 正常，且实际启动 inthub-web 后能够返回首页 HTML。发布方面，main 已 push 到 origin，新增两笔提交为 7329399（Add read-only IntHub web shell）和 55ea235（Prepare v1.3.0 packaging and docs）；annotated tag v1.3.0 已创建并推送；GitHub release 已发布到 https://github.com/dozybot001/Intent/releases/tag/v1.3.0；PyPI 版本页为 https://pypi.org/project/intent-cli-python/1.3.0/ ，且 latest JSON 索引也已经刷新到 1.3.0。当前 git status 干净，intent-013 继续保持 active，便于下一轮推进 GitHub auth 或更正式的后端形态。",
+  "feedback": ""
+}

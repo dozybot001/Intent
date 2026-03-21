@@ -1,0 +1,12 @@
+{
+  "id": "snap-045",
+  "object": "snap",
+  "created_at": "2026-03-19T13:44:37.473500+00:00",
+  "title": "讨论 Intent 项目版本作为 release 索引层",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "",
+  "rationale": "",
+  "summary": "围绕 monorepo 下 GitHub release 的可发现性问题，开始评估是否重新引入 Intent 项目版本，但将其定义为高于 CLI 版本和 Hub 版本的一层 release 索引，而不是替代各 deliverable 的独立版本。用户提出的问题是：仅使用 cli-vX.Y.Z 与 hub-vX.Y.Z 虽然解决了分发边界，但在 GitHub release 页面上不容易一眼看到‘当前这个项目的最近一次整体发布状态’。接下来需要判断：是否应让 Intent 重新维护一个项目级版本号，并在该项目版本中简单声明对应的 CLI 版本和 Hub 版本，从而兼顾 monorepo 统一入口和 deliverable 独立发布。",
+  "feedback": ""
+}

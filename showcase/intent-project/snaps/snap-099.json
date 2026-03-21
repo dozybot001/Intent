@@ -1,0 +1,12 @@
+{
+  "id": "snap-099",
+  "object": "snap",
+  "created_at": "2026-03-20T07:00:08.786839+00:00",
+  "title": "修复 Fig.1 细节：面板宽度一致、文字居中、Fig.4 箭头定义缺失",
+  "status": "active",
+  "intent_id": "intent-021",
+  "query": "不对，还是有一些细节没到位，再检查一下",
+  "rationale": "逐一排查发现三处问题需要修复",
+  "summary": "修复了三类细节问题。一，Panel C 宽度从 240px 增到 260px，与 A/B 一致；内部节点从 176px 增到 196px，Panel C 中心从 820 调整到 826，所有内部元素坐标同步调整。二，Panel A 的 Human 和 Code 节点去掉了装饰性的 H 圆形图标和 { } 图标（B/C 没有这些装饰，导致不一致），文字改为在节点中央居中。三，Fig.4（The Flow）的 SVG 中缺少 arrowGray marker 定义——这个 marker 在旧 Fig.1 的 defs 中被删除后，Fig.4 引用它的四条箭头线都变成了无头线段。已在 Fig.4 的 defs 中补充了 arrowGray marker（6x5 size, polygon fill）。同时微调了 B→C 过渡箭头的 x 偏移和背景虚线的起止点以对齐新的 Panel C 中心。",
+  "feedback": ""
+}

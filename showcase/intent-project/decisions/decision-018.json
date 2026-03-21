@@ -1,0 +1,19 @@
+{
+  "id": "decision-018",
+  "object": "decision",
+  "created_at": "2026-03-20T18:17:55.321423+00:00",
+  "title": "inspect 默认应服务于继续干活；完整对象图不应由其默认输出承担",
+  "status": "active",
+  "rationale": "inspect 的默认职责应是帮助 agent 在新 session 中继续干活，而不是展示完整对象图。完整对象图主要服务于人类浏览、审查和追溯，这类需求更适合通过 IntHub 或显式的 full/graph 视图承担。随着 IntHub 已存在，inspect 没必要再默认承担全量对象浏览职责，应该优先最小化噪音、突出继续工作的必要信息。",
+  "intent_ids": [
+    "intent-025",
+    "intent-026",
+    "intent-027",
+    "intent-028",
+    "intent-029",
+    "intent-030",
+    "intent-031",
+    "intent-032",
+    "intent-033"
+  ]
+}

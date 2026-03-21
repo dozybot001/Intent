@@ -1,0 +1,12 @@
+{
+  "id": "snap-028",
+  "object": "snap",
+  "created_at": "2026-03-19T12:22:03.105906+00:00",
+  "title": "评估当前 IntHub 开发阶段与下一步",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "可以，我们目前IntHub开发到哪一步了，下一步应该怎么走",
+  "rationale": "在 v1.2.0 发布后，需要明确 IntHub 当前落点，避免在已经完成的 CLI/API 闭环上重复投入，并把后续工作顺序收敛到最短实现路径。",
+  "summary": "已核对当前代码、文档与测试状态。当前 IntHub 已完成的是首个实验性 CLI/API 同步基础层，而不是完整产品层：一，CLI 侧已经有 {\n  \"ok\": false,\n  \"error\": {\n    \"code\": \"INVALID_INPUT\",\n    \"message\": \"Missing IntHub API base URL.\",\n    \"details\": {},\n    \"suggested_fix\": \"Run: itt hub login --api-base-url http://127.0.0.1:8000\"\n  }\n}、{\n  \"ok\": false,\n  \"error\": {\n    \"code\": \"HUB_NOT_CONFIGURED\",\n    \"message\": \"IntHub API base URL is not configured.\",\n    \"details\": {},\n    \"suggested_fix\": \"Run: itt hub login --api-base-url http://127.0.0.1:8000\"\n  }\n}、{\n  \"ok\": false,\n  \"error\": {\n    \"code\": \"NOT_LINKED\",\n    \"message\": \"Workspace is not linked to IntHub. Missing: project_id, workspace_id, repo_binding.\",\n    \"details\": {},\n    \"suggested_fix\": \"Run: itt hub link\"\n  }\n} 三个命令，代码在 src/intent_cli/commands/hub.py；二，服务端已经有最小 API 与 SQLite 派生读模型，支持 link、sync-batch、project overview、project handoff、intent / decision detail 与 search，代码在 apps/inthub_api/server.py、apps/inthub_api/ingest.py、apps/inthub_api/queries.py；三，中英文 IntHub MVP 与 sync contract 文档已建立，并从 README 与 roadmap 建立入口；四，测试已经覆盖 link -> sync -> overview/handoff/search 的本地端到端闭环，v1.2.0 发布时全量测试为 49 passed。尚未开始的部分也很明确：当前仓库里还没有 apps/inthub_web 或任何 Web 前端代码；GitHub auth 仍停留在文档约束层，没有实现 OAuth / GitHub App；服务端也仍是实验性 stdlib HTTP server + SQLite 形态，没有正式的部署、鉴权与多用户 project 视图。因此现在的阶段判断是：IntHub 已从“概念与契约阶段”进入“远端同步基础设施已成立”的阶段，下一步不该再继续堆 CLI 或继续写文档，而应优先实现只读 Web 第一版。最合理的顺序是：先做最小 read-only Web（project overview / handoff / detail / search），直接消费现有 API；随后再补项目级身份与 GitHub 登录绑定；最后才考虑更强的同步触发、增量 sync 或更正式的服务端框架。",
+  "feedback": ""
+}

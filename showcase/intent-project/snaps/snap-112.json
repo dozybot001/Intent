@@ -1,0 +1,12 @@
+{
+  "id": "snap-112",
+  "object": "snap",
+  "created_at": "2026-03-20T08:16:39.488828+00:00",
+  "title": "澄清 frontend 两个 HTML 的职责边界",
+  "status": "active",
+  "intent_id": "intent-022",
+  "query": "",
+  "rationale": "",
+  "summary": "已澄清 frontend/ 目录下两个 HTML 文件的当前职责边界：frontend/index.html 只是目录级入口页，用来让浏览器打开 frontend/ 时有一个轻量 landing；frontend/intent.html 才是当前真正的产品故事主页面。这个拆分在多页面前端阶段是合理的，但如果近期仍只有一张核心页面，那么后续可以继续收口为单一 index.html，避免入口页和内容页同时存在造成的心智负担。",
+  "feedback": ""
+}

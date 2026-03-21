@@ -1,0 +1,12 @@
+{
+  "id": "snap-126",
+  "object": "snap",
+  "created_at": "2026-03-20T18:56:51.435431+00:00",
+  "title": "同步 inspect 字段契约到 skill 与文档",
+  "status": "active",
+  "intent_id": "intent-025",
+  "query": "",
+  "rationale": "",
+  "summary": "已全面排查仓库内文档、仓库内 SKILL.md 及本机 intent-cli skill 中与 inspect 默认输出相关的过时表述。两份 SKILL 已从旧结构（decision_ids/latest_snap_id、suspend_intents、recent_snaps、full object graph snapshot）收紧为当前稳定结构：active_intents、active_decisions、suspended、warnings，并明确 inspect 是 resume-first recovery view。复查后未再发现与旧 inspect 字段契约冲突的残留表述。",
+  "feedback": ""
+}

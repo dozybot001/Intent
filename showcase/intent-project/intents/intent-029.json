@@ -1,0 +1,30 @@
+{
+  "id": "intent-029",
+  "object": "intent",
+  "created_at": "2026-03-21T06:57:33.089086+00:00",
+  "title": "添加 Claude Code origin 自动检测",
+  "status": "done",
+  "source_query": "你也可以加origin标签",
+  "rationale": "",
+  "decision_ids": [
+    "decision-001",
+    "decision-003",
+    "decision-004",
+    "decision-008",
+    "decision-009",
+    "decision-010",
+    "decision-011",
+    "decision-012",
+    "decision-013",
+    "decision-014",
+    "decision-015",
+    "decision-016",
+    "decision-018",
+    "decision-019",
+    "decision-020"
+  ],
+  "snap_ids": [
+    "snap-152",
+    "snap-153"
+  ]
+}

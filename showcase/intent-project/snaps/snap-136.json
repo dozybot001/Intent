@@ -1,0 +1,10 @@
+{
+  "id": "snap-136",
+  "object": "snap",
+  "created_at": "2026-03-20T20:46:02.504747+00:00",
+  "title": "将 CLI 文档重写为命令契约文档",
+  "status": "active",
+  "intent_id": "intent-025",
+  "summary": "已将中英文 cli.md 从设计文档式铺陈重写为简洁的命令契约文档。新版本聚焦当前稳定命令面：先给出整体命令总览，再分别说明 global、intent、snap、decision、hub 的职责、常用示例、默认输出与关键约束；同时保留最小必要的 JSON 输出、错误码和运行约束说明。文档中不再保留已删除的 list/login 命令，也不再让 cli.md 承担过多系统叙事。",
+  "feedback": ""
+}

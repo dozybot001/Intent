@@ -1,0 +1,12 @@
+{
+  "id": "snap-040",
+  "object": "snap",
+  "created_at": "2026-03-19T13:23:03.557835+00:00",
+  "title": "确认 Intent 与 deliverable 的版本分层",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "",
+  "rationale": "",
+  "summary": "已将版本治理策略上升为长期 decision：Intent 作为 umbrella project / monorepo，不再维护统一项目版本号；今后只有具体 deliverable 维护自己的发布版本。首批命名规则是 CLI 使用 cli-vX.Y.Z，未来 IntHub 如需独立发布则使用 hub-vX.Y.Z。也就是说，pyproject.toml 中的 project.version 只代表 intent-cli-python 这个 CLI 分发物，不再被解读为整个 Intent 项目的统一版本。GitHub release 也应跟随具体 deliverable 命名，避免继续使用模糊的裸 vX.Y.Z。历史上已经存在的 v1.0.0 到 v1.3.0 作为既有历史保留，但从 2.0.0 开始切换到新的带前缀 tag 规则。",
+  "feedback": ""
+}

@@ -94,6 +94,12 @@ itt hub sync
 
 > **Tips:** Because `itt` is a new command, agents are not trained on it yet. We recommend typing `/` at the start of each session, selecting the skill, and pressing Enter to enter the workflow.
 
+## Showcase
+
+This project manages its own development with Intent. Run `itt hub start` and the full semantic history (33 intents, 156 snaps, 22 decisions) is auto-loaded as a showcase project in IntHub — from the first PyPI README to the 2.0.0 release.
+
+> The showcase spans multiple schema iterations; earlier objects may lack fields like `origin` or `rationale` that were added later.
+
 ## Docs
 
 - [Vision](docs/EN/vision.md) — why semantic history matters

@@ -1,0 +1,29 @@
+{
+  "id": "intent-027",
+  "object": "intent",
+  "created_at": "2026-03-21T06:46:05.896740+00:00",
+  "title": "继续收紧 intent-cli 以减轻 agent 负担",
+  "status": "done",
+  "source_query": "可以，你的建议我都采纳",
+  "rationale": "进一步减少日常 itt 命令中的机械参数输入，并把非 happy-path 命令移出公开命令面。",
+  "decision_ids": [
+    "decision-001",
+    "decision-003",
+    "decision-004",
+    "decision-008",
+    "decision-009",
+    "decision-010",
+    "decision-011",
+    "decision-012",
+    "decision-013",
+    "decision-014",
+    "decision-015",
+    "decision-016",
+    "decision-018",
+    "decision-019",
+    "decision-020"
+  ],
+  "snap_ids": [
+    "snap-150"
+  ]
+}

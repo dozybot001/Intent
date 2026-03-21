@@ -1,0 +1,12 @@
+{
+  "id": "snap-059",
+  "object": "snap",
+  "created_at": "2026-03-19T16:39:26.632316+00:00",
+  "title": "Intents tab 展示完整历史",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "intent历史可以全部放上来吗，Handoff展示active的就够了",
+  "rationale": "intent 是目标链，截断就丢了'为什么走到这里'的上下文",
+  "summary": "API 层 queries.py 新增 other_intents 字段，收集所有非 active 状态的 intent（done / suspend），与 active_intents 并列返回。当前数据：1 active + 12 other。前端 Intents tab 改为按状态分组展示：active 正常显示（带 section-label），done / suspended 折叠在 'N completed / suspended' 的 collapse-toggle 里。每张 intent 卡片新增 status badge 以区分状态。Handoff tab 不变，仍只显示 active intents。抽取了 intentCard() 函数避免重复模板。50 tests passed。",
+  "feedback": "可以，非常好。"
+}

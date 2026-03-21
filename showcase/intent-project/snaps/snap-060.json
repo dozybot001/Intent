@@ -1,0 +1,12 @@
+{
+  "id": "snap-060",
+  "object": "snap",
+  "created_at": "2026-03-19T16:46:39.281621+00:00",
+  "title": "补充 skill 中的新命令说明",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "很好，目前我让Claude Code重构了一下前端。此外，我发现有一些新的命令还没有在skill里教agent用，这需要补上。",
+  "rationale": "当前 CLI 已新增 doctor、关系过滤和 hub 命令；若 skill 不同步，agent 会继续按旧命令面协作。",
+  "summary": "已更新本机 intent-cli skill，使其与当前 CLI 实现对齐。补充了四类缺失信息：一是在 session start 里明确当 inspect 出现 warnings 或对象图异常时应运行 itt doctor；二是在命令参考中新增 itt doctor，并把 intent list/decision list 更新为支持 --decision / --intent 过滤；三是新增 Hub 命令区，说明 itt hub login、itt hub link、itt hub sync 的职责边界，其中 sync 只负责把本地语义历史和 Git 上下文推送到 IntHub，不替代本地 snap 记录；四是把 hub 相关错误码 HUB_NOT_CONFIGURED / NOT_LINKED / NETWORK_ERROR 和 .intent/hub.json 写入 skill。此轮只修改本机 skill 文件 /Users/dozy/.agents/skills/intent-cli/SKILL.md，没有改仓库代码，也没有碰 Claude Code 刚做的前端改动。",
+  "feedback": "改动方向对但改错了位置——应该改仓库 SKILL.md 再重装 skill，而不是直接改本机 skill 副本。"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "snap-063",
+  "object": "snap",
+  "created_at": "2026-03-19T17:05:44.401175+00:00",
+  "title": "评估新补充的 dogfooding 文档",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "我刚刚让Claude补充了一个dogfooding，你觉得怎么样",
+  "rationale": "dogfooding 文档本身就是 IntHub/Intent 价值证明的一部分，需要判断它是否既有说服力又足够忠实于真实语义历史。",
+  "summary": "已评估 Claude 新增的 dogfooding 文档 docs/CN/dogfooding.md 与 docs/EN/dogfooding.md。整体判断是方向正确、价值很高：它把抽象的 Intent/IntHub 理念落成了一篇基于真实 snap 链的协作案例，能清楚展示跨 agent handoff、feedback 消费和 decision 约束如何实际工作。它比继续写抽象愿景更有说服力，适合作为 case study。主要问题不在结构，而在叙事边界：第一，文档开头写‘所有内容来自 snap 链，未经事后编辑’，但正文其实做了明显的归纳、重写和表格化整理，这属于基于 snap 的二次叙述，不应称为 unedited；第二，‘三个 agent’ 与‘未来任何 agent 都不会重复’这类说法偏强，前者在当前 snap 链里证据不够硬，后者则是超出证据范围的承诺；第三，当前文档没有任何入口链接，README、roadmap 和 SKILL 都搜不到它，容易写了但不可见。当前仓库未改代码，这轮只是静态评估，没有运行测试。",
+  "feedback": ""
+}

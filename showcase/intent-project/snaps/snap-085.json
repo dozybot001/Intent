@@ -1,0 +1,12 @@
+{
+  "id": "snap-085",
+  "object": "snap",
+  "created_at": "2026-03-19T20:03:42.248575+00:00",
+  "title": "实现 IntHub Local 启动器与 release-asset 构建基础",
+  "status": "active",
+  "intent_id": "intent-016",
+  "query": "是的，推进实现",
+  "rationale": "",
+  "summary": "已完成 IntHub Local 的第一批可运行实现，重点是本地实例入口和 release asset 基础，而不是继续停留在设计文档。代码层面有三块：第一，在 apps/inthub_api/server.py 中抽出了 build_server，使 API server 可被其他入口复用；第二，新增 apps/inthub_local 包，提供专门的本地启动器（apps/inthub_local/launcher.py 与 __main__.py），默认监听 127.0.0.1:7210、默认数据库路径为 ~/.inthub/inthub.db、默认同时服务 API 和 Web，并在启动时自动打开浏览器；第三，新增 scripts/build_inthub_local.py，把 apps/inthub_api、apps/inthub_web 和 apps/inthub_local 打成单独的 IntHub Local release asset，产物包括 inthub-local-v0.2.0.pyz、Unix 启动脚本、Windows cmd 启动脚本和 README.txt，并可进一步作为 GitHub Release assets 发布。验证方面新增 tests/test_inthub_local.py，覆盖 launcher 默认值、启动行为和 asset 打包内容；连同既有 IntHub 测试一起执行 .venv/bin/python -m pytest -q tests/test_inthub_local.py tests/test_inthub_api_server.py tests/test_cli.py，结果为 55 passed。随后实际运行 .venv/bin/python scripts/build_inthub_local.py --output-dir /tmp/inthub-local-dist，成功生成 /tmp/inthub-local-dist/inthub-local-v0.2.0.pyz 和 /tmp/inthub-local-dist/inthub-local-v0.2.0.zip；进一步验证 zip 中包含 README.txt、inthub-local、inthub-local.cmd、inthub-local.pyz，且 pyz 本身可以用 python3 ...pyz --help 正常启动。这说明 IntHub Local 已经从‘文档设想’推进到了‘可构建、可分发、可启动’的基础形态。",
+  "feedback": ""
+}

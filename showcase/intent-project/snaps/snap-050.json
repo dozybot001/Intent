@@ -1,0 +1,12 @@
+{
+  "id": "snap-050",
+  "object": "snap",
+  "created_at": "2026-03-19T14:36:06.137656+00:00",
+  "title": "提交并推送 README 中的 skill 安装说明",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "",
+  "rationale": "",
+  "summary": "已将 README.md 与 README.CN.md 中补回的 skill 安装说明整理并推送到主分支。提交为 e21e84b（Restore skill install guidance in README），内容是恢复一条最小但关键的首页信息：对于 Codex、Claude Code 等支持 skill 的 agent，除了安装 CLI，还应执行 npx skills add dozybot001/Intent -g 来安装 intent-cli skill，并明确说明 CLI 只提供命令本身，skill 才决定 agent 在真实工作中何时、如何调用 itt。main 已 push 到 origin，当前 git status 干净。本轮没有运行测试，因为只有 README 文档修改，没有代码行为变化。",
+  "feedback": ""
+}

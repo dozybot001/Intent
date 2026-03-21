@@ -1,0 +1,17 @@
+{
+  "id": "intent-008",
+  "object": "intent",
+  "created_at": "2026-03-19T10:31:10.841988+00:00",
+  "title": "优化 Intent CLI 的校验与查询能力",
+  "status": "done",
+  "source_query": "装完了，你检查一下，没问题我们就开始你上面说的优化。",
+  "rationale": "当前实现的对象模型已成熟，但缺少结构一致性校验命令、部分关系过滤能力，以及严格的状态输入校验；这些缺口会影响日常使用和恢复可靠性。",
+  "decision_ids": [
+    "decision-001",
+    "decision-002"
+  ],
+  "snap_ids": [
+    "snap-009",
+    "snap-010"
+  ]
+}

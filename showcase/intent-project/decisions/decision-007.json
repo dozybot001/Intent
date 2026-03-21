@@ -1,0 +1,11 @@
+{
+  "id": "decision-007",
+  "object": "decision",
+  "created_at": "2026-03-19T13:47:20.463766+00:00",
+  "title": "Intent 维护项目级 release 索引版本；CLI 与 Hub 保持独立版本轨道",
+  "status": "deprecated",
+  "rationale": "Intent 作为 monorepo 需要一个项目级 release 入口来提高 GitHub release 页的可发现性，但该项目级版本不应替代 CLI 和 Hub 的独立分发版本。项目级 release 仅作为版本索引层，记录当前推荐的 deliverable 组合；CLI 继续以 pyproject.toml 中的版本发布为 cli-vX.Y.Z；Hub 继续以自己的版本发布为 hub-vX.Y.Z。Intent 项目版本沿用既有 v1.x 序列，并改为使用 intent-vX.Y.Z 命名，例如 intent-v1.4.0。",
+  "intent_ids": [
+    "intent-013"
+  ]
+}

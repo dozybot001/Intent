@@ -94,6 +94,12 @@ itt hub sync
 
 > **Tips：** 由于 `itt` 是一个全新的命令，agent 没有被训练过，建议每个 session 开始时打个 `/`，选到技能，回车就进入工作流了。
 
+## Showcase
+
+这个项目用 Intent 管理自身的开发过程。运行 `itt hub start` 后，完整的语义历史（33 个 intent、156 个 snap、22 个 decision）会作为 showcase 项目自动加载到 IntHub — 从最初的 PyPI README 到 2.0.0 发布。
+
+> Showcase 跨越了多次格式迭代，早期对象可能缺少后来新增的 `origin` 或 `rationale` 字段。
+
 ## 文档
 
 - [愿景](docs/CN/vision.md) — 为什么需要语义历史

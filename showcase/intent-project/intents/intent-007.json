@@ -1,0 +1,16 @@
+{
+  "id": "intent-007",
+  "object": "intent",
+  "created_at": "2026-03-19T10:17:17.956164+00:00",
+  "title": "按代码改动覆盖原则继续优化 intent-cli skill",
+  "status": "done",
+  "source_query": "是的，记录。你的理解非常正确，比我的表述更加准确，按照这个理解进一步优化skill",
+  "rationale": "用户确认将‘代码改动必须可追溯到 intent’记录为长期约束，并要求继续据此收紧 SKILL.md 的规则表述",
+  "decision_ids": [
+    "decision-001",
+    "decision-002"
+  ],
+  "snap_ids": [
+    "snap-008"
+  ]
+}

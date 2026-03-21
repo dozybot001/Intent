@@ -1,0 +1,12 @@
+{
+  "id": "snap-077",
+  "object": "snap",
+  "created_at": "2026-03-19T18:30:30.831771+00:00",
+  "title": "忽略 .inthub 并发布项目版 v1.5.0",
+  "status": "active",
+  "intent_id": "intent-014",
+  "query": "这个需要忽略吗，你怎么看。可以。清完后就发版吧",
+  "rationale": "",
+  "summary": "已将 .inthub/ 认定为本地 IntHub 运行态目录并加入 .gitignore，移除现有 .inthub 目录，避免本地 inthub.db 污染工作区。项目版本从 VERSION 的 1.4.0 提升到 1.5.0，新增 releases/v1.5.0.json，将当前 deliverable 组合记录为 CLI 2.0.0 与 IntHub 0.2.0，并同步 README 中的项目版本线示例。验证方面通过 .venv/bin/python -m pytest -q（52 passed），并在排除 build/dist/.venv/.intent/.inthub 的干净临时副本中完成 .venv/bin/python -m build --sdist --wheel 与 .venv/bin/python -m twine check dist/*。随后提交 3f693df（Prepare v1.5.0 project release），推送 main，创建并推送 annotated tag v1.5.0，并发布 GitHub release Intent 1.5.0。此次项目级发布没有发布新的 PyPI 包；CLI 仍保持 intent-cli-python 2.0.0。",
+  "feedback": ""
+}

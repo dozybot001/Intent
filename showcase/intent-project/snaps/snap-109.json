@@ -1,0 +1,12 @@
+{
+  "id": "snap-109",
+  "object": "snap",
+  "created_at": "2026-03-20T08:02:01.994196+00:00",
+  "title": "修复 architecture 页面的 2 个视觉 bug",
+  "status": "active",
+  "intent_id": "intent-022",
+  "query": "目前架构页面依旧有2小bug，检查并优化前端设计",
+  "rationale": "",
+  "summary": "修复了 docs/architecture.html 中的两个视觉 bug。Bug 1：Fig.1 三个面板（TRADITIONAL / AGENT ERA / WITH INTENT）之间残留了两条短横线（line 691-692），这是 snap-108 移除箭头头部后遗留的视觉残影——已删除。Bug 2：Fig.3（The Stack）中 IntHub↔Intent 和 Intent↔Git 两条连接线上各有一个圆点（circle r=3.5），与页面其他图表的连接线风格不一致（Fig.1 用纯线，Fig.4 用箭头），且与 snap-104 提到的'去掉多余圆点'原则矛盾——已删除。通过 Playwright 截图验证确认两处修复均生效。",
+  "feedback": ""
+}

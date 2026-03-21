@@ -1,0 +1,12 @@
+{
+  "id": "snap-013",
+  "object": "snap",
+  "created_at": "2026-03-19T11:02:00.576302+00:00",
+  "title": "发现 version 命令与包版本不一致",
+  "status": "active",
+  "intent_id": "intent-010",
+  "query": "可以",
+  "rationale": "正式发版前的安装验证暴露出 CLI 版本报告与构建产物版本不一致，这会直接影响发布正确性，必须先修复再继续。",
+  "summary": "在针对 1.1.0 的 build + 临时虚拟环境安装验证中，sdist 和 wheel 已构建为 intent_cli_python-1.1.0，但新装环境执行 itt version 仍返回 1.0.0。说明版本来源当前不是从包元数据读取，而是 CLI 内部存在写死值或未同步字段。这个问题若不修复，会导致发布后的二进制和自报告版本不一致。当前发布流程已暂停在验证阶段，下一步先修复 version 来源并补充测试，再重新执行验证、push、tag 和 GitHub release。",
+  "feedback": ""
+}

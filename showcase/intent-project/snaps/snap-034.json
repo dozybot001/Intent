@@ -1,0 +1,12 @@
+{
+  "id": "snap-034",
+  "object": "snap",
+  "created_at": "2026-03-19T12:53:05.786214+00:00",
+  "title": "优化 IntHub 首页的未绑定与未同步引导",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "继续优化首页空状态，让第一次打开的人知道下一步命令",
+  "rationale": "只读 Web 的 detail 和 URL 状态已经可用后，首页最薄弱的体验变成了首次进入时的空状态。需要把“没 link / 没 sync”直接翻译成可执行命令，降低第一次接入门槛。",
+  "summary": "已完成 IntHub 首页 onboarding 的空状态优化。前端侧，apps/inthub_web/static/index.html 新增了 setup-guide 区域；apps/inthub_web/static/app.js 新增 renderSetupGuide 逻辑，会根据当前状态区分两类场景：一，如果还没有任何 project 出现在 IntHub 中，则展示 unlinked onboarding，直接给出 itt init、itt hub login --api-base-url <current-api>、itt hub link、itt hub sync 的命令顺序；二，如果 project 已存在但还没有任何 workspace snapshot，则展示 unsynced onboarding，明确提示主要动作是回到本地 workspace 执行 itt hub sync。与此同时，project 下拉在无项目时会被禁用，首页状态提示、repo 区域和各面板空状态也会和 onboarding 联动。样式侧，apps/inthub_web/static/styles.css 新增了 setup panel 与 command snippet 的视觉样式，使首页空状态不再只是说明文本，而是直接可执行的引导卡片。测试侧，tests/test_cli.py 更新了 Web 壳检查，确认 setup-guide 占位节点和 onboarding 相关命令文本由静态资源提供。全量验证结果保持通过：.venv/bin/python -m pytest -q => 50 passed in 14.12s。当前工作区继续保留未提交改动，intent-013 仍保持 active。",
+  "feedback": ""
+}

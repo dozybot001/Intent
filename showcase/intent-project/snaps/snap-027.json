@@ -1,0 +1,12 @@
+{
+  "id": "snap-027",
+  "object": "snap",
+  "created_at": "2026-03-19T12:16:17.854642+00:00",
+  "title": "发布 v1.2.0 minor 版本",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "先整理一笔提交并发布一个minor版本",
+  "rationale": "在 IntHub 第一版最小同步闭环、相关文档与内部结构拆分已经稳定后，发布一个 minor 版本，把实验性的 IntHub 基础能力对外提供并保持版本语义准确。",
+  "summary": "已完成 v1.2.0 的完整发布流程。首先将工作区整理为一笔提交，commit 为 7c5001a（Add experimental IntHub sync foundation），随后将 pyproject.toml 版本从 1.1.0 提升到 1.2.0，并同步更新中英文 IntHub sync contract 文档中的示例版本号。验证链路全部通过：.venv/bin/python -m pytest -q 得到 49 passed；.venv/bin/python -m build --sdist --wheel 成功构建 sdist 与 wheel；.venv/bin/python -m twine check 通过；在全新虚拟环境中安装构建出的 wheel 后，itt version 返回 1.2.0。发布方面，main 已 push 到 origin，annotated tag v1.2.0 已创建并推送，GitHub release 已发布到 https://github.com/dozybot001/Intent/releases/tag/v1.2.0 ，release note 采用短版双语模板，英文在上、中文在下、以 --- 分隔。PyPI 上传也已完成，版本专页地址为 https://pypi.org/project/intent-cli-python/1.2.0/ 。当前 git status 干净，intent-013 继续保持 active，用于后续推进 IntHub 的 Web 或 GitHub auth。",
+  "feedback": ""
+}

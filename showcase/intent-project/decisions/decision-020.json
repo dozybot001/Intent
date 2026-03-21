@@ -1,0 +1,18 @@
+{
+  "id": "decision-020",
+  "object": "decision",
+  "created_at": "2026-03-21T06:24:00.338898+00:00",
+  "title": "Intent 的主打能力是产品形成历史记录与跨 session/agent 的工作恢复",
+  "status": "active",
+  "rationale": "Intent 不应只被表述为恢复工具。其核心价值同时在于：一，作为语义层记录产品、工作流与设计方向如何逐步形成；二，支持跨 session 与跨 agent 的连续恢复与接力。后续 README、Vision、IntHub 展示与 dogfooding 叙事都应围绕这两点收束。",
+  "intent_ids": [
+    "intent-026",
+    "intent-027",
+    "intent-028",
+    "intent-029",
+    "intent-030",
+    "intent-031",
+    "intent-032",
+    "intent-033"
+  ]
+}

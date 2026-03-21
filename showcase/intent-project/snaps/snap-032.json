@@ -1,0 +1,12 @@
+{
+  "id": "snap-032",
+  "object": "snap",
+  "created_at": "2026-03-19T12:35:52.459244+00:00",
+  "title": "优化 IntHub 只读 Web 的可恢复交互",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "一步步来吧，先优化然后我们整体一笔提交",
+  "rationale": "只读 Web 第一版已经可用，但还更像本地 demo，而不是稳定的协作视图。因此需要优先补齐 URL 状态、选中态和上下文切换行为，让页面状态具备可恢复性和可分享性。",
+  "summary": "已完成一轮针对 IntHub 只读 Web 的交互优化，未扩展数据模型。前端侧，apps/inthub_web/static/app.js 新增了 URL 驱动的页面状态管理：当前 project、选中的 detail 对象和搜索词都会写回查询参数，并在页面初始化时恢复；切换 project 时会清理旧 detail 与 search，避免不同项目之间沿用过期上下文；同时为被选中的 intent、decision、snap 卡片增加了高亮同步。样式侧，apps/inthub_web/static/styles.css 补充了错误状态提示和选中态样式，使当前焦点对象更容易辨识。测试侧，tests/test_cli.py 补充了对只读 Web 深链接 SPA fallback 的检查，确保访问类似 /projects/demo 的路径仍能返回 index 壳页面。全量验证结果保持通过：.venv/bin/python -m pytest -q => 50 passed in 14.37s。当前工作区继续保留未提交的 IntHub Web 与 API 相关改动，intent-013 维持 active，便于下一轮继续细化后再统一提交。",
+  "feedback": ""
+}

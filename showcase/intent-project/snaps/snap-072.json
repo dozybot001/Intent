@@ -1,0 +1,12 @@
+{
+  "id": "snap-072",
+  "object": "snap",
+  "created_at": "2026-03-19T17:54:42.743139+00:00",
+  "title": "回退 Pages 偏航并补上后端部署形态",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "可以",
+  "rationale": "用户已确认从静态网页优先转向后端优先，因此需要回退纯 Pages 适配，并把 IntHub API 收到可部署的单实例形态。",
+  "summary": "已沿后端优先路线收口 IntHub。具体改动有四部分：第一，回退了纯 GitHub Pages 偏航代码，删除了 .github/workflows/deploy-inthub-web.yml、scripts/export_inthub_web.py、apps/inthub_web/static/config.json 和 tests/test_inthub_web_export.py，并把 apps/inthub_web/static/app.js 从静态托管特化（base path、?api 覆盖、localStorage 记忆、无 API 引导）恢复到正常的 /config.json 运行时配置模式；第二，增强 apps/inthub_api/server.py，使 IntHub API 支持 /healthz 健康检查、环境变量驱动的 host/port/db-path 配置，并可通过 --serve-web 在同一进程中直接服务现有 IntHub Web shell 与 /config.json，这样一个后端实例就能同时承载 API 和 Web；第三，新增根目录 Dockerfile 与 .dockerignore，默认以 INTHUB_SERVE_WEB=1 启动单实例 IntHub 服务，形成最小部署入口；第四，新增 tests/test_inthub_api_server.py，覆盖 /healthz 和 API 直接服务 Web 的行为。文档方面也把 inthub-sync-contract 中关于 GitHub Pages 的表述改成‘后端实例优先，静态托管不是当前主路径’。验证结果：.venv/bin/python -m pytest -q tests/test_cli.py tests/test_inthub_api_server.py 通过（52 passed）；python3 -m apps.inthub_api --help 正常显示新的部署参数。当前判断是：IntHub 已从‘本地 API + 本地单独 Web 壳’推进到‘单个后端实例可直接部署并同时服务 API + Web’。",
+  "feedback": ""
+}

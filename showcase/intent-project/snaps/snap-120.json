@@ -1,0 +1,12 @@
+{
+  "id": "snap-120",
+  "object": "snap",
+  "created_at": "2026-03-20T17:28:19.548360+00:00",
+  "title": "完成所有文档图表化和精简工作",
+  "status": "active",
+  "intent_id": "intent-022",
+  "query": "目前的项目的完成进度怎么样",
+  "rationale": "",
+  "summary": "本轮在 intent-022 下完成了从独立前端页面到 Mermaid 图表 + 文档精简的全面转型。具体产出：Fig.1 三列对比图（README + vision）、Fig.2 对象层次图（README + cli）、Fig.3 三层栈图（README + vision）、Fig.4 五步工作流（cli）、状态机图（cli）、跨 session 恢复时序图（vision）。文档侧：README 删除 Quick start 合并 Install、所有文档删除前言段落、统一双语链接为'中文 | English'格式、Dogfooding 加双语切换并删除数据来源段落。无剩余工作。",
+  "feedback": ""
+}

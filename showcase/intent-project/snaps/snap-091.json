@@ -1,0 +1,12 @@
+{
+  "id": "snap-091",
+  "object": "snap",
+  "created_at": "2026-03-19T20:20:53.462736+00:00",
+  "title": "再次更正 README 收口摘要中的命令表述",
+  "status": "active",
+  "intent_id": "intent-019",
+  "query": "我感觉readme说的稍微有点啰嗦，可以收一收",
+  "rationale": "",
+  "summary": "补充更正前两条关于 README 收口的摘要。此次真正压缩的重点之一，是把 IntHub 段落里对 IntHub Local 的介绍和三条用户命令合并成一段：itt hub login、itt hub link、itt hub sync。上一条更正摘要因为 shell 命令替换再次被污染，后续恢复这轮上下文时，应以本条 snap 为准。",
+  "feedback": ""
+}

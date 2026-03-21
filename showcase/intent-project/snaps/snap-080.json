@@ -1,0 +1,12 @@
+{
+  "id": "snap-080",
+  "object": "snap",
+  "created_at": "2026-03-19T19:51:35.084085+00:00",
+  "title": "澄清普通用户体验 IntHub 的前提",
+  "status": "active",
+  "intent_id": "intent-015",
+  "query": "目前暂时只放用户的体验命令吧。我想知道现在用户要体验是不是得先把IntHub的源码扒下来，然后才login、link、sync，我期望的是用户能够用IntHub看自己项目内建立的intent元数据。",
+  "rationale": "",
+  "summary": "开始收紧 IntHub 的普通用户体验边界。当前要明确回答两件事：一，用户现在是否必须先拉取 IntHub 源码才能使用 hub login/link/sync；二，产品目标是否应收敛为‘用户在自己的项目里记录 Intent，再通过远端 IntHub 查看这些语义元数据’。下一步将基于当前 CLI hub 命令和打包边界确认真实现状，再据此调整 README，使其只保留面向普通用户的体验命令，并把本地源码 demo 路径降级为维护者/贡献者说明。",
+  "feedback": ""
+}

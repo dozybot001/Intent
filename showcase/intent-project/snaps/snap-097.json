@@ -1,0 +1,12 @@
+{
+  "id": "snap-097",
+  "object": "snap",
+  "created_at": "2026-03-20T06:53:51.589532+00:00",
+  "title": "全页放大 + 修复 Fig.2 溢出",
+  "status": "active",
+  "intent_id": "intent-021",
+  "query": "fig 2依旧有显示bug，内容溢出。并且我感觉整体页面很小气，字很小，图也小。",
+  "rationale": "整体尺寸偏小导致页面观感不够大气，Fig.2 viewBox 720 太窄导致右侧层级标注溢出",
+  "summary": "做了两类改动。一，全页放大：.paper max-width 从 920px 增到 1140px，padding 从 32px 增到 48px；标题 h1 从 2.8rem 增到 3.4rem；section h2 从 1.55rem 增到 2rem；section-desc 从 0.92rem 增到 1.05rem；abstract 字号增大、max-width 加宽；figure-inner padding 加大；obj-card padding/icon/h3/p 均加大；flow-step circle 从 48px 增到 56px、步骤标题从 0.95rem 增到 1.1rem；ba-card padding/h3/li 字号均增大。二，Fig.2 重建：viewBox 从 720x420 扩展到 860x480，所有内部元素重新排列，Decision 外框 820x440，Intent A 560x170，三个 Snap 卡片 140x96，Intent B 560x160，所有文字尺寸增大 1-2pt，间距加大，去掉右侧层级标注（溢出源头）。Fig.3 viewBox 从 520x260 扩展到 640x300，层高和字号同步增大。Fig.4 viewBox 从 820x140 扩展到 900x160，步骤圆圈从 r=22 增到 r=26，所有字号增大。整体呼吸感和大气感应有明显提升。",
+  "feedback": ""
+}

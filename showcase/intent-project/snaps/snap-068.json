@@ -1,0 +1,12 @@
+{
+  "id": "snap-068",
+  "object": "snap",
+  "created_at": "2026-03-19T17:16:53.065701+00:00",
+  "title": "评估 IntHub 部署到 GitHub Pages 的当前进度",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "在此之前，我想问一下，目前IntHub部署在GitHub Page的进度。",
+  "rationale": "GitHub Pages 是既定的 Web 分发边界，需要明确当前是概念成立、代码部分就绪，还是已经进入实际部署阶段。",
+  "summary": "已检查当前仓库中与 GitHub Pages 相关的实现状态。结论是：IntHub Web 在架构上已经明确适合 GitHub Pages，但实际部署进度仍停留在‘本地原型可托管’而不是‘仓库已接通 Pages’。证据有四点：第一，文档里已经把 GitHub Pages 写成首版静态 Web shell 的合适托管方式（docs/CN/inthub-sync-contract.md）；第二，当前 apps/inthub_web 的前端主体确实是静态文件（index.html、app.js、styles.css）；第三，仓库里目前没有 .github/workflows，也没有任何 Pages 发布配置，因此自动部署尚未开始；第四，当前 Web 壳仍依赖运行时服务器提供 /config.json，并且 index.html 使用 /styles.css、/app.js 这类根路径绝对引用，所以离真正的 Pages-ready 还差一层静态化/路径收口。好消息是 API 已支持 CORS，说明 Web 挂在 GitHub Pages、API 单独部署这条分离边界在技术上已经成立。综合判断：当前进度可描述为‘产品边界已定、本地静态壳已完成、Pages 发布尚未实现’。此轮只做静态评估，没有改代码，也没有运行测试。",
+  "feedback": ""
+}

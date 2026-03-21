@@ -1,0 +1,12 @@
+{
+  "id": "snap-125",
+  "object": "snap",
+  "created_at": "2026-03-20T18:37:36.914548+00:00",
+  "title": "实现 inspect 的 resume-first 默认结构",
+  "status": "active",
+  "intent_id": "intent-025",
+  "query": "",
+  "rationale": "",
+  "summary": "已将 inspect 的默认输出收紧为 resume-first 视图：顶层仅保留 active_intents、active_decisions、suspended、warnings。active_intents 只展开 id、title 和 latest_snap；active_decisions 只保留 id 和 title；移除了 schema_version、recent_snaps 以及旧的 suspend_intents/object-graph 视角。同时已同步更新中英文 CLI 文档，并通过 tests/test_cli.py 验证新输出结构。",
+  "feedback": ""
+}

@@ -1,0 +1,12 @@
+{
+  "id": "snap-104",
+  "object": "snap",
+  "created_at": "2026-03-20T07:24:46.993445+00:00",
+  "title": "收紧 architecture 页面排版与图面语言",
+  "status": "active",
+  "intent_id": "intent-021",
+  "query": "继续修改排版与图画质感。追求简约、美观、清晰地传达Intent的设计理念",
+  "rationale": "",
+  "summary": "对 docs/architecture.html 做了第二轮减法重构，目标从‘更花哨’改为‘更清晰地讲清 Intent 设计理念’。版式层面：减弱背景点阵、收紧版心与章节装饰、压短标题/摘要/章节说明文案、降低卡片和表格区的噪音。图面层面：重画 Fig.1，将传统开发、agent loop、with intent 三个阶段统一成更简洁的垂直节点语言，去掉 glow、脉冲和过多图标细节；重画 Fig.2，把 Decision/Intent/Snap 收成更干净的嵌套关系图，保留 auto-attach 逻辑但移除高密度字段与重复 badge；重画 Fig.3 为三层水平栈，突出 Intent 作为 Git 与 IntHub 之间的 semantic middle layer；重画 Fig.4 为五张流程卡片，替代此前较拥挤的圆形流水线。之后用 Playwright 复核桌面首屏、整页和 390px 窄屏截图，确认当前页面在静态查看场景下可读、布局稳定，且核心理念比之前更容易一眼理解。",
+  "feedback": ""
+}

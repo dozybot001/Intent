@@ -1,0 +1,12 @@
+{
+  "id": "snap-081",
+  "object": "snap",
+  "created_at": "2026-03-19T19:52:18.514988+00:00",
+  "title": "把 README 收紧为普通用户 IntHub 体验路径",
+  "status": "active",
+  "intent_id": "intent-015",
+  "query": "目前暂时只放用户的体验命令吧。我想知道现在用户要体验是不是得先把IntHub的源码扒下来，然后才login、link、sync，我期望的是用户能够用IntHub看自己项目内建立的intent元数据。",
+  "rationale": "",
+  "summary": "已更新 README.md 和 README.CN.md 的 IntHub 段落，移除了首页里的源码级本地 demo 启动命令，只保留面向普通用户的体验路径：在自己的仓库里先用 itt 记录语义历史，再在拿到一个已部署的 IntHub API 地址后执行 itt hub login --api-base-url <url>、itt hub link、itt hub sync，然后在浏览器中打开该 IntHub 站点查看同步后的 intents/snaps/decisions。文档里也明确写出当前边界：IntHub V1 仍要求本地仓库具备 GitHub origin remote；如果还没有任何已部署的 IntHub 实例，普通用户不能只靠 PyPI 包自行拉起 IntHub，当前原型仍需要源码仓库和开发环境。此轮只修改首页文档，没有运行测试。",
+  "feedback": ""
+}

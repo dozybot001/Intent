@@ -1,0 +1,12 @@
+{
+  "id": "snap-021",
+  "object": "snap",
+  "created_at": "2026-03-19T11:40:33.967317+00:00",
+  "title": "记录 Git/Intent 边界并更新文档",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "确实，你说的很对，这些判断可以沉淀为文档，决定-intent数据应该是独立于git数据之外，不应该存入github，gitignore里面一定要包含.intent/",
+  "rationale": "用户明确确认了 Git 与 Intent 的边界，并将其提升为长期约束；需要同时沉淀为 decision 和仓库文档，避免后续 IntHub 设计再次摇摆。",
+  "summary": "已创建 decision-003：Intent 数据独立于 Git 数据，不存入 GitHub；仓库必须忽略 .intent/。检查结果显示当前仓库的 .gitignore 已经包含 .intent/，因此无需新增规则，但已将注释收紧为明确的“do not commit to Git”。同时补充了多处文档：README.md 与 README.CN.md 现在明确 .intent/ 是本地语义工作区元数据，应保持在 Git 历史之外；docs/EN/cli.md 与 docs/CN/cli.md 也在存储结构章节增加了同样的边界说明；docs/EN/inthub-mvp.md 与 docs/CN/inthub-mvp.md 进一步明确 IntHub 首期虽然 GitHub-first，但 Git/GitHub 只负责 repo identity、权限和代码上下文，语义对象的同步、存储、索引与展示由 IntHub 承担，.intent/ 不应作为 GitHub 内容被提交或消费。当前工作区仅有文档与 .gitignore 变更，未运行测试。",
+  "feedback": ""
+}

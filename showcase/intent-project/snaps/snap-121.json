@@ -1,0 +1,12 @@
+{
+  "id": "snap-121",
+  "object": "snap",
+  "created_at": "2026-03-20T17:58:58.036850+00:00",
+  "title": "收紧 Intent 与 Git 的分层原则并同步文档",
+  "status": "active",
+  "intent_id": "intent-024",
+  "query": "",
+  "rationale": "",
+  "summary": "已正式收紧 Intent 与 Git 的分层原则，并同步调整 decision 与 skill 文案。语义历史层不再被表述为‘覆盖所有代码改动’，而改为‘补 Git 的恢复缺口’：Git 负责完整记录代码如何变化；Intent 只在 Git 无法独立支撑恢复时补充 goal-level semantics。具体动作包括：将 decision-002 deprecated；新增 decision-016 取代它；同步修改本机 skill 与仓库内 SKILL.md 的相关表述，把‘every code-changing line of work’、‘every code diff’ 等说法收紧为‘for code work that requires semantic recovery’。当前仓库工作区只剩 SKILL.md 变更和原有未跟踪的 .claude/。",
+  "feedback": ""
+}

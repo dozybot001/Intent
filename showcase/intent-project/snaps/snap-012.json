@@ -1,0 +1,12 @@
+{
+  "id": "snap-012",
+  "object": "snap",
+  "created_at": "2026-03-19T10:58:41.157569+00:00",
+  "title": "确认改为发布 1.1.0",
+  "status": "active",
+  "intent_id": "intent-010",
+  "query": "我们新增加了命令，我觉得得按照1.1.0发布，你觉得呢",
+  "rationale": "用户提出按语义版本规则重新判断目标版本；需要基于本次变更是否属于向后兼容的新功能而不是纯修复来决定发版号。",
+  "summary": "同意将目标版本从 1.0.1 提升为 1.1.0。本次变更不只是文档或小修复，而是新增了公开 CLI 命令 doctor，并扩展了 intent list 与 decision list 的过滤参数，同时将无效 status 输入改为返回明确的 JSON INVALID_INPUT。这些都属于向后兼容的新功能发布，更符合 minor 版本递增。当前 v1.0.0 已在远端存在，因此后续正确路径是先将仓库版本更新为 1.1.0，再按 v1.1.0 继续完成 rebase、验证、tag 和 GitHub release。",
+  "feedback": ""
+}

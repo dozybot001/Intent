@@ -1,0 +1,12 @@
+{
+  "id": "snap-066",
+  "object": "snap",
+  "created_at": "2026-03-19T17:12:52.865824+00:00",
+  "title": "评估将 Intent 自身语义历史作为 IntHub 展示材料",
+  "status": "active",
+  "intent_id": "intent-013",
+  "query": "我觉得Intent开发过程的Intent数据能作为一个很好的展示材料放在IntHub上，你觉得怎么样。",
+  "rationale": "这是 IntHub 产品展示层的重要判断：是否用本项目自身的 semantic history 作为第一批真实内容，会影响默认 demo、信息架构和文档策略。",
+  "summary": "判断是明确支持。Intent 项目自身的 .intent 数据非常适合作为 IntHub 的第一批展示材料，因为它同时满足四个条件：一，是真实连续发生的语义历史，不是为了演示而硬造的数据；二，内容天然覆盖 IntHub 想证明的核心价值，包括跨 agent handoff、snap feedback 消费、decision 约束和错误纠偏；三，项目成员对上下文最熟，最容易持续维护展示质量；四，它能让 IntHub 从第一天就展示‘自己如何被自己使用’，形成最强的 dogfooding 证据。需要控制的主要风险有三类：不要把它做成单次静态故事，而应当作为持续更新的 live showcase；不要把全部原始历史无差别暴露，应该有面向展示的入口和筛选；不要让展示叙事替代原始数据，案例文档应基于 snap 链但与 IntHub 中的原始对象视图并存。更具体地说，我认为这应当成为 IntHub 的默认 demo project 或官方 showcase project：用户一打开就能看到 Intent 自己如何在多 agent 场景中使用 Intent/IntHub。此轮仅做产品判断，没有改代码，也没有运行测试。",
+  "feedback": ""
+}

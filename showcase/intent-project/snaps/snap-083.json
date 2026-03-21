@@ -1,0 +1,12 @@
+{
+  "id": "snap-083",
+  "object": "snap",
+  "created_at": "2026-03-19T19:57:02.670738+00:00",
+  "title": "确定 IntHub Local 的分发方式与默认监听边界",
+  "status": "active",
+  "intent_id": "intent-015",
+  "query": "是的，分发用GitHub Release assets，默认端口用0721吧，localhost",
+  "rationale": "",
+  "summary": "已确认 IntHub Local 的首选分发方式应为 GitHub Release assets，这与当前 monorepo + 单独分发边界一致，也适合作为 V1 让普通用户无需开发环境即可在本机体验 IntHub。与此同时，对默认端口提出了技术纠偏：用户提到的 0721 实际等于端口 721，而 721 属于低位端口（<1024），在很多系统上绑定时可能需要更高权限，不适合作为本地默认端口。更合理的方案是保留 721 这一记忆点，但改成非特权本地端口，例如 7210 或 8721，并继续默认只绑定 localhost。下一步应把‘GitHub Release assets 分发 + localhost 默认绑定’提升为正式决策，并在端口号上收敛到一个不需要提权的具体值。",
+  "feedback": ""
+}
