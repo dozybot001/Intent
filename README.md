@@ -2,7 +2,7 @@
 
 [中文](README.CN.md) | English
 
-Semantic history for agent-driven development. Preserves **how the product took shape** and **how work resumes across sessions and agents**.
+A semantic history layer above Git for development. It records **goals**, **semantic checkpoints**, and **decisions**.
 
 ## Why
 
