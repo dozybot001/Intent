@@ -74,7 +74,8 @@ flowchart LR
 ```bash
 git clone https://github.com/dozybot001/Intent.git
 cd Intent
-pip install . && npx skills add dozybot001/Intent -g
+pip install .
+npx skills add dozybot001/Intent -g
 ```
 
 This installs the CLI from source and adds the agent skill. Requires Python 3.9+, Git, and Node.js.
