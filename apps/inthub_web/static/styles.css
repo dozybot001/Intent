@@ -335,6 +335,24 @@ input {
   border-color: #4a7fa5;
 }
 
+.badge.origin-claude-code {
+  color: #fff;
+  background: #c47217;
+  border-color: #c47217;
+}
+
+.badge.origin-cursor {
+  color: #fff;
+  background: #7c5cbf;
+  border-color: #7c5cbf;
+}
+
+.badge.origin-codex-desktop {
+  color: #fff;
+  background: #2a8a6e;
+  border-color: #2a8a6e;
+}
+
 /* ---- Sidebar sections ---- */
 
 .sidebar-section {

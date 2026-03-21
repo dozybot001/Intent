@@ -81,6 +81,12 @@ function statusBadge(status) {
   return `<span class="badge${cls}">${esc(status || "")}</span>`;
 }
 
+function originBadge(origin) {
+  if (!origin) return "";
+  const slug = origin.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  return `<span class="badge origin-${slug}">${esc(origin)}</span>`;
+}
+
 function dirtyBadge(dirty) {
   return dirty
     ? '<span class="badge warn">dirty</span>'
@@ -260,7 +266,7 @@ function renderHandoffTab() {
           <div class="card-meta">
             <span class="badge">${esc(intent.id)}</span>
             ${statusBadge(intent.status)}
-            ${intent.origin ? `<span class="badge">${esc(intent.origin)}</span>` : ""}
+            ${originBadge(intent.origin)}
           </div>
         </article>`,
         )
@@ -277,7 +283,7 @@ function intentCard(intent) {
       <div class="card-meta">
         <span class="badge">${esc(intent.id)}</span>
         ${statusBadge(intent.status)}
-        ${intent.origin ? `<span class="badge">${esc(intent.origin)}</span>` : ""}
+        ${originBadge(intent.origin)}
       </div>
     </article>`;
 }
@@ -355,7 +361,7 @@ function snapCard(snap) {
       <p class="card-body">${esc(truncate(snap.summary || "", 140))}</p>
       <div class="card-meta">
         <span class="badge">${esc(snap.id)}</span>
-        ${snap.origin ? `<span class="badge">${esc(snap.origin)}</span>` : ""}
+        ${originBadge(snap.origin)}
       </div>
     </article>`;
 }
@@ -599,7 +605,7 @@ function buildIntentDetailHtml(payload) {
       <h2 class="detail-title">${esc(intent.title)}</h2>
       <div class="detail-meta">
         ${statusBadge(intent.status)}
-        ${intent.origin ? `<span class="badge">${esc(intent.origin)}</span>` : ""}
+        ${originBadge(intent.origin)}
       </div>
     </div>
     ${detailSection("Latest Summary", formatText(latestSnap?.summary) || `<p>No snap summary yet.</p>`)}
@@ -660,7 +666,7 @@ function buildDecisionDetailHtml(payload) {
       <h2 class="detail-title">${esc(decision.title)}</h2>
       <div class="detail-meta">
         ${statusBadge(decision.status)}
-        ${decision.origin ? `<span class="badge">${esc(decision.origin)}</span>` : ""}
+        ${originBadge(decision.origin)}
       </div>
     </div>
     ${detailSection("Rationale", formatText(decision.rationale) || `<p>No rationale provided.</p>`)}
@@ -705,7 +711,7 @@ function buildSnapDetailHtml(payload) {
       <h2 class="detail-title">${esc(snap.title)}</h2>
       <div class="detail-meta">
         ${statusBadge(snap.status)}
-        ${snap.origin ? `<span class="badge">${esc(snap.origin)}</span>` : ""}
+        ${originBadge(snap.origin)}
       </div>
     </div>
     ${detailSection("Summary", formatText(snap.summary) || `<p>No summary.</p>`)}
