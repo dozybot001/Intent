@@ -10,7 +10,6 @@ SUBDIRS = {"intent": "intents", "snap": "snaps", "decision": "decisions"}
 HUB_CONFIG = "hub.json"
 VALID_STATUSES = {
     "intent": {"active", "suspend", "done"},
-    "snap": {"active"},
     "decision": {"active", "deprecated"},
 }
 
@@ -228,14 +227,15 @@ def validate_graph(base):
                     obj_id,
                     f"Stored object type is '{obj.get('object')}', expected '{object_type}'.",
                 )
-            status = obj.get("status")
-            if status not in VALID_STATUSES[object_type]:
-                add_issue(
-                    "INVALID_STATUS",
-                    object_type,
-                    obj_id,
-                    f"Invalid status '{status}' for {object_type}.",
-                )
+            if object_type in VALID_STATUSES:
+                status = obj.get("status")
+                if status not in VALID_STATUSES[object_type]:
+                    add_issue(
+                        "INVALID_STATUS",
+                        object_type,
+                        obj_id,
+                        f"Invalid status '{status}' for {object_type}.",
+                    )
 
     for intent_id, intent in intents.items():
         for snap_id in intent.get("snap_ids", []):

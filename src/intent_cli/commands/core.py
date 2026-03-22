@@ -320,7 +320,6 @@ def cmd_snap_create(args):
         "object": "snap",
         "created_at": now_utc(),
         "title": args.title,
-        "status": "active",
         "intent_id": intent_id,
         "summary": args.summary,
         "feedback": "",
