@@ -150,13 +150,21 @@ function setStatus(msg, isError = false) {
 
 /* ---- Tab switching ---- */
 
-function switchTab(tab) {
+async function switchTab(tab) {
   state.activeTab = tab;
   for (const btn of el.tabBar.querySelectorAll(".tab")) {
     btn.classList.toggle("is-active", btn.dataset.tab === tab);
   }
   renderSidebar();
   writeRoute();
+
+  // Auto-open first item
+  const firstCard = el.sidebarBody.querySelector("[data-detail-type][data-remote-id]");
+  if (firstCard) {
+    try {
+      await openDetail(firstCard.dataset.detailType, firstCard.dataset.remoteId);
+    } catch {}
+  }
 }
 
 /* ---- Selected card sync ---- */
@@ -549,7 +557,6 @@ function activeDecisionIds() {
 
 function buildIntentDetailHtml(payload) {
   const intent = payload.intent;
-  const latestSnap = payload.snaps[payload.snaps.length - 1];
   const activeIds = activeDecisionIds();
 
   const dMap = allDecisionsMap();
@@ -610,7 +617,6 @@ function buildIntentDetailHtml(payload) {
       </div>
     </div>
     ${intent.why ? detailSection("Why", formatText(intent.why)) : ""}
-    ${detailSection("Latest Snap", formatText(latestSnap?.why) || `<p>No snap yet.</p>`)}
     ${detailSection("Linked Decisions (" + allIds.length + ")", decisionsBody)}
     ${detailSection("Snap Timeline (" + allSnaps.length + ")", snapTimelineBody)}
     ${rawToggle({ intent, snaps: payload.snaps })}
