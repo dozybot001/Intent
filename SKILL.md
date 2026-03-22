@@ -245,7 +245,7 @@ Use them with this boundary:
 
 | Command | What it does |
 |---|---|
-| `itt snap create WHAT [--intent ID] [--query Q] [--why W] [--next N] [--origin LABEL]` | Semantic snapshot (`what` = what was done; `why` = why; `next` = what's next; `query` = user trigger) |
+| `itt snap create WHAT [--query Q] [--why W] [--next N] [--origin LABEL]` | Semantic snapshot (`what` = what was done; `why` = why; `next` = what's next; `query` = user trigger). Auto-attaches to active intent; if multiple, CLI returns candidates — re-run with `--intent ID`. |
 
 ### Decision
 

@@ -29,7 +29,7 @@ The CLI is intentionally small:
 | `itt intent activate [ID]` | `suspend` → `active` | Catches up active decisions. Infers ID when unique. |
 | `itt intent suspend [ID]` | `active` → `suspend` | Infers ID when unique. |
 | `itt intent done [ID]` | `active` → `done` (terminal) | Infers ID when unique. |
-| `itt snap create WHAT [--intent ID] [--query Q] --why W [--next N]` | Create a semantic snapshot | `--intent` infers when one active. `origin` auto-filled. |
+| `itt snap create WHAT [--query Q] --why W [--next N]` | Create a semantic snapshot | Auto-attaches to active intent. If multiple, CLI returns candidates for `--intent ID`. |
 | `itt decision create WHAT [--query Q] --why W` | Create a long-lived constraint | Auto-attaches all active intents. `origin` auto-filled. |
 | `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` (terminal) | Preserves history; stops future auto-attach. |
 | `itt hub link [--api-base-url URL] [--project-name NAME]` | Link workspace to IntHub | Writes `.intent/hub.json`. Requires GitHub remote. |
