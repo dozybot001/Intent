@@ -146,6 +146,11 @@ def cmd_intent_create(args):
     active_decisions = list_objects(base, "decision", status="active")
     decision_ids = [decision["id"] for decision in active_decisions]
 
+    if args.origin is not None:
+        origin = (args.origin or "").strip()
+    else:
+        origin = detect_origin()
+
     warnings = []
     if not decision_ids:
         warnings.append("No active decisions to attach.")
@@ -158,6 +163,7 @@ def cmd_intent_create(args):
         "status": "active",
         "source_query": args.query,
         "rationale": args.rationale,
+        "origin": origin,
         "decision_ids": decision_ids,
         "snap_ids": [],
     }
@@ -353,6 +359,11 @@ def cmd_decision_create(args):
     active_intents = list_objects(base, "intent", status="active")
     intent_ids = [intent["id"] for intent in active_intents]
 
+    if args.origin is not None:
+        origin = (args.origin or "").strip()
+    else:
+        origin = detect_origin()
+
     warnings = []
     if not intent_ids:
         warnings.append("No active intents to attach.")
@@ -363,7 +374,9 @@ def cmd_decision_create(args):
         "created_at": now_utc(),
         "title": args.title,
         "status": "active",
+        "source_query": args.query,
         "rationale": args.rationale,
+        "origin": origin,
         "intent_ids": intent_ids,
     }
     write_object(base, "decision", obj_id, decision)

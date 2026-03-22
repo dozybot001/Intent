@@ -70,6 +70,7 @@ def main():
     p.add_argument("title")
     p.add_argument("--query", default="")
     p.add_argument("--rationale", default="")
+    p.add_argument("--origin", default=None, metavar="LABEL")
 
     p = s_intent.add_parser("activate")
     p.add_argument("id", nargs="?")
@@ -105,7 +106,9 @@ def main():
 
     p = s_decision.add_parser("create")
     p.add_argument("title")
+    p.add_argument("--query", default="")
     p.add_argument("--rationale", default="")
+    p.add_argument("--origin", default=None, metavar="LABEL")
 
     p = s_decision.add_parser("deprecate")
     p.add_argument("id")
