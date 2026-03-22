@@ -812,8 +812,9 @@ input {
 
 .drawer-header {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-  padding: 12px 16px 0;
+  padding: 12px 16px;
 }
 
 .drawer-close {
