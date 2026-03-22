@@ -716,7 +716,6 @@ function buildSnapDetailHtml(payload) {
     ${detailSection("Summary", formatText(snap.summary) || `<p>No summary.</p>`)}
     ${snap.query ? detailSection("Query", formatText(snap.query)) : ""}
     ${snap.rationale ? detailSection("Rationale", formatText(snap.rationale)) : ""}
-    ${detailSection("Feedback", formatText(snap.feedback) || `<p>No feedback recorded.</p>`)}
     ${detailSection("Parent Intent", parentLink)}
     ${detailSection(
       "Git Context",

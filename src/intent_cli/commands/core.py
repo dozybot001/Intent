@@ -328,7 +328,6 @@ def cmd_snap_create(args):
         "title": args.title,
         "intent_id": intent_id,
         "summary": args.summary,
-        "feedback": "",
         "origin": origin,
     }
     write_object(base, "snap", obj_id, snap)
@@ -340,16 +339,6 @@ def cmd_snap_create(args):
     if inferred:
         warnings.append(f"Inferred intent {intent_id} (only active intent).")
     success("snap.create", snap, warnings)
-
-
-def cmd_snap_feedback(args):
-    base = require_init()
-    obj = read_object(base, "snap", args.id)
-    if obj is None:
-        error("OBJECT_NOT_FOUND", f"Snap {args.id} not found.")
-    obj["feedback"] = args.feedback
-    write_object(base, "snap", args.id, obj)
-    success("snap.feedback", obj)
 
 
 def cmd_decision_create(args):

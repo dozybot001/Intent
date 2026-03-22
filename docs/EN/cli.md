@@ -41,8 +41,7 @@ The CLI is intentionally small:
 
 | Command | Role |
 | --- | --- |
-| `itt snap create TITLE [--intent ID] [--origin LABEL] --summary S` | Create one semantic checkpoint (omit `--intent` when exactly one active intent) |
-| `itt snap feedback ID TEXT` | Overwrite snap feedback |
+| `itt snap create TITLE [--intent ID] [--origin LABEL] --summary S` | Create a semantic snapshot (omit `--intent` when exactly one active intent) |
 
 ### Decision
 
@@ -111,15 +110,14 @@ itt doctor
 | `source_query` | ✓ | | ✓ | Original user words that triggered the object |
 | `rationale` | ✓ | | ✓ | Why this goal/constraint matters |
 | `origin` | ✓ | ✓ | ✓ | Auto-detected from environment (e.g. `claude-code`, `cursor`, `codex-desktop`) |
-| `summary` | | ✓ | | What was done, what's left, what context matters |
-| `feedback` | | ✓ | | User feedback, overwritten via `snap feedback` |
+| `summary` | | ✓ | | The reasoning behind the changes — why this approach, what was learned |
 | `intent_id` | | ✓ | | Parent intent |
 | `snap_ids` | ✓ | | | Ordered list of child snaps |
 | `decision_ids` | ✓ | | | Linked decisions (auto-attached on create) |
 | `intent_ids` | | | ✓ | Linked intents (auto-attached on create) |
 | `deprecated_reason` | | | ✓ | Why the decision was deprecated (set via `--reason`) |
 
-All fields are **immutable after creation** except `feedback` (overwrite-only via `snap feedback`).
+All fields are **immutable after creation**.
 
 ### Origin detection
 
@@ -149,24 +147,22 @@ Notes:
 
 ### Snap
 
-`create` writes one semantic checkpoint under an active intent. `feedback` is separate and overwrite-only.
+`create` persists the AI's reasoning as a semantic snapshot under an active intent. Git records what code changed; snap records why.
 
 ```bash
 itt snap create "Raise timeout to 30s" \
-  --summary "Updated timeout config and ran the login test"
+  --summary "Race condition is in the refresh flow, not the login handler. Changed timeout to 30s. Token refresh still hardcoded — separate service, needs its own fix."
 
 itt snap create "Raise timeout to 30s" \
   --intent intent-001 \
-  --summary "Updated timeout config and ran the login test"
-
-itt snap feedback snap-001 "works in staging"
+  --summary "Race condition is in the refresh flow, not the login handler."
 ```
 
 Notes:
 
 - `--summary` is required; `--intent` infers when exactly one intent is `active`
 - Creating a snap writes both `snap.intent_id` and the parent intent's `snap_ids`
-- Correct mistakes by adding feedback or writing a later snap, not by reverting
+- Snaps are immutable; correct mistakes by writing a later snap
 
 ### Decision
 

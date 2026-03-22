@@ -14,7 +14,6 @@ from intent_cli.commands.core import (
     cmd_intent_done,
     cmd_intent_suspend,
     cmd_snap_create,
-    cmd_snap_feedback,
     cmd_version,
 )
 from intent_cli.commands.hub import cmd_hub_link, cmd_hub_start, cmd_hub_sync
@@ -96,10 +95,6 @@ def main():
     )
     p.add_argument("--summary", required=True)
 
-    p = s_snap.add_parser("feedback")
-    p.add_argument("id")
-    p.add_argument("feedback")
-
     # --- decision ---
     p_decision = sub.add_parser("decision")
     s_decision = p_decision.add_subparsers(dest="sub")
@@ -148,7 +143,6 @@ def main():
         ("intent", "suspend"):         cmd_intent_suspend,
         ("intent", "done"):            cmd_intent_done,
         ("snap", "create"):            cmd_snap_create,
-        ("snap", "feedback"):          cmd_snap_feedback,
         ("decision", "create"):        cmd_decision_create,
         ("decision", "deprecate"):     cmd_decision_deprecate,
     }
