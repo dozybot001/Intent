@@ -131,9 +131,9 @@ itt snap create "Root cause identified" \
 
 #### Snap fields
 
-- `TITLE`: what was done — concise action description for scanning
+- `WHAT`: what was done — concise action description for scanning
 - `--query`: the user query that triggered this snap
-- `--why`: why — the reasoning behind this approach (required)
+- `--why`: the reasoning behind this approach (required)
 - `--next`: what comes next — remaining work, direction, blockers (optional)
 - `--intent`: optional when exactly one intent is `active` (CLI infers it; check `warnings`). If several are `active`, omitting `--intent` returns `MULTIPLE_ACTIVE_INTENTS` with `error.details.candidates` — pick an `id` and re-run with `--intent`
 - `origin`: stored automatically from the `itt` process environment. You do **not** need to pass `--origin` unless overriding
@@ -245,7 +245,7 @@ Use them with this boundary:
 
 | Command | What it does |
 |---|---|
-| `itt snap create WHAT [--query Q] [--why W] [--next N] [--origin LABEL]` | Semantic snapshot (`what` = what was done; `why` = why; `next` = what's next; `query` = user trigger). Auto-attaches to active intent; if multiple, CLI returns candidates — re-run with `--intent ID`. |
+| `itt snap create WHAT [--query Q] --why W [--next N] [--origin LABEL]` | Semantic snapshot (`what` = what was done; `why` = why; `next` = what's next; `query` = user trigger). Auto-attaches to active intent; if multiple, CLI returns candidates — re-run with `--intent ID`. |
 
 ### Decision
 
@@ -318,7 +318,7 @@ Intent records **only what's worth formally tracking, linking, and reusing acros
 - **Intent per task** — one intent per goal, not per step. "Migrate auth to JWT", not "Add JWT token generation".
 - **Intent for workflow familiarization** — reading a skill, learning the tooling, or agreeing to use Intent in future turns does not by itself create a cross-session goal.
 - **Using code changes as the only test for intent** — code edits are a strong signal that an intent must exist, but non-code recoverable goals can require intents too.
-- **Vague summaries** — "fixed it" tells the next session nothing. Capture the reasoning: why this approach, what was discovered, what conclusion was reached.
+- **Vague snaps** — "fixed it" tells the next session nothing. Capture the reasoning: why this approach, what was discovered, what conclusion was reached.
 - **Snapping simple Q&A** — if the query was a factual question or explanation with no reasoning to persist, skip the snap.
 - **Summary as execution log** — don't dump commands or diffs. Capture the thinking, not the mechanics.
 - **Trying to update objects** — objects are immutable after creation. Correct mistakes in the next snap.
@@ -332,7 +332,7 @@ Judge your Intent usage by outcomes, not compliance:
 
 - Could a new session run `itt inspect` and continue without the user re-explaining?
 - For code work that requires semantic recovery, can the next session trace it to the relevant intent and snaps?
-- Do your snap summaries capture reasoning (why), not just mechanics (what)?
+- Do your snaps capture reasoning (`why`), not just mechanics (`what`)?
 - Are active decisions actually constraining your implementation choices?
 - Could someone later understand why the product, workflow, or design direction became what it is — not just how to continue coding?
 - Would a human reading `inspect` output understand what's in progress and why?
