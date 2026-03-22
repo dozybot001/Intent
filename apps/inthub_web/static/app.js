@@ -1,16 +1,15 @@
 /* ---- State ---- */
 
-const TABS = ["handoff", "intents", "decisions", "snaps"];
+const TABS = ["intents", "decisions", "snaps"];
 
 const state = {
   config: null,
   projects: [],
   currentProjectId: null,
-  activeTab: "handoff",
+  activeTab: "intents",
   selectedDetail: null,
   searchQuery: "",
   overview: null,
-  handoff: null,
 };
 
 const el = {
@@ -116,7 +115,7 @@ function readRoute() {
   const p = new URLSearchParams(window.location.search);
   return {
     project: p.get("project"),
-    tab: p.get("tab") || "handoff",
+    tab: p.get("tab") || "intents",
     detail: p.get("detail"),
     detailType: p.get("detailType"),
     q: p.get("q") || "",
@@ -126,7 +125,7 @@ function readRoute() {
 function writeRoute() {
   const p = new URLSearchParams();
   if (state.currentProjectId) p.set("project", state.currentProjectId);
-  if (state.activeTab !== "handoff") p.set("tab", state.activeTab);
+  if (state.activeTab !== "intents") p.set("tab", state.activeTab);
   if (state.selectedDetail) {
     p.set("detail", state.selectedDetail.remoteId);
     p.set("detailType", state.selectedDetail.type);
@@ -227,9 +226,6 @@ function renderSidebar() {
     return;
   }
   switch (state.activeTab) {
-    case "handoff":
-      renderHandoffTab();
-      break;
     case "intents":
       renderIntentsTab();
       break;
@@ -246,41 +242,6 @@ function renderSidebar() {
   syncSelected();
 }
 
-function renderHandoffTab() {
-  if (!state.handoff) {
-    el.sidebarBody.innerHTML =
-      '<div class="empty-state">No handoff data.</div>';
-    return;
-  }
-
-  const decisions = state.handoff.active_decisions || [];
-  const intents = state.handoff.intents || [];
-
-  if (!intents.length) {
-    el.sidebarBody.innerHTML =
-      '<div class="empty-state">No active intents. The workspace is idle.</div>';
-    return;
-  }
-
-  el.sidebarBody.innerHTML = `
-    <div class="sidebar-section">
-      <span class="section-label">Active Intents (${intents.length})</span>
-      ${intents
-        .map(
-          (intent) => `
-        <article class="card" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
-          <h4 class="card-title">${esc(intent.what)}</h4>
-          <p class="card-body">${esc(truncate(intent.latest_snap?.why || intent.why || intent.query || "", 200))}</p>
-          <div class="card-meta">
-            <span class="badge">${esc(intent.id)}</span>
-            ${statusBadge(intent.status)}
-            ${originBadge(intent.origin)}
-          </div>
-        </article>`,
-        )
-        .join("")}
-    </div>`;
-}
 
 function intentCard(intent) {
   const cls = intent.status === "done" ? " card-muted" : "";
@@ -792,13 +753,8 @@ async function loadProject(projectId) {
   state.currentProjectId = projectId;
   renderProjectSelector();
 
-  const [overview, handoff] = await Promise.all([
-    fetchJson(apiUrl(`/api/v1/projects/${projectId}/overview`)),
-    fetchJson(apiUrl(`/api/v1/projects/${projectId}/handoff`)),
-  ]);
-
+  const overview = await fetchJson(apiUrl(`/api/v1/projects/${projectId}/overview`));
   state.overview = overview;
-  state.handoff = handoff;
 
   el.intentCount.textContent = (overview.active_intents?.length || 0) + (overview.other_intents?.length || 0) || "";
   el.decisionCount.textContent = (overview.active_decisions?.length || 0) + (overview.deprecated_decisions?.length || 0) || "";
@@ -870,7 +826,6 @@ function bindEvents() {
     try {
       state.selectedDetail = null;
       state.overview = null;
-      state.handoff = null;
       await loadProject(e.target.value);
     } catch (err) {
       setStatus(err.message, true);

@@ -116,7 +116,7 @@ def project_overview(db_path, project_id):
                 "decision_ids": intent.get("decision_ids", []),
                 "latest_snap_id": latest_snap_id,
                 "origin": intent.get("origin", ""),
-                "source_query": _f(intent, "query"),
+                "query": _f(intent, "query"),
                 "why": _f(intent, "why"),
                 "branch": git.get("branch"),
                 "head_commit": git.get("head_commit"),
@@ -237,7 +237,7 @@ def project_handoff(db_path, project_id):
                     "remote_id": make_remote_object_id(workspace_id, decision["id"]),
                     "workspace_id": workspace_id,
                     "id": decision["id"],
-                    "title": decision["title"],
+                    "what": _f(decision, "what"),
                     "status": decision["status"],
                 })
 
@@ -249,10 +249,10 @@ def project_handoff(db_path, project_id):
                 "remote_id": make_remote_object_id(workspace_id, intent["id"]),
                 "workspace_id": workspace_id,
                 "id": intent["id"],
-                "title": intent["title"],
+                "what": _f(intent, "what"),
                 "status": intent["status"],
-                "source_query": intent.get("source_query", ""),
-                "rationale": intent.get("rationale", ""),
+                "query": _f(intent, "query"),
+                "why": _f(intent, "why"),
                 "decision_ids": intent.get("decision_ids", []),
                 "latest_snap": latest_snap,
                 "git": {
@@ -366,11 +366,10 @@ def search_project(db_path, project_id, query):
         for object_type in ("intents", "snaps", "decisions"):
             for obj in snapshot.get(object_type, []):
                 fields = [
-                    obj.get("title", ""),
+                    obj.get("what", ""),
                     obj.get("query", ""),
-                    obj.get("source_query", ""),
-                    obj.get("summary", ""),
-                    obj.get("rationale", ""),
+                    obj.get("why", ""),
+                    obj.get("next", ""),
                 ]
                 haystack = " ".join(fields).lower()
                 if q not in haystack:
@@ -380,7 +379,7 @@ def search_project(db_path, project_id, query):
                     "remote_id": make_remote_object_id(workspace_id, obj["id"]),
                     "workspace_id": workspace_id,
                     "id": obj["id"],
-                    "title": obj.get("title", ""),
+                    "what": obj.get("what", ""),
                     "status": obj.get("status", ""),
                 })
 
