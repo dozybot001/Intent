@@ -85,14 +85,13 @@ npx skills add dozybot001/Intent -g --all
 
 Requires Python 3.9+ and Git. The install script handles pipx automatically.
 
-To browse semantic history in a browser, start **IntHub Local**:
+To browse semantic history in a browser, start **IntHub Local** (works from any directory):
 
 ```bash
-cd Intent
 itt hub start
 ```
 
-Then, in your own project repo:
+Then, in your project repo:
 
 ```bash
 itt hub link --api-base-url http://127.0.0.1:7210

@@ -54,11 +54,9 @@
 
 **方案：** 改为 4 位或动态宽度。
 
-## 8. `itt hub start` 必须从 Intent 仓库目录运行
+## 8. `itt hub start` 必须从 Intent 仓库目录运行（已解决）
 
-在项目 A 工作时想启动 IntHub，必须 cd 到 Intent 仓库目录，反直觉。
-
-**方案：** 允许 `--intent-repo /path/to/Intent` 指定路径，或安装时注册 IntHub 路径。
+将 `apps/` 打包进 pip package，`itt hub start` 从任意目录可用。
 
 ---
 

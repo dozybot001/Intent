@@ -115,7 +115,10 @@ def run_local(
     database_path = Path(db_path).expanduser() if db_path is not None else default_db_path()
     database_path.parent.mkdir(parents=True, exist_ok=True)
 
-    showcase_dir = Path.cwd() / "showcase"
+    # Try package-relative showcase first, then cwd fallback
+    package_showcase = Path(__file__).resolve().parents[2] / "showcase"
+    cwd_showcase = Path.cwd() / "showcase"
+    showcase_dir = package_showcase if package_showcase.is_dir() else cwd_showcase
     if showcase_dir.is_dir():
         _load_showcase(database_path, showcase_dir)
 

@@ -134,7 +134,7 @@ itt intent activate intent-001           # 恢复；active decision 自动同步
 
 | 命令 | 功能 |
 |------|------|
-| `itt hub start [--port PORT] [--no-open]` | 从 Intent 仓库目录启动 IntHub Local |
+| `itt hub start [--port PORT] [--no-open]` | 启动 IntHub Local（任意目录可用） |
 | `itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]` | 将当前工作区链接到 IntHub 项目 |
 | `itt hub sync [--api-base-url URL] [--token TOKEN] [--dry-run]` | 将本地语义历史 + Git 上下文推送到 IntHub |
 

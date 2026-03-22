@@ -135,7 +135,7 @@ itt intent activate intent-001           # resume; active decisions are caught u
 
 | Command | What it does |
 |---|---|
-| `itt hub start [--port PORT] [--no-open]` | Launch IntHub Local from the cloned Intent repo directory |
+| `itt hub start [--port PORT] [--no-open]` | Launch IntHub Local (runs from any directory) |
 | `itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]` | Link current workspace to an IntHub project |
 | `itt hub sync [--api-base-url URL] [--token TOKEN] [--dry-run]` | Push local semantic history + Git context to IntHub |
 

@@ -34,5 +34,8 @@ Repository = "https://github.com/dozybot001/Intent"
 itt = "intent_cli.cli:main"
 
 [tool.setuptools.packages.find]
-where = ["src"]
-include = ["intent_cli*"]
+where = ["src", "."]
+include = ["intent_cli*", "apps*"]
+
+[tool.setuptools.package-data]
+"apps.inthub_web" = ["static/*"]

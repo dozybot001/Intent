@@ -85,14 +85,13 @@ npx skills add dozybot001/Intent -g --all
 
 需要 Python 3.9+ 和 Git。安装脚本会自动处理 pipx。
 
-想在浏览器中查看语义历史，启动 **IntHub Local**：
+想在浏览器中查看语义历史，启动 **IntHub Local**（任意目录可用）：
 
 ```bash
-cd Intent
 itt hub start
 ```
 
-然后在你自己的项目仓库里：
+然后在你的项目仓库里：
 
 ```bash
 itt hub link --api-base-url http://127.0.0.1:7210
