@@ -103,17 +103,14 @@ itt hub sync
 
 ## Showcase
 
-This project manages its own development with Intent. Run `itt hub start` and the full semantic history (33 intents, 156 snaps, 22 decisions) is auto-loaded as a showcase project in IntHub — from the first PyPI README to the 2.0.0 release.
+This project manages its own development with Intent. Run `itt hub start` and the full semantic history is auto-loaded as a showcase project in IntHub.
 
-> The showcase spans multiple schema iterations; earlier objects may lack fields like `origin` or `why` that were added later.
+> The showcase spans multiple schema iterations. Legacy data has not been aligned to the new format; missing fields are marked with "-".
 
 ## Docs
 
 - [Vision](docs/EN/vision.md) — why semantic history matters
 - [CLI Design](docs/EN/cli.md) — object model, commands, JSON contract
-- [Roadmap](docs/EN/roadmap.md) — phase plan
-- [Dogfooding](docs/EN/dogfooding.md) — cross-agent case study
-- [IntHub Local](docs/EN/inthub-local.md) — run a local IntHub instance
 
 ## License
 

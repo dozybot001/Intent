@@ -103,17 +103,14 @@ itt hub sync
 
 ## Showcase
 
-这个项目用 Intent 管理自身的开发过程。运行 `itt hub start` 后，完整的语义历史（33 个 intent、156 个 snap、22 个 decision）会作为 showcase 项目自动加载到 IntHub — 从最初的 PyPI README 到 2.0.0 发布。
+这个项目用 Intent 管理自身的开发过程。运行 `itt hub start` 后，完整的语义历史会作为 showcase 项目自动加载到 IntHub。
 
-> Showcase 跨越了多次格式迭代，早期对象可能缺少后来新增的 `origin` 或 `why` 字段。
+> Showcase 跨越了多次格式迭代，旧数据未对齐新格式，缺失字段用”-”表示。
 
 ## 文档
 
 - [愿景](docs/CN/vision.md) — 为什么需要语义历史
 - [CLI 设计文档](docs/CN/cli.md) — 对象模型、命令、JSON 契约
-- [路线图](docs/CN/roadmap.md) — 阶段规划
-- [Dogfooding 实录](docs/CN/dogfooding.md) — 跨 agent 协作案例
-- [IntHub Local](docs/CN/inthub-local.md) — 运行本地 IntHub 实例
 
 ## 许可证
 
