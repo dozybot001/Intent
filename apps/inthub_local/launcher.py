@@ -93,7 +93,6 @@ def _load_showcase(db_path, showcase_dir):
             "workspace": {"workspace_id": result["workspace_id"]},
             "git": {"branch": "main", "head_commit": "", "dirty": False, "remote_url": ""},
             "snapshot": {
-                "schema_version": config.get("schema_version", "1.0"),
                 "intents": intents,
                 "snaps": snaps,
                 "decisions": decisions,

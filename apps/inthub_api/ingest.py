@@ -137,14 +137,6 @@ def store_sync_batch(db_path, payload):
                 status=404,
             )
 
-        snapshot = payload["snapshot"]
-        if snapshot.get("schema_version") != "1.0":
-            raise APIError(
-                "SCHEMA_VERSION_MISMATCH",
-                f"Unsupported schema_version '{snapshot.get('schema_version')}'.",
-                status=400,
-            )
-
         accepted_at = now_utc()
         conn.execute(
             """

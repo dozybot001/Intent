@@ -2,8 +2,6 @@
 
 [中文](../CN/cli.md) | English
 
-Schema version: **1.0**
-
 Intent CLI is the local semantic-history CLI for Intent. It manages only three object types:
 
 - `intent`: a recoverable goal

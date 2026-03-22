@@ -2,8 +2,6 @@
 
 中文 | [English](../EN/cli.md)
 
-Schema version: **1.0**
-
 Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象：
 
 - `intent`：可恢复的目标

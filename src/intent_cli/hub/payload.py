@@ -10,7 +10,6 @@ from intent_cli.store import (
     git_remote_url,
     list_objects,
     parse_github_remote,
-    read_config,
 )
 
 
@@ -35,7 +34,6 @@ def current_github_repo():
 
 def snapshot_payload(base):
     return {
-        "schema_version": read_config(base).get("schema_version", "1.0"),
         "intents": list_objects(base, "intent"),
         "snaps": list_objects(base, "snap"),
         "decisions": list_objects(base, "decision"),

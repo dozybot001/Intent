@@ -49,7 +49,7 @@ def init_workspace():
     d.mkdir()
     for sub in SUBDIRS.values():
         (d / sub).mkdir()
-    (d / "config.json").write_text(json.dumps({"schema_version": "1.0"}, indent=2), encoding="utf-8")
+    (d / "config.json").write_text(json.dumps({}, indent=2), encoding="utf-8")
     return d, None
 
 
@@ -192,19 +192,10 @@ def parse_github_remote(remote_url):
 
 def validate_graph(base):
     """Validate the object graph and return a structured report."""
-    config = read_config(base)
     intents = {obj["id"]: obj for obj in list_objects(base, "intent")}
     snaps = {obj["id"]: obj for obj in list_objects(base, "snap")}
     decisions = {obj["id"]: obj for obj in list_objects(base, "decision")}
     issues = []
-
-    if config.get("schema_version") != "1.0":
-        issues.append({
-            "code": "SCHEMA_VERSION_MISMATCH",
-            "object": "config",
-            "id": "config.json",
-            "message": f"Unsupported schema_version '{config.get('schema_version')}'. Expected '1.0'.",
-        })
 
     def add_issue(code, object_type, obj_id, message):
         issues.append({

@@ -360,13 +360,13 @@ Optional: `details` (object). When `suggested_fix` is present, follow it.
 
 **Error codes (CLI / client):** `NOT_INITIALIZED`, `ALREADY_EXISTS`, `GIT_STATE_INVALID`, `STATE_CONFLICT`, `OBJECT_NOT_FOUND`, `INVALID_INPUT`, `NO_ACTIVE_INTENT`, `MULTIPLE_ACTIVE_INTENTS`, `NO_SUSPENDED_INTENT`, `MULTIPLE_SUSPENDED_INTENTS`, `HUB_NOT_CONFIGURED`, `NOT_LINKED`, `PROVIDER_UNSUPPORTED`, `NETWORK_ERROR`, `SERVER_ERROR`.
 
-**`doctor`:** success envelope with `result.healthy` and `result.issues[]`; each issue has its own `code` (e.g. `SCHEMA_VERSION_MISMATCH`, `MISSING_REFERENCE`, `BROKEN_LINK`, `INVALID_STATUS`, `OBJECT_TYPE_MISMATCH`).
+**`doctor`:** success envelope with `result.healthy` and `result.issues[]`; each issue has its own `code` (e.g. `MISSING_REFERENCE`, `BROKEN_LINK`, `INVALID_STATUS`, `OBJECT_TYPE_MISMATCH`).
 
 ## Storage
 
 ```
 .intent/
-  config.json              # {"schema_version": "1.0"}
+  config.json              # {}
   hub.json                 # local IntHub access + workspace binding
   intents/intent-001.json
   snaps/snap-001.json
