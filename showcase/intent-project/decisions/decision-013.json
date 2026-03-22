@@ -24,7 +24,17 @@
     "intent-031",
     "intent-032",
     "intent-033",
-    "intent-034"
+    "intent-034",
+    "intent-035",
+    "intent-036",
+    "intent-037",
+    "intent-038",
+    "intent-039",
+    "intent-040",
+    "intent-041",
+    "intent-042",
+    "intent-043",
+    "intent-044"
   ],
   "what": "IntHub Local 默认监听 127.0.0.1:7210",
   "why": "用户确认 IntHub Local 应以本地实例形态分发，7210 保留 721 的记忆点且避开低位特权端口；默认仅监听 localhost 以降低暴露面",

@@ -7,7 +7,17 @@
     "intent-031",
     "intent-032",
     "intent-033",
-    "intent-034"
+    "intent-034",
+    "intent-035",
+    "intent-036",
+    "intent-037",
+    "intent-038",
+    "intent-039",
+    "intent-040",
+    "intent-041",
+    "intent-042",
+    "intent-043",
+    "intent-044"
   ],
   "what": "IntHub Local 通过 itt hub start 从 clone 的仓库源码直接启动，不预构建分发物",
   "why": "保持 CLI 与 IntHub 分离（decision-004），省去构建步骤，用户 clone 后一条命令即可启动；远端 hub 出来后本地版仅作为可选路径，不需要独立分发",

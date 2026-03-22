@@ -14,7 +14,17 @@
     "intent-031",
     "intent-032",
     "intent-033",
-    "intent-034"
+    "intent-034",
+    "intent-035",
+    "intent-036",
+    "intent-037",
+    "intent-038",
+    "intent-039",
+    "intent-040",
+    "intent-041",
+    "intent-042",
+    "intent-043",
+    "intent-044"
   ],
   "what": "Snap 应优化恢复价值而非交互覆盖；默认按 coherent work chunk 记录，而不是按用户回合逐条记录",
   "why": "Snap 的存在目的是跨 session、跨 agent 的恢复，而不是完整覆盖每一轮交互。只有当一段工作形成了可恢复的检查点、方向变化、阶段结果或关键判断时，才值得写成 snap。默认应按 coherent work chunk 记录，而不是按用户回合逐条记录，以避免记录成本高于恢复价值。",

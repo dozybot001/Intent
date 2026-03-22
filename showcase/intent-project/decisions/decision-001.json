@@ -35,7 +35,17 @@
     "intent-031",
     "intent-032",
     "intent-033",
-    "intent-034"
+    "intent-034",
+    "intent-035",
+    "intent-036",
+    "intent-037",
+    "intent-038",
+    "intent-039",
+    "intent-040",
+    "intent-041",
+    "intent-042",
+    "intent-043",
+    "intent-044"
   ],
   "what": "SKILL 的撰写目标是让 Agent 只阅读 SKILL，其行为表现能满足 Vision 和 CLI 的设计预期",
   "why": "SKILL 是 agent 接触 Intent 系统的唯一入口。如果 SKILL 不能独立传达 Vision 的设计哲学和 CLI 的技术规范，agent 的使用就会形式正确但语义空洞，违背 Intent 降低语义损耗的根本目标。",

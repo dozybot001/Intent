@@ -1,0 +1,11 @@
+{
+  "id": "snap-166",
+  "object": "snap",
+  "created_at": "2026-03-21T16:20:43.146706+00:00",
+  "intent_id": "intent-042",
+  "origin": "claude-code",
+  "what": "IntHub UI overhaul",
+  "why": "Major UI improvements across IntHub Local: (1) Fonts: switched to Google Fonts (JetBrains Mono + Noto Serif SC) for cross-platform consistency. (2) Badge cleanup: removed git commit/dirty badges from intent cards and detail views — only show status + origin; detail pages use object's own origin, not snap fallback. (3) Layout: detail pane fills full width; right drawer for viewing linked objects without navigating away. (4) Relation items: unified component (relationItem) across all detail views with id badge + title + meta; all sections collapsible at 5 items. (5) Sidebar: search removed from tabs; decisions split active/deprecated with deprecated collapsed; intents/snaps paginated at 30. (6) Data: showcase sync timestamp fixed (was empty); detail views show created_at instead of synced_at; Refresh button has visual feedback with 1s minimum. (7) Bugs fixed: itt hub start argv parsing on Windows; store.py UTF-8 encoding. Not done: intent origin field in CLI (currently empty — needs CLI change), search feature needs redesign.",
+  "next": "-",
+  "query": "-"
+}
