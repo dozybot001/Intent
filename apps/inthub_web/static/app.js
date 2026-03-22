@@ -606,22 +606,15 @@ function buildIntentDetailHtml(payload) {
       <div class="detail-meta">
         ${statusBadge(intent.status)}
         ${originBadge(intent.origin)}
+        <span class="badge">${esc(fmtDate(intent.created_at))}</span>
       </div>
     </div>
-    ${detailSection("Latest Snap", formatText(latestSnap?.why) || `<p>No snap yet.</p>`)}
     ${intent.why ? detailSection("Why", formatText(intent.why)) : ""}
-    ${intent.query ? detailSection("Query", formatText(intent.query)) : ""}
+    ${detailSection("Latest Snap", formatText(latestSnap?.why) || `<p>No snap yet.</p>`)}
     ${detailSection("Linked Decisions (" + allIds.length + ")", decisionsBody)}
     ${detailSection("Snap Timeline (" + allSnaps.length + ")", snapTimelineBody)}
-    ${detailSection(
-      "Git Context",
-      `<div class="detail-kv">
-        ${kvRow("Workspace", payload.workspace_id)}
-        ${kvRow("Branch", payload.git.branch || "\u2014")}
-        ${kvRow("Created at", fmtDate(intent.created_at))}
-      </div>`,
-    )}
-    ${rawToggle({ intent, snaps: payload.snaps })}`;
+    ${rawToggle({ intent, snaps: payload.snaps })}
+    ${intent.query ? detailSection("Query", formatText(intent.query)) : ""}`;
 }
 
 function renderIntentDetail(payload) {
@@ -667,21 +660,14 @@ function buildDecisionDetailHtml(payload) {
       <div class="detail-meta">
         ${statusBadge(decision.status)}
         ${originBadge(decision.origin)}
+        <span class="badge">${esc(fmtDate(decision.created_at))}</span>
       </div>
     </div>
     ${detailSection("Why", formatText(decision.why) || `<p>No why provided.</p>`)}
     ${decision.reason ? detailSection("Reason", formatText(decision.reason)) : ""}
     ${detailSection("Affected Intents (" + payload.intents.length + ")", intentsBody)}
-    ${detailSection(
-      "Scope",
-      `<div class="detail-kv">
-        ${kvRow("Workspace", payload.workspace_id)}
-        ${kvRow("Status", decision.status || "\u2014")}
-        ${kvRow("Linked intents", String(payload.intents.length))}
-        ${kvRow("Created at", fmtDate(decision.created_at))}
-      </div>`,
-    )}
-    ${rawToggle({ decision, intents: payload.intents })}`;
+    ${rawToggle({ decision, intents: payload.intents })}
+    ${decision.query ? detailSection("Query", formatText(decision.query)) : ""}`;
 }
 
 function renderDecisionDetail(payload) {
@@ -711,21 +697,14 @@ function buildSnapDetailHtml(payload) {
       <h2 class="detail-title">${esc(snap.what)}</h2>
       <div class="detail-meta">
         ${originBadge(snap.origin)}
+        <span class="badge">${esc(fmtDate(snap.created_at))}</span>
       </div>
     </div>
     ${detailSection("Why", formatText(snap.why) || `<p>No why provided.</p>`)}
-    ${snap.query ? detailSection("Query", formatText(snap.query)) : ""}
     ${snap.next ? detailSection("Next", formatText(snap.next)) : ""}
     ${detailSection("Parent Intent", parentLink)}
-    ${detailSection(
-      "Git Context",
-      `<div class="detail-kv">
-        ${kvRow("Workspace", payload.workspace_id)}
-        ${kvRow("Branch", payload.git.branch || "\u2014")}
-        ${kvRow("Created at", fmtDate(snap.created_at))}
-      </div>`,
-    )}
-    ${rawToggle({ snap, intent: payload.intent })}`;
+    ${rawToggle({ snap, intent: payload.intent })}
+    ${snap.query ? detailSection("Query", formatText(snap.query)) : ""}`;
 }
 
 function renderSnapDetail(payload) {
