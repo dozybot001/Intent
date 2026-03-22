@@ -94,20 +94,14 @@ def _get_json(url):
 
 
 def _expected_cli_version():
-    text = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    in_project = False
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped == "[project]":
-            in_project = True
-            continue
-        if in_project and stripped.startswith("["):
-            break
-        if in_project:
-            match = re.match(r'version\s*=\s*"([^"]+)"', stripped)
-            if match:
-                return match.group(1)
-    raise AssertionError("Could not find project.version in pyproject.toml")
+    from importlib.metadata import version
+    try:
+        return version("intent-cli")
+    except Exception:
+        pass
+    # Fallback: run setuptools_scm directly
+    from setuptools_scm import get_version
+    return get_version(root=str(REPO_ROOT))
 
 
 # ---------------------------------------------------------------------------

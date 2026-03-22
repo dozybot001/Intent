@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=61", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "intent-cli"
-version = "3.0.0"
+dynamic = ["version"]
 description = "Semantic history for agent-driven development. Records what you did and why."
 requires-python = ">=3.9"
 readme = "README.md"
@@ -39,3 +39,5 @@ include = ["intent_cli*", "apps*"]
 
 [tool.setuptools.package-data]
 "apps.inthub_web" = ["static/*"]
+
+[tool.setuptools_scm]
