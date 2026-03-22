@@ -41,7 +41,7 @@ The CLI is intentionally small:
 
 | Command | Role |
 | --- | --- |
-| `itt snap create TITLE [--intent ID] [--query Q] [--origin LABEL] --summary S` | Create a semantic snapshot (`title` = what was done; `summary` = why + next; `query` = user trigger) |
+| `itt snap create TITLE [--intent ID] [--query Q] [--rationale R] [--next N] [--origin LABEL]` | Create a semantic snapshot (`title` = what was done; `rationale` = why; `next` = what's next) |
 
 ### Decision
 
@@ -118,7 +118,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  Q["query\n👤 user said what"] --> T["title\n🤖 AI did what"] --> S["summary\n💡 why + next"]
+  Q["query\n👤 user said what"] --> T["title\n🤖 AI did what"] --> R["rationale\n💡 why"] --> N["next\n➡️ what's next"]
 ```
 
 ### When to create a snap
@@ -161,9 +161,9 @@ stateDiagram-v2
 | `title` | ✓ | ✓ | ✓ | Intent/Decision: short theme. Snap: what was done (concise action). |
 | `query` | ✓ | ✓ | ✓ | User query that triggered the object |
 | `origin` | ✓ | ✓ | ✓ | Auto-detected from environment (e.g. `claude-code`, `cursor`, `codex-desktop`) |
+| `rationale` | ✓ | ✓ | ✓ | Intent: why this goal. Snap: why this approach. Decision: why this constraint. |
 | `status` | ✓ | | ✓ | Intent: `active` / `suspend` / `done`. Decision: `active` / `deprecated`. |
-| `rationale` | ✓ | | ✓ | Why this goal/constraint matters |
-| `summary` | | ✓ | | Why it was done this way + what's next |
+| `next` | | ✓ | | What comes next — remaining work, direction, blockers |
 | `intent_id` | | ✓ | | Parent intent |
 | `snap_ids` | ✓ | | | Ordered list of child snaps |
 | `decision_ids` | ✓ | | | Linked decisions (auto-attached on create) |
@@ -200,17 +200,18 @@ Notes:
 
 ### Snap
 
-A semantic snapshot per query. `title` = what was done, `summary` = why + next steps, `query` = the user query that triggered it.
+A semantic snapshot per query. `title` = what was done, `rationale` = why, `next` = what's next.
 
 ```bash
 itt snap create "Timeout changed to 30s with async refresh" \
   --query "why does login timeout after 5s?" \
-  --summary "Race condition in refresh flow blocks login synchronously. Changed to async refresh. Token refresh still hardcoded — separate service, needs its own fix."
+  --rationale "Race condition in refresh flow blocks login synchronously. Async refresh decouples the paths." \
+  --next "Token refresh endpoint still hardcoded — separate service, needs its own fix."
 ```
 
 Notes:
 
-- `--summary` is required; `--intent` infers when exactly one intent is `active`
+- `--rationale` is required; `--intent` infers when exactly one intent is `active`
 - Creating a snap writes both `snap.intent_id` and the parent intent's `snap_ids`
 - Snaps are immutable; correct mistakes by writing a later snap
 
