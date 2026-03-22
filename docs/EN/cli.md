@@ -160,8 +160,7 @@ stateDiagram-v2
 | `created_at` | ✓ | ✓ | ✓ | ISO 8601 UTC timestamp |
 | `title` | ✓ | ✓ | ✓ | Intent/Decision: short theme. Snap: what was done (concise action). |
 | `status` | ✓ | | ✓ | Intent: `active` / `suspend` / `done`. Decision: `active` / `deprecated`. Snaps have no status. |
-| `source_query` | ✓ | | ✓ | Original user words that triggered the object |
-| `query` | | ✓ | | The user query that triggered this snap |
+| `query` | ✓ | ✓ | ✓ | User query that triggered the object |
 | `rationale` | ✓ | | ✓ | Why this goal/constraint matters |
 | `origin` | ✓ | ✓ | ✓ | Auto-detected from environment (e.g. `claude-code`, `cursor`, `codex-desktop`) |
 | `summary` | | ✓ | | Why it was done this way + what's next |

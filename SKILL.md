@@ -31,7 +31,7 @@ Intent serves two linked purposes:
 
 ### Three objects
 
-- **Intent** = a goal you identified from a user query. Not a task, not a ticket — a goal. "Fix the login timeout bug", not "Change line 42 in config.py". Multiple intents can be active simultaneously. The `source_query` field preserves the original user words that led you to recognize this goal. The `rationale` field captures **why** this goal matters — fill it when the user's query contains explanatory context (e.g. "users on slow networks get logged out"), leave it `""` otherwise.
+- **Intent** = a goal you identified from a user query. Not a task, not a ticket — a goal. "Fix the login timeout bug", not "Change line 42 in config.py". Multiple intents can be active simultaneously. The `query` field preserves the original user words that led you to recognize this goal. The `rationale` field captures **why** this goal matters — fill it when the user's query contains explanatory context (e.g. "users on slow networks get logged out"), leave it `""` otherwise.
 
 - **Snap** = a semantic snapshot under an intent, aligned to a user query. It captures what was done (`title`), why and what's next (`summary`), and the user query that triggered it (`query`). The AI already thinks before acting; snap just makes that thinking survive the session boundary. This is not extra documentation — it externalizes reasoning that already exists in context but would be lost when the session ends.
 
