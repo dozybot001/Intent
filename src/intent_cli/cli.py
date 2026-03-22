@@ -88,7 +88,7 @@ def main():
     p.add_argument("what", metavar="WHAT")
     p.add_argument("--intent", default=None)
     p.add_argument("--query", default="")
-    p.add_argument("--why", required=True)
+    p.add_argument("--why", default="")
     p.add_argument("--next", default="", dest="next_step")
     p.add_argument("--origin", default=None, metavar="LABEL")
 

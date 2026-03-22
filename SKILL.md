@@ -59,7 +59,7 @@ If you are about to begin meaningful work and no active intent explains the goal
 Snap fields:
 - `WHAT`: concise action description for scanning
 - `--query`: the user query that triggered this
-- `--why`: reasoning behind this approach (required)
+- `--why`: reasoning behind this approach (optional; fill when there is meaningful reasoning to preserve)
 - `--next`: remaining work, direction, blockers (optional)
 - `--intent`: required only when multiple intents are active (CLI infers single active; on ambiguity returns `MULTIPLE_ACTIVE_INTENTS` with candidates)
 
@@ -122,7 +122,7 @@ itt intent activate intent-001           # resume; active decisions are caught u
 
 | Command | What it does |
 |---|---|
-| `itt snap create WHAT [--query Q] --why W [--next N] [--origin LABEL]` | Semantic snapshot. Auto-attaches to active intent; if multiple, re-run with `--intent ID`. |
+| `itt snap create WHAT [--query Q] [--why W] [--next N] [--origin LABEL]` | Semantic snapshot. Auto-attaches to active intent; if multiple, re-run with `--intent ID`. |
 
 ### Decision
 
