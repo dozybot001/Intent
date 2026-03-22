@@ -98,6 +98,59 @@ Structure diagnosis view.
 itt doctor
 ```
 
+## Object Model
+
+```mermaid
+flowchart LR
+  D1["🔶 Decision"]
+  D2["🔶 Decision"]
+
+  subgraph Intent1["🎯 Intent"]
+    direction LR
+    S1["📸 Snap"] --> S2["📸 Snap"] --> S3["📸 ..."]
+  end
+
+  D1 -- auto-attach --> Intent1
+  D2 -- auto-attach --> Intent1
+```
+
+### Snap: what each field carries
+
+```mermaid
+flowchart LR
+  Q["query\n👤 user said what"] --> T["title\n🤖 AI did what"] --> S["summary\n💡 why + next"]
+```
+
+### When to create a snap
+
+```mermaid
+flowchart TD
+  Q["User query completed"] --> C{Code changes?}
+  C -->|Yes| B["✅ Snap\ntitle = what was done\nsummary = why + next"]
+  C -->|No| D{Formed conclusions\nworth preserving?}
+  D -->|Yes| E["✅ Snap\nrecord conclusions"]
+  D -->|No| A["⏭️ No snap\nsimple Q&A"]
+```
+
+### State machines
+
+```mermaid
+stateDiagram-v2
+  state Intent {
+    [*] --> active
+    active --> suspend
+    suspend --> active
+    active --> done
+  }
+  state Decision {
+    [*] --> active2: active
+    active2 --> deprecated
+  }
+  state Snap {
+    [*] --> immutable
+  }
+```
+
 ## Object Schema
 
 | Field | Intent | Snap | Decision | Notes |

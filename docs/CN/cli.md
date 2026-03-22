@@ -98,6 +98,59 @@ itt inspect
 itt doctor
 ```
 
+## 对象模型
+
+```mermaid
+flowchart LR
+  D1["🔶 Decision"]
+  D2["🔶 Decision"]
+
+  subgraph Intent1["🎯 Intent"]
+    direction LR
+    S1["📸 Snap"] --> S2["📸 Snap"] --> S3["📸 ..."]
+  end
+
+  D1 -- auto-attach --> Intent1
+  D2 -- auto-attach --> Intent1
+```
+
+### Snap：字段分工
+
+```mermaid
+flowchart LR
+  Q["query\n👤 用户说了什么"] --> T["title\n🤖 AI 做了什么"] --> S["summary\n💡 为什么 + 下一步"]
+```
+
+### 什么时候创建 snap
+
+```mermaid
+flowchart TD
+  Q["用户 query 完成"] --> C{有代码变更？}
+  C -->|是| B["✅ 创建 Snap\ntitle = 做了什么\nsummary = 为什么 + 下一步"]
+  C -->|否| D{形成了需要保留的结论？}
+  D -->|是| E["✅ 创建 Snap\n记录结论"]
+  D -->|否| A["⏭️ 不创建\n简单问答"]
+```
+
+### 状态机
+
+```mermaid
+stateDiagram-v2
+  state Intent {
+    [*] --> active
+    active --> suspend
+    suspend --> active
+    active --> done
+  }
+  state Decision {
+    [*] --> active2: active
+    active2 --> deprecated
+  }
+  state Snap {
+    [*] --> immutable
+  }
+```
+
 ## 对象 Schema
 
 | 字段 | Intent | Snap | Decision | 说明 |

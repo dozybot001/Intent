@@ -42,11 +42,11 @@ Intent serves two linked purposes:
 All relationships are **bidirectional** and **append-only**:
 - Creating an intent auto-attaches all active decisions (both sides updated)
 - Creating a decision auto-attaches all active intents (both sides updated)
-- There is no detach. To retire a decision, deprecate it — existing links stay, only future auto-attach stops.
+- No detach — to retire a decision, deprecate it
 
 ### Immutability
 
-Objects are **immutable after creation**. There is no command to update a title, summary, source_query, or rationale. If you wrote something wrong, correct it in the next snap — don't try to rewrite history.
+Objects are **immutable after creation**. Correct mistakes by writing a new snap.
 
 ## Workflow
 

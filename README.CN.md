@@ -44,7 +44,7 @@ flowchart LR
 | 对象 | 记录什么 |
 |---|---|
 | **Intent** | 从用户 query 中识别出的目标 |
-| **Snap** | 一个语义检查点，记录发生了什么变化、学到了什么，以及后续反馈 |
+| **Snap** | 语义快照 — 做了什么、为什么、下一步 |
 | **Decision** | 跨多个 intent 持续生效的长期约束 |
 
 对象自动关联。Decision 自动挂载到每个 active intent；intent 自动挂载到每个 active decision。关系始终双向且只增不减。

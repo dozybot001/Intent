@@ -44,7 +44,7 @@ flowchart LR
 | Object | What it captures |
 |---|---|
 | **Intent** | A goal recognized from your query |
-| **Snap** | A semantic checkpoint that captures what changed, what was learned, and later feedback |
+| **Snap** | A semantic snapshot — what was done, why, and what's next |
 | **Decision** | A long-lived constraint that spans multiple intents |
 
 Objects link automatically. Decisions auto-attach to every active intent; intents auto-attach to every active decision. Relationships are bidirectional and append-only.

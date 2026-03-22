@@ -37,7 +37,7 @@ What has changed is how software development works:
 
 - People increasingly shape code indirectly through agents
 - The development process looks more like "propose a goal, drive toward results, continuously correct, crystallize decisions"
-- The development process reliably produces higher-level semantic nodes: current intent, semantic checkpoints, long-term decisions, corrections, and continuations
+- The development process reliably produces higher-level semantic nodes: current intent, semantic snapshots, long-term decisions, corrections, and continuations
 
 The new question is therefore not "how to replace Git", but:
 
@@ -114,7 +114,7 @@ flowchart TB
 | Layer | Responsible for | Typical content |
 | --- | --- | --- |
 | Git | code history | commits, branches, diffs |
-| Intent | semantic history | current intent, semantic checkpoints, long-term decisions, corrections, and continuations |
+| Intent | semantic history | goals (intent), persisted AI reasoning (snap), long-term constraints (decision) |
 | Collaboration layer | remote organization & collaboration | timelines, shared views, collaboration context |
 
 Intent can be understood as:
@@ -157,7 +157,7 @@ sequenceDiagram
   H->>B: "continue where we left off"
   B->>I: itt inspect
   I-->>B: active intents, decisions, latest snap
-  B->>B: reads summary → knows what's done, what's not
+  B->>B: reads snap → knows what was done, why, what's next
   B->>I: snap (continues work)
 ```
 
@@ -186,6 +186,5 @@ Intent focuses not on Git's version control capability, but on the semantic hist
 
 - How the product, workflow, or design direction gradually took shape
 - How a later session or another agent can resume work without losing that semantic context
-- How the user responded to that progress
 - Which long-term decisions are still in effect
 - How the current path was formed, and how later corrections should be understood
