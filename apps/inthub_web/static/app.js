@@ -578,8 +578,8 @@ function buildIntentDetailHtml(payload) {
       </div>
     </div>
     ${intent.why ? detailSection("Why", formatText(intent.why)) : ""}
-    ${detailSection("Linked Decisions (" + allIds.length + ")", decisionsBody)}
     ${detailSection("Snap Timeline (" + allSnaps.length + ")", snapTimelineBody)}
+    ${detailSection("Linked Decisions (" + allIds.length + ")", decisionsBody)}
     ${rawToggle({ intent, snaps: payload.snaps })}
     ${intent.query ? detailSection("Query", formatText(intent.query)) : ""}`;
 }
