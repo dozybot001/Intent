@@ -17,86 +17,23 @@ The CLI is intentionally small:
 - Graph browsing belongs to IntHub
 - There are no `list` commands
 
-## Command Surface
+## Commands (10)
 
-### Global
-
-| Command | Role |
-| --- | --- |
-| `itt version` | Print CLI version |
-| `itt init` | Initialize `.intent/` in the current Git repo |
-| `itt inspect` | Resume-first recovery view |
-| `itt doctor` | Structure diagnosis view |
-
-### Intent
-
-| Command | Role |
-| --- | --- |
-| `itt intent create WHAT --query Q [--why W] [--origin LABEL]` | Create a new intent |
-| `itt intent activate [ID]` | `suspend` → `active` |
-| `itt intent suspend [ID]` | `active` → `suspend` |
-| `itt intent done [ID]` | `active` → `done` |
-
-### Snap
-
-| Command | Role |
-| --- | --- |
-| `itt snap create WHAT [--intent ID] [--query Q] [--why W] [--next N] [--origin LABEL]` | Create a semantic snapshot (`what` = what was done; `why` = why; `next` = what's next) |
-
-### Decision
-
-| Command | Role |
-| --- | --- |
-| `itt decision create WHAT --why W [--query Q] [--origin LABEL]` | Create a new decision |
-| `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` |
-### Hub
-
-| Command | Role |
-| --- | --- |
-| `itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]` | Configure local IntHub access if needed, then link the current workspace |
-| `itt hub sync [--api-base-url URL] [--token TOKEN] [--dry-run]` | Push the local semantic snapshot to IntHub |
-
-## Global Commands
-
-### `itt version`
-
-Print the current CLI version.
-
-```bash
-itt version
-```
-
-### `itt init`
-
-Initialize `.intent/` inside the current Git repository.
-
-```bash
-itt init
-```
-
-### `itt inspect`
-
-Resume-first recovery view.
-
-- Use it at the start of a session.
-- Default output: `active_intents`, `active_decisions`, `suspended`, `warnings`.
-- It is not a full graph browser.
-
-```bash
-itt inspect
-```
-
-### `itt doctor`
-
-Structure diagnosis view.
-
-- Use it when `inspect` shows warnings or the graph looks inconsistent.
-- Default output: `healthy`, `issues`.
-- It validates broken references, invalid statuses, and one-way links.
-
-```bash
-itt doctor
-```
+| Command | What it does | Notes |
+|---|---|---|
+| `itt version` | Print CLI version | |
+| `itt init` | Initialize `.intent/` in current Git repo | |
+| `itt inspect` | Resume-first recovery view | Start every session here. Returns `active_intents`, `active_decisions`, `suspended`, `warnings`. |
+| `itt doctor` | Validate object graph | Use when `inspect` shows warnings. Returns `healthy`, `issues`. |
+| `itt intent create WHAT --query Q [--why W]` | Create a new intent | Auto-attaches all active decisions. `origin` auto-filled. |
+| `itt intent activate [ID]` | `suspend` → `active` | Catches up active decisions. Infers ID when unique. |
+| `itt intent suspend [ID]` | `active` → `suspend` | Infers ID when unique. |
+| `itt intent done [ID]` | `active` → `done` (terminal) | Infers ID when unique. |
+| `itt snap create WHAT [--intent ID] --why W [--query Q] [--next N]` | Create a semantic snapshot | `--intent` infers when one active. `origin` auto-filled. |
+| `itt decision create WHAT --why W [--query Q]` | Create a long-lived constraint | Auto-attaches all active intents. `origin` auto-filled. |
+| `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` (terminal) | Preserves history; stops future auto-attach. |
+| `itt hub link [--api-base-url URL] [--project-name NAME]` | Link workspace to IntHub | Writes `.intent/hub.json`. Requires GitHub remote. |
+| `itt hub sync [--dry-run]` | Push snapshot to IntHub | Full snapshot, not incremental. Includes Git context. |
 
 ## Object Model
 
@@ -187,95 +124,7 @@ All fields are **immutable after creation**.
 
 Priority: explicit `--origin LABEL` > `ITT_ORIGIN` / `INTENT_ORIGIN` > built-in heuristics.
 
-## Object Commands
-
-### Intent
-
-`create` recognizes a new recoverable goal. `activate`, `suspend`, and `done` are state transitions.
-
-```bash
-itt intent create "Fix the login timeout bug" \
-  --query "why does login timeout after 5s?" \
-  --why "users on slow networks get logged out mid-session"
-
-itt intent suspend intent-001
-itt intent activate intent-001
-itt intent done intent-001
-```
-
-Notes:
-
-- New intents start as `active`; creating auto-attaches all current `active` decisions
-- Reactivating catches up any `active` decisions added while suspended
-- `activate`, `suspend`, `done` infer `ID` when exactly one candidate matches
-
-### Snap
-
-A semantic snapshot per query. `what` = what was done, `why` = why, `next` = what's next.
-
-```bash
-itt snap create "Timeout changed to 30s with async refresh" \
-  --query "why does login timeout after 5s?" \
-  --why "Race condition in refresh flow blocks login synchronously. Async refresh decouples the paths." \
-  --next "Token refresh endpoint still hardcoded — separate service, needs its own fix."
-```
-
-Notes:
-
-- `--why` is required; `--intent` infers when exactly one intent is `active`
-- Creating a snap writes both `snap.intent_id` and the parent intent's `snap_ids`
-- Snaps are immutable; correct mistakes by writing a later snap
-
-### Decision
-
-`create` records a long-lived constraint. `deprecate` is terminal.
-
-```bash
-itt decision create "Timeout must stay configurable" \
-  --query "user asked about deployment flexibility" \
-  --why "Different deployments have different latency envelopes"
-
-itt decision deprecate decision-001 --reason "Replaced by decision-005"
-```
-
-Notes:
-
-- New decisions start as `active`; creating auto-attaches all current `active` intents
-- `deprecate` preserves history; it only stops future auto-attachment
-
 There are no `show` commands — recovery uses `itt inspect`, browsing uses IntHub.
-
-## Hub Commands
-
-### `itt hub link`
-
-Configure local IntHub access if needed, then link the current GitHub-backed workspace.
-
-```bash
-itt hub link --api-base-url http://127.0.0.1:7210 --project-name "Intent"
-itt hub link --api-base-url http://127.0.0.1:7210 --token dev-token --project-name "Intent"
-```
-
-Notes:
-
-- Requires the current `origin` remote to be a supported GitHub repo
-- Writes `.intent/hub.json`
-- Persists `api_base_url`, optional local token, `workspace_id`, `project_id`, and `repo_binding`
-
-### `itt hub sync`
-
-Push the current `.intent/` snapshot plus Git context to IntHub.
-
-```bash
-itt hub sync
-itt hub sync --dry-run
-```
-
-Notes:
-
-- Sync uploads a full snapshot, not an incremental patch
-- Sync includes Git context such as `branch`, `head_commit`, `dirty`, and `remote_url`
-- `--dry-run` prints the outgoing payload instead of sending it
 
 ## JSON Output
 
