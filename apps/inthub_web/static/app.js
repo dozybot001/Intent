@@ -710,7 +710,6 @@ function buildSnapDetailHtml(payload) {
       <span class="detail-id">${esc(snap.id)} \u00b7 Snap</span>
       <h2 class="detail-title">${esc(snap.title)}</h2>
       <div class="detail-meta">
-        ${statusBadge(snap.status)}
         ${originBadge(snap.origin)}
       </div>
     </div>
