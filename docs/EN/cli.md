@@ -13,7 +13,7 @@ The CLI is intentionally small:
 - Recovery uses `itt inspect`
 - Structural diagnosis uses `itt doctor`
 - Graph browsing belongs to IntHub
-- There are no `list` commands
+- Graph browsing belongs to IntHub
 
 ## Commands (10)
 
@@ -128,7 +128,7 @@ All fields are **immutable after creation**.
 
 Priority: explicit `--origin LABEL` > `ITT_ORIGIN` / `INTENT_ORIGIN` > built-in heuristics.
 
-There are no `show` commands — recovery uses `itt inspect`, browsing uses IntHub.
+Resume uses `itt inspect`. Browsing uses IntHub.
 
 ## JSON Output
 
