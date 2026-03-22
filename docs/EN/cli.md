@@ -174,7 +174,18 @@ All fields are **immutable after creation**.
 
 ### Origin detection
 
-`origin` is auto-detected from the process environment. Built-in hints: `CURSOR_TRACE_ID` → `cursor`, `CODEX_INTERNAL_ORIGINATOR_OVERRIDE="Codex Desktop"` → `codex-desktop`, `CODEX_THREAD_ID` / `CODEX_SHELL` / `CODEX_CI` → `codex`, `TERM_PROGRAM=vscode` → `vscode`, plus Codespaces / GitHub Actions / Gitpod. Set `ITT_ORIGIN` or `INTENT_ORIGIN` in your shell profile for a custom label. Use `--origin LABEL` to override for a single command.
+`origin` is auto-detected from the process environment:
+
+| Environment signal | Origin label |
+|---|---|
+| `ITT_ORIGIN` / `INTENT_ORIGIN` | *(custom label)* |
+| `CURSOR_TRACE_ID` | `cursor` |
+| `CODEX_INTERNAL_ORIGINATOR_OVERRIDE="Codex Desktop"` | `codex-desktop` |
+| `CODEX_THREAD_ID` / `CODEX_SHELL` / `CODEX_CI` | `codex` |
+| `TERM_PROGRAM=vscode` | `vscode` |
+| Codespaces / GitHub Actions / Gitpod env vars | `codespaces` / `github-actions` / `gitpod` |
+
+Priority: explicit `--origin LABEL` > `ITT_ORIGIN` / `INTENT_ORIGIN` > built-in heuristics.
 
 ## Object Commands
 

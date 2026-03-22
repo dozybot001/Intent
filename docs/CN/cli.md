@@ -174,7 +174,18 @@ stateDiagram-v2
 
 ### Origin 检测
 
-`origin` 从进程环境自动推断。内置启发式：`CURSOR_TRACE_ID` → `cursor`、`CODEX_INTERNAL_ORIGINATOR_OVERRIDE="Codex Desktop"` → `codex-desktop`、`CODEX_THREAD_ID` / `CODEX_SHELL` / `CODEX_CI` → `codex`、`TERM_PROGRAM=vscode` → `vscode`，以及 Codespaces、GitHub Actions、Gitpod。在 shell 配置中设置 `ITT_ORIGIN` 或 `INTENT_ORIGIN` 可自定义标签。`--origin LABEL` 可单次覆盖。
+`origin` 从进程环境自动推断：
+
+| 环境信号 | Origin 标签 |
+|---|---|
+| `ITT_ORIGIN` / `INTENT_ORIGIN` | *（自定义标签）* |
+| `CURSOR_TRACE_ID` | `cursor` |
+| `CODEX_INTERNAL_ORIGINATOR_OVERRIDE="Codex Desktop"` | `codex-desktop` |
+| `CODEX_THREAD_ID` / `CODEX_SHELL` / `CODEX_CI` | `codex` |
+| `TERM_PROGRAM=vscode` | `vscode` |
+| Codespaces / GitHub Actions / Gitpod 环境变量 | `codespaces` / `github-actions` / `gitpod` |
+
+优先级：显式 `--origin LABEL` > `ITT_ORIGIN` / `INTENT_ORIGIN` > 内置启发式。
 
 ## 对象命令
 
