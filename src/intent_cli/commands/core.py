@@ -59,7 +59,7 @@ def cmd_inspect(_args):
                     latest_snap = {
                         "id": snap["id"],
                         "what": snap["what"],
-                        "why": _obj_why(snap),
+                        "why": snap.get("why", ""),
                         "next": snap.get("next", ""),
                         "origin": snap.get("origin", ""),
                     }
