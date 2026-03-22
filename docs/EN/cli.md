@@ -69,7 +69,7 @@ flowchart LR
 ```mermaid
 flowchart TD
   Q["User query completed"] --> C{Code changes?}
-  C -->|Yes| B["✅ Snap\ntitle = what was done\nsummary = why + next"]
+  C -->|Yes| B["✅ Snap\nwhat = what was done\nwhy + next"]
   C -->|No| D{Formed conclusions\nworth preserving?}
   D -->|Yes| E["✅ Snap\nrecord conclusions"]
   D -->|No| A["⏭️ No snap\nsimple Q&A"]

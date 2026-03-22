@@ -69,7 +69,7 @@ flowchart LR
 ```mermaid
 flowchart TD
   Q["用户 query 完成"] --> C{有代码变更？}
-  C -->|是| B["✅ 创建 Snap\ntitle = 做了什么\nsummary = 为什么 + 下一步"]
+  C -->|是| B["✅ 创建 Snap\nwhat = 做了什么\nwhy + next"]
   C -->|否| D{形成了需要保留的结论？}
   D -->|是| E["✅ 创建 Snap\n记录结论"]
   D -->|否| A["⏭️ 不创建\n简单问答"]
