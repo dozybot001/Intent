@@ -2,11 +2,9 @@
   "id": "snap-056",
   "object": "snap",
   "created_at": "2026-03-19T16:23:18.428120+00:00",
-  "title": "添加 formatText 渲染层分段",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "文字都是一大一大段没有分段，原数据就是这样，怎么办",
-  "rationale": "数据不应该改——snap summary 等字段本身就是纯文本，分段是渲染层的责任",
-  "summary": "在 app.js 新增 formatText() 函数，纯渲染层处理，不改数据。逻辑：按中文句号（。）拆成独立 <p> 段落；段内中文分号（；）后插 <br> 做软换行；单句或空文本不拆。应用到 detail pane 所有长文本字段：intent 的 latest summary / rationale / source query，decision 的 rationale，snap 的 summary / query / rationale / feedback。sidebar 卡片中的 truncated 文本保持 esc() 不变（短文本不需要分段）。CSS 给 .detail-section p 加了 0.6em 的 margin-bottom 段间距。效果：10 句话的 summary 从一整块变成 10 个段落，；分隔的子项各占一行。50 tests passed。下一步可能需要处理英文文本（用 . 分句），但当前数据全是中文所以暂不需要。",
-  "feedback": "非常好，感觉很不错了。"
+  "what": "添加 formatText 渲染层分段",
+  "why": "数据不应该改——snap summary 等字段本身就是纯文本，分段是渲染层的责任",
+  "next": "-"
 }

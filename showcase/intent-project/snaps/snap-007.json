@@ -2,11 +2,9 @@
   "id": "snap-007",
   "object": "snap",
   "created_at": "2026-03-19T10:13:04.176006+00:00",
-  "title": "收紧 intent 判定规则",
-  "status": "active",
   "intent_id": "intent-006",
   "query": "可以",
-  "rationale": "需要将刚才讨论形成的判定标准固化到 skill，减少 agent 因过度追求覆盖率而过度记录",
-  "summary": "已修改 /Users/dozy/.agents/skills/intent-cli/SKILL.md，收紧 intent 的创建边界。主要变化：将 fresh workspace 下的建 intent 条件改为‘未来会话可能需要恢复的目标’；在 Recognize intents 一节新增 recovery test，要求先判断 inspect 中是否真的需要保留这个 goal boundary；把 ‘read a skill / understand a workflow / align on collaboration conventions / discuss whether something should be recorded’ 明确写成通常不应单独建 intent 的场景；将 When to create what 的表述改为 recoverable goal，并新增 workflow familiarization 作为 anti-pattern。当前文档已能覆盖刚才暴露出的误判案例；本轮仅修改 skill 文档，无代码逻辑和测试变更。",
-  "feedback": ""
+  "what": "收紧 intent 判定规则",
+  "why": "需要将刚才讨论形成的判定标准固化到 skill，减少 agent 因过度追求覆盖率而过度记录",
+  "next": "-"
 }

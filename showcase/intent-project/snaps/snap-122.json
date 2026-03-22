@@ -2,11 +2,9 @@
   "id": "snap-122",
   "object": "snap",
   "created_at": "2026-03-20T18:18:03.201210+00:00",
-  "title": "确认 inspect 应是 resume-first 视图",
-  "status": "active",
   "intent_id": "intent-025",
   "query": "",
-  "rationale": "",
-  "summary": "已确认 inspect 的默认定位应服务于新 session 的继续干活，而不是承担完整对象图浏览。相应的设计方向是：默认输出只保留恢复当前工作所需的最小信息；完整对象图、全量关系和历史浏览应由 IntHub 或未来的显式 full/graph 视图承担。这条原则已固化为 decision-018；此前因 shell 反引号污染而创建错误 rationale 的 decision-017 已废弃。",
-  "feedback": ""
+  "what": "确认 inspect 应是 resume-first 视图",
+  "why": "",
+  "next": "-"
 }

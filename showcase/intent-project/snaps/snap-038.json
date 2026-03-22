@@ -2,11 +2,9 @@
   "id": "snap-038",
   "object": "snap",
   "created_at": "2026-03-19T13:15:51.194971+00:00",
-  "title": "提交 CLI-only 分发边界并收紧发版 guardrail",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "",
-  "rationale": "",
-  "summary": "已将本轮关于 IntHub 分发边界的仓库改动整理成提交 0f09e2f（Restrict PyPI packaging to CLI only）。这笔提交包含六个文件：pyproject.toml 收紧为 CLI-only 打包；README.md、README.CN.md 明确 PyPI 只分发 itt、IntHub Web 适合 GitHub Pages、IntHub API 是独立服务；中英文 inthub-sync-contract 文档把这一分发边界写入契约；tests/test_cli.py 修正为显式从当前仓库源码运行子进程验证，避免误读 .venv 中滞后的 editable 元数据。验证结果保持不变：.venv/bin/python -m pytest -q 为 50 passed，并在排除 build/dist 残留的干净临时副本中确认 wheel 只剩 itt entrypoint，不再包含 apps/、inthub 或静态资源。同时，已更新本机 release-publisher skill，在 Validate before tagging 段落加入新的 guardrail：如果发布包含 Python 构建产物，必须从干净构建树验证，优先使用排除 build/、dist/、.venv/ 等生成目录的临时副本，不能在带旧 build 残留的树上直接信任 wheel 内容。当前仓库 git status 已恢复干净；本机 skill 配置变更不影响仓库工作区。",
-  "feedback": ""
+  "what": "提交 CLI-only 分发边界并收紧发版 guardrail",
+  "why": "",
+  "next": "-"
 }

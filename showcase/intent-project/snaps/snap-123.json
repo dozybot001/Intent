@@ -2,11 +2,9 @@
   "id": "snap-123",
   "object": "snap",
   "created_at": "2026-03-20T18:19:52.982971+00:00",
-  "title": "提出 resume-first inspect 的结构草案",
-  "status": "active",
   "intent_id": "intent-025",
   "query": "",
-  "rationale": "",
-  "summary": "已提出 inspect 的 resume-first 设计草案。默认 inspect 不再输出全量 active_decisions 或全局 recent_snaps，而改成最小恢复视图：按 resume_order 列出当前最值得继续的 active intents，每个 intent 只带 title、decision_ids、latest snap 的 title/summary/feedback；暂停中的 intent 单独放在 paused；warnings 保留。schema_version、完整对象图和全局历史浏览从默认输出移除，转入 inspect --full 或 IntHub。这样 inspect 的第一眼职责变成“现在该继续做什么”，而不是“浏览整个对象图”。",
-  "feedback": ""
+  "what": "提出 resume-first inspect 的结构草案",
+  "why": "",
+  "next": "-"
 }

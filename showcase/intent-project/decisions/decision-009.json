@@ -2,9 +2,7 @@
   "id": "decision-009",
   "object": "decision",
   "created_at": "2026-03-19T17:09:02.507602+00:00",
-  "title": "跨 agent 协作是 Intent 的核心使用场景之一，dogfooding 应持续围绕多 agent 接力模式收敛",
   "status": "active",
-  "rationale": "真实协作已经反复表明，用户会在多个 agent 之间高频切换；Intent 和 IntHub 的价值不只在单 agent 恢复，更在于让不同 agent 能沿同一条 semantic history 接力推进。",
   "intent_ids": [
     "intent-013",
     "intent-014",
@@ -28,5 +26,8 @@
     "intent-032",
     "intent-033",
     "intent-034"
-  ]
+  ],
+  "what": "跨 agent 协作是 Intent 的核心使用场景之一，dogfooding 应持续围绕多 agent 接力模式收敛",
+  "why": "真实协作已经反复表明，用户会在多个 agent 之间高频切换；Intent 和 IntHub 的价值不只在单 agent 恢复，更在于让不同 agent 能沿同一条 semantic history 接力推进。",
+  "query": "-"
 }

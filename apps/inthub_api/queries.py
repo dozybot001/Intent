@@ -6,16 +6,9 @@ from apps.inthub_api.common import APIError, make_remote_object_id, split_remote
 from apps.inthub_api.db import connect
 
 
-def _compat(obj, new_key, *old_keys):
-    """Read new field name, fallback to old names for legacy data."""
-    val = obj.get(new_key)
-    if val is not None and val != "":
-        return val
-    for old in old_keys:
-        val = obj.get(old)
-        if val is not None and val != "":
-            return val
-    return ""
+def _f(obj, key):
+    """Read field, return empty string if missing."""
+    return obj.get(key, "")
 
 
 def _project_row(conn, project_id):
@@ -118,13 +111,13 @@ def project_overview(db_path, project_id):
                 "remote_id": make_remote_object_id(workspace_id, intent["id"]),
                 "workspace_id": workspace_id,
                 "id": intent["id"],
-                "what": _compat(intent, "what", "title"),
+                "what": _f(intent, "what"),
                 "status": intent["status"],
                 "decision_ids": intent.get("decision_ids", []),
                 "latest_snap_id": latest_snap_id,
                 "origin": intent.get("origin", ""),
-                "source_query": _compat(intent, "query", "source_query"),
-                "why": _compat(intent, "why", "rationale"),
+                "source_query": _f(intent, "query"),
+                "why": _f(intent, "why"),
                 "branch": git.get("branch"),
                 "head_commit": git.get("head_commit"),
                 "dirty": git.get("dirty"),
@@ -139,9 +132,9 @@ def project_overview(db_path, project_id):
                 "remote_id": make_remote_object_id(workspace_id, decision["id"]),
                 "workspace_id": workspace_id,
                 "id": decision["id"],
-                "what": _compat(decision, "what", "title"),
+                "what": _f(decision, "what"),
                 "status": decision["status"],
-                "why": _compat(decision, "why", "rationale"),
+                "why": _f(decision, "why"),
                 "intent_ids": decision.get("intent_ids", []),
             }
             if decision.get("status") == "active":
@@ -154,11 +147,11 @@ def project_overview(db_path, project_id):
                 "remote_id": make_remote_object_id(workspace_id, snap["id"]),
                 "workspace_id": workspace_id,
                 "id": snap["id"],
-                "what": _compat(snap, "what", "title"),
+                "what": _f(snap, "what"),
                 "intent_id": snap.get("intent_id"),
-                "why": _compat(snap, "why", "summary", "rationale"),
+                "why": _f(snap, "why"),
                 "next": snap.get("next", ""),
-                "query": _compat(snap, "query", "source_query"),
+                "query": _f(snap, "query"),
                 "origin": snap.get("origin", ""),
                 "created_at": snap.get("created_at"),
             })

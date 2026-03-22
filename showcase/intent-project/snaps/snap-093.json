@@ -2,11 +2,9 @@
   "id": "snap-093",
   "object": "snap",
   "created_at": "2026-03-19T20:53:09.122133+00:00",
-  "title": "澄清 IntHub Local 不是仅限 Windows",
-  "status": "active",
   "intent_id": "intent-018",
   "query": "这个Local IntHub只能在windows上跑吗，我看zip包的readme里说只有windows",
-  "rationale": "",
-  "summary": "已澄清当前 v1.6.0 的 IntHub Local 不是仅限 Windows。当前 release asset bundle 同时包含三个入口：一，inthub-local，供 macOS 和 Linux 直接执行；二，inthub-local.cmd，供 Windows 使用；三，inthub-local.pyz，供任意安装了 Python 3.9+ 的平台直接运行。资产内 README.txt 的当前表述是：先运行 ./inthub-local，若在 Windows 上则运行 inthub-local.cmd，因此它表达的是跨平台入口，不是 Windows-only。若用户体感仍觉得容易误解，下一步可以把 asset README 再写得更显式，例如直接拆成 macOS/Linux、Windows、Any platform with Python 三段。此轮只做使用边界澄清，没有改代码。",
-  "feedback": ""
+  "what": "澄清 IntHub Local 不是仅限 Windows",
+  "why": "",
+  "next": "-"
 }

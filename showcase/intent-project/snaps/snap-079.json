@@ -2,11 +2,9 @@
   "id": "snap-079",
   "object": "snap",
   "created_at": "2026-03-19T19:49:18.053814+00:00",
-  "title": "澄清 IntHub 体验命令的适用边界",
-  "status": "active",
   "intent_id": "intent-015",
   "query": "这个IntHub的体验命令是不是不对呀，用户又不处在开发环境，是不是只有我才能用",
-  "rationale": "",
-  "summary": "已明确当前 README 里补充的 IntHub 运行命令属于源码仓库内的本地 demo / 开发者启动路径，不是面向普通终端用户的通用使用路径。原因是当前 IntHub Web/API 既不通过 PyPI 分发，也还没有正式线上部署实例；因此像 python3 -m apps.inthub_api --serve-web 这样的命令要求用户处在源码仓库并具备开发环境。现阶段只有仓库维护者或贡献者能按这条路径自启动本地 IntHub 原型，而普通 CLI 用户如果不在开发环境，只能在‘已经存在一个远端 IntHub 实例’的前提下使用 itt hub login/link/sync 去连接它，不能自己靠 pipx 安装的 CLI 直接拉起 IntHub。下一步 README 更合理的写法应该区分两类入口：一类是 For local demo / contributors，说明如何从源码运行 IntHub；另一类是 For CLI users，明确只有在拿到一个已部署的 IntHub API 地址时，才需要运行 itt hub login/link/sync。此轮只做边界澄清，没有改代码，也没有运行测试。",
-  "feedback": ""
+  "what": "澄清 IntHub 体验命令的适用边界",
+  "why": "",
+  "next": "-"
 }

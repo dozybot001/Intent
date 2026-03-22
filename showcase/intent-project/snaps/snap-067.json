@@ -2,11 +2,9 @@
   "id": "snap-067",
   "object": "snap",
   "created_at": "2026-03-19T17:14:39.016053+00:00",
-  "title": "将官方 showcase project 写入 IntHub MVP",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "可以，加一个官方showcase也不错",
-  "rationale": "用户已同意将官方 showcase 作为 IntHub 的方向，需要把它从口头判断落到 MVP 文档，形成后续产品实现的约束。",
-  "summary": "已将官方 showcase project 写入中英文 IntHub MVP 文档。新增内容明确：IntHub 首期应至少包含一个官方 showcase project；首选样本是 Intent 项目自身的语义历史，因为它是真实连续发生的数据，天然覆盖跨 agent handoff、feedback 消费、decision 约束和错误纠偏；同时规定展示上要并存两类入口，一类是面向初次体验者的 showcase/case-study 入口，另一类是可继续下钻到真实 intent/snap/decision 的 raw object 入口。也就是说，案例叙事可以存在，但不能替代原始对象视图。这轮只修改 docs/CN/inthub-mvp.md 和 docs/EN/inthub-mvp.md，没有运行测试。",
-  "feedback": ""
+  "what": "将官方 showcase project 写入 IntHub MVP",
+  "why": "用户已同意将官方 showcase 作为 IntHub 的方向，需要把它从口头判断落到 MVP 文档，形成后续产品实现的约束。",
+  "next": "-"
 }

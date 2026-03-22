@@ -2,11 +2,9 @@
   "id": "snap-100",
   "object": "snap",
   "created_at": "2026-03-20T07:02:43.917741+00:00",
-  "title": "恢复图标到三个面板 + 对齐 Panel B/C 节点 y 坐标",
-  "status": "active",
   "intent_id": "intent-021",
   "query": "图标很好看应保留，三个子图都应该有。第二个子图和第三个子图没有水平对齐",
-  "rationale": "图标增加设计感应保留并统一；B/C 面板 Agent 和 Code 节点 y 坐标不一致（186 vs 194、310 vs 312）导致视觉错位",
-  "summary": "两类修复。一，图标统一：恢复 Panel A 的 H 和 { } 圆形图标装饰，并为 Panel B 和 C 的所有节点添加相同风格的图标——Human 节点加绿色半透明圆+H 字母，Agent 节点加蓝色半透明圆+A 字母，Code 节点加灰色半透明圆+{ } 符号。文字位置相应右移（text x 从面板中心偏移到 center+10），图标位于节点左侧（center-66）。二，B/C 水平对齐：Panel C 的 Agent 节点从 y=194 调整到 y=186，Code 从 y=312 调整到 y=310，Git pill 从 y=254 调整到 y=250，所有中间连接线 y 坐标同步调整。现在 Panel B 和 C 的 Human（y=82）、Agent（y=186）、Git pill（y=250）、Code（y=310）完全水平对齐。Intent bridge 相应压缩：pill 高度从 30 减到 26，间距微调，总占用从 60px 压缩到 54px 以适配。",
-  "feedback": ""
+  "what": "恢复图标到三个面板 + 对齐 Panel B/C 节点 y 坐标",
+  "why": "图标增加设计感应保留并统一；B/C 面板 Agent 和 Code 节点 y 坐标不一致（186 vs 194、310 vs 312）导致视觉错位",
+  "next": "-"
 }

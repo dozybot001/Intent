@@ -2,11 +2,9 @@
   "id": "snap-024",
   "object": "snap",
   "created_at": "2026-03-19T12:00:37.047808+00:00",
-  "title": "实现 IntHub V1 最小同步闭环",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "可以，我同意不新开仓库。我们开始做第一版IntHub。",
-  "rationale": "用户确认开始做第一版 IntHub，因此需要从文档收敛进入最小可运行实现，而不是继续停留在契约层。",
-  "summary": "已在当前 Intent 仓库中落下 IntHub 第一版的最小同步闭环。实现内容分为两部分：一是扩展现有 CLI，在 src/intent_cli/store.py 中新增 hub.json、本地 workspace 运行时配置读写、Git 上下文读取与 GitHub remote 解析；在 src/intent_cli/cli.py 中新增 hub login / hub link / hub sync 命令，支持本地 IntHub API base URL 配置、GitHub repo 绑定、完整 snapshot payload 生成与 dry-run 输出。二是在同仓库新增轻量 API 实现 apps/inthub_api/，采用 stdlib HTTP server + SQLite，提供 POST /api/v1/hub/link、POST /api/v1/sync-batches、GET /api/v1/projects/:project_id/overview、GET /api/v1/projects/:project_id/handoff、GET /api/v1/intents/:remote_object_id、GET /api/v1/decisions/:remote_object_id 与 GET /api/v1/search，按 append-only 保存 raw sync batch，并派生 overview / handoff / detail / search 读模型。测试方面，tests/test_cli.py 已新增 IntHub 集成测试，覆盖 login/link、非 GitHub remote 拒绝、sync 未 link 报错、dry-run payload 以及 link -> sync -> overview/handoff/search 的本地端到端闭环。当前全量测试通过，结果为 .venv/bin/python -m pytest -q => 49 passed。文档方面，docs/CN/cli.md、docs/EN/cli.md 已补充实验性 hub 命令说明，并将 docs/CN/inthub-sync-contract.md 与 docs/EN/inthub-sync-contract.md 更新为匹配当前实现的 hub.json 字段与 repo_id 约定。当前工作区含有本轮代码与文档变更，intent-013 保持 active，便于继续推进 Web 只读界面或 GitHub auth。",
-  "feedback": ""
+  "what": "实现 IntHub V1 最小同步闭环",
+  "why": "用户确认开始做第一版 IntHub，因此需要从文档收敛进入最小可运行实现，而不是继续停留在契约层。",
+  "next": "-"
 }

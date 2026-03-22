@@ -2,11 +2,9 @@
   "id": "snap-046",
   "object": "snap",
   "created_at": "2026-03-19T13:49:50.250367+00:00",
-  "title": "发布 intent-v1.4.0 并切换到三层版本模型",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "",
-  "rationale": "",
-  "summary": "已根据用户确认的版本治理调整，补发项目级 release 并纠偏长期约束。首先创建 decision-007，明确 Intent 重新维护项目级 release 索引版本，但它只承担 monorepo 的版本索引职责，不替代 CLI 与 Hub 的独立分发版本；随后将与其冲突的旧规则 decision-005 显式 deprecated，避免 inspect 时同时出现相互矛盾的版本策略。仓库侧，本轮新增 releases/intent-v1.4.0.json，作为当前 Intent 1.4.0 的 release manifest，明确该项目版本对应 CLI 2.0.0（cli-v2.0.0 / PyPI 2.0.0）与 IntHub 0.1.0（hub-v0.1.0）；README.md 与 README.CN.md 的版本说明也已改为三层模型：intent-v* 是项目级索引 release，cli-v* 与 hub-v* 分别是各 deliverable 的权威发布。发布方面，主分支新增提交 e085999（Add Intent project release index），已 push 到 origin；annotated tag intent-v1.4.0 已创建并推送；GitHub release 已发布到 https://github.com/dozybot001/Intent/releases/tag/intent-v1.4.0 ，并设为 repo-level latest。当前发布矩阵因此变为：Intent 1.4.0 -> CLI 2.0.0 + IntHub 0.1.0。仓库工作区保持干净，本机 release-publisher skill 也已更新为支持 intent-v* / cli-v* / hub-v* 三条发布轨道。",
-  "feedback": ""
+  "what": "发布 intent-v1.4.0 并切换到三层版本模型",
+  "why": "",
+  "next": "-"
 }

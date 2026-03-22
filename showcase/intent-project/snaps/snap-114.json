@@ -2,11 +2,9 @@
   "id": "snap-114",
   "object": "snap",
   "created_at": "2026-03-20T08:48:54.186129+00:00",
-  "title": "按参考布局重画 Fig.1",
-  "status": "active",
   "intent_id": "intent-022",
   "query": "",
-  "rationale": "",
-  "summary": "已按用户给出的三列关系草图重画 frontend/index.html 中的 Fig.1。新的版本放弃了此前的 panel/card 式对比，改成更直接的三栏结构：Traditional Development、Agent-Driven Development、Agent-Driven with Intent。每一栏都以 Human / Agent / Code 的主层级为核心，并把连接线重新改回箭头；Traditional 用 Git 作为唯一路径标签，Agent-Driven 在 Human→Agent 之间显式标出 semantic layer missing，With Intent 则把 Intent 作为上层语义桥接标签，同时保留 Git 作为 Agent→Code 的代码历史层。整体视觉参考用户的布局，但做了更适合产品前端的字重、颜色和标签收束。",
-  "feedback": ""
+  "what": "按参考布局重画 Fig.1",
+  "why": "",
+  "next": "-"
 }

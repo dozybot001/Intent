@@ -2,11 +2,9 @@
   "id": "snap-019",
   "object": "snap",
   "created_at": "2026-03-19T11:32:26.431175+00:00",
-  "title": "评估 IntHub 采用 GitHub-first 的 trade-off",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "可以。我在想我们现在做本地-远端协同的话，应该背靠GitHub是最好的选择，IntHub从GitHub里直接取数据，这样实现会非常简单，但是局限于公开仓库（或者拿到GitHub的个人token可以访问私有仓库？），我觉得这是非常值得的trade off",
-  "rationale": "用户开始收敛 IntHub 的基础依赖与权限模型，这是首期协作层设计的核心判断之一，且会影响同步方式、访问控制与后续扩展成本。",
-  "summary": "针对 IntHub 是否应 GitHub-first 做了架构判断：赞成将 GitHub 作为首期的 repo identity、权限与 Git 上下文来源，因为这能显著简化仓库绑定、commit/branch/release 关联展示与私有仓库访问控制；但不建议把“IntHub 直接从 GitHub 取数据”推进成“GitHub 成为语义对象的唯一后端”。原因是 GitHub 本身并不天然承载 intent/snap/decision，除非把 .intent 一并提交进仓库，而这会引入 push 依赖、分支与合并噪音、潜在隐私问题，以及把远端协作层退化成 Git 内容镜像。更合理的首期路径是：GitHub-first，但语义对象仍由 IntHub 存储；本地通过类似 itt hub sync 的入口把 .intent 快照上传到 IntHub，IntHub 再利用 GitHub 绑定 repo、校验 commit/branch、展示 PR/release 上下文并复用访问控制。这样既保留 GitHub 带来的实现简化，又不把语义层错误地塞回 Git。后续若用户确认，可以把“IntHub 首期采用 GitHub-first provider，但不以 GitHub 作为语义对象唯一存储”沉淀为 decision。",
-  "feedback": ""
+  "what": "评估 IntHub 采用 GitHub-first 的 trade-off",
+  "why": "用户开始收敛 IntHub 的基础依赖与权限模型，这是首期协作层设计的核心判断之一，且会影响同步方式、访问控制与后续扩展成本。",
+  "next": "-"
 }

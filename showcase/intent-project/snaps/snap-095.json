@@ -2,11 +2,9 @@
   "id": "snap-095",
   "object": "snap",
   "created_at": "2026-03-20T06:45:17.082687+00:00",
-  "title": "重新设计 Fig.2 为三层嵌套层级图",
-  "status": "active",
   "intent_id": "intent-021",
   "query": "三对象的关系图有显示bug，并且目前的图也不直观，需要重新设计，体现decision作为长期决策约束整个交互是顶层对象，intent是意图处于decision范围内第二层对象，snap则是intent下的实现演进",
-  "rationale": "原 ER 图是平面三角结构，无法体现 Decision>Intent>Snap 的包含层级关系",
-  "summary": "已将 Fig.2 从平面 ER 图重新设计为三层嵌套包含图。新设计：Decision（L1）是最外层琥珀色边界容器，带点阵纹理背景和示例约束列表（如 Timeout must stay configurable），表达其作为长期治理约束的顶层地位；Intent（L2）是白色卡片嵌套在 Decision 内部，展示了 Intent A（Fix login timeout）和 Intent B（Migrate auth to JWT，虚线表示并行存在）；Snap（L3）是 Intent 内部的青色卡片链，每个 Snap 展示 query/summary/feedback 字段，通过 next 箭头形成时序演进链，最后一个标记 latest。右侧有 L1/L2/L3 层级标注，左侧有 auto-attach 虚线箭头从 Decision 区域指向每个 Intent，表达约束自动继承。Caption 更新为描述三层层级关系。待用户确认视觉效果。",
-  "feedback": ""
+  "what": "重新设计 Fig.2 为三层嵌套层级图",
+  "why": "原 ER 图是平面三角结构，无法体现 Decision>Intent>Snap 的包含层级关系",
+  "next": "-"
 }

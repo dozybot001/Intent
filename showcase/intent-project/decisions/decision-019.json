@@ -2,9 +2,7 @@
   "id": "decision-019",
   "object": "decision",
   "created_at": "2026-03-21T06:11:32.131542+00:00",
-  "title": "Intent 语义历史同时服务恢复与产品形成追踪；inspect 仅默认服务恢复",
   "status": "active",
-  "rationale": "Intent 不应被收窄成纯粹的 resume tool。inspect 的默认视图仍以继续干活为优先，但 semantic history 作为整体还应保留产品方向、审美、边界与路线否定如何逐步收敛的形成过程。",
   "intent_ids": [
     "intent-025",
     "intent-026",
@@ -16,5 +14,8 @@
     "intent-032",
     "intent-033",
     "intent-034"
-  ]
+  ],
+  "what": "Intent 语义历史同时服务恢复与产品形成追踪；inspect 仅默认服务恢复",
+  "why": "Intent 不应被收窄成纯粹的 resume tool。inspect 的默认视图仍以继续干活为优先，但 semantic history 作为整体还应保留产品方向、审美、边界与路线否定如何逐步收敛的形成过程。",
+  "query": "-"
 }

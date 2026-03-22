@@ -2,11 +2,9 @@
   "id": "snap-131",
   "object": "snap",
   "created_at": "2026-03-20T19:48:12.940088+00:00",
-  "title": "删除 intent list 命令",
-  "status": "active",
   "intent_id": "intent-025",
   "query": "",
-  "rationale": "",
-  "summary": "已从 CLI 中彻底删除 intent list：移除了 parser 入口、dispatch、core 实现、相关测试、CLI 文档示例，以及仓库内与本机 skill 的命令参考。现在 intent 子命令只保留 create、show、activate、suspend、done；恢复交给 inspect，浏览交给 IntHub。已验证 intent list 现在会被 argparse 识别为无效子命令，并通过 tests/test_cli.py。",
-  "feedback": ""
+  "what": "删除 intent list 命令",
+  "why": "",
+  "next": "-"
 }

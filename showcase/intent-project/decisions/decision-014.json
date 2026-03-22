@@ -2,9 +2,7 @@
   "id": "decision-014",
   "object": "decision",
   "created_at": "2026-03-20T07:26:23.339953+00:00",
-  "title": "Intent 需要一个静态展示前端页面，作为讲述产品故事的核心入口",
   "status": "active",
-  "rationale": "用户明确要求将静态展示页面提升为下一阶段目标，用于更好地讲清 Intent 的设计理念与产品价值。",
   "intent_ids": [
     "intent-018",
     "intent-021",
@@ -21,5 +19,8 @@
     "intent-032",
     "intent-033",
     "intent-034"
-  ]
+  ],
+  "what": "Intent 需要一个静态展示前端页面，作为讲述产品故事的核心入口",
+  "why": "用户明确要求将静态展示页面提升为下一阶段目标，用于更好地讲清 Intent 的设计理念与产品价值。",
+  "query": "-"
 }

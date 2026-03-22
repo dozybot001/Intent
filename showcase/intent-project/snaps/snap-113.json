@@ -2,11 +2,9 @@
   "id": "snap-113",
   "object": "snap",
   "created_at": "2026-03-20T08:21:24.873804+00:00",
-  "title": "将 frontend 收口为单页入口",
-  "status": "active",
   "intent_id": "intent-022",
   "query": "",
-  "rationale": "",
-  "summary": "已将展示前端从双 HTML 入口收口为单页结构：把原本 frontend/intent.html 的主内容并入 frontend/index.html，删除多余的 intent.html，并同步更新 frontend/README.md 中的页面说明。现在 frontend/index.html 是唯一正式页面入口，避免目录 landing 与内容页并存造成的重复和心智负担。",
-  "feedback": ""
+  "what": "将 frontend 收口为单页入口",
+  "why": "",
+  "next": "-"
 }

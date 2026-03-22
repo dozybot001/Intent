@@ -2,10 +2,7 @@
   "id": "intent-022",
   "object": "intent",
   "created_at": "2026-03-20T07:26:23.338198+00:00",
-  "title": "设计用于讲好 Intent 故事的静态展示前端页面",
   "status": "done",
-  "source_query": "决定-我们需要做一个静态Intent展示用的前端页面。这一项升格为项目的下一阶段目标，如何讲好Intent故事。",
-  "rationale": "这不再是单个 architecture 页面细修，而是一个新的产品化叙事目标，需要跨页面信息架构、文案和展示策略持续推进。",
   "decision_ids": [
     "decision-001",
     "decision-002",
@@ -33,5 +30,8 @@
     "snap-115",
     "snap-119",
     "snap-120"
-  ]
+  ],
+  "what": "设计用于讲好 Intent 故事的静态展示前端页面",
+  "why": "这不再是单个 architecture 页面细修，而是一个新的产品化叙事目标，需要跨页面信息架构、文案和展示策略持续推进。",
+  "query": "决定-我们需要做一个静态Intent展示用的前端页面。这一项升格为项目的下一阶段目标，如何讲好Intent故事。"
 }

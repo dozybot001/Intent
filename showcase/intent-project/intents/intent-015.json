@@ -2,10 +2,7 @@
   "id": "intent-015",
   "object": "intent",
   "created_at": "2026-03-19T19:26:07.826179+00:00",
-  "title": "补充 IntHub 本地演示与截图启动说明",
   "status": "done",
-  "source_query": "Readme好像没有写IntHub相关的，怎么启动也不知道。主要是我想截几张图展示Intent的语义，用于Intent推广。",
-  "rationale": "README 需要给出能直接跑起 IntHub 并同步当前语义数据的完整最小流程，方便用户本地截图展示",
   "decision_ids": [
     "decision-001",
     "decision-002",
@@ -26,5 +23,8 @@
     "snap-082",
     "snap-083",
     "snap-084"
-  ]
+  ],
+  "what": "补充 IntHub 本地演示与截图启动说明",
+  "why": "README 需要给出能直接跑起 IntHub 并同步当前语义数据的完整最小流程，方便用户本地截图展示",
+  "query": "Readme好像没有写IntHub相关的，怎么启动也不知道。主要是我想截几张图展示Intent的语义，用于Intent推广。"
 }

@@ -2,11 +2,9 @@
   "id": "snap-022",
   "object": "snap",
   "created_at": "2026-03-19T11:45:42.999735+00:00",
-  "title": "补充 IntHub 首版同步契约文档",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "可以，你继续收敛IntHub的开发规范，之后我们就可以开始做第一版了",
-  "rationale": "用户要求把 IntHub 从方向性文档继续收敛到可开工的开发规范，因此需要形成首版同步与接口契约，而不是只停留在产品范围层。",
-  "summary": "已新增中英文 IntHub 首版同步契约文档：docs/CN/inthub-sync-contract.md 与 docs/EN/inthub-sync-contract.md，并把 IntHub MVP 文档链接到该契约。新文档明确了首版的硬边界：GitHub-first 但 semantic data 不进 Git/GitHub；Web 首版只读；本地 CLI 继续主写；GitHub 只提供 repo identity、权限和 Git 上下文，IntHub 负责语义对象的同步、存储、索引和展示。文档还具体定义了首版本地 hub.json 运行时配置、workspace/project/repo/sync batch/object 的身份模型、建议的 CLI 命令面（itt hub login/link/sync）、完整 sync batch payload 结构、幂等与接收校验规则、允许 dirty sync 的约束、服务端 append-only 原始层与派生层的存储方式、最小 API 面，以及首版 Web 只读 overview/handoff/detail/search 视图。README 中英文也补充了 IntHub Sync Contract 的入口。当前变更均为文档修改，未运行测试；active intent-013 继续保持打开，便于下一轮直接进入第一版实现。",
-  "feedback": ""
+  "what": "补充 IntHub 首版同步契约文档",
+  "why": "用户要求把 IntHub 从方向性文档继续收敛到可开工的开发规范，因此需要形成首版同步与接口契约，而不是只停留在产品范围层。",
+  "next": "-"
 }

@@ -2,11 +2,9 @@
   "id": "snap-058",
   "object": "snap",
   "created_at": "2026-03-19T16:36:44.876022+00:00",
-  "title": "修复折叠样式分离 + Snaps 全量展示",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "older snaps不应该加删除线；snaps只展示了10个应该全部展示",
-  "rationale": "older snaps 是正常交互记录不是 deprecated，不应该有删除线；snaps 是完整交互链，截断丢失上下文",
-  "summary": "两项修复。(1) 拆分折叠样式：将 deprecated-toggle 重构为 collapse-toggle 基础类 + is-deprecated 修饰类。基础类只控制折叠行为（虚线边框、summary 样式）；is-deprecated 修饰类额外加删除线和 0.55 透明度。older snaps 和 collapsibleLinks 通用折叠用纯 collapse-toggle，Decisions tab 和 intent detail 中的 deprecated decisions 用 collapse-toggle is-deprecated。(2) Snaps 全量展示：API 层 queries.py 移除了 recent_snaps[:10] 的硬截断，现在返回全部 snaps（当前 54 条）。前端 Snaps tab 会全部渲染，intent detail 的 Snap Timeline 保持最近 5 条 + 折叠其余的交互。50 tests passed。",
-  "feedback": ""
+  "what": "修复折叠样式分离 + Snaps 全量展示",
+  "why": "older snaps 是正常交互记录不是 deprecated，不应该有删除线；snaps 是完整交互链，截断丢失上下文",
+  "next": "-"
 }

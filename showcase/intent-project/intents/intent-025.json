@@ -2,10 +2,7 @@
   "id": "intent-025",
   "object": "intent",
   "created_at": "2026-03-20T18:07:05.302778+00:00",
-  "title": "收紧 intent-cli 的命令面设计",
   "status": "done",
-  "source_query": "是的，我觉得有很多很多冗余噪音，我们需要仔细优化一下命令面设计了。先从全局命令开始。",
-  "rationale": "这是对 intent-cli 命令面本身的系统性收敛目标，需要跨多轮评估 inspect/version/doctor 等全局命令的边界、输出与噪音控制。",
   "decision_ids": [
     "decision-001",
     "decision-003",
@@ -48,5 +45,8 @@
     "snap-143",
     "snap-144",
     "snap-145"
-  ]
+  ],
+  "what": "收紧 intent-cli 的命令面设计",
+  "why": "这是对 intent-cli 命令面本身的系统性收敛目标，需要跨多轮评估 inspect/version/doctor 等全局命令的边界、输出与噪音控制。",
+  "query": "是的，我觉得有很多很多冗余噪音，我们需要仔细优化一下命令面设计了。先从全局命令开始。"
 }

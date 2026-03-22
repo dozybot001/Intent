@@ -2,11 +2,9 @@
   "id": "snap-082",
   "object": "snap",
   "created_at": "2026-03-19T19:54:59.665348+00:00",
-  "title": "讨论可分发的本地 IntHub 实例",
-  "status": "active",
   "intent_id": "intent-015",
   "query": "对，我想的是能不能分发一个IntHub实例，用户安装后就可以在本地浏览器看",
-  "rationale": "",
-  "summary": "已确认一个可分发的本地 IntHub 实例是很合理的产品方向，而且比要求普通用户先部署远端 IntHub 更适合早期采用。核心思路是把当前 IntHub API + Web 的一体化后端实例打包成单独 deliverable，让用户安装后在本机启动一个本地服务，再用浏览器访问本地地址查看自己项目里同步上来的 intents/snaps/decisions。这样 CLI 仍负责在项目目录里记录和 sync，IntHub 本地实例负责本机数据库、查询读模型和 Web 展示。关键边界是：这不应通过当前 CLI PyPI 包隐式携带，而应作为单独的 IntHub 分发物，例如独立安装器、单文件二进制、桌面 app，或至少单独的 Docker/zip 产物。下一步应评估哪种本地分发形态最适合 IntHub V1，而不是继续把它混进 README 的普通 CLI 路径。",
-  "feedback": ""
+  "what": "讨论可分发的本地 IntHub 实例",
+  "why": "",
+  "next": "-"
 }

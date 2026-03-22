@@ -2,10 +2,10 @@
   "id": "snap-151",
   "object": "snap",
   "created_at": "2026-03-21T06:53:19.735419+00:00",
-  "title": "补强 origin 自动识别",
-  "status": "active",
   "intent_id": "intent-028",
-  "summary": "origin 自动识别新增 Codex heuristics：CODEX_INTERNAL_ORIGINATOR_OVERRIDE 会规范化成短标签（当前环境识别为 codex-desktop），CODEX_THREAD_ID / CODEX_SHELL / CODEX_CI 会回退为 codex。补了 test_origin 覆盖，CLI 文档与两份 SKILL 已同步说明 Cursor/Codex 自动识别；实际在当前会话环境运行 detect_origin() 返回 codex-desktop。pytest tests/test_origin.py tests/test_cli.py 通过。",
-  "feedback": "",
-  "origin": "codex-desktop"
+  "origin": "codex-desktop",
+  "what": "补强 origin 自动识别",
+  "why": "origin 自动识别新增 Codex heuristics：CODEX_INTERNAL_ORIGINATOR_OVERRIDE 会规范化成短标签（当前环境识别为 codex-desktop），CODEX_THREAD_ID / CODEX_SHELL / CODEX_CI 会回退为 codex。补了 test_origin 覆盖，CLI 文档与两份 SKILL 已同步说明 Cursor/Codex 自动识别；实际在当前会话环境运行 detect_origin() 返回 codex-desktop。pytest tests/test_origin.py tests/test_cli.py 通过。",
+  "next": "-",
+  "query": "-"
 }

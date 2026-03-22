@@ -2,11 +2,9 @@
   "id": "snap-018",
   "object": "snap",
   "created_at": "2026-03-19T11:26:43.890840+00:00",
-  "title": "起草 IntHub MVP 设计文档",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "可以",
-  "rationale": "用户确认把 IntHub 的首期想法收敛成文档，因此需要形成一个可直接承接实现的 MVP spec，而不只是口头方向。",
-  "summary": "已新增中英文 IntHub MVP 设计文档：docs/CN/inthub-mvp.md 与 docs/EN/inthub-mvp.md，并在中英文 roadmap 中加入了到该文档的入口链接。文档明确了 IntHub 首期的产品定位是远端协作层，而不是新的语义层或重型平台；同时把核心原则收敛为 local-write first、remote-read first、沿用本地对象模型、只同步结构化语义对象。文档还定义了首期必须具备的页面与能力（project overview、handoff 视图、intent / decision 详情、搜索）、最小信息架构（project / repo / workspace / sync batch）、推荐同步模型（batch append-only + object snapshot view）、本地与远端 ID 分离策略、Git 上下文要求，以及按同步 contract -> 只读 web -> 搜索回溯的实施顺序。当前变更仅涉及文档，未运行测试。",
-  "feedback": ""
+  "what": "起草 IntHub MVP 设计文档",
+  "why": "用户确认把 IntHub 的首期想法收敛成文档，因此需要形成一个可直接承接实现的 MVP spec，而不只是口头方向。",
+  "next": "-"
 }

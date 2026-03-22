@@ -2,11 +2,9 @@
   "id": "snap-101",
   "object": "snap",
   "created_at": "2026-03-20T07:03:10.334313+00:00",
-  "title": "Fig.2 去掉外层边框，放大显示",
-  "status": "active",
   "intent_id": "intent-021",
   "query": "fig 2都套了两个框框，可以删掉一个，把内容放大。",
-  "rationale": "figure-inner 的白色边框+阴影与 SVG 内 Decision 琥珀色边框形成双层嵌套",
-  "summary": "Fig.2 的 figure-inner 容器改为透明无边框（inline style: border:none, box-shadow:none, background:transparent, padding:16px 8px），让 SVG 内的 Decision 琥珀色边框成为唯一视觉边界。同时 SVG max-width 从 860px 增到 960px，利用更宽容器放大显示。",
-  "feedback": ""
+  "what": "Fig.2 去掉外层边框，放大显示",
+  "why": "figure-inner 的白色边框+阴影与 SVG 内 Decision 琥珀色边框形成双层嵌套",
+  "next": "-"
 }

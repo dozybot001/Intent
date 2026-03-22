@@ -2,15 +2,15 @@
   "id": "intent-005",
   "object": "intent",
   "created_at": "2026-03-19T10:07:42.304973+00:00",
-  "title": "理解并采用 intent-cli 协作流程",
   "status": "done",
-  "source_query": "当然，你先理解一下skill的内容，之后我们的对话都会伴随使用这个skill",
-  "rationale": "用户要求后续协作持续伴随 intent-cli 的语义历史工作流",
   "decision_ids": [
     "decision-001"
   ],
   "snap_ids": [
     "snap-005",
     "snap-006"
-  ]
+  ],
+  "what": "理解并采用 intent-cli 协作流程",
+  "why": "用户要求后续协作持续伴随 intent-cli 的语义历史工作流",
+  "query": "当然，你先理解一下skill的内容，之后我们的对话都会伴随使用这个skill"
 }

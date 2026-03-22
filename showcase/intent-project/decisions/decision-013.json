@@ -2,9 +2,7 @@
   "id": "decision-013",
   "object": "decision",
   "created_at": "2026-03-19T19:57:45.064448+00:00",
-  "title": "IntHub Local 默认监听 127.0.0.1:7210",
   "status": "active",
-  "rationale": "用户确认 IntHub Local 应以本地实例形态分发，7210 保留 721 的记忆点且避开低位特权端口；默认仅监听 localhost 以降低暴露面",
   "intent_ids": [
     "intent-014",
     "intent-015",
@@ -27,5 +25,8 @@
     "intent-032",
     "intent-033",
     "intent-034"
-  ]
+  ],
+  "what": "IntHub Local 默认监听 127.0.0.1:7210",
+  "why": "用户确认 IntHub Local 应以本地实例形态分发，7210 保留 721 的记忆点且避开低位特权端口；默认仅监听 localhost 以降低暴露面",
+  "query": "-"
 }

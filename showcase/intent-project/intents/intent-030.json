@@ -2,10 +2,7 @@
   "id": "intent-030",
   "object": "intent",
   "created_at": "2026-03-21T07:33:44.313026+00:00",
-  "title": "IntHub Local 分发方式与 README 用户体验重构",
   "status": "done",
-  "source_query": "IntHub Local 放进仓库、README 一键启动命令、分离 IntHub 启动步骤",
-  "rationale": "用户不是 Intent 开发者，需要最简路径：clone → 安装 → 使用。Release assets 流程太繁琐",
   "decision_ids": [
     "decision-001",
     "decision-003",
@@ -25,5 +22,8 @@
   ],
   "snap_ids": [
     "snap-154"
-  ]
+  ],
+  "what": "IntHub Local 分发方式与 README 用户体验重构",
+  "why": "用户不是 Intent 开发者，需要最简路径：clone → 安装 → 使用。Release assets 流程太繁琐",
+  "query": "IntHub Local 放进仓库、README 一键启动命令、分离 IntHub 启动步骤"
 }

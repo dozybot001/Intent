@@ -18,32 +18,6 @@ from intent_cli.store import (
 )
 
 
-# ---- Compat helpers (read old field names, return new) ----
-
-def _get(obj, new_key, *old_keys):
-    """Return obj[new_key] if present, else try old_keys as fallback."""
-    val = obj.get(new_key)
-    if val is not None and val != "":
-        return val
-    for old in old_keys:
-        val = obj.get(old)
-        if val is not None and val != "":
-            return val
-    return obj.get(new_key, "")
-
-
-def _obj_what(obj):
-    return _get(obj, "what", "title")
-
-
-def _obj_why(obj):
-    return _get(obj, "why", "rationale", "summary")
-
-
-def _obj_query(obj):
-    return _get(obj, "query", "source_query")
-
-
 # ---- Commands ----
 
 def cmd_version(_args):
@@ -84,20 +58,20 @@ def cmd_inspect(_args):
                 if snap is not None:
                     latest_snap = {
                         "id": snap["id"],
-                        "what": _obj_what(snap),
+                        "what": snap["what"],
                         "why": _obj_why(snap),
                         "next": snap.get("next", ""),
                         "origin": snap.get("origin", ""),
                     }
             active_intents.append({
                 "id": obj["id"],
-                "what": _obj_what(obj),
+                "what": obj["what"],
                 "latest_snap": latest_snap,
             })
         elif obj["status"] == "suspend":
             suspended.append({
                 "id": obj["id"],
-                "what": _obj_what(obj),
+                "what": obj["what"],
                 "latest_snap_id": latest_snap_id,
             })
 
@@ -105,7 +79,7 @@ def cmd_inspect(_args):
     for obj in list_objects(base, "decision", status="active"):
         active_decisions.append({
             "id": obj["id"],
-            "what": _obj_what(obj),
+            "what": obj["what"],
         })
 
     warnings = []
@@ -150,7 +124,7 @@ def _resolve_inferred_intent_id(
 
     candidates = sorted(
         (
-            {"id": obj["id"], "what": _obj_what(obj)}
+            {"id": obj["id"], "what": obj["what"]}
             for obj in list_objects(base, "intent", status=status)
         ),
         key=lambda c: c["id"],
@@ -321,7 +295,7 @@ def cmd_snap_create(args):
             )
         if len(active) > 1:
             candidates = sorted(
-                ({"id": o["id"], "what": _obj_what(o)} for o in active),
+                ({"id": o["id"], "what": o["what"]} for o in active),
                 key=lambda c: c["id"],
             )
             error(

@@ -2,11 +2,9 @@
   "id": "snap-088",
   "object": "snap",
   "created_at": "2026-03-19T20:18:14.636731+00:00",
-  "title": "发布项目版 v1.6.0 并挂载 IntHub Local assets",
-  "status": "active",
   "intent_id": "intent-018",
   "query": "直接推送并发版",
-  "rationale": "",
-  "summary": "已完成项目版 v1.6.0 的发布流程。首先基于相对 v1.5.0 的唯一新增提交 514c1ef（IntHub Local 启动器、asset 构建脚本、用户文档与 release workflow）判断这是一次项目级 minor bump，因此将 VERSION 从 1.5.0 提升到 1.6.0，并新增 releases/v1.6.0.json，将本次 deliverable 组合记录为 CLI 2.0.0 与 IntHub 0.3.0，同时同步 README 中的当前项目版本线示例。发布前验证通过：.venv/bin/python -m pytest -q tests/test_inthub_local.py tests/test_inthub_api_server.py tests/test_cli.py 结果为 55 passed；.venv/bin/python scripts/build_inthub_local.py --output-dir /tmp/inthub-local-dist-v1.6.0 成功生成 inthub-local-v0.3.0.pyz 与 .zip；并用 python3 /private/tmp/inthub-local-dist-v1.6.0/inthub-local-v0.3.0.pyz --help 验证资产可启动。随后提交 63f1c1d（Prepare v1.6.0 project release），推送 main，创建并推送 annotated tag v1.6.0，发布 GitHub release Intent 1.6.0。发布后新 workflow ‘Release IntHub Local’ 自动成功运行（run 23315035325），已把 inthub-local-v0.3.0.pyz 与 inthub-local-v0.3.0.zip 作为 assets 回挂到 v1.6.0 release。此次发布没有新的 PyPI 包，CLI 仍保持 intent-cli-python 2.0.0。",
-  "feedback": ""
+  "what": "发布项目版 v1.6.0 并挂载 IntHub Local assets",
+  "why": "",
+  "next": "-"
 }

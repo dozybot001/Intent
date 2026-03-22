@@ -2,11 +2,9 @@
   "id": "snap-048",
   "object": "snap",
   "created_at": "2026-03-19T14:06:10.447324+00:00",
-  "title": "收紧 README 为首页而非手册",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "",
-  "rationale": "",
-  "summary": "已按用户反馈收紧 README.md 与 README.CN.md。目标不是补更多信息，而是让 README 回到‘理念说明 + 最小入口’：保留 Why、三对象模型、安装、最小 quick start、IntHub 的必要分发边界，以及文档入口；删除了大段命令表、设计原则、存储结构等更适合放在专门文档里的内容。与此同时，仍保留几个必须留在首页的边界：.intent/ 是本地元数据且不应进入 Git；PyPI 只分发 CLI；GitHub 当前只维护一条项目版本线；CLI 版本仍通过 PyPI 发布。README 现在更像项目首页，CLI 细节和 JSON contract 则显式引导到 docs/EN/cli.md 与 docs/CN/cli.md。当前工作区包含 README.md 与 README.CN.md 两个未提交文档改动，本轮没有运行测试，因为没有代码行为变化。",
-  "feedback": ""
+  "what": "收紧 README 为首页而非手册",
+  "why": "",
+  "next": "-"
 }

@@ -2,10 +2,11 @@
   "id": "decision-005",
   "object": "decision",
   "created_at": "2026-03-19T13:23:03.530231+00:00",
-  "title": "Intent 不维护统一项目版本；发布采用按 deliverable 命名的 tag",
   "status": "deprecated",
-  "rationale": "Intent 是 umbrella project / monorepo，不再强行维护单一项目 semver。CLI、Hub 等可分发交付物各自维护独立版本轨道。Git tag 与 GitHub release 必须带上交付物前缀，例如 cli-vX.Y.Z、hub-vX.Y.Z，避免把某个分发物的版本误解为整个 Intent 项目的统一版本。历史上已有的裸 v1.x tag 保留为既有历史，不再沿用该命名规则。",
   "intent_ids": [
     "intent-013"
-  ]
+  ],
+  "what": "Intent 不维护统一项目版本；发布采用按 deliverable 命名的 tag",
+  "why": "Intent 是 umbrella project / monorepo，不再强行维护单一项目 semver。CLI、Hub 等可分发交付物各自维护独立版本轨道。Git tag 与 GitHub release 必须带上交付物前缀，例如 cli-vX.Y.Z、hub-vX.Y.Z，避免把某个分发物的版本误解为整个 Intent 项目的统一版本。历史上已有的裸 v1.x tag 保留为既有历史，不再沿用该命名规则。",
+  "query": "-"
 }

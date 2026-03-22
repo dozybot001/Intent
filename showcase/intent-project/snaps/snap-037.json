@@ -2,11 +2,9 @@
   "id": "snap-037",
   "object": "snap",
   "created_at": "2026-03-19T13:13:38.429186+00:00",
-  "title": "收紧 IntHub 分发边界为 CLI-only",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "",
-  "rationale": "",
-  "summary": "已将 IntHub 的分发边界收紧为 CLI-only。首先记录长期约束 decision-004：PyPI 仅分发 CLI，IntHub Web/API 不属于 PyPI 分发面。随后修改 pyproject.toml，移除 inthub-api 与 inthub-web 两个 console_script，只保留 itt；同时将 setuptools 包发现范围收回到 src 下的 intent_cli*，不再把 apps.* 纳入 Python 分发。README.md、README.CN.md 以及中英文 inthub-sync-contract 文档已同步明确：Intent 仓库仍是 umbrella project，但 PyPI 只负责 CLI，IntHub Web 适合静态托管（如 GitHub Pages），IntHub API 是单独服务。测试侧，为避免子进程从临时目录运行时误读 .venv 中滞后的 editable 元数据，tests/test_cli.py 现在会显式把仓库根目录和 src 注入 PYTHONPATH，确保验证对象是当前源码而不是环境里的旧分发记录。验证方面，全量测试 .venv/bin/python -m pytest -q 已通过（50 passed）。构建验证发现一个额外风险：在当前工作树直接 build 时，旧的 build/lib/apps 残留会被 setuptools 带进 wheel，尽管 pyproject 的 entry_points 与 package discovery 已正确收紧；因此我又在排除 build/dist 的干净临时副本中重建产物并确认最终边界：wheel 内不再包含 apps/、inthub 或 static 资源，entry_points.txt 只剩 itt，twine check 通过。也就是说，分发边界已经在源码配置上成立，但后续发版需要从干净构建树进行，不能复用带历史残留的 build 目录。",
-  "feedback": ""
+  "what": "收紧 IntHub 分发边界为 CLI-only",
+  "why": "",
+  "next": "-"
 }

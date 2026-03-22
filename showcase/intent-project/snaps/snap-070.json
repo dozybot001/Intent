@@ -2,11 +2,9 @@
   "id": "snap-070",
   "object": "snap",
   "created_at": "2026-03-19T17:31:19.841639+00:00",
-  "title": "讨论 showcase 前端展示方向",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "关于showcase的前端展示和GitHub Pages的路线讨论",
-  "rationale": "",
-  "summary": "与用户讨论了 showcase 前端展示方案。Codex 在 snap-068 评估了 GitHub Pages 部署并做了代码改动（?api= 参数覆盖、localStorage 记忆、staticPath 路径处理、API 未配置引导页），但用户和我都认为这个方向有问题：IntHub 终态一定有后端（sync、auth、多 workspace），为纯静态部署做的适配全是过渡态废代码。更务实的路径是直接部署一个最小 API 实例（fly.io / render / railway 等），前端零改动指向它，展示真实体验而非阉割版。用户同意这个判断，并进一步确认一开始就不应该设定为 GitHub Pages 路线。Codex 加的静态化适配需要 revert。本轮只讨论，没有改代码。",
-  "feedback": ""
+  "what": "讨论 showcase 前端展示方向",
+  "why": "",
+  "next": "-"
 }

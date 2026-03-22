@@ -2,11 +2,9 @@
   "id": "snap-076",
   "object": "snap",
   "created_at": "2026-03-19T18:22:20.710813+00:00",
-  "title": "提交推送并关闭 intent-013",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "提交推送发版，可以done",
-  "rationale": "",
-  "summary": "将本 session 全部成果提交为 0b2ad40（Rewrite IntHub Web frontend and evolve API for deployment），20 个文件变更、1780 行增加、1001 行删除，已推送到 origin/main。本次提交涵盖：前端从单页滚动重写为两栏 Handoff-first 布局（tab 导航、formatText 分段渲染、折叠长列表、loading 状态）；API 层新增 deprecated_decisions 和 other_intents 字段、移除 snaps 截断；API+Web 合并部署（--serve-web + Dockerfile）；SKILL 同步 doctor 和 hub 命令；中英文 dogfooding 文档；52 tests passed。intent-013 的目标'规划 IntHub 首期设计方向'已达成：前端设计、API 读模型、部署方向（decision-011）、SKILL 对齐、dogfooding 验证均已完成。后续工作（部署真实实例、auth、演进后端）应作为新的 intent。",
-  "feedback": ""
+  "what": "提交推送并关闭 intent-013",
+  "why": "",
+  "next": "-"
 }

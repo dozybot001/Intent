@@ -2,11 +2,9 @@
   "id": "snap-103",
   "object": "snap",
   "created_at": "2026-03-20T07:14:57.753900+00:00",
-  "title": "修复 architecture 页面首屏近乎空白的显示问题",
-  "status": "active",
   "intent_id": "intent-021",
   "query": "我让Claude加了一个展示架构的静态页面，但是改来改去一直有点显示问题。你来看看",
-  "rationale": "",
-  "summary": "检查 docs/architecture.html 的实际渲染后，确认主要故障来自 reveal 动画：主内容默认 opacity=0，依赖 IntersectionObserver 滚动触发才显示，导致首屏和截图几乎空白。已将页面收敛为静态可读优先：去掉 reveal 的隐藏/位移动画和整段 IntersectionObserver 脚本，保留页面排版与 SVG 架构图本身不变。随后通过本地 http.server 与 Playwright 截图复核，首屏标题、摘要、章节和架构图均已正常可见。",
-  "feedback": ""
+  "what": "修复 architecture 页面首屏近乎空白的显示问题",
+  "why": "",
+  "next": "-"
 }

@@ -2,11 +2,9 @@
   "id": "snap-130",
   "object": "snap",
   "created_at": "2026-03-20T19:19:36.338124+00:00",
-  "title": "移除 doctor 的 issue_count",
-  "status": "active",
   "intent_id": "intent-025",
   "query": "",
-  "rationale": "",
-  "summary": "已进一步收紧 doctor 的默认诊断输出，移除重复字段 issue_count。当前 result 仅保留 healthy 与 issues：无 issues 即健康，有 issues 即不健康。同步更新 tests/test_cli.py 和中英文 cli.md，并验证 doctor 实际输出与测试结果一致。",
-  "feedback": ""
+  "what": "移除 doctor 的 issue_count",
+  "why": "",
+  "next": "-"
 }

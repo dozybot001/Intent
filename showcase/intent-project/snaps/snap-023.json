@@ -2,11 +2,9 @@
   "id": "snap-023",
   "object": "snap",
   "created_at": "2026-03-19T11:49:36.393977+00:00",
-  "title": "评估 IntHub 是否应拆分为独立仓库",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "哦对，我们需要新开一个IntHub仓库吗，还是你觉得继续写在Intent项目下更好，虽然语义上属于一个项目",
-  "rationale": "仓库边界会直接影响第一版的实现效率、契约演进方式和发布节奏；需要在开工前明确是 monorepo 还是多 repo。",
-  "summary": "对仓库边界的判断是：IntHub 第一版更适合继续放在当前 Intent 仓库下，而不是立即拆成独立仓库。核心原因是当前 CLI、sync contract、文档和 IntHub 的服务端/前端能力都还在快速收敛阶段，若一开始拆 repo，会立刻引入跨仓库协议漂移、同步修改困难、双份 roadmap/docs/issue 管理以及本地联调成本。把第一版放在同一仓库里，可以让 CLI、docs、服务端和 Web 的 contract 变更以原子提交推进，更符合当前阶段的探索性质。更合适的结构是把仓库视为 Intent umbrella project，在现有 CLI 之上新增如 apps/inthub-api、apps/inthub-web 之类的目录，而不是另起 GitHub repo。后续只有当这些条件成立时才值得拆 repo：一，CLI 与 IntHub 的发布节奏明显分离；二，sync contract 已经稳定，不再高频联动；三，团队边界、权限边界或部署边界需要独立；四，IntHub 希望采用不同许可证、可见性或商业化策略。当前阶段先同仓库开发，等第一版跑通后再决定是否拆分，整体风险更低。",
-  "feedback": ""
+  "what": "评估 IntHub 是否应拆分为独立仓库",
+  "why": "仓库边界会直接影响第一版的实现效率、契约演进方式和发布节奏；需要在开工前明确是 monorepo 还是多 repo。",
+  "next": "-"
 }

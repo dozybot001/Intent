@@ -2,11 +2,9 @@
   "id": "snap-105",
   "object": "snap",
   "created_at": "2026-03-20T07:26:52.003893+00:00",
-  "title": "将静态展示前端页面提升为 Intent 下一阶段目标",
-  "status": "active",
   "intent_id": "intent-022",
   "query": "决定-我们需要做一个静态Intent展示用的前端页面。这一项升格为项目的下一阶段目标，如何讲好Intent故事。",
-  "rationale": "",
-  "summary": "已记录显式决策 decision-014：Intent 需要一个静态展示前端页面，作为讲述产品故事的核心入口；同时创建 intent-022，明确这不再是单页 architecture 图的局部美化，而是一个新的阶段性产品目标。叙事上，后续页面不应只展示对象和命令，而应组织成一条更完整的故事线：先解释 agent 时代为什么需要新的 semantic layer，再解释 Intent 的三个对象边界，再展示它如何改变真实协作流程，最后用 dogfooding 与 IntHub showcase 证明这套设计不是概念，而是已经在真实工作中运行。architecture.html 可继续保留，但更适合作为这个静态展示前端中的一个 architecture section，而不是整个故事的唯一载体。",
-  "feedback": ""
+  "what": "将静态展示前端页面提升为 Intent 下一阶段目标",
+  "why": "",
+  "next": "-"
 }

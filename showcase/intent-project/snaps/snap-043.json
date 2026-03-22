@@ -2,11 +2,9 @@
   "id": "snap-043",
   "object": "snap",
   "created_at": "2026-03-19T13:28:17.352414+00:00",
-  "title": "评估 IntHub 是否已达到 1.0.0 发布门槛",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "",
-  "rationale": "",
-  "summary": "已根据 IntHub MVP 与 sync contract 的现状评估是否适合发布 1.0.0。当前判断是：还不建议把 IntHub 直接发布为 1.0.0。原因不是功能太少，而是外部承诺面还没有稳定到 1.0.0 的程度。现在已经具备的是：本地 hub login/link/sync、最小 API、只读 Web 壳、overview/handoff/detail/search 的首批读能力，以及一套清晰的同步契约和产品边界；但仍缺少几个 1.0.0 级别应当明确承诺的要素：一，稳定的发布与部署形态，尤其是静态 Web 如何发布、API 如何正式运行；二，明确的 GitHub auth / repo 授权路径，当前仍停留在 GitHub-first 设计和本地 token 级实现；三，真正的外部版本与兼容性承诺，即当别人把 IntHub 当成产品使用时，哪些 API / 页面 / sync 行为是稳定 contract；四，最重要的一点，MVP 文档要求用真实 handoff / review / 续做场景来证明协作收益，而不仅是页面和接口已经存在。因此更合理的判断是：CLI 现在适合按新的命名规则发布 2.0.0；IntHub 仍更像 0.x 阶段的远端协作层基础版本。如果要逼近 IntHub 1.0.0，下一批必须补的不是更多页面，而是托管方案、认证方案、对外 contract 稳定性，以及至少一轮真实使用验证。",
-  "feedback": ""
+  "what": "评估 IntHub 是否已达到 1.0.0 发布门槛",
+  "why": "",
+  "next": "-"
 }

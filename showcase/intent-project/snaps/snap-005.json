@@ -2,11 +2,9 @@
   "id": "snap-005",
   "object": "snap",
   "created_at": "2026-03-19T10:07:50.724981+00:00",
-  "title": "读取 skill 并完成仓库 inspect",
-  "status": "active",
   "intent_id": "intent-005",
   "query": "当然，你先理解一下skill的内容，之后我们的对话都会伴随使用这个skill",
-  "rationale": "先明确 skill 的对象模型、创建规则和恢复流程，才能保证后续记录不是形式化打卡",
-  "summary": "已完整阅读 /Users/dozy/.agents/skills/intent-cli/SKILL.md，确认核心规则：每个会话先 itt inspect；非琐碎且值得跨会话追踪的目标要建 intent；落在 active intent 下的每次用户查询都要建 snap；decision 只能由用户显式提出或在确认后创建。已在当前仓库执行 itt inspect，发现无 active/suspend intent，存在 active decision-001：SKILL 需单独承载足够语义，使 agent 仅阅读 SKILL 也能满足 Vision 和 CLI 预期。当前已创建 intent-005 承接后续采用该流程的工作；尚未开始新的具体实现任务，后续对话将按 inspect -> intent/snap -> 必要时 decision 的方式记录。",
-  "feedback": "用户指出上一轮交互只是要求 agent 理解并采用工作流，不构成一个值得单独追踪的工作目标；创建 intent-005 属于过度记录。"
+  "what": "读取 skill 并完成仓库 inspect",
+  "why": "先明确 skill 的对象模型、创建规则和恢复流程，才能保证后续记录不是形式化打卡",
+  "next": "-"
 }

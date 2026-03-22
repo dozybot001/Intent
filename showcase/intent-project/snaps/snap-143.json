@@ -2,10 +2,10 @@
   "id": "snap-143",
   "object": "snap",
   "created_at": "2026-03-21T05:59:16.424961+00:00",
-  "title": "对齐 SKILL 与 CLI（decision-001）",
-  "status": "active",
   "intent_id": "intent-025",
-  "summary": "统一仓库 SKILL.md 与 ~/.agents/skills/intent-cli/SKILL.md（cp）。§3 与全局版一致：snap 何时记/不记、work chunk 原则。命令表 snap 行补 [--origin]；decision attach 标为仅修复并加「When to create」行与反模式。JSON 合约写明 action 点号形式与 inspect 例外；错误码补 PROVIDER_UNSUPPORTED、SERVER_ERROR；doctor issues 代码单独说明。Quality check 用 sparse but sufficient。已 cp 同步两份 SKILL。",
-  "feedback": "",
-  "origin": "cursor"
+  "origin": "cursor",
+  "what": "对齐 SKILL 与 CLI（decision-001）",
+  "why": "统一仓库 SKILL.md 与 ~/.agents/skills/intent-cli/SKILL.md（cp）。§3 与全局版一致：snap 何时记/不记、work chunk 原则。命令表 snap 行补 [--origin]；decision attach 标为仅修复并加「When to create」行与反模式。JSON 合约写明 action 点号形式与 inspect 例外；错误码补 PROVIDER_UNSUPPORTED、SERVER_ERROR；doctor issues 代码单独说明。Quality check 用 sparse but sufficient。已 cp 同步两份 SKILL。",
+  "next": "-",
+  "query": "-"
 }

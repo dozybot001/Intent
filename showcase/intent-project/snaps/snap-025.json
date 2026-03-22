@@ -2,11 +2,9 @@
   "id": "snap-025",
   "object": "snap",
   "created_at": "2026-03-19T12:01:34.388917+00:00",
-  "title": "评估当前 CLI 是否需要拆分",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "我看你写了很多代码，目前的cli实现规模大吗，你觉得需要进行解耦拆分吗",
-  "rationale": "用户开始关注第一版落地后的代码组织质量；需要基于当前真实体量判断是否应在继续开发前先做结构性拆分。",
-  "summary": "检查了当前关键文件体量与职责分布。整体代码总量仍处于可控范围：src/intent_cli/cli.py 约 788 行，src/intent_cli/store.py 约 324 行，apps/inthub_api/server.py 约 148 行，apps/inthub_api/store.py 约 548 行，tests/test_cli.py 约 466 行，总体还不算“大项目”。但结构上已经出现需要解耦的明确信号：cli.py 同时承载参数解析、JSON 输出调度、intent/snap/decision 三类对象命令、hub 配置读写、HTTP 客户端、GitHub repo 识别与同步 payload 组装，职责过多；apps/inthub_api/store.py 也同时承载 SQLite schema、link/sync 写逻辑、overview/handoff/detail/search 读模型派生。判断结论是：当前不需要重型重构或拆 repo，但已经值得在继续扩展功能前做一次轻量拆分，把 CLI 按 concern 切成 commands + transport + hub sync builder，把 API store 按 raw batch ingest 与 read model 查询分开。这样可以避免下一轮继续在单文件里滚大，而不至于过早平台化。",
-  "feedback": ""
+  "what": "评估当前 CLI 是否需要拆分",
+  "why": "用户开始关注第一版落地后的代码组织质量；需要基于当前真实体量判断是否应在继续开发前先做结构性拆分。",
+  "next": "-"
 }

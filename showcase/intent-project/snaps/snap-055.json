@@ -2,11 +2,9 @@
   "id": "snap-055",
   "object": "snap",
   "created_at": "2026-03-19T15:27:39.000033+00:00",
-  "title": "修复溢出、去除 Handoff 冗余、分层展示 deprecated decisions",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "有一些显示BUG：内容时常溢出容器。侧边decision和intent.decision_ids冗余。deprecated decisions也显示出来了",
-  "rationale": "",
-  "summary": "修复了三类问题。(1) 溢出 BUG：在 .main > * 加 min-width:0 解决 CSS grid 子项默认 min-width:auto 导致的横向溢出；.detail-content 加 overflow-wrap:break-word；.card 加 overflow:hidden + min-width:0；.sidebar-body 加 overflow-x:hidden；.detail-kv-value 改用 overflow-wrap:anywhere 替代 word-break:break-all。(2) Handoff 冗余：移除了 Active Constraints 整个区块——因为每个 active intent 必然链接所有 active decisions，单独再列一遍没有信息增量；改为在 intent 卡片 meta 里显示 'N constraints' badge 作为入口。(3) Deprecated decisions 分层展示：API 层在 queries.py 的 project_overview 中新增 deprecated_decisions 字段，与 active_decisions 并列返回；前端 Decisions tab 默认只列 active，deprecated 折叠在 details 标签里，标题加删除线 + 0.55 透明度；Intent detail 的 Linked Decisions 同样分为 active 组（正常显示）和 deprecated 组（折叠、弱化显示）。同时修复了 test_read_only_web_shell_serves_config 测试中因页面重写而失效的断言。50 tests passed。",
-  "feedback": ""
+  "what": "修复溢出、去除 Handoff 冗余、分层展示 deprecated decisions",
+  "why": "",
+  "next": "-"
 }

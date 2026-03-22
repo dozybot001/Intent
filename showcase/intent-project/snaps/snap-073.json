@@ -2,11 +2,9 @@
   "id": "snap-073",
   "object": "snap",
   "created_at": "2026-03-19T17:58:00.350956+00:00",
-  "title": "澄清 IntHub 的后端开发目标",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "由于我不了解非静态网页后端，我们的开发目标是什么，最重要做一个什么后端",
-  "rationale": "这是实现方向上的关键澄清：用户需要把‘后端’从抽象概念收敛成一个具体可开发的 IntHub 服务边界。",
-  "summary": "已澄清 IntHub 当前真正要开发的不是‘一般意义上的网站后端’，而是一个 semantic sync backend：它负责接收本地 CLI 通过 hub link / hub sync 推上来的语义历史，持久化到数据库，再把 project overview、handoff、intent/snap/decision detail、search 这些读模型提供给 Web。对当前项目而言，最重要的后端就是‘单个可部署的 IntHub 应用实例’，它同时包含三层职责：一，write path（link/sync-batches）；二，read path（projects/overview/handoff/detail/search）；三，直接服务现有 Web 壳。它不是为了处理静态页面，而是为了成为语义历史的远端真相源。静态网页只是展示层；真正必须先成立的是这个后端实例和它背后的持久化。后续优先级也因此明确：先让这个后端实例稳定可部署、可持久化、可同步，再考虑 auth、GitHub 绑定和更复杂的协作功能。此轮只做方向解释，没有改代码，也没有运行测试。",
-  "feedback": ""
+  "what": "澄清 IntHub 的后端开发目标",
+  "why": "这是实现方向上的关键澄清：用户需要把‘后端’从抽象概念收敛成一个具体可开发的 IntHub 服务边界。",
+  "next": "-"
 }

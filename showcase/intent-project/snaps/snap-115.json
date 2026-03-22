@@ -2,11 +2,9 @@
   "id": "snap-115",
   "object": "snap",
   "created_at": "2026-03-20T09:04:33.509823+00:00",
-  "title": "撤回当前产品页探索并清理代码",
-  "status": "active",
   "intent_id": "intent-022",
   "query": "",
-  "rationale": "",
-  "summary": "根据用户最新判断，静态产品展示页当前阶段暂停推进，并已删除本轮为该方向新增的所有前端代码。具体包括：移除整个 frontend/ 目录及其 index.html、README.md 和 assets/css/intent.css；保留仓库中原有的 dogfooding 文档改动与 .claude 目录不动。这样工作区已经不再包含这轮产品页探索产生的冗余实现，后续若重新启动该方向，应从新的页面叙事和视觉方案重新开始，而不是沿用当前这版。",
-  "feedback": ""
+  "what": "撤回当前产品页探索并清理代码",
+  "why": "",
+  "next": "-"
 }

@@ -2,11 +2,9 @@
   "id": "snap-098",
   "object": "snap",
   "created_at": "2026-03-20T06:56:12.108351+00:00",
-  "title": "全面重设计 Fig.1，修复箭头、配色和设计感",
-  "status": "active",
   "intent_id": "intent-021",
   "query": "效果依旧不好，出现显示错误，intent到agent的箭头非常大。然后为什么intent和agent都是紫色的。可以提高设计感。按你的想法来。",
-  "rationale": "arrowPurple marker 尺寸 10x8 + stroke 1.8 导致箭头过大；Agent 和 Intent 同为紫色缺乏语义区分；整体设计缺少层次和精致感",
-  "summary": "从头重写了 Fig.1 SVG。核心改动：一，配色分离——Agent 改为蓝色（#3B82F6 + #EFF6FF 背景），与 Intent 紫色（#5B4FD9）形成清晰语义区分：Agent 是执行者，Intent 是协议层；二，去掉所有 marker-end 箭头，改用手绘 polygon 三角形作为箭头（如 Intent→Agent 用 6px 小 chevron 而非 10x8 的 marker），面板间过渡箭头也用小三角形；三，设计感提升——每个面板标签改为 pill badge 样式（圆角背景+边框）；Human 节点加了字母缩写圆形装饰；Git 连接器用 pill badge + 上下连接线 + 中间小圆点的节奏感设计；Panel C 背景加了紫色辉光（glowPurple filter）和微渐变底色；Gap 区域加了呼吸动画的 pulse ring；四，viewBox 扩展到 960x420，面板间距约 80px，整体呼吸感大幅提升。各元素字号 15px（节点名）、12.5px（Intent 标签）、11px（Git pill）、12-13px（caption）。",
-  "feedback": ""
+  "what": "全面重设计 Fig.1，修复箭头、配色和设计感",
+  "why": "arrowPurple marker 尺寸 10x8 + stroke 1.8 导致箭头过大；Agent 和 Intent 同为紫色缺乏语义区分；整体设计缺少层次和精致感",
+  "next": "-"
 }

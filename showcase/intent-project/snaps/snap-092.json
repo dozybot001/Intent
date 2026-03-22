@@ -2,11 +2,9 @@
   "id": "snap-092",
   "object": "snap",
   "created_at": "2026-03-19T20:22:28.979691+00:00",
-  "title": "提交并推送 README 首页收口",
-  "status": "active",
   "intent_id": "intent-020",
   "query": "可以，提交并推送",
-  "rationale": "",
-  "summary": "已将本轮 README 首页收口改动提交并推送。提交为 20adf56（Tighten README homepage copy），只修改 README.md 和 README.CN.md，主要收紧了首页表达：删除开头的重复定义，压缩 Why 与 Agent skill 段落，收短 IntHub 段落里的重复流程描述，并移除了低信息量的 Agent 使用提示小节。信息边界保持不变：IntHub Local 仍是首个用户路径，默认地址仍是 http://127.0.0.1:7210，GitHub origin remote 与 Python 3.9+ 仍保留为当前限制。由于这轮只涉及首页文档改动，没有补跑测试。main 已推送到 origin。",
-  "feedback": ""
+  "what": "提交并推送 README 首页收口",
+  "why": "",
+  "next": "-"
 }

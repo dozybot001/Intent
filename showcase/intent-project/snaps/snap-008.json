@@ -2,11 +2,9 @@
   "id": "snap-008",
   "object": "snap",
   "created_at": "2026-03-19T10:18:19.080303+00:00",
-  "title": "记录代码改动覆盖原则并继续优化 skill",
-  "status": "active",
   "intent_id": "intent-007",
   "query": "是的，记录。你的理解非常正确，比我的表述更加准确，按照这个理解进一步优化skill",
-  "rationale": "用户确认将该原则上升为长期约束，并要求把它落到 SKILL.md 的可执行判断规则中",
-  "summary": "已创建 decision-002：任何代码改动都必须可追溯到某个 intent；Intent 至少覆盖 Git 记录的代码工作语义。由于 decision 与 intent 并行创建时未自动关联，已手动 attach 到 intent-007。随后继续修改 /Users/dozy/.agents/skills/intent-cli/SKILL.md：在 Why this matters 中明确 Intent 是 Git 缺失语义层，至少应覆盖所有代码改动的语义背景；在 Recognize intents 中新增代码改动前必须先有 active intent 的规则；在 When to create what 中新增‘代码改动前若无 active intent 需先创建 intent’与‘非代码但可恢复目标同样可建 intent’；在 Anti-patterns 中补充‘不能只拿是否改代码作为 intent 唯一测试’；在 Quality check 中新增‘每个 code diff 是否都可追溯到 intent 和 snaps’。当前 skill 已同时表达两层约束：代码改动不能脱离 intent，且非代码的 recoverable goal 也仍可能需要 intent。",
-  "feedback": ""
+  "what": "记录代码改动覆盖原则并继续优化 skill",
+  "why": "用户确认将该原则上升为长期约束，并要求把它落到 SKILL.md 的可执行判断规则中",
+  "next": "-"
 }

@@ -2,11 +2,9 @@
   "id": "snap-033",
   "object": "snap",
   "created_at": "2026-03-19T12:39:56.714279+00:00",
-  "title": "优化 IntHub 只读 Web 的 detail 面板",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "继续优化只读 Web 的 detail 体验",
-  "rationale": "在 URL 状态和选中态已经可恢复之后，detail 面板仍然偏像开发期 JSON 查看器，需要进一步收敛成真正的 handoff/detail 视图。",
-  "summary": "已完成 IntHub 只读 Web 的 detail 面板结构化优化。前端侧，apps/inthub_web/static/app.js 不再把 detail 区域主要表现为简单文本加整块 JSON，而是按对象类型渲染结构化 section：intent detail 现在会显示当前 read、source query、linked decisions、snap timeline 和 Git context；decision detail 会显示 decision rationale、affected intents 与 scope；snap detail 会显示 summary、feedback、parent intent 与 Git context。为了让 detail 区域真正成为协作视图，相关对象现在可以从 detail 面板内部继续点击跳转，使用 workspace 加 local object id 组装 remote object id；raw payload 仍然保留，但被折叠进 Open raw payload 的 details 区域。样式侧，apps/inthub_web/static/styles.css 新增了 detail section、key-value grid、related object links 与 raw toggle 的视觉样式，并让 detail 内的 related links 也支持选中态高亮。测试侧，tests/test_cli.py 补充了对 app.js 静态资源的读取检查，确认新的 detail 相关文本会通过 Web 壳提供。全量验证结果保持通过：.venv/bin/python -m pytest -q => 50 passed in 15.39s。当前工作区继续保留未提交改动，intent-013 保持 active。",
-  "feedback": ""
+  "what": "优化 IntHub 只读 Web 的 detail 面板",
+  "why": "在 URL 状态和选中态已经可恢复之后，detail 面板仍然偏像开发期 JSON 查看器，需要进一步收敛成真正的 handoff/detail 视图。",
+  "next": "-"
 }

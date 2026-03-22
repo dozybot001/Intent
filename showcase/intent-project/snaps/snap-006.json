@@ -2,11 +2,9 @@
   "id": "snap-006",
   "object": "snap",
   "created_at": "2026-03-19T10:09:12.781571+00:00",
-  "title": "纠正上一轮过度记录",
-  "status": "active",
   "intent_id": "intent-005",
   "query": "等一下，我们上一轮的交互，其实不应该建立intent，我只是让你了解工作流，你觉得呢",
-  "rationale": "需要根据用户反馈修正对 intent 边界的判断，避免把协作约定误记为工作目标",
-  "summary": "同意用户的判断：上一轮请求主要是让 agent 熟悉 intent-cli 工作流，并约定后续协作时使用它；这有助于当前会话执行，但本身不构成一个需要跨会话推进的独立目标。按 SKILL 的 when-NOT-to-create-objects 标准，更合适的做法是本会话完成 inspect 和规则理解，但不单独创建 intent。为避免后续 inspect 被无意义 active intent 污染，这里记录纠偏结论并准备结束 intent-005；今后仅在用户请求隐含了需要持续推进的实际目标时创建 intent。",
-  "feedback": ""
+  "what": "纠正上一轮过度记录",
+  "why": "需要根据用户反馈修正对 intent 边界的判断，避免把协作约定误记为工作目标",
+  "next": "-"
 }

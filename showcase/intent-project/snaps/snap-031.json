@@ -2,11 +2,9 @@
   "id": "snap-031",
   "object": "snap",
   "created_at": "2026-03-19T12:31:55.118428+00:00",
-  "title": "完成 IntHub 只读 Web 第一版最小壳",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "完成 read-only Web 第一版的最小实现与验证",
-  "rationale": "在现有 CLI 和 API 同步基础层之上，先把远端可读性落成最小可用界面，验证 IntHub 已经不只是契约和接口，而是一个可打开的只读协作层。",
-  "summary": "已完成 IntHub 只读 Web 第一版的最小实现。服务端侧，apps/inthub_api/queries.py 新增项目列表查询与 snap detail 查询，apps/inthub_api/server.py 新增 GET /api/v1/projects 与 GET /api/v1/snaps/:remote_object_id，并为浏览器访问补充了 CORS 响应头与 OPTIONS 处理，使现有 API 可以直接被独立 Web 前端消费。Web 侧，新建 apps/inthub_web，包含标准库静态服务器与一套零依赖前端资源：apps/inthub_web/server.py 负责暴露 config.json 和静态页面；apps/inthub_web/static/index.html、styles.css、app.js 实现了 read-only 项目页，能够读取项目列表，展示 project overview、handoff、active intents、active decisions、recent snaps，并支持 intent、decision、snap 的 detail 查看和项目范围搜索。测试方面，tests/test_cli.py 已新增项目列表、snap detail 和 Web 壳配置页测试；全量验证结果为 .venv/bin/python -m pytest -q => 50 passed in 15.65s。同时确认 python3 -m apps.inthub_web --help 可正常运行。当前工作区包含这轮未提交改动，intent-013 继续保持 active，以便下一步推进 Web 交互细化或 GitHub 登录。",
-  "feedback": ""
+  "what": "完成 IntHub 只读 Web 第一版最小壳",
+  "why": "在现有 CLI 和 API 同步基础层之上，先把远端可读性落成最小可用界面，验证 IntHub 已经不只是契约和接口，而是一个可打开的只读协作层。",
+  "next": "-"
 }

@@ -2,11 +2,9 @@
   "id": "snap-069",
   "object": "snap",
   "created_at": "2026-03-19T17:24:02.156465+00:00",
-  "title": "让 IntHub Web 进入 Pages-ready 状态",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "好的，开始推进部署",
-  "rationale": "GitHub Pages 是既定的 Web 分发边界；要从本地原型进入实际部署阶段，必须先解决静态 config、项目页 base path 和无 API 时的优雅降级。",
-  "summary": "已将 IntHub Web 收到 Pages-ready。主要改动有四块：第一，在 apps/inthub_web/static/app.js 中新增静态托管适配逻辑，包括 base path 处理、从静态 config.json 读取配置、支持用 ?api=... 覆盖 API 地址并持久化到 localStorage，以及在未配置 API 时渲染专门的部署/预览引导而不是直接报错；第二，新增 apps/inthub_web/static/config.json 作为静态配置入口，便于 GitHub Pages 或其他静态托管直接提供配置；第三，新增 scripts/export_inthub_web.py，把当前 Web shell 导出成 Pages-ready 静态站点，会重写 index.html 里的资源路径、注入 base path、生成 404.html 和最终 config.json；第四，新增 .github/workflows/deploy-inthub-web.yml，使用 GitHub Actions 官方 Pages 流程在 main 分支上自动导出并发布站点，支持通过仓库变量 INTHUB_API_BASE_URL 和 INTHUB_DEFAULT_PROJECT_ID 注入部署配置。另新增 tests/test_inthub_web_export.py 校验导出产物。验证结果：.venv/bin/python -m pytest -q tests/test_inthub_web_export.py tests/test_cli.py 通过（51 passed）；本地执行导出脚本后，/tmp/inthub-pages-preview 下已生成 index.html、404.html、config.json 等 Pages 产物。当前结论是：IntHub Web 已具备 GitHub Pages 发布能力，但若要成为真正可用的线上站点，仍需要单独配置一个可访问的 IntHub API 地址。",
-  "feedback": ""
+  "what": "让 IntHub Web 进入 Pages-ready 状态",
+  "why": "GitHub Pages 是既定的 Web 分发边界；要从本地原型进入实际部署阶段，必须先解决静态 config、项目页 base path 和无 API 时的优雅降级。",
+  "next": "-"
 }

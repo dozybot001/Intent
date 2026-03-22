@@ -2,11 +2,9 @@
   "id": "snap-042",
   "object": "snap",
   "created_at": "2026-03-19T13:26:14.482444+00:00",
-  "title": "确认当前阶段继续维持 monorepo",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "",
-  "rationale": "",
-  "summary": "已将 monorepo 策略上升为长期 decision。当前结论是：Intent 继续作为 umbrella project / monorepo；CLI、Hub 等 deliverable 通过分离分发边界和带前缀的 tag 命名（如 cli-vX.Y.Z、hub-vX.Y.Z）来解决发布语义，而不是现在就拆分仓库。选择继续单仓库的理由是：CLI、IntHub API、IntHub Web、sync contract、README 与 roadmap 仍需要原子演进；跨边界重构和联调在单仓库内更低成本；语义模型也更不容易在多仓库之间漂移。与此同时，也明确了未来重新评估拆 repo 的触发条件：不同 deliverable 的发布节奏长期显著分离、权限或部署职责需要独立、Hub 已形成大量与 CLI 无关的代码和 issue 流，或单仓库 CI / 发布已经明显拖慢迭代。基于这条 decision，后续准备 2.0.0 时将继续采用 monorepo，但 Git tag 与 GitHub release 会按 CLI deliverable 命名。",
-  "feedback": ""
+  "what": "确认当前阶段继续维持 monorepo",
+  "why": "",
+  "next": "-"
 }

@@ -2,11 +2,9 @@
   "id": "snap-041",
   "object": "snap",
   "created_at": "2026-03-19T13:24:29.954135+00:00",
-  "title": "评估 monorepo 与按 deliverable 拆仓库的取舍",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "",
-  "rationale": "",
-  "summary": "围绕 CLI 改用 cli-vX.Y.Z、Hub 将来可能采用 hub-vX.Y.Z 的版本治理策略，进一步评估了是否应因此拆分仓库。当前判断是：仅因为 release/tag 按 deliverable 分层，还不构成必须拆 repo 的理由。虽然 Git tag 的确是对整个仓库 commit 的快照，但只要 tag 命名明确表达 deliverable 身份，例如 cli-v2.0.0，就可以接受同一仓库在该 commit 上同时包含其他未发布子系统代码；真正关键的是分发边界和发布文案必须清楚，不是仓库物理边界必须立刻分开。继续保持 monorepo 的主要收益包括：CLI、IntHub API、IntHub Web、sync contract、README 与 roadmap 可以原子演进；跨边界重构和联调成本更低；semantic model 不容易在多仓库之间漂移。反过来，拆 repo 只有在这些条件出现时才明显更合理：一，不同 deliverable 的发布节奏长期显著分离；二，团队权限、可见性或部署职责需要独立；三，Hub 开始拥有大量与 CLI 无关的代码和 issue 流；四，发布和 CI 已被单仓库拖慢到明显影响迭代。当前阶段更建议维持单仓库、分离分发、分离 tag 前缀，而不是为了解决发布命名问题过早拆 repo。此结论目前仍作为建议记录，等待用户是否要上升为长期 decision。",
-  "feedback": ""
+  "what": "评估 monorepo 与按 deliverable 拆仓库的取舍",
+  "why": "",
+  "next": "-"
 }

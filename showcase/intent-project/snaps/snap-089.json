@@ -2,11 +2,9 @@
   "id": "snap-089",
   "object": "snap",
   "created_at": "2026-03-19T20:20:31.040699+00:00",
-  "title": "压缩 README 首页表达",
-  "status": "active",
   "intent_id": "intent-019",
   "query": "我感觉readme说的稍微有点啰嗦，可以收一收",
-  "rationale": "",
-  "summary": "已对 README.md 和 README.CN.md 做了一轮收口，目标是在不改变产品边界和关键命令的前提下，把首页压成更像项目入口而不是说明手册。具体压缩了三类内容：一，删除开头对 Intent CLI 的二次定义，保留一句主标语即可；二，收紧 Why 和 Agent skill 段落的表述，去掉重复修饰，保留核心判断；三，压缩 IntHub 段落，把‘IntHub Local 是首个用户路径’与  命令合并成一段，删除重复的高层流程复述，同时移除低信息量的 Agent 使用提示小节。保留的信息边界没有变：PyPI 仍只分发 CLI，IntHub Local 仍是首个用户路径，默认地址仍是 http://127.0.0.1:7210，GitHub origin remote 与 Python 3.9+ 仍被明确列为当前限制。此轮只改首页文档，没有运行测试。",
-  "feedback": ""
+  "what": "压缩 README 首页表达",
+  "why": "",
+  "next": "-"
 }

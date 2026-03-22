@@ -2,9 +2,7 @@
   "id": "decision-003",
   "object": "decision",
   "created_at": "2026-03-19T11:39:26.575033+00:00",
-  "title": "Intent 数据独立于 Git 数据，不存入 GitHub；仓库必须忽略 .intent/",
   "status": "active",
-  "rationale": "用户明确决定语义历史不应作为 Git/GitHub 内容的一部分；语义层应独立于代码版本历史，并通过 .gitignore 防止 .intent/ 混入工作树与远端仓库。",
   "intent_ids": [
     "intent-013",
     "intent-014",
@@ -28,5 +26,8 @@
     "intent-032",
     "intent-033",
     "intent-034"
-  ]
+  ],
+  "what": "Intent 数据独立于 Git 数据，不存入 GitHub；仓库必须忽略 .intent/",
+  "why": "用户明确决定语义历史不应作为 Git/GitHub 内容的一部分；语义层应独立于代码版本历史，并通过 .gitignore 防止 .intent/ 混入工作树与远端仓库。",
+  "query": "-"
 }

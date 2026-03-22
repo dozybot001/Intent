@@ -2,11 +2,9 @@
   "id": "snap-127",
   "object": "snap",
   "created_at": "2026-03-20T19:00:23.860947+00:00",
-  "title": "精炼 inspect 的固定读取说明",
-  "status": "active",
   "intent_id": "intent-025",
   "query": "",
-  "rationale": "",
-  "summary": "由于 inspect 默认字段已稳定为 active_intents、active_decisions、suspended、warnings，已同步把仓库内 SKILL.md 与本机 intent-cli skill 的 session-start 教程收成固定读取顺序：先看 active_intents，再看 active_decisions，再看 suspended，最后看 warnings。删除了多余解释语句，使 skill 更像固定操作指令而不是字段说明。",
-  "feedback": ""
+  "what": "精炼 inspect 的固定读取说明",
+  "why": "",
+  "next": "-"
 }

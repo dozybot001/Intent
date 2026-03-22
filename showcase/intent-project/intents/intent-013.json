@@ -2,10 +2,7 @@
   "id": "intent-013",
   "object": "intent",
   "created_at": "2026-03-19T11:21:57.910496+00:00",
-  "title": "规划 IntHub 首期设计方向",
   "status": "done",
-  "source_query": "好的，我们接下来就要开发IntHub，你有什么想法吗",
-  "rationale": "用户明确把工作推进到 IntHub 阶段；这是一个可恢复的产品设计目标，后续很可能需要跨会话继续细化与落地。",
   "decision_ids": [
     "decision-001",
     "decision-002",
@@ -80,5 +77,8 @@
     "snap-074",
     "snap-075",
     "snap-076"
-  ]
+  ],
+  "what": "规划 IntHub 首期设计方向",
+  "why": "用户明确把工作推进到 IntHub 阶段；这是一个可恢复的产品设计目标，后续很可能需要跨会话继续细化与落地。",
+  "query": "好的，我们接下来就要开发IntHub，你有什么想法吗"
 }

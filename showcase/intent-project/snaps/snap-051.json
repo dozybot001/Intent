@@ -2,11 +2,9 @@
   "id": "snap-051",
   "object": "snap",
   "created_at": "2026-03-19T14:40:28.268308+00:00",
-  "title": "说明当前 IntHub Web 的查看入口",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "",
-  "rationale": "",
-  "summary": "已检查当前仓库里的 IntHub 运行态与查看入口。结论是：当前 IntHub 已经有可运行的本地只读 Web 原型，但还没有托管站点，也没有现成的本地同步数据。代码入口方面，apps/inthub_api/server.py 默认在 127.0.0.1:8000 提供 API；apps/inthub_web/server.py 默认在 127.0.0.1:3000 提供只读 Web 壳，页面会从 /config.json 读取 apiBaseUrl，并消费 projects、overview、handoff、detail、search 这些读接口。仓库当前状态方面，.intent/ 已存在，但没有 .intent/hub.json；同时也没有 .inthub/inthub.db，这意味着本地还没有完成 hub login/link/sync，也没有可供 Web 展示的 IntHub 数据。因此用户现在想看页面，最短路径是：先启动 API（python -m apps.inthub_api --db-path .inthub/inthub.db），再启动 Web（python -m apps.inthub_web --api-base-url http://127.0.0.1:8000），然后在当前仓库执行 itt hub login、itt hub link、itt hub sync，最后打开 http://127.0.0.1:3000 。当前这轮只是状态说明，没有改代码，也没有实际启动服务。",
-  "feedback": ""
+  "what": "说明当前 IntHub Web 的查看入口",
+  "why": "",
+  "next": "-"
 }

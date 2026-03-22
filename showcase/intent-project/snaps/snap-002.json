@@ -2,10 +2,9 @@
   "id": "snap-002",
   "object": "snap",
   "created_at": "2026-03-18T07:25:12.458281+00:00",
-  "title": "新增中文 README 并发布 0.6.0",
-  "status": "active",
   "intent_id": "intent-002",
   "query": "新增中文readme，readme提供双语链接，发布intent-cli-python",
-  "summary": "创建 README.CN.md 中文版，README.md 添加双语切换链接，build + twine upload 发布 0.6.0 到 PyPI",
-  "feedback": ""
+  "what": "新增中文 README 并发布 0.6.0",
+  "why": "创建 README.CN.md 中文版，README.md 添加双语切换链接，build + twine upload 发布 0.6.0 到 PyPI",
+  "next": "-"
 }

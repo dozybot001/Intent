@@ -2,11 +2,9 @@
   "id": "snap-102",
   "object": "snap",
   "created_at": "2026-03-20T07:09:21.620471+00:00",
-  "title": "Fig.1 图标换真实 SVG 图形 + caption 对齐",
-  "status": "active",
   "intent_id": "intent-021",
   "query": "三个主体的图标可以调整一下，human可以用人，agent可以用agent logo普遍的圆形图标。此外，B和C下方的文字又没有对齐。",
-  "rationale": "H/A/{ } 字母图标不够直观，应换成可辨识的图形；B caption y=386 vs C caption y=390 未对齐",
-  "summary": "两类改动。一，图标替换：Human 节点的 H 字母改为人形剪影（头部圆形 r=3.5 + 肩部椭圆 rx=6 ry=4），三个面板一致；Agent 节点的 A 字母改为机器人图标（方头 10x8 rx=2 + 两个白色眼睛 r=1.2 + 天线杆 + 天线球），Panel B/C 一致；Code 节点的 { } 改为 </> 标签符号。所有图标保持半透明装饰风格，不抢主文字视觉权重。二，Caption 对齐：Panel C 的 caption 从 y=390 调整到 y=386，font-size 从 13 调整到 12.5，与 Panel B 完全对齐。",
-  "feedback": ""
+  "what": "Fig.1 图标换真实 SVG 图形 + caption 对齐",
+  "why": "H/A/{ } 字母图标不够直观，应换成可辨识的图形；B caption y=386 vs C caption y=390 未对齐",
+  "next": "-"
 }

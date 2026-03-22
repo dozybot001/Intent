@@ -2,11 +2,9 @@
   "id": "snap-017",
   "object": "snap",
   "created_at": "2026-03-19T11:22:32.320379+00:00",
-  "title": "提出 IntHub 首期设计方向",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "好的，我们接下来就要开发IntHub，你有什么想法吗",
-  "rationale": "需要把路线图中的“协作层”约束转成可执行的首期产品方向，避免一上来平台化过度。",
-  "summary": "阅读了 docs/CN/roadmap.md 与 docs/CN/vision.md 中关于 IntHub/协作层的约束，确认当前阶段对 IntHub 的正确定位不是重做语义层，而是在现有 intent/snap/decision 之上提供远端组织与协作能力。基于这个边界，形成了首期方向：IntHub 应先做 read-first、sync-first 的协作层，而不是远端编辑器；本地 CLI 继续作为主要写入口，IntHub 先负责共享 timeline、当前状态视图、检索回溯、handoff/review 上下文，以及与 Git 提交/分支/版本的关联展示。需要重点注意的设计点包括对象全局命名空间、基于 append-only 事件或快照的远端同步、项目/仓库/工作区容器层，以及避免过早引入评论系统、任务系统、全量聊天归档等复杂平台能力。下一步可以把这些判断收敛成 IntHub 的 MVP 范围和最小信息架构。",
-  "feedback": ""
+  "what": "提出 IntHub 首期设计方向",
+  "why": "需要把路线图中的“协作层”约束转成可执行的首期产品方向，避免一上来平台化过度。",
+  "next": "-"
 }

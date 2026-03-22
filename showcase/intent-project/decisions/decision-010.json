@@ -2,9 +2,7 @@
   "id": "decision-010",
   "object": "decision",
   "created_at": "2026-03-19T17:14:01.355371+00:00",
-  "title": "Intent 项目自身的语义历史应作为 IntHub 的官方 showcase project 之一",
   "status": "active",
-  "rationale": "Intent 自身的 .intent 数据是真实连续发生的语义历史，天然覆盖跨 agent handoff、feedback 消费、decision 约束和错误纠偏，是 IntHub 价值最强的首批展示材料。",
   "intent_ids": [
     "intent-013",
     "intent-014",
@@ -28,5 +26,8 @@
     "intent-032",
     "intent-033",
     "intent-034"
-  ]
+  ],
+  "what": "Intent 项目自身的语义历史应作为 IntHub 的官方 showcase project 之一",
+  "why": "Intent 自身的 .intent 数据是真实连续发生的语义历史，天然覆盖跨 agent handoff、feedback 消费、decision 约束和错误纠偏，是 IntHub 价值最强的首批展示材料。",
+  "query": "-"
 }

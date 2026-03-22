@@ -2,11 +2,9 @@
   "id": "snap-015",
   "object": "snap",
   "created_at": "2026-03-19T11:08:29.518804+00:00",
-  "title": "确认 PyPI 已接收 v1.1.0",
-  "status": "active",
   "intent_id": "intent-011",
   "query": "哦对，pypi发布了吗，这个应该也需要同步发布吧（好麻烦）",
-  "rationale": "GitHub release 完成后，包分发渠道需要同步，避免 GitHub 与 PyPI 版本漂移。",
-  "summary": "已执行一次完整的 PyPI 发布：使用 .venv 构建 sdist 和 wheel 后，通过 twine upload 成功上传 intent_cli_python-1.1.0-py3-none-any.whl 与 intent_cli_python-1.1.0.tar.gz，twine 输出显示上传完成并给出版本页 https://pypi.org/project/intent-cli-python/1.1.0/ 。随后做了三类核对：版本页返回 HTTP 200、版本专属 JSON https://pypi.org/pypi/intent-cli-python/1.1.0/json 返回 HTTP 200 且包含 version=1.1.0；但聚合接口 https://pypi.org/pypi/intent-cli-python/json 和 pip index versions 仍暂时显示 latest=1.0.0。结论是上传已经成功，当前差异来自 PyPI/CDN 的索引传播延迟，而不是发布失败。当前 git 工作区仍然干净。",
-  "feedback": ""
+  "what": "确认 PyPI 已接收 v1.1.0",
+  "why": "GitHub release 完成后，包分发渠道需要同步，避免 GitHub 与 PyPI 版本漂移。",
+  "next": "-"
 }

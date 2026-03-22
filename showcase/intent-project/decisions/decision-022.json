@@ -2,13 +2,14 @@
   "id": "decision-022",
   "object": "decision",
   "created_at": "2026-03-21T07:47:38.045115+00:00",
-  "title": "IntHub Local 通过 itt hub start 从 clone 的仓库源码直接启动，不预构建分发物",
   "status": "active",
-  "rationale": "保持 CLI 与 IntHub 分离（decision-004），省去构建步骤，用户 clone 后一条命令即可启动；远端 hub 出来后本地版仅作为可选路径，不需要独立分发",
   "intent_ids": [
     "intent-031",
     "intent-032",
     "intent-033",
     "intent-034"
-  ]
+  ],
+  "what": "IntHub Local 通过 itt hub start 从 clone 的仓库源码直接启动，不预构建分发物",
+  "why": "保持 CLI 与 IntHub 分离（decision-004），省去构建步骤，用户 clone 后一条命令即可启动；远端 hub 出来后本地版仅作为可选路径，不需要独立分发",
+  "query": "-"
 }

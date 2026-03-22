@@ -2,9 +2,9 @@
   "id": "snap-133",
   "object": "snap",
   "created_at": "2026-03-20T20:33:09.273905+00:00",
-  "title": "简化 snap create 为 title 与 summary",
-  "status": "active",
   "intent_id": "intent-025",
-  "summary": "已将 snap create 收紧为只接受 TITLE、--intent、--summary，其中 --summary 为必填。新建 snap 对象不再写入 query 或 rationale，只保留 title、summary，以及默认空的 feedback；用户反馈继续通过单独的 snap feedback 命令记录。同步更新了 parser、core 写入逻辑、tests/test_cli.py、中英文 cli.md、仓库内与本机 skill，以及 IntHub 的 MVP / sync contract 文档，使所有表述统一到新的 snap 模型。",
-  "feedback": ""
+  "what": "简化 snap create 为 title 与 summary",
+  "why": "已将 snap create 收紧为只接受 TITLE、--intent、--summary，其中 --summary 为必填。新建 snap 对象不再写入 query 或 rationale，只保留 title、summary，以及默认空的 feedback；用户反馈继续通过单独的 snap feedback 命令记录。同步更新了 parser、core 写入逻辑、tests/test_cli.py、中英文 cli.md、仓库内与本机 skill，以及 IntHub 的 MVP / sync contract 文档，使所有表述统一到新的 snap 模型。",
+  "next": "-",
+  "query": "-"
 }

@@ -2,11 +2,9 @@
   "id": "snap-049",
   "object": "snap",
   "created_at": "2026-03-19T14:34:56.031117+00:00",
-  "title": "在 README 补回 skill 安装说明",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "",
-  "rationale": "",
-  "summary": "已根据用户反馈，在 README.md 与 README.CN.md 中补回最小但关键的 skill 安装说明。调整目标不是把 README 重新写回手册，而是在保持首页简洁的前提下，恢复一条会显著影响真实使用效果的信息：对于 Codex、Claude Code 这类支持 skill 的 agent，除了安装 CLI，还应执行 npx skills add dozybot001/Intent -g 来安装 intent-cli skill。文案上明确写出 skill 的作用边界：CLI 只提供命令本身，skill 才负责教 agent 在真实工作中何时、如何调用 itt。当前工作区包含 README.md 与 README.CN.md 两个未提交文档改动，本轮没有运行测试，因为没有代码行为变化。",
-  "feedback": ""
+  "what": "在 README 补回 skill 安装说明",
+  "why": "",
+  "next": "-"
 }

@@ -2,11 +2,9 @@
   "id": "snap-020",
   "object": "snap",
   "created_at": "2026-03-19T11:35:24.252597+00:00",
-  "title": "详细评估将 Intent 数据直接放入 GitHub 的风险",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "嘶，我其实一开始确实想把Intent数据也传到Github的，这一点有什么风险吗，因为收益很大，你详细说说可能的风险",
-  "rationale": "用户在权衡 IntHub 首期是否直接以 GitHub 作为语义数据承载层；需要系统分析该方案的风险，而不是只给抽象反对意见。",
-  "summary": "围绕“将 .intent/ 直接放到 GitHub 作为远端协作数据源”进行了系统风险分析。判断结论不是这个方向绝对不能做，而是它的主要风险不在公开/私有访问，而在于把语义层过度耦合到 Git 的版本控制语义。主要风险包括：一，工作区与提交历史被 .intent 变更污染，导致频繁 dirty tree、额外提交、PR 噪音和 code review 干扰；二，多分支、多 agent、多 workspace 并发下，intent 对象的 append-only 关系会和 merge/rebase/cherry-pick/squash 发生语义冲突，远端难以判断哪条才是当前有效的真实协作状态；三，Git 允许改写历史，而 Intent 的目标是稳定保留可恢复的语义边界，两者在审计与恢复上存在天然张力；四，语义对象往往比代码更容易包含中间判断、用户反馈、未成熟方案或敏感上下文，直接入 GitHub 会扩大暴露面，即使是私有仓库也默认暴露给所有 repo 协作者；五，GitHub 对语义查询能力有限，若 IntHub 想做 timeline、handoff、decision 影响面和跨 workspace 检索，最终仍要建立自己的索引与派生视图，因此“直接用 GitHub 当后端”未必真的省掉太多系统复杂度。更现实的折中路径是：GitHub-first 作为 auth/repo identity/Git context 底座，但语义对象仍通过 sync 进入 IntHub 自己的存储与索引层。若用户仍想强依赖 GitHub，可进一步评估几种折中形态，例如独立 metadata branch、独立 companion repo，或只把压缩后的 handoff 摘要写回 GitHub，而不把全部对象作为主存储。",
-  "feedback": ""
+  "what": "详细评估将 Intent 数据直接放入 GitHub 的风险",
+  "why": "用户在权衡 IntHub 首期是否直接以 GitHub 作为语义数据承载层；需要系统分析该方案的风险，而不是只给抽象反对意见。",
+  "next": "-"
 }

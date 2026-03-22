@@ -2,11 +2,9 @@
   "id": "snap-044",
   "object": "snap",
   "created_at": "2026-03-19T13:36:08.055357+00:00",
-  "title": "发布 cli-v2.0.0 与 hub-v0.1.0",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "",
-  "rationale": "",
-  "summary": "已按新的 deliverable 版本治理规则完成双发布。首先将仓库中的 CLI 版本提升到 2.0.0，并在 README、README.CN 与中英文 IntHub sync-contract 文档中明确：Intent 是 umbrella project / monorepo，不再维护统一项目版本；CLI 使用 pyproject.toml 中的版本并发布为 cli-vX.Y.Z；IntHub 使用独立轨道并发布为 hub-vX.Y.Z。为保证源码树中的版本报告不再被滞后的 editable metadata 污染，src/intent_cli/__init__.py 现在会在源码运行场景下优先从 pyproject.toml 解析 project.version；tests/test_cli.py 也改为以 pyproject.toml 作为当前版本真值。验证方面，.venv/bin/python -m pytest -q 通过（50 passed）；在排除 build/、dist/、.venv/ 等目录的干净临时副本中成功构建出 intent_cli_python-2.0.0 的 sdist 与 wheel，wheel 中只保留 itt entrypoint，不包含 apps/、inthub 或静态资源；twine check 通过；全新虚拟环境安装 wheel 后，itt version 返回 2.0.0；python3 -m apps.inthub_api --help 与 python3 -m apps.inthub_web --help 也已验证。发布方面，main 已 push 到 origin，release prep 提交为 010411f（Prepare cli-v2.0.0 and hub-v0.1.0 releases）；annotated tag cli-v2.0.0 与 hub-v0.1.0 已创建并推送；GitHub releases 已发布到 https://github.com/dozybot001/Intent/releases/tag/cli-v2.0.0 和 https://github.com/dozybot001/Intent/releases/tag/hub-v0.1.0 。PyPI 上传已完成，twine 返回的版本页为 https://pypi.org/project/intent-cli-python/2.0.0/ ，但与此前类似，latest JSON 索引可能存在短暂传播延迟，需要以版本专页为准直到索引刷新。当前 git status 干净，decision-005 与 decision-006 的规则已经在这次发布中首次生效。",
-  "feedback": ""
+  "what": "发布 cli-v2.0.0 与 hub-v0.1.0",
+  "why": "",
+  "next": "-"
 }

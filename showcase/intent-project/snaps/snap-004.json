@@ -2,11 +2,9 @@
   "id": "snap-004",
   "object": "snap",
   "created_at": "2026-03-18T08:39:00.270280+00:00",
-  "title": "README 安装改进 + 文档双语结构 + 双版本发布",
-  "status": "active",
   "intent_id": "intent-004",
   "query": "readme完善，增加克隆链接、pipx安装cli命令，skill安装命令；docs双语化；发布",
-  "rationale": "",
-  "summary": "README.md/README.CN.md 安装部分新增 git clone、pipx install、npx skills add 三种方式。docs/ 重构为 CN/EN/archive/ 三目录，cli/roadmap/vision 各有中英文版并带双语切换链接，HOW-TO-WRITE-SKILL.md 归档。恢复被删的 .gitignore。提交推送后创建 v0.6.0（三对象模型 + 架构重写）和 v0.6.1（双语文档）两个 GitHub release。",
-  "feedback": ""
+  "what": "README 安装改进 + 文档双语结构 + 双版本发布",
+  "why": "",
+  "next": "-"
 }

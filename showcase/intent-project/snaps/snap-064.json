@@ -2,11 +2,9 @@
   "id": "snap-064",
   "object": "snap",
   "created_at": "2026-03-19T17:07:40.910642+00:00",
-  "title": "收紧 dogfooding 文档并补入口",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "可以，我同意。",
-  "rationale": "dogfooding 文档适合作为案例材料，但在合并前需要把叙事边界收紧，并确保读者能从 README 和 roadmap 找到它。",
-  "summary": "已收紧仓库中的 dogfooding 文档并补上入口。具体调整包括：一是把 docs/CN/dogfooding.md 和 docs/EN/dogfooding.md 开头的‘未经事后编辑 / unedited’改为更准确的‘基于 snap 链整理 / distilled from snap chain’，避免把二次整理误写成原始记录；二是把‘三个 agent’和‘未来任何 agent 都不会重复’这类证据过强的表述改成更稳的说法，如‘不同 agent / multiple agents’和‘更容易看到并避免重复同类错误’；三是在 README、README.CN 以及中英文 roadmap 里新增 dogfooding 文档入口，使其成为可发现的 cross-agent case study，而不是孤立文件。这轮只改文档，没有碰 Claude Code 的前端/API 改动，也没有运行测试。当前工作区仍有其他未提交改动：前端/API/测试文件来自并行工作，本轮未处理。",
-  "feedback": ""
+  "what": "收紧 dogfooding 文档并补入口",
+  "why": "dogfooding 文档适合作为案例材料，但在合并前需要把叙事边界收紧，并确保读者能从 README 和 roadmap 找到它。",
+  "next": "-"
 }

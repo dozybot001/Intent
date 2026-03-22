@@ -2,11 +2,9 @@
   "id": "snap-030",
   "object": "snap",
   "created_at": "2026-03-19T12:30:30.274577+00:00",
-  "title": "启动 IntHub 只读 Web 第一版实现",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "可以，我们开始吧。此外，我想问问login、link、sync三个命令各自什么功能，边界清晰吗",
-  "rationale": "在确认当前 IntHub 已具备 CLI/API 同步基础层后，下一步需要把远端可读性真正落成产品体验，因此启动 read-only Web 第一版，并先澄清 hub login、link、sync 三个命令的职责边界。",
-  "summary": "已进入 IntHub Web 第一版实现阶段。当前判断是：hub login 负责本地 IntHub 访问配置，hub link 负责把当前 workspace 绑定到远端 project、repo 与 workspace 身份，hub sync 负责读取本地语义对象并上传一个完整 sync batch；整体边界基本清晰，只是 login 的名字略微超前于当前 token 配置实现。基于这个判断，已经开始实现零依赖的 read-only Web：一，给现有 IntHub API 补充项目列表入口与 snap detail 读接口，并补上浏览器可用的 CORS 响应头；二，新建 apps/inthub_web，采用标准库静态服务加原生 HTML、CSS、JavaScript，目标是先跑通 project overview、handoff、detail 与 search 四个只读视图；三，后续会补测试，验证 link 到 sync 再到 Web 读视图的最小闭环。",
-  "feedback": ""
+  "what": "启动 IntHub 只读 Web 第一版实现",
+  "why": "在确认当前 IntHub 已具备 CLI/API 同步基础层后，下一步需要把远端可读性真正落成产品体验，因此启动 read-only Web 第一版，并先澄清 hub login、link、sync 三个命令的职责边界。",
+  "next": "-"
 }

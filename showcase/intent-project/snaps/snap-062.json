@@ -2,11 +2,9 @@
   "id": "snap-062",
   "object": "snap",
   "created_at": "2026-03-19T17:03:32.781041+00:00",
-  "title": "撰写 dogfooding 文档",
-  "status": "active",
   "intent_id": "intent-013",
   "query": "把这次跨agent协作落成文档展示在仓库内",
-  "rationale": "真实使用记录比功能说明更有说服力；snap链本身就是数据源",
-  "summary": "在 docs/CN/dogfooding.md 和 docs/EN/dogfooding.md 新增了 dogfooding 文档，完整记录了 intent-013 下 snap-050 到 snap-061 的跨 agent 协作过程。文档结构为：背景、四阶段时间线（Codex 搭建 IntHub → Claude Code 重写前端 → Codex 补 SKILL → Claude Code 纠正失误）、五个观察结论（agent 切换无需交接会议、feedback 在正确位置被消费、summary 为下一个 session 而写、decision 是活约束、错误被结构化捕获）。所有内容来自 snap 链的真实数据，未经事后编辑，文末附了复现命令。50 tests passed。",
-  "feedback": ""
+  "what": "撰写 dogfooding 文档",
+  "why": "真实使用记录比功能说明更有说服力；snap链本身就是数据源",
+  "next": "-"
 }
