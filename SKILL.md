@@ -33,7 +33,7 @@ Intent serves two linked purposes:
 
 - **Intent** = a goal you identified from a user query. Not a task, not a ticket — a goal. "Fix the login timeout bug", not "Change line 42 in config.py". Multiple intents can be active simultaneously. The `source_query` field preserves the original user words that led you to recognize this goal. The `rationale` field captures **why** this goal matters — fill it when the user's query contains explanatory context (e.g. "users on slow networks get logged out"), leave it `""` otherwise.
 
-- **Snap** = a semantic snapshot under an intent. It persists the AI's reasoning that would otherwise be lost when the session ends. Git records what code changed; snap records **why** — the reasoning behind the changes, what was tried, what was learned, and what conclusions were reached. This is not extra documentation work; the AI already thinks before acting, snap just externalizes that thinking.
+- **Snap** = a semantic snapshot under an intent. AI's thinking during a query — what was done, why it was done that way, what comes next — exists in context but dies when the session ends. Snap externalizes and persists it. This is not extra documentation work; the AI already thinks before acting, snap just makes that thinking survive the session boundary. Each snap captures three things: `title` (what was done), `summary` (why + next steps), and `query` (the user query that triggered it).
 
 - **Decision** = the highest-level object. A long-lived choice that outlives any single intent and constrains future work. "Timeout must stay configurable", "All API responses use envelope format". Decisions carry `rationale` — why this was decided. Active decisions auto-attach to every new intent, ensuring future work inherits these constraints. **The test:** would a future intent on a different problem still need to respect this? If yes → decision. If it only matters for the current intent → record it in a snap summary instead.
 
@@ -105,11 +105,12 @@ The query is a simple question, explanation, or clarification. No reasoning was 
 
 #### Category B: Snap with code changes
 
-The query led to code changes. The snap records your reasoning — **why** you made these changes, what approach you chose and why, what you discovered during implementation. Git already captures the diff; the snap captures the thinking behind it.
+The query led to code changes. The snap captures what was done, why, and what's next. Git already records the diff; the snap records the semantics around it.
 
 ```bash
-itt snap create "Fix login timeout" \
-  --summary "Race condition is in the refresh flow, not the login handler — the 5s default was being hit because token refresh blocked the main auth path. Changed to 30s with async refresh. Token refresh endpoint still hardcoded — separate service, needs its own fix."
+itt snap create "Timeout changed to 30s with async refresh" \
+  --query "why does login timeout after 5s?" \
+  --summary "Race condition in refresh flow was blocking login synchronously. Changed to async refresh to decouple the paths. Token refresh endpoint still hardcoded 5s — separate service, needs its own fix."
 ```
 
 #### Category C: Snap without code changes
@@ -122,15 +123,17 @@ The query did not produce code changes, but you formed conclusions that would re
 
 ```bash
 itt snap create "Root cause identified" \
-  --summary "Timeout is not a config issue — it's a race condition in token refresh. The refresh call blocks the login flow synchronously. Fix should be async refresh, not just raising the timeout value."
+  --query "why does login timeout after 5s?" \
+  --summary "Not a config issue — race condition in token refresh blocks login synchronously. Fix should be async refresh, not raising the timeout."
 ```
 
-#### Snap field reference
+#### Snap fields
 
-- `TITLE`: short theme for fast scanning
+- `TITLE`: what was done — concise action description for scanning
+- `--query`: the user query that triggered this snap
+- `--summary`: why it was done + what's next — the reasoning and direction
 - `--intent`: optional when exactly one intent is `active` (CLI infers it; check `warnings`). If several are `active`, omitting `--intent` returns `MULTIPLE_ACTIVE_INTENTS` with `error.details.candidates` — pick an `id` and re-run with `--intent`
 - `origin`: stored automatically from the `itt` process environment. You do **not** need to pass `--origin` unless overriding
-- `--summary`: your reasoning — see §"Writing good summaries" below
 - Only `active` intents accept new snaps
 
 ### 4. Recognize and record decisions
@@ -239,7 +242,7 @@ Use them with this boundary:
 
 | Command | What it does |
 |---|---|
-| `itt snap create TITLE [--intent ID] [--origin LABEL] --summary S` | Record a semantic snapshot (omit `--intent` when exactly one active intent; `origin` auto-filled from env) |
+| `itt snap create TITLE [--intent ID] [--query Q] [--origin LABEL] --summary S` | Record a semantic snapshot (`title` = what was done; `summary` = why + next steps; `query` = user query that triggered it) |
 
 ### Decision
 
@@ -257,23 +260,23 @@ There are no `show` commands. For resume, use `itt inspect`. For browsing, use I
 
 Terminal states like `done` and `deprecated` cannot be undone. Create a new object instead.
 
-## Writing good summaries
+## Writing good snaps
 
-The `summary` on a snap persists the AI's reasoning for the next session. A future agent will read it to understand **why** things are the way they are — not just what happened.
+A snap has three fields that carry meaning. Together they tell the next session everything it needs:
 
-Focus on reasoning, not mechanics:
+| Field | Carries | Example |
+|---|---|---|
+| `title` | **What was done** | "Timeout changed to 30s with async refresh" |
+| `summary` | **Why + what's next** | "Race condition in refresh flow was blocking login. Changed to async. Token refresh still hardcoded — needs separate fix." |
+| `query` | **User's trigger** | "why does login timeout after 5s?" |
 
-- **Why this approach?** — what alternatives were considered, why this one was chosen
-- **What was discovered?** — non-obvious findings, root causes, constraints
-- **What conclusion was reached?** — the judgment or direction that emerged
+`title` is the action line — scannable, concise. `summary` is the reasoning and direction — why this approach, what was discovered, what comes next. Don't dump terminal output, diffs, or command sequences. Capture the thinking, not the mechanics.
 
-Bad: `"Fixed timeout"`
-— No reasoning. Why was it broken? Why this fix?
+Bad title: `"Fixed timeout"` — what was actually done?
+Good title: `"Timeout changed to 30s with async refresh"` — clear action.
 
-Good: `"Race condition in token refresh was blocking the login flow synchronously — the 5s default was being hit on the refresh path, not the login handler itself. Changed to 30s with async refresh. Token refresh endpoint still hardcoded — separate service boundary, needs its own fix."`
-— Next session understands the reasoning and can continue with context.
-
-`summary` captures the thinking, not the execution. Don't dump terminal output, file-level diffs, or command sequences. Capture the **why**, not the **what**.
+Bad summary: `"Changed config.py line 42 from 5 to 30"` — that's the diff, not the reasoning.
+Good summary: `"Race condition in refresh flow blocks login synchronously. Async refresh decouples the paths. Token refresh endpoint still hardcoded — separate service, needs its own fix."` — reasoning + next step.
 
 ## When to create what
 

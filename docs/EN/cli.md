@@ -7,7 +7,7 @@ Schema version: **1.0**
 Intent CLI is the local semantic-history CLI for Intent. It manages only three object types:
 
 - `intent`: a recoverable goal
-- `snap`: a semantic checkpoint under an intent
+- `snap`: a semantic snapshot — persisted AI reasoning per query
 - `decision`: a long-lived constraint across intents
 
 The CLI is intentionally small:
@@ -41,7 +41,7 @@ The CLI is intentionally small:
 
 | Command | Role |
 | --- | --- |
-| `itt snap create TITLE [--intent ID] [--origin LABEL] --summary S` | Create a semantic snapshot (omit `--intent` when exactly one active intent) |
+| `itt snap create TITLE [--intent ID] [--query Q] [--origin LABEL] --summary S` | Create a semantic snapshot (`title` = what was done; `summary` = why + next; `query` = user trigger) |
 
 ### Decision
 
@@ -105,12 +105,13 @@ itt doctor
 | `id` | ✓ | ✓ | ✓ | Auto-incremented, zero-padded (`intent-001`, `snap-001`, `decision-001`) |
 | `object` | ✓ | ✓ | ✓ | `"intent"`, `"snap"`, or `"decision"` |
 | `created_at` | ✓ | ✓ | ✓ | ISO 8601 UTC timestamp |
-| `title` | ✓ | ✓ | ✓ | Short theme for scanning |
+| `title` | ✓ | ✓ | ✓ | Intent/Decision: short theme. Snap: what was done (concise action). |
 | `status` | ✓ | | ✓ | Intent: `active` / `suspend` / `done`. Decision: `active` / `deprecated`. Snaps have no status. |
 | `source_query` | ✓ | | ✓ | Original user words that triggered the object |
+| `query` | | ✓ | | The user query that triggered this snap |
 | `rationale` | ✓ | | ✓ | Why this goal/constraint matters |
 | `origin` | ✓ | ✓ | ✓ | Auto-detected from environment (e.g. `claude-code`, `cursor`, `codex-desktop`) |
-| `summary` | | ✓ | | The reasoning behind the changes — why this approach, what was learned |
+| `summary` | | ✓ | | Why it was done this way + what's next |
 | `intent_id` | | ✓ | | Parent intent |
 | `snap_ids` | ✓ | | | Ordered list of child snaps |
 | `decision_ids` | ✓ | | | Linked decisions (auto-attached on create) |
@@ -147,15 +148,12 @@ Notes:
 
 ### Snap
 
-`create` persists the AI's reasoning as a semantic snapshot under an active intent. Git records what code changed; snap records why.
+A semantic snapshot that persists the AI's thinking per query. `title` = what was done, `summary` = why + next steps, `query` = the user query that triggered it.
 
 ```bash
-itt snap create "Raise timeout to 30s" \
-  --summary "Race condition is in the refresh flow, not the login handler. Changed timeout to 30s. Token refresh still hardcoded — separate service, needs its own fix."
-
-itt snap create "Raise timeout to 30s" \
-  --intent intent-001 \
-  --summary "Race condition is in the refresh flow, not the login handler."
+itt snap create "Timeout changed to 30s with async refresh" \
+  --query "why does login timeout after 5s?" \
+  --summary "Race condition in refresh flow blocks login synchronously. Changed to async refresh. Token refresh still hardcoded — separate service, needs its own fix."
 ```
 
 Notes:
@@ -297,6 +295,5 @@ All successful commands except `inspect` use:
 ## Operational Notes
 
 - `.intent/` is local workspace metadata and should stay out of Git history
-- Object content is append-only; do not rewrite old titles or summaries
-- `snap feedback` is the only post-creation overwrite path
+- All objects are immutable after creation
 - IDs are zero-padded and monotonic per object type: `intent-001`, `snap-001`, `decision-001`
