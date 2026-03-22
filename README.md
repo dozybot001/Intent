@@ -105,7 +105,7 @@ itt hub sync
 
 This project manages its own development with Intent. Run `itt hub start` and the full semantic history (33 intents, 156 snaps, 22 decisions) is auto-loaded as a showcase project in IntHub — from the first PyPI README to the 2.0.0 release.
 
-> The showcase spans multiple schema iterations; earlier objects may lack fields like `origin` or `rationale` that were added later.
+> The showcase spans multiple schema iterations; earlier objects may lack fields like `origin` or `why` that were added later.
 
 ## Docs
 

@@ -31,11 +31,11 @@ Intent serves two linked purposes:
 
 ### Three objects
 
-- **Intent** = a goal you identified from a user query. Not a task, not a ticket — a goal. "Fix the login timeout bug", not "Change line 42 in config.py". Multiple intents can be active simultaneously. The `query` field preserves the original user words that led you to recognize this goal. The `rationale` field captures **why** this goal matters — fill it when the user's query contains explanatory context (e.g. "users on slow networks get logged out"), leave it `""` otherwise.
+- **Intent** = a goal you identified from a user query. Not a task, not a ticket — a goal. "Fix the login timeout bug", not "Change line 42 in config.py". Multiple intents can be active simultaneously. The `query` field preserves the original user words that led you to recognize this goal. The `why` field captures **why** this goal matters — fill it when the user's query contains explanatory context (e.g. "users on slow networks get logged out"), leave it `""` otherwise.
 
-- **Snap** = a semantic snapshot under an intent, aligned to a user query. It captures what was done (`title`), why (`rationale`), what's next (`next`), and the user query that triggered it (`query`). The AI already thinks before acting; snap just makes that thinking survive the session boundary. This is not extra documentation — it externalizes reasoning that already exists in context but would be lost when the session ends.
+- **Snap** = a semantic snapshot under an intent, aligned to a user query. It captures what was done (`title`), why (`why`), what's next (`next`), and the user query that triggered it (`query`). The AI already thinks before acting; snap just makes that thinking survive the session boundary. This is not extra documentation — it externalizes reasoning that already exists in context but would be lost when the session ends.
 
-- **Decision** = the highest-level object. A long-lived choice that outlives any single intent and constrains future work. "Timeout must stay configurable", "All API responses use envelope format". Decisions carry `rationale` — why this was decided. Active decisions auto-attach to every new intent, ensuring future work inherits these constraints. **The test:** would a future intent on a different problem still need to respect this? If yes → decision. If it only matters for the current intent → record it in a snap rationale instead.
+- **Decision** = the highest-level object. A long-lived choice that outlives any single intent and constrains future work. "Timeout must stay configurable", "All API responses use envelope format". Decisions carry `why` — why this was decided. Active decisions auto-attach to every new intent, ensuring future work inherits these constraints. **The test:** would a future intent on a different problem still need to respect this? If yes → decision. If it only matters for the current intent → record it in a snap why instead.
 
 ### Relationships
 
@@ -77,7 +77,7 @@ Then act on what you find:
 ```bash
 itt intent create "Fix the login timeout bug" \
   --query "why does login timeout after 5s?" \
-  --rationale "users on slow networks get logged out mid-session"
+  --why "users on slow networks get logged out mid-session"
 ```
 
 When a new query arrives, determine which path applies:
@@ -110,7 +110,7 @@ The query led to code changes. The snap captures what was done, why, and what's 
 ```bash
 itt snap create "Timeout changed to 30s with async refresh" \
   --query "why does login timeout after 5s?" \
-  --rationale "Race condition in refresh flow was blocking login synchronously. Async refresh decouples the paths." \
+  --why "Race condition in refresh flow was blocking login synchronously. Async refresh decouples the paths." \
   --next "Token refresh endpoint still hardcoded 5s — separate service, needs its own fix."
 ```
 
@@ -125,7 +125,7 @@ The query did not produce code changes, but you formed conclusions that would re
 ```bash
 itt snap create "Root cause identified" \
   --query "why does login timeout after 5s?" \
-  --rationale "Not a config issue — race condition in token refresh blocks login synchronously." \
+  --why "Not a config issue — race condition in token refresh blocks login synchronously." \
   --next "Fix should be async refresh, not raising the timeout."
 ```
 
@@ -133,7 +133,7 @@ itt snap create "Root cause identified" \
 
 - `TITLE`: what was done — concise action description for scanning
 - `--query`: the user query that triggered this snap
-- `--rationale`: why — the reasoning behind this approach (required)
+- `--why`: why — the reasoning behind this approach (required)
 - `--next`: what comes next — remaining work, direction, blockers (optional)
 - `--intent`: optional when exactly one intent is `active` (CLI infers it; check `warnings`). If several are `active`, omitting `--intent` returns `MULTIPLE_ACTIVE_INTENTS` with `error.details.candidates` — pick an `id` and re-run with `--intent`
 - `origin`: stored automatically from the `itt` process environment. You do **not** need to pass `--origin` unless overriding
@@ -151,7 +151,7 @@ User says: "decision-所有 API 返回 envelope 格式" or "决定-所有 API �
 
 ```bash
 itt decision create "All API responses use envelope format" \
-  --rationale "User-specified constraint"
+  --why "User-specified constraint"
 ```
 
 #### Path B: Agent discovers, user confirms
@@ -170,7 +170,7 @@ Only create the decision after the user confirms:
 
 ```bash
 itt decision create "Timeout must stay configurable" \
-  --rationale "Different deployments have different latency envelopes; hardcoding breaks staging and on-prem"
+  --why "Different deployments have different latency envelopes; hardcoding breaks staging and on-prem"
 ```
 
 Active intents are auto-attached. The decision will also auto-attach to every future intent, ensuring the constraint is inherited.
@@ -188,7 +188,7 @@ When you start work, check `active_decisions` from inspect. These are not sugges
 ```bash
 itt intent suspend intent-001            # pause current work
 itt intent create "Urgent: fix broken link" --query "..."  # handle interruption
-itt snap create "Fixed link" --rationale "..."   # or --intent intent-002 when multiple active
+itt snap create "Fixed link" --why "..."   # or --intent intent-002 when multiple active
 itt intent done intent-002               # complete the fix
 itt intent activate intent-001           # back to original; active decisions are caught up
 ```
@@ -236,7 +236,7 @@ Use them with this boundary:
 
 | Command | What it does |
 |---|---|
-| `itt intent create TITLE --query Q [--rationale R] [--origin LABEL]` | New intent (auto-attaches active decisions; `origin` auto-filled from env) |
+| `itt intent create TITLE --query Q [--why R] [--origin LABEL]` | New intent (auto-attaches active decisions; `origin` auto-filled from env) |
 | `itt intent activate [ID]` | `suspend` → `active` (catches up on active decisions; infers the only suspended intent if unique) |
 | `itt intent suspend [ID]` | `active` → `suspend` (infers the only active intent if unique) |
 | `itt intent done [ID]` | `active` → `done` (terminal; infers the only active intent if unique) |
@@ -245,13 +245,13 @@ Use them with this boundary:
 
 | Command | What it does |
 |---|---|
-| `itt snap create TITLE [--intent ID] [--query Q] [--rationale R] [--next N] [--origin LABEL]` | Semantic snapshot (`title` = what; `rationale` = why; `next` = what's next; `query` = user trigger) |
+| `itt snap create TITLE [--intent ID] [--query Q] [--why R] [--next N] [--origin LABEL]` | Semantic snapshot (`title` = what; `why` = why; `next` = what's next; `query` = user trigger) |
 
 ### Decision
 
 | Command | What it does |
 |---|---|
-| `itt decision create TITLE --rationale R [--query Q] [--origin LABEL]` | New decision (auto-attaches active intents; `origin` auto-filled from env) |
+| `itt decision create TITLE --why R [--query Q] [--origin LABEL]` | New decision (auto-attaches active intents; `origin` auto-filled from env) |
 | `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` (terminal); `--reason` records why and/or what replaced it |
 There are no `show` commands. For resume, use `itt inspect`. For browsing, use IntHub.
 
@@ -271,16 +271,16 @@ A snap has four fields that carry meaning:
 |---|---|---|
 | `query` | **User's trigger** | "why does login timeout after 5s?" |
 | `title` | **What was done** | "Timeout changed to 30s with async refresh" |
-| `rationale` | **Why** | "Race condition in refresh flow blocks login synchronously. Async refresh decouples the paths." |
+| `why` | **Why** | "Race condition in refresh flow blocks login synchronously. Async refresh decouples the paths." |
 | `next` | **What's next** | "Token refresh endpoint still hardcoded — separate service, needs its own fix." |
 
-`title` is the action line — scannable, concise. `rationale` is the reasoning — why this approach, what was discovered. `next` is the direction — remaining work, blockers. Don't dump terminal output, diffs, or command sequences. Capture the thinking, not the mechanics.
+`title` is the action line — scannable, concise. `why` is the reasoning — why this approach, what was discovered. `next` is the direction — remaining work, blockers. Don't dump terminal output, diffs, or command sequences. Capture the thinking, not the mechanics.
 
 Bad title: `"Fixed timeout"` — what was actually done?
 Good title: `"Timeout changed to 30s with async refresh"` — clear action.
 
-Bad rationale: `"Changed config.py line 42 from 5 to 30"` — that's the diff, not the reasoning.
-Good rationale: `"Race condition in refresh flow blocks login synchronously. Async refresh decouples the paths."` — clear reasoning.
+Bad why: `"Changed config.py line 42 from 5 to 30"` — that's the diff, not the reasoning.
+Good why: `"Race condition in refresh flow blocks login synchronously. Async refresh decouples the paths."` — clear reasoning.
 
 ## When to create what
 
@@ -322,7 +322,7 @@ Intent records **only what's worth formally tracking, linking, and reusing acros
 - **Snapping simple Q&A** — if the query was a factual question or explanation with no reasoning to persist, skip the snap.
 - **Summary as execution log** — don't dump commands or diffs. Capture the thinking, not the mechanics.
 - **Trying to update objects** — objects are immutable after creation. Correct mistakes in the next snap.
-- **Decisions as snaps** — if a choice outlives the current intent, it should be a decision. Propose it to the user; don't silently bury it in a snap rationale.
+- **Decisions as snaps** — if a choice outlives the current intent, it should be a decision. Propose it to the user; don't silently bury it in a snap why.
 - **Creating decisions without user involvement** — decisions require either explicit user specification (`decision-[text]`) or user confirmation after you propose. Never create a decision on your own judgment alone.
 - **Forgetting to done** — stale active intents pollute `inspect` and auto-attach to unrelated decisions.
 

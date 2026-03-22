@@ -32,7 +32,7 @@ The CLI is intentionally small:
 
 | Command | Role |
 | --- | --- |
-| `itt intent create TITLE --query Q [--rationale R] [--origin LABEL]` | Create a new intent |
+| `itt intent create TITLE --query Q [--why R] [--origin LABEL]` | Create a new intent |
 | `itt intent activate [ID]` | `suspend` → `active` |
 | `itt intent suspend [ID]` | `active` → `suspend` |
 | `itt intent done [ID]` | `active` → `done` |
@@ -41,13 +41,13 @@ The CLI is intentionally small:
 
 | Command | Role |
 | --- | --- |
-| `itt snap create TITLE [--intent ID] [--query Q] [--rationale R] [--next N] [--origin LABEL]` | Create a semantic snapshot (`title` = what was done; `rationale` = why; `next` = what's next) |
+| `itt snap create TITLE [--intent ID] [--query Q] [--why R] [--next N] [--origin LABEL]` | Create a semantic snapshot (`title` = what was done; `why` = why; `next` = what's next) |
 
 ### Decision
 
 | Command | Role |
 | --- | --- |
-| `itt decision create TITLE --rationale R [--query Q] [--origin LABEL]` | Create a new decision |
+| `itt decision create TITLE --why R [--query Q] [--origin LABEL]` | Create a new decision |
 | `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` |
 ### Hub
 
@@ -118,7 +118,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  Q["query\n👤 user said what"] --> T["title\n🤖 AI did what"] --> R["rationale\n💡 why"] --> N["next\n➡️ what's next"]
+  Q["query\n👤 user said what"] --> T["title\n🤖 AI did what"] --> R["why\n💡 why"] --> N["next\n➡️ what's next"]
 ```
 
 ### When to create a snap
@@ -161,14 +161,14 @@ stateDiagram-v2
 | `title` | ✓ | ✓ | ✓ | Intent/Decision: short theme. Snap: what was done (concise action). |
 | `query` | ✓ | ✓ | ✓ | User query that triggered the object |
 | `origin` | ✓ | ✓ | ✓ | Auto-detected from environment (e.g. `claude-code`, `cursor`, `codex-desktop`) |
-| `rationale` | ✓ | ✓ | ✓ | Intent: why this goal. Snap: why this approach. Decision: why this constraint. |
+| `why` | ✓ | ✓ | ✓ | Intent: why this goal. Snap: why this approach. Decision: why this constraint. |
 | `status` | ✓ | | ✓ | Intent: `active` / `suspend` / `done`. Decision: `active` / `deprecated`. |
 | `next` | | ✓ | | What comes next — remaining work, direction, blockers |
 | `intent_id` | | ✓ | | Parent intent |
 | `snap_ids` | ✓ | | | Ordered list of child snaps |
 | `decision_ids` | ✓ | | | Linked decisions (auto-attached on create) |
 | `intent_ids` | | | ✓ | Linked intents (auto-attached on create) |
-| `deprecated_reason` | | | ✓ | Why the decision was deprecated (set via `--reason`) |
+| `reason` | | | ✓ | Why the decision was deprecated (set via `--reason`) |
 
 All fields are **immutable after creation**.
 
@@ -185,7 +185,7 @@ All fields are **immutable after creation**.
 ```bash
 itt intent create "Fix the login timeout bug" \
   --query "why does login timeout after 5s?" \
-  --rationale "users on slow networks get logged out mid-session"
+  --why "users on slow networks get logged out mid-session"
 
 itt intent suspend intent-001
 itt intent activate intent-001
@@ -200,18 +200,18 @@ Notes:
 
 ### Snap
 
-A semantic snapshot per query. `title` = what was done, `rationale` = why, `next` = what's next.
+A semantic snapshot per query. `title` = what was done, `why` = why, `next` = what's next.
 
 ```bash
 itt snap create "Timeout changed to 30s with async refresh" \
   --query "why does login timeout after 5s?" \
-  --rationale "Race condition in refresh flow blocks login synchronously. Async refresh decouples the paths." \
+  --why "Race condition in refresh flow blocks login synchronously. Async refresh decouples the paths." \
   --next "Token refresh endpoint still hardcoded — separate service, needs its own fix."
 ```
 
 Notes:
 
-- `--rationale` is required; `--intent` infers when exactly one intent is `active`
+- `--why` is required; `--intent` infers when exactly one intent is `active`
 - Creating a snap writes both `snap.intent_id` and the parent intent's `snap_ids`
 - Snaps are immutable; correct mistakes by writing a later snap
 
@@ -222,7 +222,7 @@ Notes:
 ```bash
 itt decision create "Timeout must stay configurable" \
   --query "user asked about deployment flexibility" \
-  --rationale "Different deployments have different latency envelopes"
+  --why "Different deployments have different latency envelopes"
 
 itt decision deprecate decision-001 --reason "Replaced by decision-005"
 ```
