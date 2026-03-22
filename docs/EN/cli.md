@@ -10,12 +10,11 @@ Intent CLI is the local semantic-history CLI for Intent. It manages only three o
 
 The CLI is intentionally small:
 
-- Recovery uses `itt inspect`
-- Structural diagnosis uses `itt doctor`
-- Graph browsing belongs to IntHub
-- Graph browsing belongs to IntHub
+- Recovery: `itt inspect`
+- Diagnosis: `itt doctor`
+- Browsing: IntHub
 
-## Commands (10)
+## Commands
 
 | Command | What it does | Notes |
 |---|---|---|
@@ -127,8 +126,6 @@ All fields are **immutable after creation**.
 | Codespaces / GitHub Actions / Gitpod env vars | `codespaces` / `github-actions` / `gitpod` |
 
 Priority: explicit `--origin LABEL` > `ITT_ORIGIN` / `INTENT_ORIGIN` > built-in heuristics.
-
-Resume uses `itt inspect`. Browsing uses IntHub.
 
 ## JSON Output
 
