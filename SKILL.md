@@ -33,7 +33,7 @@ Intent serves two linked purposes:
 
 - **Intent** = a goal you identified from a user query. Not a task, not a ticket — a goal. "Fix the login timeout bug", not "Change line 42 in config.py". Multiple intents can be active simultaneously. The `query` field preserves the original user words that led you to recognize this goal. The `why` field captures **why** this goal matters — fill it when the user's query contains explanatory context (e.g. "users on slow networks get logged out"), leave it `""` otherwise.
 
-- **Snap** = a semantic snapshot under an intent, aligned to a user query. It captures what was done (`title`), why (`why`), what's next (`next`), and the user query that triggered it (`query`). The AI already thinks before acting; snap just makes that thinking survive the session boundary. This is not extra documentation — it externalizes reasoning that already exists in context but would be lost when the session ends.
+- **Snap** = a semantic snapshot under an intent, aligned to a user query. It captures what was done (`what`), why (`why`), what's next (`next`), and the user query that triggered it (`query`). The AI already thinks before acting; snap just makes that thinking survive the session boundary. This is not extra documentation — it externalizes reasoning that already exists in context but would be lost when the session ends.
 
 - **Decision** = the highest-level object. A long-lived choice that outlives any single intent and constrains future work. "Timeout must stay configurable", "All API responses use envelope format". Decisions carry `why` — why this was decided. Active decisions auto-attach to every new intent, ensuring future work inherits these constraints. **The test:** would a future intent on a different problem still need to respect this? If yes → decision. If it only matters for the current intent → record it in a snap why instead.
 
@@ -64,7 +64,7 @@ itt inspect
 
 Then act on what you find:
 
-1. **Read `active_intents` first.** Continue from each intent's `latest_snap`. If `latest_snap` is `null`, use the intent title plus the current user request as the recovery boundary. Do not ask the user to re-explain.
+1. **Read `active_intents` first.** Continue from each intent's `latest_snap`. If `latest_snap` is `null`, use the intent `what` plus the current user request as the recovery boundary. Do not ask the user to re-explain.
 2. **Read `active_decisions` next.** These are standing constraints. Respect them throughout the session.
 3. **Check `suspended`.** Mention suspended work if relevant, or reactivate it when the current request clearly resumes it.
 4. **Check `warnings`.** If warnings exist or the graph looks inconsistent, run `itt doctor` before acting.
@@ -236,7 +236,7 @@ Use them with this boundary:
 
 | Command | What it does |
 |---|---|
-| `itt intent create TITLE --query Q [--why R] [--origin LABEL]` | New intent (auto-attaches active decisions; `origin` auto-filled from env) |
+| `itt intent create WHAT --query Q [--why W] [--origin LABEL]` | New intent (auto-attaches active decisions; `origin` auto-filled from env) |
 | `itt intent activate [ID]` | `suspend` → `active` (catches up on active decisions; infers the only suspended intent if unique) |
 | `itt intent suspend [ID]` | `active` → `suspend` (infers the only active intent if unique) |
 | `itt intent done [ID]` | `active` → `done` (terminal; infers the only active intent if unique) |
@@ -245,13 +245,13 @@ Use them with this boundary:
 
 | Command | What it does |
 |---|---|
-| `itt snap create TITLE [--intent ID] [--query Q] [--why R] [--next N] [--origin LABEL]` | Semantic snapshot (`title` = what; `why` = why; `next` = what's next; `query` = user trigger) |
+| `itt snap create WHAT [--intent ID] [--query Q] [--why W] [--next N] [--origin LABEL]` | Semantic snapshot (`what` = what was done; `why` = why; `next` = what's next; `query` = user trigger) |
 
 ### Decision
 
 | Command | What it does |
 |---|---|
-| `itt decision create TITLE --why R [--query Q] [--origin LABEL]` | New decision (auto-attaches active intents; `origin` auto-filled from env) |
+| `itt decision create WHAT --why W [--query Q] [--origin LABEL]` | New decision (auto-attaches active intents; `origin` auto-filled from env) |
 | `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` (terminal); `--reason` records why and/or what replaced it |
 There are no `show` commands. For resume, use `itt inspect`. For browsing, use IntHub.
 
@@ -270,14 +270,14 @@ A snap has four fields that carry meaning:
 | Field | Carries | Example |
 |---|---|---|
 | `query` | **User's trigger** | "why does login timeout after 5s?" |
-| `title` | **What was done** | "Timeout changed to 30s with async refresh" |
+| `what` | **What was done** | "Timeout changed to 30s with async refresh" |
 | `why` | **Why** | "Race condition in refresh flow blocks login synchronously. Async refresh decouples the paths." |
 | `next` | **What's next** | "Token refresh endpoint still hardcoded — separate service, needs its own fix." |
 
-`title` is the action line — scannable, concise. `why` is the reasoning — why this approach, what was discovered. `next` is the direction — remaining work, blockers. Don't dump terminal output, diffs, or command sequences. Capture the thinking, not the mechanics.
+`what` is the action line — scannable, concise. `why` is the reasoning — why this approach, what was discovered. `next` is the direction — remaining work, blockers. Don't dump terminal output, diffs, or command sequences. Capture the thinking, not the mechanics.
 
-Bad title: `"Fixed timeout"` — what was actually done?
-Good title: `"Timeout changed to 30s with async refresh"` — clear action.
+Bad `what`: `"Fixed timeout"` — what was actually done?
+Good `what`: `"Timeout changed to 30s with async refresh"` — clear action.
 
 Bad why: `"Changed config.py line 42 from 5 to 30"` — that's the diff, not the reasoning.
 Good why: `"Race condition in refresh flow blocks login synchronously. Async refresh decouples the paths."` — clear reasoning.

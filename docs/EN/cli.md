@@ -32,7 +32,7 @@ The CLI is intentionally small:
 
 | Command | Role |
 | --- | --- |
-| `itt intent create TITLE --query Q [--why R] [--origin LABEL]` | Create a new intent |
+| `itt intent create WHAT --query Q [--why W] [--origin LABEL]` | Create a new intent |
 | `itt intent activate [ID]` | `suspend` → `active` |
 | `itt intent suspend [ID]` | `active` → `suspend` |
 | `itt intent done [ID]` | `active` → `done` |
@@ -41,13 +41,13 @@ The CLI is intentionally small:
 
 | Command | Role |
 | --- | --- |
-| `itt snap create TITLE [--intent ID] [--query Q] [--why R] [--next N] [--origin LABEL]` | Create a semantic snapshot (`title` = what was done; `why` = why; `next` = what's next) |
+| `itt snap create WHAT [--intent ID] [--query Q] [--why W] [--next N] [--origin LABEL]` | Create a semantic snapshot (`what` = what was done; `why` = why; `next` = what's next) |
 
 ### Decision
 
 | Command | Role |
 | --- | --- |
-| `itt decision create TITLE --why R [--query Q] [--origin LABEL]` | Create a new decision |
+| `itt decision create WHAT --why W [--query Q] [--origin LABEL]` | Create a new decision |
 | `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` |
 ### Hub
 
@@ -118,7 +118,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  Q["query\n👤 user said what"] --> T["title\n🤖 AI did what"] --> R["why\n💡 why"] --> N["next\n➡️ what's next"]
+  Q["query\n👤 user said what"] --> W["what\n🤖 AI did what"] --> Y["why\n💡 why"] --> N["next\n➡️ what's next"]
 ```
 
 ### When to create a snap
@@ -158,7 +158,7 @@ stateDiagram-v2
 | `id` | ✓ | ✓ | ✓ | Auto-incremented, zero-padded (`intent-001`, `snap-001`, `decision-001`) |
 | `object` | ✓ | ✓ | ✓ | `"intent"`, `"snap"`, or `"decision"` |
 | `created_at` | ✓ | ✓ | ✓ | ISO 8601 UTC timestamp |
-| `title` | ✓ | ✓ | ✓ | Intent/Decision: short theme. Snap: what was done (concise action). |
+| `what` | ✓ | ✓ | ✓ | Intent/Decision: short theme. Snap: what was done (concise action). |
 | `query` | ✓ | ✓ | ✓ | User query that triggered the object |
 | `origin` | ✓ | ✓ | ✓ | Auto-detected from environment (e.g. `claude-code`, `cursor`, `codex-desktop`) |
 | `why` | ✓ | ✓ | ✓ | Intent: why this goal. Snap: why this approach. Decision: why this constraint. |
@@ -200,7 +200,7 @@ Notes:
 
 ### Snap
 
-A semantic snapshot per query. `title` = what was done, `why` = why, `next` = what's next.
+A semantic snapshot per query. `what` = what was done, `why` = why, `next` = what's next.
 
 ```bash
 itt snap create "Timeout changed to 30s with async refresh" \
