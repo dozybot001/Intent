@@ -159,10 +159,10 @@ stateDiagram-v2
 | `object` | ✓ | ✓ | ✓ | `"intent"`、`"snap"` 或 `"decision"` |
 | `created_at` | ✓ | ✓ | ✓ | ISO 8601 UTC 时间戳 |
 | `title` | ✓ | ✓ | ✓ | Intent/Decision: 简短主题。Snap: 做了什么（简洁行为描述）。 |
-| `status` | ✓ | | ✓ | Intent: `active` / `suspend` / `done`。Decision: `active` / `deprecated`。Snap 无状态。 |
 | `query` | ✓ | ✓ | ✓ | 触发该对象的用户 query |
-| `rationale` | ✓ | | ✓ | 为什么这个目标/约束重要 |
 | `origin` | ✓ | ✓ | ✓ | 从环境自动检测（如 `claude-code`、`cursor`、`codex-desktop`） |
+| `status` | ✓ | | ✓ | Intent: `active` / `suspend` / `done`。Decision: `active` / `deprecated`。 |
+| `rationale` | ✓ | | ✓ | 为什么这个目标/约束重要 |
 | `summary` | | ✓ | | 为什么这么做 + 下一步 |
 | `intent_id` | | ✓ | | 所属 intent |
 | `snap_ids` | ✓ | | | 有序子 snap 列表 |

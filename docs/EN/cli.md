@@ -159,10 +159,10 @@ stateDiagram-v2
 | `object` | ✓ | ✓ | ✓ | `"intent"`, `"snap"`, or `"decision"` |
 | `created_at` | ✓ | ✓ | ✓ | ISO 8601 UTC timestamp |
 | `title` | ✓ | ✓ | ✓ | Intent/Decision: short theme. Snap: what was done (concise action). |
-| `status` | ✓ | | ✓ | Intent: `active` / `suspend` / `done`. Decision: `active` / `deprecated`. Snaps have no status. |
 | `query` | ✓ | ✓ | ✓ | User query that triggered the object |
-| `rationale` | ✓ | | ✓ | Why this goal/constraint matters |
 | `origin` | ✓ | ✓ | ✓ | Auto-detected from environment (e.g. `claude-code`, `cursor`, `codex-desktop`) |
+| `status` | ✓ | | ✓ | Intent: `active` / `suspend` / `done`. Decision: `active` / `deprecated`. |
+| `rationale` | ✓ | | ✓ | Why this goal/constraint matters |
 | `summary` | | ✓ | | Why it was done this way + what's next |
 | `intent_id` | | ✓ | | Parent intent |
 | `snap_ids` | ✓ | | | Ordered list of child snaps |
