@@ -248,7 +248,7 @@ function intentCard(intent) {
   return `
     <article class="card${cls}" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
       <h4 class="card-title">${esc(intent.what)}</h4>
-      <p class="card-body">${esc(intent.query || intent.why || "")}</p>
+      ${intent.why ? `<p class="card-body">${esc(truncate(intent.why, 140))}</p>` : ""}
       <div class="card-meta">
         <span class="badge">${esc(intent.id)}</span>
         ${statusBadge(intent.status)}
@@ -296,11 +296,12 @@ function decisionCard(d) {
   const cls = d.status === "deprecated" ? " card-deprecated" : "";
   return `
     <article class="card${cls}" data-detail-type="decision" data-remote-id="${esc(d.remote_id)}">
-      <h4 class="card-title">${esc(d.title)}</h4>
-      <p class="card-body">${d.intent_ids?.length || 0} linked intents</p>
+      <h4 class="card-title">${esc(d.what)}</h4>
+      ${d.why ? `<p class="card-body">${esc(truncate(d.why, 140))}</p>` : ""}
       <div class="card-meta">
         <span class="badge">${esc(d.id)}</span>
         ${statusBadge(d.status)}
+        ${originBadge(d.origin)}
       </div>
     </article>`;
 }
@@ -327,7 +328,7 @@ function snapCard(snap) {
   return `
     <article class="card" data-detail-type="snap" data-remote-id="${esc(snap.remote_id)}">
       <h4 class="card-title">${esc(snap.what)}</h4>
-      <p class="card-body">${esc(truncate(snap.why || "", 140))}</p>
+      ${snap.why ? `<p class="card-body">${esc(truncate(snap.why, 140))}</p>` : ""}
       <div class="card-meta">
         <span class="badge">${esc(snap.id)}</span>
         ${originBadge(snap.origin)}
