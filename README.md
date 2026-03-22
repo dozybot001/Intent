@@ -2,7 +2,7 @@
 
 [中文](README.CN.md) | English
 
-A semantic history layer above Git for development. It records **goals**, **semantic checkpoints**, and **decisions**.
+A semantic history layer above Git for development. It records **goals**, **semantic snapshots**, and **decisions**.
 
 ## Why
 
