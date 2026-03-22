@@ -96,6 +96,7 @@ itt intent activate intent-001           # resume; active decisions are caught u
 - **Snap reasoning, not mechanics** — capture why and what's next, not diffs or command logs
 - **One intent per goal, not per step** — "Migrate auth to JWT", not "Add JWT token generation"
 - **No intent for simple Q&A** — trivial questions, workflow familiarization, and meta-discussion don't need tracking
+- **Decision hygiene** — when `active_decisions` exceeds 20, prompt the user: "当前有 N 条 active decision，要做一轮清理吗？" If yes, review all active decisions, propose merging same-topic ones into a consolidated decision, and deprecate the originals after user confirmation
 
 ## Command reference
 
