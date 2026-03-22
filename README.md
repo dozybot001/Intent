@@ -43,11 +43,11 @@ flowchart LR
 
 | Object | What it captures |
 |---|---|
-| **Intent** | A goal recognized from your query |
-| **Snap** | A semantic snapshot — what was done, why, and what's next |
-| **Decision** | A long-lived constraint that spans multiple intents |
+| 🎯 **Intent** | A goal recognized from your query |
+| 📸 **Snap** | A semantic snapshot — what was done, why, and what's next |
+| 🔶 **Decision** | A long-lived constraint that spans multiple intents |
 
-Objects link automatically. Decisions auto-attach to every active intent; intents auto-attach to every active decision. Relationships are bidirectional and append-only.
+Objects link automatically. Relationships are bidirectional and append-only.
 
 ```mermaid
 flowchart LR
@@ -56,12 +56,12 @@ flowchart LR
 
   subgraph Intent1["🎯 Intent 1"]
     direction LR
-    S1["Snap 1"] --> S2["Snap 2"] --> S3["..."]
+    S1["📸 Snap 1"] --> S2["📸 Snap 2"] --> S3["📸 ..."]
   end
 
   subgraph Intent2["🎯 Intent 2"]
     direction LR
-    S4["Snap 1"] --> S5["Snap 2"] --> S6["..."]
+    S4["📸 Snap 1"] --> S5["📸 Snap 2"] --> S6["📸 ..."]
   end
 
   D1 -- auto-attach --> Intent1
