@@ -6,6 +6,18 @@ from apps.inthub_api.common import APIError, make_remote_object_id, split_remote
 from apps.inthub_api.db import connect
 
 
+def _compat(obj, new_key, *old_keys):
+    """Read new field name, fallback to old names for legacy data."""
+    val = obj.get(new_key)
+    if val is not None and val != "":
+        return val
+    for old in old_keys:
+        val = obj.get(old)
+        if val is not None and val != "":
+            return val
+    return ""
+
+
 def _project_row(conn, project_id):
     project = conn.execute(
         "SELECT * FROM projects WHERE id = ?",
@@ -106,11 +118,13 @@ def project_overview(db_path, project_id):
                 "remote_id": make_remote_object_id(workspace_id, intent["id"]),
                 "workspace_id": workspace_id,
                 "id": intent["id"],
-                "title": intent["title"],
+                "what": _compat(intent, "what", "title"),
                 "status": intent["status"],
                 "decision_ids": intent.get("decision_ids", []),
                 "latest_snap_id": latest_snap_id,
                 "origin": intent.get("origin", ""),
+                "source_query": _compat(intent, "query", "source_query"),
+                "why": _compat(intent, "why", "rationale"),
                 "branch": git.get("branch"),
                 "head_commit": git.get("head_commit"),
                 "dirty": git.get("dirty"),
@@ -125,8 +139,9 @@ def project_overview(db_path, project_id):
                 "remote_id": make_remote_object_id(workspace_id, decision["id"]),
                 "workspace_id": workspace_id,
                 "id": decision["id"],
-                "title": decision["title"],
+                "what": _compat(decision, "what", "title"),
                 "status": decision["status"],
+                "why": _compat(decision, "why", "rationale"),
                 "intent_ids": decision.get("intent_ids", []),
             }
             if decision.get("status") == "active":
@@ -139,11 +154,11 @@ def project_overview(db_path, project_id):
                 "remote_id": make_remote_object_id(workspace_id, snap["id"]),
                 "workspace_id": workspace_id,
                 "id": snap["id"],
-                "title": snap["title"],
+                "what": _compat(snap, "what", "title"),
                 "intent_id": snap.get("intent_id"),
-                "status": snap["status"],
-                "summary": snap.get("summary", ""),
-                "feedback": snap.get("feedback", ""),
+                "why": _compat(snap, "why", "summary", "rationale"),
+                "next": snap.get("next", ""),
+                "query": _compat(snap, "query", "source_query"),
                 "origin": snap.get("origin", ""),
                 "created_at": snap.get("created_at"),
             })

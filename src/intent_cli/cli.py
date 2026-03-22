@@ -66,9 +66,9 @@ def main():
     s_intent = p_intent.add_subparsers(dest="sub")
 
     p = s_intent.add_parser("create")
-    p.add_argument("title")
+    p.add_argument("what", metavar="WHAT")
     p.add_argument("--query", default="")
-    p.add_argument("--rationale", default="")
+    p.add_argument("--why", default="")
     p.add_argument("--origin", default=None, metavar="LABEL")
 
     p = s_intent.add_parser("activate")
@@ -85,24 +85,21 @@ def main():
     s_snap = p_snap.add_subparsers(dest="sub")
 
     p = s_snap.add_parser("create")
-    p.add_argument("title")
+    p.add_argument("what", metavar="WHAT")
     p.add_argument("--intent", default=None)
-    p.add_argument(
-        "--origin",
-        default=None,
-        metavar="LABEL",
-        help="Override auto-detected snap origin label (default: from env, see docs)",
-    )
-    p.add_argument("--summary", required=True)
+    p.add_argument("--query", default="")
+    p.add_argument("--why", required=True)
+    p.add_argument("--next", default="", dest="next_step")
+    p.add_argument("--origin", default=None, metavar="LABEL")
 
     # --- decision ---
     p_decision = sub.add_parser("decision")
     s_decision = p_decision.add_subparsers(dest="sub")
 
     p = s_decision.add_parser("create")
-    p.add_argument("title")
+    p.add_argument("what", metavar="WHAT")
     p.add_argument("--query", default="")
-    p.add_argument("--rationale", default="")
+    p.add_argument("--why", default="")
     p.add_argument("--origin", default=None, metavar="LABEL")
 
     p = s_decision.add_parser("deprecate")

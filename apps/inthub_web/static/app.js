@@ -261,8 +261,8 @@ function renderHandoffTab() {
         .map(
           (intent) => `
         <article class="card" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
-          <h4 class="card-title">${esc(intent.title)}</h4>
-          <p class="card-body">${esc(truncate(intent.latest_snap?.summary || intent.rationale || intent.source_query || "", 200))}</p>
+          <h4 class="card-title">${esc(intent.what)}</h4>
+          <p class="card-body">${esc(truncate(intent.latest_snap?.why || intent.why || intent.query || "", 200))}</p>
           <div class="card-meta">
             <span class="badge">${esc(intent.id)}</span>
             ${statusBadge(intent.status)}
@@ -278,8 +278,8 @@ function intentCard(intent) {
   const cls = intent.status === "done" ? " card-muted" : "";
   return `
     <article class="card${cls}" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
-      <h4 class="card-title">${esc(intent.title)}</h4>
-      <p class="card-body">${esc(intent.source_query || intent.rationale || "")}</p>
+      <h4 class="card-title">${esc(intent.what)}</h4>
+      <p class="card-body">${esc(intent.query || intent.why || "")}</p>
       <div class="card-meta">
         <span class="badge">${esc(intent.id)}</span>
         ${statusBadge(intent.status)}
@@ -357,8 +357,8 @@ function renderDecisionsTab() {
 function snapCard(snap) {
   return `
     <article class="card" data-detail-type="snap" data-remote-id="${esc(snap.remote_id)}">
-      <h4 class="card-title">${esc(snap.title)}</h4>
-      <p class="card-body">${esc(truncate(snap.summary || "", 140))}</p>
+      <h4 class="card-title">${esc(snap.what)}</h4>
+      <p class="card-body">${esc(truncate(snap.why || "", 140))}</p>
       <div class="card-meta">
         <span class="badge">${esc(snap.id)}</span>
         ${originBadge(snap.origin)}
@@ -429,7 +429,7 @@ function renderSearchResults(result) {
     .map(
       (m) => `
     <article class="card" data-detail-type="${esc(m.object_type)}" data-remote-id="${esc(m.remote_id)}">
-      <h4 class="card-title">${esc(m.title || m.id)}</h4>
+      <h4 class="card-title">${esc(m.what || m.title || m.id)}</h4>
       <p class="card-body">${esc(m.object_type)} \u00b7 ${esc(m.status || "\u2014")}</p>
       <div class="card-meta">
         <span class="badge">${esc(m.id)}</span>
@@ -561,8 +561,8 @@ function buildIntentDetailHtml(payload) {
         "decision",
         remoteId(payload.workspace_id, dId),
         dId,
-        dMap[dId]?.title || dId,
-        dMap[dId]?.rationale || "",
+        dMap[dId]?.what || dId,
+        dMap[dId]?.why || "",
         "active",
       ),
     );
@@ -573,8 +573,8 @@ function buildIntentDetailHtml(payload) {
         "decision",
         remoteId(payload.workspace_id, dId),
         dId,
-        dMap[dId]?.title || dId,
-        dMap[dId]?.rationale || "",
+        dMap[dId]?.what || dId,
+        dMap[dId]?.why || "",
         "deprecated",
       ),
     );
@@ -590,8 +590,8 @@ function buildIntentDetailHtml(payload) {
       "snap",
       remoteId(payload.workspace_id, s.id),
       s.id,
-      s.title || s.id,
-      truncate(s.summary || "", 80),
+      s.what || s.title || s.id,
+      truncate(s.why || "", 80),
     ),
   );
 
@@ -602,15 +602,15 @@ function buildIntentDetailHtml(payload) {
   return `
     <div class="detail-header">
       <span class="detail-id">${esc(intent.id)} \u00b7 Intent</span>
-      <h2 class="detail-title">${esc(intent.title)}</h2>
+      <h2 class="detail-title">${esc(intent.what)}</h2>
       <div class="detail-meta">
         ${statusBadge(intent.status)}
         ${originBadge(intent.origin)}
       </div>
     </div>
-    ${detailSection("Latest Summary", formatText(latestSnap?.summary) || `<p>No snap summary yet.</p>`)}
-    ${intent.rationale ? detailSection("Rationale", formatText(intent.rationale)) : ""}
-    ${intent.source_query ? detailSection("Source Query", formatText(intent.source_query)) : ""}
+    ${detailSection("Latest Snap", formatText(latestSnap?.why) || `<p>No snap yet.</p>`)}
+    ${intent.why ? detailSection("Why", formatText(intent.why)) : ""}
+    ${intent.query ? detailSection("Query", formatText(intent.query)) : ""}
     ${detailSection("Linked Decisions (" + allIds.length + ")", decisionsBody)}
     ${detailSection("Snap Timeline (" + allSnaps.length + ")", snapTimelineBody)}
     ${detailSection(
@@ -650,8 +650,8 @@ function buildDecisionDetailHtml(payload) {
       "intent",
       remoteId(payload.workspace_id, i.id),
       i.id,
-      i.title || i.id,
-      truncate(i.source_query || i.rationale || "", 80),
+      i.what || i.title || i.id,
+      truncate(i.query || i.why || "", 80),
       i.status,
     ),
   );
@@ -663,14 +663,14 @@ function buildDecisionDetailHtml(payload) {
   return `
     <div class="detail-header">
       <span class="detail-id">${esc(decision.id)} \u00b7 Decision</span>
-      <h2 class="detail-title">${esc(decision.title)}</h2>
+      <h2 class="detail-title">${esc(decision.what)}</h2>
       <div class="detail-meta">
         ${statusBadge(decision.status)}
         ${originBadge(decision.origin)}
       </div>
     </div>
-    ${detailSection("Rationale", formatText(decision.rationale) || `<p>No rationale provided.</p>`)}
-    ${decision.deprecated_reason ? detailSection("Deprecated Reason", formatText(decision.deprecated_reason)) : ""}
+    ${detailSection("Why", formatText(decision.why) || `<p>No why provided.</p>`)}
+    ${decision.reason ? detailSection("Reason", formatText(decision.reason)) : ""}
     ${detailSection("Affected Intents (" + payload.intents.length + ")", intentsBody)}
     ${detailSection(
       "Scope",
@@ -699,8 +699,8 @@ function buildSnapDetailHtml(payload) {
         "intent",
         remoteId(payload.workspace_id, payload.intent.id),
         payload.intent.id,
-        payload.intent.title || payload.intent.id,
-        truncate(payload.intent.source_query || payload.intent.rationale || "", 80),
+        payload.intent.what || payload.intent.id,
+        truncate(payload.intent.query || payload.intent.why || "", 80),
         payload.intent.status,
       )}</div>`
     : '<div class="empty-state">No linked intent.</div>';
@@ -708,14 +708,14 @@ function buildSnapDetailHtml(payload) {
   return `
     <div class="detail-header">
       <span class="detail-id">${esc(snap.id)} \u00b7 Snap</span>
-      <h2 class="detail-title">${esc(snap.title)}</h2>
+      <h2 class="detail-title">${esc(snap.what)}</h2>
       <div class="detail-meta">
         ${originBadge(snap.origin)}
       </div>
     </div>
-    ${detailSection("Summary", formatText(snap.summary) || `<p>No summary.</p>`)}
+    ${detailSection("Why", formatText(snap.why) || `<p>No why provided.</p>`)}
     ${snap.query ? detailSection("Query", formatText(snap.query)) : ""}
-    ${snap.rationale ? detailSection("Rationale", formatText(snap.rationale)) : ""}
+    ${snap.next ? detailSection("Next", formatText(snap.next)) : ""}
     ${detailSection("Parent Intent", parentLink)}
     ${detailSection(
       "Git Context",

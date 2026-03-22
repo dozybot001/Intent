@@ -18,6 +18,34 @@ from intent_cli.store import (
 )
 
 
+# ---- Compat helpers (read old field names, return new) ----
+
+def _get(obj, new_key, *old_keys):
+    """Return obj[new_key] if present, else try old_keys as fallback."""
+    val = obj.get(new_key)
+    if val is not None and val != "":
+        return val
+    for old in old_keys:
+        val = obj.get(old)
+        if val is not None and val != "":
+            return val
+    return obj.get(new_key, "")
+
+
+def _obj_what(obj):
+    return _get(obj, "what", "title")
+
+
+def _obj_why(obj):
+    return _get(obj, "why", "rationale", "summary")
+
+
+def _obj_query(obj):
+    return _get(obj, "query", "source_query")
+
+
+# ---- Commands ----
+
 def cmd_version(_args):
     success("version", {"version": __version__})
 
@@ -56,20 +84,20 @@ def cmd_inspect(_args):
                 if snap is not None:
                     latest_snap = {
                         "id": snap["id"],
-                        "title": snap["title"],
-                        "summary": snap.get("summary", ""),
-                        "feedback": snap.get("feedback", ""),
+                        "what": _obj_what(snap),
+                        "why": _obj_why(snap),
+                        "next": snap.get("next", ""),
                         "origin": snap.get("origin", ""),
                     }
             active_intents.append({
                 "id": obj["id"],
-                "title": obj["title"],
+                "what": _obj_what(obj),
                 "latest_snap": latest_snap,
             })
         elif obj["status"] == "suspend":
             suspended.append({
                 "id": obj["id"],
-                "title": obj["title"],
+                "what": _obj_what(obj),
                 "latest_snap_id": latest_snap_id,
             })
 
@@ -77,7 +105,7 @@ def cmd_inspect(_args):
     for obj in list_objects(base, "decision", status="active"):
         active_decisions.append({
             "id": obj["id"],
-            "title": obj["title"],
+            "what": _obj_what(obj),
         })
 
     warnings = []
@@ -122,7 +150,7 @@ def _resolve_inferred_intent_id(
 
     candidates = sorted(
         (
-            {"id": obj["id"], "title": obj["title"]}
+            {"id": obj["id"], "what": _obj_what(obj)}
             for obj in list_objects(base, "intent", status=status)
         ),
         key=lambda c: c["id"],
@@ -159,10 +187,10 @@ def cmd_intent_create(args):
         "id": obj_id,
         "object": "intent",
         "created_at": now_utc(),
-        "title": args.title,
+        "what": args.what,
         "status": "active",
-        "source_query": args.query,
-        "rationale": args.rationale,
+        "query": args.query,
+        "why": args.why,
         "origin": origin,
         "decision_ids": decision_ids,
         "snap_ids": [],
@@ -289,18 +317,18 @@ def cmd_snap_create(args):
             error(
                 "NO_ACTIVE_INTENT",
                 "No active intent to attach the snap to.",
-                suggested_fix='Create or activate an intent first, e.g. itt intent create "TITLE" --query "..." or itt intent activate <id>',
+                suggested_fix='Create or activate an intent first, e.g. itt intent create "WHAT" --query "..." or itt intent activate <id>',
             )
         if len(active) > 1:
             candidates = sorted(
-                ({"id": o["id"], "title": o["title"]} for o in active),
+                ({"id": o["id"], "what": _obj_what(o)} for o in active),
                 key=lambda c: c["id"],
             )
             error(
                 "MULTIPLE_ACTIVE_INTENTS",
                 "Multiple active intents; specify which one with --intent ID.",
                 details={"candidates": candidates},
-                suggested_fix="itt snap create TITLE --intent <id> --summary ...",
+                suggested_fix="itt snap create WHAT --intent <id> --why ...",
             )
         intent_id = active[0]["id"]
         inferred = True
@@ -325,9 +353,11 @@ def cmd_snap_create(args):
         "id": obj_id,
         "object": "snap",
         "created_at": now_utc(),
-        "title": args.title,
+        "what": args.what,
+        "query": args.query,
+        "why": args.why,
+        "next": args.next_step,
         "intent_id": intent_id,
-        "summary": args.summary,
         "origin": origin,
     }
     write_object(base, "snap", obj_id, snap)
@@ -361,10 +391,10 @@ def cmd_decision_create(args):
         "id": obj_id,
         "object": "decision",
         "created_at": now_utc(),
-        "title": args.title,
+        "what": args.what,
         "status": "active",
-        "source_query": args.query,
-        "rationale": args.rationale,
+        "query": args.query,
+        "why": args.why,
         "origin": origin,
         "intent_ids": intent_ids,
     }
@@ -393,7 +423,6 @@ def cmd_decision_deprecate(args):
     obj["status"] = "deprecated"
     reason = getattr(args, "reason", "") or ""
     if reason:
-        obj["deprecated_reason"] = reason
+        obj["reason"] = reason
     write_object(base, "decision", args.id, obj)
     success("decision.deprecate", obj)
-
