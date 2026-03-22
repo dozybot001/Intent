@@ -33,7 +33,7 @@ Intent serves two linked purposes:
 
 - **Intent** = a goal you identified from a user query. Not a task, not a ticket — a goal. "Fix the login timeout bug", not "Change line 42 in config.py". Multiple intents can be active simultaneously. The `source_query` field preserves the original user words that led you to recognize this goal. The `rationale` field captures **why** this goal matters — fill it when the user's query contains explanatory context (e.g. "users on slow networks get logged out"), leave it `""` otherwise.
 
-- **Snap** = a semantic checkpoint under an intent. It records a short theme (`title`), what you actually accomplished or learned (`summary`), and later user feedback when it arrives (`feedback`). A semantic checkpoint preserves the semantic boundary of a work chunk: what changed, what was learned, and how later sessions should understand it.
+- **Snap** = a semantic snapshot under an intent. It persists the AI's reasoning that would otherwise be lost when the session ends. Git records what code changed; snap records **why** — the reasoning behind the changes, what was tried, what was learned, and what conclusions were reached. This is not extra documentation work; the AI already thinks before acting, snap just externalizes that thinking.
 
 - **Decision** = the highest-level object. A long-lived choice that outlives any single intent and constrains future work. "Timeout must stay configurable", "All API responses use envelope format". Decisions carry `rationale` — why this was decided. Active decisions auto-attach to every new intent, ensuring future work inherits these constraints. **The test:** would a future intent on a different problem still need to respect this? If yes → decision. If it only matters for the current intent → record it in a snap summary instead.
 
@@ -46,7 +46,7 @@ All relationships are **bidirectional** and **append-only**:
 
 ### Immutability
 
-Objects are **immutable after creation**. There is no command to update a title, summary, source_query, or rationale. If you wrote something wrong, correct it in the next snap — don't try to rewrite history. The only exception: `snap feedback` overwrites the feedback field, because feedback is inherently delayed.
+Objects are **immutable after creation**. There is no command to update a title, summary, source_query, or rationale. If you wrote something wrong, correct it in the next snap — don't try to rewrite history.
 
 ## Workflow
 
@@ -95,54 +95,45 @@ When in doubt, prefer semantic clarity over raw coverage. Requests to read a ski
 
 Conversely, lack of code changes does **not** automatically mean "no intent". Documentation work, releases, migrations, investigations, or other non-code efforts can still be intents when they create a recoverable goal.
 
-### 3. Create snaps at semantic checkpoints
+### 3. Create snaps after each query
 
-**Do not create a snap for every turn by default.** Create a snap when a coherent work chunk reaches a meaningful checkpoint. The default test is still recovery-first: **if the next session only reads `itt inspect`, would this summary materially help it continue without redoing work or asking the user to restate context?** If no, usually keep working and wait for a better checkpoint.
+After each user query, evaluate whether to create a snap. The evaluation follows three clear categories:
 
-There is one important exception: create a snap when a chunk materially explains **why the product or workflow is taking its current shape**, even if it is not just another implementation step. Intent is not only for resuming execution; it is also for preserving how the product was gradually "vibed into existence."
+#### Category A: No snap
 
-Good times to create a snap:
+The query is a simple question, explanation, or clarification. No reasoning was formed that a future session would need. Examples: "what does this function do?", "explain this error message", "how does this API work?"
 
-- A meaningful chunk of work completed and can be summarized as "done / not done / what matters next"
-- User feedback changed the direction, scope, or acceptance criteria
-- A product, UX, storytelling, or workflow direction became clearer, or a route was rejected for reasons future sessions should understand
-- You discovered a non-obvious constraint, blocker, or abandonment that the next session must know
-- You are pausing, handing off, or otherwise ending a chunk at a natural boundary
+#### Category B: Snap with code changes
 
-Do **not** create a snap for:
-
-- Tiny edits within the same direction of work
-- Clarifying questions that do not change work state
-- Intermediate attempts whose only value is to the current turn, not the next session
-- Micro-fixes where reading and writing the snap costs more than the recovery value it provides
-
-Default rule: **one snap per coherent work chunk, not one snap per user turn.**
+The query led to code changes. The snap records your reasoning — **why** you made these changes, what approach you chose and why, what you discovered during implementation. Git already captures the diff; the snap captures the thinking behind it.
 
 ```bash
-itt snap create "Raise timeout to 30s" \
-  --summary "Updated timeout config from 5s to 30s in config.py. Login test suite now passes. Token refresh endpoint still uses hardcoded 5s — tracked separately."
-
-# If more than one intent is active, disambiguate with --intent ID.
+itt snap create "Fix login timeout" \
+  --summary "Race condition is in the refresh flow, not the login handler — the 5s default was being hit because token refresh blocked the main auth path. Changed to 30s with async refresh. Token refresh endpoint still hardcoded — separate service, needs its own fix."
 ```
+
+#### Category C: Snap without code changes
+
+The query did not produce code changes, but you formed conclusions that would require re-derivation in a future session. Three common situations:
+
+1. **Investigation concluded** — you traced a bug, identified root cause, determined an approach, but haven't started coding yet
+2. **Direction established** — you and the user discussed options, chose or rejected an approach for specific reasons
+3. **Non-code work** — documentation, release, configuration, migration, design discussion that produced actionable conclusions
+
+```bash
+itt snap create "Root cause identified" \
+  --summary "Timeout is not a config issue — it's a race condition in token refresh. The refresh call blocks the login flow synchronously. Fix should be async refresh, not just raising the timeout value."
+```
+
+#### Snap field reference
 
 - `TITLE`: short theme for fast scanning
 - `--intent`: optional when exactly one intent is `active` (CLI infers it; check `warnings`). If several are `active`, omitting `--intent` returns `MULTIPLE_ACTIVE_INTENTS` with `error.details.candidates` — pick an `id` and re-run with `--intent`
-- `origin`: stored on each snap automatically from the `itt` process environment (e.g. `ITT_ORIGIN`, or built-in hints like Cursor or Codex). You do **not** need to pass `--origin` unless overriding for one shot
-- `--summary`: what you actually did — see §"Writing good summaries" below
-- User feedback is recorded later with `itt snap feedback`
+- `origin`: stored automatically from the `itt` process environment. You do **not** need to pass `--origin` unless overriding
+- `--summary`: your reasoning — see §"Writing good summaries" below
 - Only `active` intents accept new snaps
 
-### 4. Capture user feedback
-
-If the user gives feedback after a snap was already created:
-
-```bash
-itt snap feedback snap-001 "works in staging, ship it"
-```
-
-This overwrites the previous value. One snap, one latest feedback.
-
-### 5. Recognize and record decisions
+### 4. Recognize and record decisions
 
 Decisions are the highest-level object — they constrain future work beyond the current intent. **You must never create a decision without user involvement.** There are two paths:
 
@@ -178,7 +169,7 @@ itt decision create "Timeout must stay configurable" \
 
 Active intents are auto-attached. The decision will also auto-attach to every future intent, ensuring the constraint is inherited.
 
-### 6. Respect active decisions
+### 5. Respect active decisions
 
 When you start work, check `active_decisions` from inspect. These are not suggestions — they are standing constraints. Concrete behaviors:
 
@@ -186,7 +177,7 @@ When you start work, check `active_decisions` from inspect. These are not sugges
 - If a user's new request conflicts with an active decision, say so: "This would conflict with decision-001: 'Timeout must stay configurable'. Should we proceed anyway and deprecate that decision?" If the user confirms, deprecate the old decision — then ask whether the new direction should also be recorded as a decision. A deprecated decision without a replacement leaves a gap: the next session sees the old constraint was removed but doesn't know what replaced it.
 - If a decision no longer applies, deprecate it explicitly — don't silently ignore it
 
-### 7. Context switching
+### 6. Context switching
 
 ```bash
 itt intent suspend intent-001            # pause current work
@@ -196,7 +187,7 @@ itt intent done intent-002               # complete the fix
 itt intent activate intent-001           # back to original; active decisions are caught up
 ```
 
-### 8. Goal complete
+### 7. Goal complete
 
 ```bash
 itt intent done intent-001
@@ -204,7 +195,7 @@ itt intent done intent-001
 
 `done` is terminal. Mark an intent done when the user confirms the goal is resolved, or when your last snap summary shows no remaining work. If the same problem resurfaces, create a new intent.
 
-### 9. IntHub sync (when this repo uses it)
+### 8. IntHub sync (when this repo uses it)
 
 `hub` commands do **not** replace local object commands. You still create intents, snaps, and decisions locally with `itt`. IntHub is the sync/share/read layer on top of that local semantic history.
 
@@ -239,7 +230,7 @@ Use them with this boundary:
 
 | Command | What it does |
 |---|---|
-| `itt intent create TITLE --query Q [--rationale R]` | New intent (auto-attaches active decisions) |
+| `itt intent create TITLE --query Q [--rationale R] [--origin LABEL]` | New intent (auto-attaches active decisions; `origin` auto-filled from env) |
 | `itt intent activate [ID]` | `suspend` → `active` (catches up on active decisions; infers the only suspended intent if unique) |
 | `itt intent suspend [ID]` | `active` → `suspend` (infers the only active intent if unique) |
 | `itt intent done [ID]` | `active` → `done` (terminal; infers the only active intent if unique) |
@@ -248,40 +239,41 @@ Use them with this boundary:
 
 | Command | What it does |
 |---|---|
-| `itt snap create TITLE [--intent ID] [--origin LABEL] --summary S` | Record one semantic checkpoint (omit `--intent` when exactly one active intent; `origin` usually auto-filled from env) |
-| `itt snap feedback ID TEXT` | Set or overwrite feedback (latest wins) |
+| `itt snap create TITLE [--intent ID] [--origin LABEL] --summary S` | Record a semantic snapshot (omit `--intent` when exactly one active intent; `origin` auto-filled from env) |
 
 ### Decision
 
 | Command | What it does |
 |---|---|
-| `itt decision create TITLE --rationale R` | New decision (auto-attaches active intents) |
+| `itt decision create TITLE --rationale R [--query Q] [--origin LABEL]` | New decision (auto-attaches active intents; `origin` auto-filled from env) |
 | `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` (terminal); `--reason` records why and/or what replaced it |
 There are no `show` commands. For resume, use `itt inspect`. For browsing, use IntHub.
 
 ## State machines
 
 **Intent:** `active` → `suspend` → `active` → `done`
-**Snap:** no state transitions; correct a checkpoint via feedback or a later snap
+**Snap:** no state transitions; immutable after creation, correct via a later snap
 **Decision:** `active` → `deprecated`
 
 Terminal states like `done` and `deprecated` cannot be undone. Create a new object instead.
 
 ## Writing good summaries
 
-The `summary` on a snap is **the primary vehicle for cross-session recovery**, and one of the main places where product-formation history is preserved. A future agent will read it and decide what to do next. Every summary must answer three recovery questions:
+The `summary` on a snap persists the AI's reasoning for the next session. A future agent will read it to understand **why** things are the way they are — not just what happened.
 
-1. **What's done?** — completed work the next session should not redo
-2. **What's not done?** — remaining work or known gaps
-3. **What context shapes the next step?** — constraints, blockers, decisions that matter
+Focus on reasoning, not mechanics:
+
+- **Why this approach?** — what alternatives were considered, why this one was chosen
+- **What was discovered?** — non-obvious findings, root causes, constraints
+- **What conclusion was reached?** — the judgment or direction that emerged
 
 Bad: `"Fixed timeout"`
-— Next session knows nothing. Was 5s changed to 30s or 60s? Is there more to fix? Why was this needed?
+— No reasoning. Why was it broken? Why this fix?
 
-Good: `"Changed default timeout from 5s to 30s in config.py. Login flow now passes on slow networks. Token refresh endpoint still uses hardcoded 5s — needs separate fix. Must stay backward-compatible with v2 clients per decision-001."`
-— Next session knows: what changed, what's left, and what constraint to respect.
+Good: `"Race condition in token refresh was blocking the login flow synchronously — the 5s default was being hit on the refresh path, not the login handler itself. Changed to 30s with async refresh. Token refresh endpoint still hardcoded — separate service boundary, needs its own fix."`
+— Next session understands the reasoning and can continue with context.
 
-When relevant, also capture **why the direction changed, what was learned, or why a route was rejected**. `summary` is a concise summary, not a step-by-step execution log. Don't dump terminal output, file-level diffs, or command sequences. Capture the meaning, not the mechanics.
+`summary` captures the thinking, not the execution. Don't dump terminal output, file-level diffs, or command sequences. Capture the **why**, not the **what**.
 
 ## When to create what
 
@@ -290,10 +282,10 @@ When relevant, also capture **why the direction changed, what was learned, or wh
 | User's query implies a recoverable goal not covered by active intents | `itt intent create` |
 | You are about to make a code change and no active intent explains it | `itt intent create` before editing |
 | Non-code work still creates a recoverable goal (docs, release, migration, investigation) | `itt intent create` |
-| A coherent work chunk under an active intent reaches a recoverable checkpoint | `itt snap create` |
+| Query led to code changes under an active intent | `itt snap create` (record the reasoning behind the changes) |
+| Query led to conclusions worth preserving but no code changes (investigation, direction, non-code work) | `itt snap create` (record the conclusions and reasoning) |
 | User query contains `decision-[text]` | `itt decision create` directly |
 | A choice emerges that should constrain future work | Ask user first, then `itt decision create` if confirmed |
-| User gives feedback on previous work | `itt snap feedback` |
 | Switching to a different problem | `itt intent suspend` + new intent |
 | Goal is fully resolved | `itt intent done` |
 | A past decision no longer applies | `itt decision deprecate` |
@@ -319,10 +311,10 @@ Intent records **only what's worth formally tracking, linking, and reusing acros
 - **Intent per task** — one intent per goal, not per step. "Migrate auth to JWT", not "Add JWT token generation".
 - **Intent for workflow familiarization** — reading a skill, learning the tooling, or agreeing to use Intent in future turns does not by itself create a cross-session goal.
 - **Using code changes as the only test for intent** — code edits are a strong signal that an intent must exist, but non-code recoverable goals can require intents too.
-- **Vague summaries** — "fixed it" tells the next session nothing. Answer: what's done, what's not, what context matters.
-- **Over-recording snaps** — don't create one snap per turn or per micro-edit. Optimize for recovery value, not interaction coverage.
-- **Skipping real checkpoints** — if a chunk ends with meaningful new state, direction change, or handoff value, record it. Don't wait so long that recovery becomes vague.
-- **Trying to update objects** — objects are immutable after creation (except `snap feedback`). Correct mistakes in the next snap.
+- **Vague summaries** — "fixed it" tells the next session nothing. Capture the reasoning: why this approach, what was discovered, what conclusion was reached.
+- **Snapping simple Q&A** — if the query was a factual question or explanation with no reasoning to persist, skip the snap.
+- **Summary as execution log** — don't dump commands or diffs. Capture the thinking, not the mechanics.
+- **Trying to update objects** — objects are immutable after creation. Correct mistakes in the next snap.
 - **Decisions as snaps** — if a choice outlives the current intent, it should be a decision. Propose it to the user; don't silently bury it in a snap summary.
 - **Creating decisions without user involvement** — decisions require either explicit user specification (`decision-[text]`) or user confirmation after you propose. Never create a decision on your own judgment alone.
 - **Forgetting to done** — stale active intents pollute `inspect` and auto-attach to unrelated decisions.
@@ -333,7 +325,7 @@ Judge your Intent usage by outcomes, not compliance:
 
 - Could a new session run `itt inspect` and continue without the user re-explaining?
 - For code work that requires semantic recovery, can the next session trace it to the relevant intent and snaps?
-- Are your snaps sparse but sufficient — written for the **next session's agent**, not as a verbose log for the current one?
+- Do your snap summaries capture reasoning (why), not just mechanics (what)?
 - Are active decisions actually constraining your implementation choices?
 - Could someone later understand why the product, workflow, or design direction became what it is — not just how to continue coding?
 - Would a human reading `inspect` output understand what's in progress and why?
@@ -348,7 +340,7 @@ If the answers are no, your objects are formally correct but semantically empty.
 {"ok": true, "action": "snap.create", "result": {...}, "warnings": []}
 ```
 
-Typical `action` values: `version`, `init`, `doctor`, `intent.create`, `intent.activate`, `intent.suspend`, `intent.done`, `snap.create`, `snap.feedback`, `decision.create`, `decision.deprecate`, `hub.start`, `hub.link`, `hub.sync`.
+Typical `action` values: `version`, `init`, `doctor`, `intent.create`, `intent.activate`, `intent.suspend`, `intent.done`, `snap.create`, `decision.create`, `decision.deprecate`, `hub.start`, `hub.link`, `hub.sync`.
 
 **`inspect`** is different: it returns top-level `ok`, `active_intents`, `active_decisions`, `suspended`, and `warnings` (no `action` / `result` envelope).
 
