@@ -32,7 +32,7 @@ The CLI is intentionally small:
 
 | Command | Role |
 | --- | --- |
-| `itt intent create TITLE --query Q [--rationale R]` | Create a new intent |
+| `itt intent create TITLE --query Q [--rationale R] [--origin LABEL]` | Create a new intent |
 | `itt intent activate [ID]` | `suspend` → `active` |
 | `itt intent suspend [ID]` | `active` → `suspend` |
 | `itt intent done [ID]` | `active` → `done` |
@@ -41,15 +41,15 @@ The CLI is intentionally small:
 
 | Command | Role |
 | --- | --- |
-| `itt snap create TITLE [--intent ID] [--origin LABEL] --summary S` | Create one semantic checkpoint (omit `--intent` when exactly one active intent; `origin` is auto-filled from env unless overridden) |
+| `itt snap create TITLE [--intent ID] [--origin LABEL] --summary S` | Create one semantic checkpoint (omit `--intent` when exactly one active intent) |
 | `itt snap feedback ID TEXT` | Overwrite snap feedback |
 
 ### Decision
 
 | Command | Role |
 | --- | --- |
-| `itt decision create TITLE --rationale R` | Create a new decision |
-| `itt decision deprecate ID` | `active` → `deprecated` |
+| `itt decision create TITLE --rationale R [--query Q] [--origin LABEL]` | Create a new decision |
+| `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` |
 ### Hub
 
 | Command | Role |
@@ -99,6 +99,32 @@ Structure diagnosis view.
 itt doctor
 ```
 
+## Object Schema
+
+| Field | Intent | Snap | Decision | Notes |
+| --- | :---: | :---: | :---: | --- |
+| `id` | ✓ | ✓ | ✓ | Auto-incremented, zero-padded (`intent-001`, `snap-001`, `decision-001`) |
+| `object` | ✓ | ✓ | ✓ | `"intent"`, `"snap"`, or `"decision"` |
+| `created_at` | ✓ | ✓ | ✓ | ISO 8601 UTC timestamp |
+| `title` | ✓ | ✓ | ✓ | Short theme for scanning |
+| `status` | ✓ | | ✓ | Intent: `active` / `suspend` / `done`. Decision: `active` / `deprecated`. Snaps have no status. |
+| `source_query` | ✓ | | ✓ | Original user words that triggered the object |
+| `rationale` | ✓ | | ✓ | Why this goal/constraint matters |
+| `origin` | ✓ | ✓ | ✓ | Auto-detected from environment (e.g. `claude-code`, `cursor`, `codex-desktop`) |
+| `summary` | | ✓ | | What was done, what's left, what context matters |
+| `feedback` | | ✓ | | User feedback, overwritten via `snap feedback` |
+| `intent_id` | | ✓ | | Parent intent |
+| `snap_ids` | ✓ | | | Ordered list of child snaps |
+| `decision_ids` | ✓ | | | Linked decisions (auto-attached on create) |
+| `intent_ids` | | | ✓ | Linked intents (auto-attached on create) |
+| `deprecated_reason` | | | ✓ | Why the decision was deprecated (set via `--reason`) |
+
+All fields are **immutable after creation** except `feedback` (overwrite-only via `snap feedback`).
+
+### Origin detection
+
+`origin` is auto-detected from the process environment. Built-in hints: `CURSOR_TRACE_ID` → `cursor`, `CODEX_INTERNAL_ORIGINATOR_OVERRIDE="Codex Desktop"` → `codex-desktop`, `CODEX_THREAD_ID` / `CODEX_SHELL` / `CODEX_CI` → `codex`, `TERM_PROGRAM=vscode` → `vscode`, plus Codespaces / GitHub Actions / Gitpod. Set `ITT_ORIGIN` or `INTENT_ORIGIN` in your shell profile for a custom label. Use `--origin LABEL` to override for a single command.
+
 ## Object Commands
 
 ### Intent
@@ -117,22 +143,18 @@ itt intent done intent-001
 
 Notes:
 
-- New intents start as `active`
-- Creating an intent auto-attaches all current `active` decisions
-- Reactivating an intent catches up any current `active` decisions
-- `activate`, `suspend`, and `done` accept `ID` or infer it when there is exactly one matching candidate
-- Omitting `ID` when none match returns `NO_ACTIVE_INTENT` or `NO_SUSPENDED_INTENT`
-- Omitting `ID` when several match returns `MULTIPLE_ACTIVE_INTENTS` or `MULTIPLE_SUSPENDED_INTENTS`, with `error.details.candidates`
+- New intents start as `active`; creating auto-attaches all current `active` decisions
+- Reactivating catches up any `active` decisions added while suspended
+- `activate`, `suspend`, `done` infer `ID` when exactly one candidate matches
 
 ### Snap
 
-`create` writes one semantic checkpoint under an active intent. A semantic checkpoint preserves what changed, what was learned, and later user feedback. `feedback` is deliberately separate and overwrite-only.
+`create` writes one semantic checkpoint under an active intent. `feedback` is separate and overwrite-only.
 
 ```bash
 itt snap create "Raise timeout to 30s" \
   --summary "Updated timeout config and ran the login test"
 
-# When several intents are active at once, disambiguate:
 itt snap create "Raise timeout to 30s" \
   --intent intent-001 \
   --summary "Updated timeout config and ran the login test"
@@ -142,35 +164,28 @@ itt snap feedback snap-001 "works in staging"
 
 Notes:
 
-- `--summary` is required
-- `--intent` is optional: if omitted and exactly one intent is `active`, that intent is used; if none are active, the CLI errors with `NO_ACTIVE_INTENT`; if more than one is active, it errors with `MULTIPLE_ACTIVE_INTENTS` and lists `candidates` in `error.details` for the agent to choose
-- `origin` on the stored snap is filled automatically from the process environment (inherited by the `itt` subprocess). Set `ITT_ORIGIN` or `INTENT_ORIGIN` to a stable label in your shell profile or IDE integration when heuristics are not enough. Built-in hints include: `CURSOR_TRACE_ID` → `cursor`, `CODEX_INTERNAL_ORIGINATOR_OVERRIDE="Codex Desktop"` → `codex-desktop`, `CODEX_THREAD_ID` / `CODEX_SHELL` / `CODEX_CI` → `codex`, `TERM_PROGRAM=vscode` → `vscode`, plus Codespaces / GitHub Actions / Gitpod. Use `--origin LABEL` only when you need to override detection for that one command.
-- New snaps start as `active`
+- `--summary` is required; `--intent` infers when exactly one intent is `active`
 - Creating a snap writes both `snap.intent_id` and the parent intent's `snap_ids`
-- Feedback is stored later via `itt snap feedback`
-- Correction happens by feedback or by writing a later snap, not by reverting the old one
+- Correct mistakes by adding feedback or writing a later snap, not by reverting
 
 ### Decision
 
-`create` records a long-lived constraint.
+`create` records a long-lived constraint. `deprecate` is terminal.
 
 ```bash
 itt decision create "Timeout must stay configurable" \
+  --query "user asked about deployment flexibility" \
   --rationale "Different deployments have different latency envelopes"
 
-itt decision deprecate decision-001
+itt decision deprecate decision-001 --reason "Replaced by decision-005"
 ```
 
 Notes:
 
-- New decisions start as `active`
-- Creating a decision auto-attaches all current `active` intents
+- New decisions start as `active`; creating auto-attaches all current `active` intents
 - `deprecate` preserves history; it only stops future auto-attachment
 
-There are no `show` commands.
-
-- Default recovery belongs to `itt inspect`
-- Human-oriented browsing belongs to IntHub
+There are no `show` commands — recovery uses `itt inspect`, browsing uses IntHub.
 
 ## Hub Commands
 
