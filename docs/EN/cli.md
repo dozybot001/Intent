@@ -7,7 +7,7 @@ Schema version: **1.0**
 Intent CLI is the local semantic-history CLI for Intent. It manages only three object types:
 
 - `intent`: a recoverable goal
-- `snap`: a semantic snapshot — persisted AI reasoning per query
+- `snap`: a semantic snapshot per query — what was done, why, what's next
 - `decision`: a long-lived constraint across intents
 
 The CLI is intentionally small:
@@ -201,7 +201,7 @@ Notes:
 
 ### Snap
 
-A semantic snapshot that persists the AI's thinking per query. `title` = what was done, `summary` = why + next steps, `query` = the user query that triggered it.
+A semantic snapshot per query. `title` = what was done, `summary` = why + next steps, `query` = the user query that triggered it.
 
 ```bash
 itt snap create "Timeout changed to 30s with async refresh" \

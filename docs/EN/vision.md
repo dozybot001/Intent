@@ -114,7 +114,7 @@ flowchart TB
 | Layer | Responsible for | Typical content |
 | --- | --- | --- |
 | Git | code history | commits, branches, diffs |
-| Intent | semantic history | goals (intent), persisted AI reasoning (snap), long-term constraints (decision) |
+| Intent | semantic history | goals (intent), semantic snapshots (snap), long-term constraints (decision) |
 | Collaboration layer | remote organization & collaboration | timelines, shared views, collaboration context |
 
 Intent can be understood as:

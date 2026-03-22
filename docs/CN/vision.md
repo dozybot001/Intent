@@ -114,7 +114,7 @@ flowchart TB
 | 层 | 负责什么 | 典型内容 |
 | --- | --- | --- |
 | Git | code history | commit、branch、diff |
-| Intent | semantic history | 目标（intent）、持久化的 AI 推理（snap）、长期约束（decision） |
+| Intent | semantic history | 目标（intent）、语义快照（snap）、长期约束（decision） |
 | 协作层 | 远端组织与协作 | timeline、共享视图、协作上下文 |
 
 因此可以把 Intent 理解成：
