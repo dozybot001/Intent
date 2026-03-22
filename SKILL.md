@@ -251,7 +251,7 @@ Use them with this boundary:
 
 | Command | What it does |
 |---|---|
-| `itt decision create WHAT --why W [--query Q] [--origin LABEL]` | New decision (auto-attaches active intents; `origin` auto-filled from env) |
+| `itt decision create WHAT [--query Q] --why W [--origin LABEL]` | New decision (auto-attaches active intents; `origin` auto-filled from env) |
 | `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` (terminal); `--reason` records why and/or what replaced it |
 There are no `show` commands. For resume, use `itt inspect`. For browsing, use IntHub.
 
