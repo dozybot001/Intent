@@ -69,18 +69,17 @@ flowchart LR
   D2 -- auto-attach --> Intent2
 ```
 
-## 两种模式
+## 怎么记录
 
-| | **Intent–Session**（推荐） | **Snap–Query** |
-|---|---|---|
-| **工作方式** | 一次有目的的交互对应一个 intent，snap 对标里程碑。目的达成后记录。 | intent 对标识别出的目标，snap 对标 query。实时记录。 |
-| **干扰程度** | 零——agent 自由工作，目的达成后再记录 | agent 每个 query 都要判断："建 intent？snap？跳过？" |
-| **信号质量** | 高——记录时结果已知 | 较低——agent 实时判断，不知道后续会发生什么 |
-| **代价** | 需要你告诉 agent 何时记录 | 全自动，但噪声更多 |
+Intent 采用 **Intent–Session** 模式：agent 自由工作，你来决定何时记录。
 
-推荐 **Intent–Session**：目的达成后，让 agent 回顾并构建语义历史。这里的 "Session" 不严格指一次完整会话——它代表任何有明确目的的交互，你知道自己要做什么，做完了就记录。
+1. 和 agent 一起完成你的目标
+2. 目标达成后，让 agent 回顾并构建语义历史
+3. Agent 创建一个 intent（目标）+ 若干 snap（里程碑）+ 标记完成
 
-[MAARS](https://github.com/dozybot001/MAARS) 是 Intent–Session 模式的实例；本项目（Intent 自身）两种模式都在用。
+"Session" 不严格指一次完整会话——它代表任何有明确目的的交互，你知道自己要做什么，做完了就记录。和 `git commit` 一样，记录由用户发起。
+
+[MAARS](https://github.com/dozybot001/MAARS) 就是这种方式——每次 session 的语义历史都是回溯记录的。
 
 ## 快速开始
 

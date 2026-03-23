@@ -5,7 +5,7 @@
 Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象：
 
 - `intent`：可恢复的目标
-- `snap`：语义快照 — 按 query 持久化 AI 的思考
+- `snap`：语义快照 — 做了什么、为什么、下一步
 - `decision`：跨 intent 持续生效的长期约束
 
 命令面刻意保持很小：

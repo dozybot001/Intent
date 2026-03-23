@@ -69,18 +69,17 @@ flowchart LR
   D2 -- auto-attach --> Intent2
 ```
 
-## Two modes
+## How to record
 
-| | **Intent–Session** (recommended) | **Snap–Query** |
-|---|---|---|
-| **How it works** | One intent per purposeful interaction, snaps per milestone. Recorded after the goal is achieved. | Intent per recognized goal, snap per query. Recorded in real-time. |
-| **Disruption** | Zero — agent works freely, records when the purpose is fulfilled | Agent evaluates every query: "create intent? snap? skip?" |
-| **Signal quality** | High — outcome is known when recording | Lower — agent judges in real-time without knowing what comes next |
-| **Trade-off** | Requires you to tell the agent when to record | Fully automatic, but noisier |
+Intent uses the **Intent–Session** model: the agent works freely, and you tell it when to record.
 
-We recommend **Intent–Session**: when a goal is achieved, ask the agent to look back and build the semantic history. "Session" here doesn't strictly mean a full conversation — it represents any purposeful interaction where you know what you set out to do.
+1. Work with the agent on your goal
+2. When the goal is achieved, ask the agent to look back and build the semantic history
+3. The agent creates one intent (the goal) + snaps (milestones) + marks it done
 
-[MAARS](https://github.com/dozybot001/MAARS) is an example of Intent–Session mode; this project (Intent itself) uses both.
+"Session" doesn't strictly mean a full conversation — it represents any purposeful interaction where you know what you set out to do. Like `git commit`, recording is user-initiated.
+
+[MAARS](https://github.com/dozybot001/MAARS) uses this approach — each session's semantic history was recorded retrospectively.
 
 ## Quick Start
 

@@ -35,7 +35,7 @@ Structured `itt` command outputs are JSON — parse them, don't guess. `argparse
 
 ### 2. Work freely
 
-Focus on the user's request. **Do not** proactively create intents or snaps during work — no evaluating "should I record this?" on every query. Semantic recording happens when the user asks for it.
+Focus on the user's request. Semantic recording happens when the user asks for it, not during work.
 
 ### 3. Record when asked
 
@@ -89,13 +89,9 @@ itt intent activate intent-001           # resume; active decisions are caught u
 
 `itt intent done` — terminal. If the problem resurfaces, create a new intent.
 
-### Alternative: Snap–Query mode
-
-For long-running goals spanning multiple sessions, you may record in real-time instead: create intents when you recognize goals from queries, snap after each meaningful query. This is more automatic but noisier. The default mode above (Intent–Session) is recommended.
-
 ## Key rules
 
-- **Do not record proactively** — wait for the user to ask; semantic recording is user-initiated, like git commit
+- **Recording is user-initiated** — like git commit, record when the user asks
 - **Decisions require user confirmation** — never create on your own judgment alone
 - **Always `done` completed intents** — stale intents pollute inspect and auto-attach to unrelated decisions
 - **Snap reasoning, not mechanics** — capture why and what's next, not diffs or command logs

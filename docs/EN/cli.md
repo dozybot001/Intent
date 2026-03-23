@@ -5,7 +5,7 @@
 Intent CLI is the local semantic-history CLI for Intent. It manages only three object types:
 
 - `intent`: a recoverable goal
-- `snap`: a semantic snapshot per query — what was done, why, what's next
+- `snap`: a semantic snapshot — what was done, why, what's next
 - `decision`: a long-lived constraint across intents
 
 The CLI is intentionally small:
