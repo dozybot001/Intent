@@ -1,7 +1,5 @@
 # Contributing to Intent
 
-[中文](CONTRIBUTING_CN.md) | English
-
 Thanks for your interest in contributing to Intent.
 
 ## Getting Started

@@ -1,7 +1,5 @@
 # Code of Conduct
 
-[中文](CODE_OF_CONDUCT_CN.md) | English
-
 ## Our Pledge
 
 We are committed to making participation in this project a harassment-free experience for everyone, regardless of age, body size, disability, ethnicity, gender identity and expression, level of experience, nationality, personal appearance, race, religion, or sexual identity and orientation.
