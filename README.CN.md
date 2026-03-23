@@ -73,12 +73,12 @@ flowchart LR
 
 | | **Intent–Session**（推荐） | **Snap–Query** |
 |---|---|---|
-| **工作方式** | 一个 session 一个 intent，snap 对标里程碑。session 结束后回溯记录。 | intent 对标识别出的目标，snap 对标 query。实时记录。 |
-| **干扰程度** | 零——agent 自由工作，最后回顾 | agent 每个 query 都要判断："建 intent？snap？跳过？" |
-| **信号质量** | 高——记录时已有完整 session 上下文 | 较低——agent 实时判断，不知道后续会发生什么 |
-| **代价** | 需要你在 session 结束时让 agent 回顾 | 全自动，但噪声更多 |
+| **工作方式** | 一次有目的的交互对应一个 intent，snap 对标里程碑。目的达成后记录。 | intent 对标识别出的目标，snap 对标 query。实时记录。 |
+| **干扰程度** | 零——agent 自由工作，目的达成后再记录 | agent 每个 query 都要判断："建 intent？snap？跳过？" |
+| **信号质量** | 高——记录时结果已知 | 较低——agent 实时判断，不知道后续会发生什么 |
+| **代价** | 需要你告诉 agent 何时记录 | 全自动，但噪声更多 |
 
-推荐 **Intent–Session**：session 结束时，让 agent 回顾本次工作并构建语义历史。记录更干净，工作不被打断。
+推荐 **Intent–Session**：目的达成后，让 agent 回顾并构建语义历史。这里的 "Session" 不严格指一次完整会话——它代表任何有明确目的的交互，你知道自己要做什么，做完了就记录。
 
 [MAARS](https://github.com/dozybot001/MAARS) 是 Intent–Session 模式的实例；本项目（Intent 自身）两种模式都在用。
 

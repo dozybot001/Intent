@@ -73,12 +73,12 @@ flowchart LR
 
 | | **Intent–Session** (recommended) | **Snap–Query** |
 |---|---|---|
-| **How it works** | One intent per session, snaps per milestone. Recorded at session end. | Intent per recognized goal, snap per query. Recorded in real-time. |
-| **Disruption** | Zero — agent works freely, reviews at the end | Agent evaluates every query: "create intent? snap? skip?" |
-| **Signal quality** | High — full session context available when recording | Lower — agent judges in real-time without knowing what comes next |
-| **Trade-off** | Requires you to ask the agent to review at session end | Fully automatic, but noisier |
+| **How it works** | One intent per purposeful interaction, snaps per milestone. Recorded after the goal is achieved. | Intent per recognized goal, snap per query. Recorded in real-time. |
+| **Disruption** | Zero — agent works freely, records when the purpose is fulfilled | Agent evaluates every query: "create intent? snap? skip?" |
+| **Signal quality** | High — outcome is known when recording | Lower — agent judges in real-time without knowing what comes next |
+| **Trade-off** | Requires you to tell the agent when to record | Fully automatic, but noisier |
 
-We recommend **Intent–Session**: at the end of a session, ask the agent to look back and build the semantic history. You get cleaner records with no interruption to your workflow.
+We recommend **Intent–Session**: when a goal is achieved, ask the agent to look back and build the semantic history. "Session" here doesn't strictly mean a full conversation — it represents any purposeful interaction where you know what you set out to do.
 
 [MAARS](https://github.com/dozybot001/MAARS) is an example of Intent–Session mode; this project (Intent itself) uses both.
 
