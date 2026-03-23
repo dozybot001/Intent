@@ -16,21 +16,44 @@ The CLI is intentionally small:
 
 ## Commands
 
-| Command | What it does | Notes |
-|---|---|---|
-| `itt version` | Print CLI version | |
-| `itt init` | Initialize `.intent/` in current Git repo | |
-| `itt inspect` | Resume-first recovery view | Start every session here. Returns `active_intents`, `active_decisions`, `suspended`, `warnings`. |
-| `itt doctor` | Validate object graph | Use when `inspect` shows warnings. Returns `healthy`, `issues`. |
-| `itt intent create WHAT [--why W]` | Create a new intent | Auto-attaches all active decisions. `origin` auto-filled. |
-| `itt intent activate [ID]` | `suspend` → `active` | Catches up active decisions. Infers ID when unique. |
-| `itt intent suspend [ID]` | `active` → `suspend` | Infers ID when unique. |
-| `itt intent done [ID]` | `active` → `done` (terminal) | Infers ID when unique. |
-| `itt snap create WHAT [--why W]` | Create a semantic snapshot | Auto-attaches to active intent. If multiple, CLI returns candidates for `--intent ID`. |
-| `itt decision create WHAT [--why W]` | Create a long-lived constraint | Auto-attaches all active intents. `origin` auto-filled. |
-| `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` (terminal) | Preserves history; stops future auto-attach. |
-| `itt hub link [--api-base-url URL] [--project-name NAME]` | Link workspace to IntHub | Writes `.intent/hub.json`. Requires GitHub remote. |
-| `itt hub sync [--dry-run]` | Push snapshot to IntHub | Full snapshot, not incremental. Includes Git context. |
+### Global
+
+| Command | What it does |
+|---|---|
+| `itt version` | Print CLI version |
+| `itt init` | Initialize `.intent/` in current Git repo |
+| `itt inspect` | Resume-first recovery view — start every session here |
+| `itt doctor` | Validate object graph — use when `inspect` shows warnings |
+
+### Intent
+
+| Command | What it does |
+|---|---|
+| `itt intent create WHAT [--why W]` | Create a new intent. Auto-attaches all active decisions. |
+| `itt intent activate [ID]` | `suspend` → `active`. Catches up active decisions. Infers ID when unique. |
+| `itt intent suspend [ID]` | `active` → `suspend`. Infers ID when unique. |
+| `itt intent done [ID]` | `active` → `done` (terminal). Infers ID when unique. |
+
+### Snap
+
+| Command | What it does |
+|---|---|
+| `itt snap create WHAT [--why W]` | Create a semantic snapshot. Auto-attaches to active intent; if multiple, specify `--intent ID`. |
+
+### Decision
+
+| Command | What it does |
+|---|---|
+| `itt decision create WHAT [--why W]` | Create a long-lived constraint. Auto-attaches all active intents. |
+| `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` (terminal). Preserves history; stops future auto-attach. |
+
+### Hub
+
+| Command | What it does |
+|---|---|
+| `itt hub start [--port PORT] [--no-open]` | Launch IntHub Local |
+| `itt hub link [--project-name NAME] [--api-base-url URL]` | Link workspace to IntHub. Writes `.intent/hub.json`. |
+| `itt hub sync [--dry-run]` | Push snapshot to IntHub. Full snapshot, not incremental. |
 
 ## Object Model
 
