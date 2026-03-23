@@ -43,8 +43,8 @@ flowchart LR
 
 | Object | What it captures |
 |---|---|
-| 🎯 **Intent** | A goal recognized from your query |
-| 📸 **Snap** | A semantic snapshot — what was done, why, and what's next |
+| 🎯 **Intent** | A goal summarized from the interaction |
+| 📸 **Snap** | A semantic snapshot — what was done and why |
 | 🔶 **Decision** | A long-lived constraint that spans multiple intents |
 
 Objects link automatically. Relationships are bidirectional and append-only.
