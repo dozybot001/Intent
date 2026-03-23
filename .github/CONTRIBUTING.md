@@ -1,6 +1,8 @@
 # Contributing to Intent
 
-Thanks for your interest in contributing to Intent!
+[中文](CONTRIBUTING_CN.md) | English
+
+Thanks for your interest in contributing to Intent.
 
 ## Getting Started
 
@@ -8,10 +10,10 @@ Thanks for your interest in contributing to Intent!
 git clone https://github.com/dozybot001/Intent.git
 cd Intent
 pip install -e .
-npx skills add dozybot001/Intent -g
+npx skills add dozybot001/Intent -g --all
 ```
 
-Run tests:
+Run tests before opening a PR:
 
 ```bash
 python -m pytest -q
@@ -26,7 +28,7 @@ itt init          # if your fork doesn't have .intent/ yet
 itt inspect       # see current state
 ```
 
-Create an intent before starting meaningful work, and snap when you reach a checkpoint.
+Create an intent before starting meaningful work, and create a snap when you reach a meaningful checkpoint.
 
 ## Reporting Bugs
 
@@ -40,18 +42,18 @@ Open a [GitHub issue](https://github.com/dozybot001/Intent/issues/new?template=b
 ## Submitting Changes
 
 1. Fork the repo and create a branch
-2. Make your changes with tests
+2. Make your changes and add tests when behavior changes
 3. Run `python -m pytest -q` and confirm all tests pass
 4. Open a pull request with a clear description
 
 ## Project Structure
 
-```
+```text
 src/intent_cli/       CLI source (published via pip install .)
 apps/                 IntHub Local (API + Web UI)
 SKILL.md              Agent skill specification
 showcase/             Official semantic history showcase
-docs/                 Bilingual documentation (EN + CN)
+docs/                 Documentation and references
 tests/                Test suite
 ```
 
@@ -59,4 +61,4 @@ tests/                Test suite
 
 - Keep it simple. Don't over-engineer.
 - No external dependencies for the CLI.
-- Tests for new commands and behavior changes.
+- Add tests for new commands and behavior changes.

@@ -1,5 +1,7 @@
 # Code of Conduct
 
+[中文](CODE_OF_CONDUCT_CN.md) | English
+
 ## Our Pledge
 
 We are committed to making participation in this project a harassment-free experience for everyone, regardless of age, body size, disability, ethnicity, gender identity and expression, level of experience, nationality, personal appearance, race, religion, or sexual identity and orientation.
@@ -15,7 +17,7 @@ Examples of behavior that contributes to a positive environment:
 
 Examples of unacceptable behavior:
 
-- Trolling, insulting/derogatory comments, and personal or political attacks
+- Trolling, insulting or derogatory comments, and personal or political attacks
 - Public or private harassment
 - Publishing others' private information without explicit permission
 - Other conduct which could reasonably be considered inappropriate

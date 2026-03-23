@@ -128,6 +128,12 @@ itt hub sync
 - [愿景](docs/CN/vision.md) — 为什么需要语义历史
 - [CLI 设计文档](docs/CN/cli.md) — 对象模型、命令、JSON 契约
 
+## 社区
+
+- [贡献指南](.github/CONTRIBUTING_CN.md)
+- [行为准则](.github/CODE_OF_CONDUCT_CN.md)
+- [安全策略](.github/SECURITY_CN.md)
+
 ## 许可证
 
 MIT

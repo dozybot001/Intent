@@ -1,6 +1,6 @@
 # Intent
 
-[中文](README.CN.md) | English
+[中文](README_CN.md) | English
 
 A semantic history layer above Git for development. It records **goals**, **semantic snapshots**, and **decisions**.
 
@@ -127,6 +127,12 @@ Run `itt hub start` to browse them in IntHub.
 
 - [Vision](docs/EN/vision.md) — why semantic history matters
 - [CLI Design](docs/EN/cli.md) — object model, commands, JSON contract
+
+## Community
+
+- [Contributing](.github/CONTRIBUTING.md)
+- [Code of Conduct](.github/CODE_OF_CONDUCT.md)
+- [Security Policy](.github/SECURITY.md)
 
 ## License
 

@@ -1,18 +1,18 @@
 ---
 name: Bug Report
 about: Report a bug in the Intent CLI or IntHub
-title: ''
+title: "[Bug] "
 labels: bug
 assignees: ''
 ---
 
 ## Describe the bug
 
-A clear description of what the bug is.
+Describe the bug clearly.
 
 ## To reproduce
 
-Steps or `itt` commands to reproduce:
+List the steps or `itt` commands needed to reproduce it.
 
 ```bash
 itt <command>
@@ -20,11 +20,11 @@ itt <command>
 
 ## Expected behavior
 
-What you expected to happen.
+What did you expect to happen?
 
 ## Actual behavior
 
-What actually happened. Paste the JSON output if applicable:
+What actually happened? Paste the JSON output if applicable.
 
 ```json
 
