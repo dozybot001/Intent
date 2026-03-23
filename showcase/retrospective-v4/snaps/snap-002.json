@@ -1,0 +1,9 @@
+{
+  "id": "snap-002",
+  "object": "snap",
+  "created_at": "2026-03-23T17:45:33.240647+00:00",
+  "what": "文档体系全面对齐回溯模式",
+  "why": "CLI 文档分组重构、Vision 时序图改为回溯流程、README 对象描述和触发提示更新，消除所有与旧模式的措辞冲突",
+  "intent_id": "intent-001",
+  "origin": "claude-code"
+}

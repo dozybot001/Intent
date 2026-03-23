@@ -114,9 +114,12 @@ itt hub sync
 
 ## Showcase
 
-这个项目用 Intent 管理自身的开发过程。运行 `itt hub start` 后，完整的语义历史会作为 showcase 项目自动加载到 IntHub。
+本项目用 Intent 管理自身的开发过程。`showcase/` 下包含两个示例项目：
 
-> Showcase 跨越了多次格式迭代，旧数据未对齐新格式，缺失字段用”-”表示。
+- **`retrospective-v4`** — 使用当前 v4 回溯模式记录（`what` + `why`）
+- **`intent-project`** — 早期格式迭代的历史语义记录
+
+运行 `itt hub start` 在 IntHub 中浏览。
 
 ## 文档
 

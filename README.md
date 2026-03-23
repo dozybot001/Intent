@@ -114,9 +114,12 @@ itt hub sync
 
 ## Showcase
 
-This project manages its own development with Intent. Run `itt hub start` and the full semantic history is auto-loaded as a showcase project in IntHub.
+This project manages its own development with Intent. Two showcase projects are included under `showcase/`:
 
-> The showcase spans multiple schema iterations. Legacy data has not been aligned to the new format; missing fields are marked with "-".
+- **`retrospective-v4`** — recorded with the current v4 retrospective model (`what` + `why`)
+- **`intent-project`** — legacy semantic history spanning earlier schema iterations
+
+Run `itt hub start` to browse them in IntHub.
 
 ## Docs
 
