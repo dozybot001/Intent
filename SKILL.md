@@ -14,8 +14,8 @@ Structured `itt` command outputs are JSON — parse them, don't guess. `argparse
 
 | Object | What it is | States |
 |--------|-----------|--------|
-| **Intent** | A recoverable goal from a user query. `query` = user's words, `why` = context (fill when available, `""` otherwise). | `active` → `suspend` ↔ `active` → `done` (terminal) |
-| **Snap** | Semantic snapshot under an intent: `what` / `why` / `next` / `query`. Externalizes reasoning that would be lost when session ends. | Immutable; correct via new snap |
+| **Intent** | A recoverable goal. `query` = user's words, `why` = context (fill when available, `""` otherwise). | `active` → `suspend` ↔ `active` → `done` (terminal) |
+| **Snap** | Semantic snapshot under an intent: `what` / `why` / `next` / `query`. | Immutable; correct via new snap |
 | **Decision** | Long-lived constraint that outlives any single intent. **Test:** would a future intent on a different problem still need to respect this? Yes → decision. No → snap it. | `active` → `deprecated` (terminal) |
 
 - Relationships are **bidirectional**, **append-only**: creating an intent auto-attaches all active decisions; creating a decision auto-attaches all active intents. Both sides update.
@@ -33,39 +33,36 @@ Structured `itt` command outputs are JSON — parse them, don't guess. `argparse
 4. If `warnings` exist, run `itt doctor`.
 5. Everything empty → fresh workspace.
 
-### 2. Recognize intents
+### 2. Work freely
 
-**This is your job, not the user's.**
+Focus on the user's request. **Do not** proactively create intents or snaps during work — no evaluating "should I record this?" on every query. Semantic recording happens when the user asks for it.
 
-| Situation | Action |
-|-----------|--------|
-| Quick factual question, no follow-up | Respond directly, no objects |
-| Falls under active intent | Snap under that intent |
-| Relates to suspended intent | Activate it, then snap |
-| New goal not covered by active intents | Create intent, then snap |
+### 3. Record when asked
 
-**Recovery test** before creating: would a new agent session need this goal boundary to resume? No → skip.
+When the user tells you to record (e.g. "记录一下", "let's record what we did", or signals the goal is achieved), look back at the work and create:
 
-If you are about to begin meaningful work and no active intent explains the goal, create the intent first.
+1. **One intent** — summarize the goal of this interaction
+2. **Snaps** — one per milestone or meaningful chunk of work, capturing what/why/next
+3. **`itt intent done`** — if the goal is fully resolved
 
-### Alternative: session-granularity (retrospective mode)
-
-Instead of creating intents per recognized goal and snaps per query, you can work at **session granularity**: one intent per session, snaps per milestone. Record them retrospectively at the end of the session when the full picture is clear. This reduces judgment overhead during work and produces higher signal-to-noise ratio. Both modes are valid — choose based on context.
-
-### 3. Create snaps
-
-| Category | When | Action |
-|----------|------|--------|
-| No snap | Simple question, explanation — no reasoning to persist | Skip |
-| Snap with code | Code changes made; Git has the diff, snap has the why | `itt snap create` |
-| Snap without code | Investigation concluded, direction established, non-code work with actionable conclusions | `itt snap create` |
+```bash
+itt intent create "Implemented auth retry logic" \
+  --query "fix the login timeout" \
+  --why "users on slow networks were getting logged out"
+itt snap create "Added exponential backoff to API client" \
+  --why "transient 503s from upstream caused cascading failures" \
+  --next "monitoring dashboard needs retry metrics"
+itt snap create "Updated error handling in login flow" \
+  --why "old handler swallowed retry errors silently"
+itt intent done
+```
 
 Snap fields:
 - `WHAT`: concise action description for scanning
-- `--query`: the user query that triggered this
-- `--why`: reasoning behind this approach (optional; fill when there is meaningful reasoning to preserve)
+- `--query`: the user query that triggered the work (optional)
+- `--why`: reasoning behind this approach (optional; fill when meaningful)
 - `--next`: remaining work, direction, blockers (optional)
-- `--intent`: required only when multiple intents are active (CLI infers single active; on ambiguity returns `MULTIPLE_ACTIVE_INTENTS` with candidates)
+- `--intent`: required only when multiple intents are active (CLI infers single active)
 
 ### 4. Record decisions
 
@@ -76,7 +73,7 @@ Snap fields:
 | Explicit | User says `decision-[text]` or `决定-[text]` | Create directly |
 | Discovered | You spot a long-lived constraint | Ask user: "Should I record this as a decision?" → create only after confirmation |
 
-If a user request conflicts with an active decision, say so and ask whether to deprecate. A deprecated decision without replacement leaves a gap — ask if new direction should also be a decision.
+If a user request conflicts with an active decision, say so and ask whether to deprecate.
 
 ### 5. Context switching
 
@@ -90,16 +87,19 @@ itt intent activate intent-001           # resume; active decisions are caught u
 
 ### 6. Goal complete
 
-`itt intent done` — when the user confirms the goal is resolved, or when last snap's `next` is empty. Terminal; if the problem resurfaces, create a new intent.
+`itt intent done` — terminal. If the problem resurfaces, create a new intent.
+
+### Alternative: Snap–Query mode
+
+For long-running goals spanning multiple sessions, you may record in real-time instead: create intents when you recognize goals from queries, snap after each meaningful query. This is more automatic but noisier. The default mode above (Intent–Session) is recommended.
 
 ## Key rules
 
-- **Intent recognition is your job** — the user won't say "create an intent"; you recognize goals from their queries
+- **Do not record proactively** — wait for the user to ask; semantic recording is user-initiated, like git commit
 - **Decisions require user confirmation** — never create on your own judgment alone
 - **Always `done` completed intents** — stale intents pollute inspect and auto-attach to unrelated decisions
 - **Snap reasoning, not mechanics** — capture why and what's next, not diffs or command logs
 - **One intent per goal, not per step** — "Migrate auth to JWT", not "Add JWT token generation"
-- **No intent for simple Q&A** — trivial questions, workflow familiarization, and meta-discussion don't need tracking
 - **Decision hygiene** — when `active_decisions` exceeds 20, prompt the user: "当前有 N 条 active decision，要做一轮清理吗？" If yes, review all active decisions, propose merging same-topic ones into a consolidated decision, and deprecate the originals after user confirmation
 
 ## Command reference
@@ -132,7 +132,7 @@ itt intent activate intent-001           # resume; active decisions are caught u
 
 | Command | What it does |
 |---|---|
-| `itt decision create WHAT [--query Q] --why W [--origin LABEL]` | New decision (auto-attaches active intents; `origin` auto-filled from env) |
+| `itt decision create WHAT [--query Q] [--why W] [--origin LABEL]` | New decision (auto-attaches active intents; `origin` auto-filled from env) |
 | `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` (terminal); `--reason` records why |
 
 ### Hub
@@ -178,4 +178,3 @@ Error codes: `NOT_INITIALIZED`, `ALREADY_EXISTS`, `GIT_STATE_INVALID`, `STATE_CO
 ```
 
 IDs are zero-padded to 3 digits, auto-incremented per type.
-
