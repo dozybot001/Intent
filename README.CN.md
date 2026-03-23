@@ -110,7 +110,7 @@ itt hub link --api-base-url http://127.0.0.1:7210
 itt hub sync
 ```
 
-> **Tips：** 由于 `itt` 是一个全新的命令，agent 没有被训练过，建议每个 session 开始时打个 `/`，选到技能，回车就进入工作流了。
+> **Tips：** 输入 `/intent-cli` 加载记录指南，或者如果 agent 已经了解 Intent，直接说"记录语义"即可触发。
 
 ## Showcase
 

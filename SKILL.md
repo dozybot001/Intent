@@ -1,102 +1,129 @@
 ---
 name: intent-cli
-description: Track what you're doing and why with structured semantic history (.intent/) — goals, decisions, and work state that persist across agent sessions.
+description: Record semantic history (.intent/) — goals, snapshots, and decisions that persist across agent sessions. Triggered when user asks to record semantics.
 ---
 
-# Intent — semantic history
+# Intent — semantic recording guide
 
-This repo uses Intent (`.intent/`) to track what you're doing and why.
-Install: `git clone https://github.com/dozybot001/Intent.git && cd Intent && pip install .`
+This repo uses Intent (`.intent/`) to record semantic history: **what you did and why**, structured as formal objects that survive context loss across sessions and agents.
 
-Structured `itt` command outputs are JSON — parse them, don't guess. `argparse` help and usage text are not JSON.
+`itt` commands output JSON — parse them, don't guess.
 
-## Objects
+## When this activates
 
-| Object | What it is | States |
-|--------|-----------|--------|
-| **Intent** | A recoverable goal. `query` = user's words, `why` = context (fill when available, `""` otherwise). | `active` → `suspend` ↔ `active` → `done` (terminal) |
-| **Snap** | Semantic snapshot under an intent: `what` / `why` / `next` / `query`. | Immutable; correct via new snap |
-| **Decision** | Long-lived constraint that outlives any single intent. **Test:** would a future intent on a different problem still need to respect this? Yes → decision. No → snap it. | `active` → `deprecated` (terminal) |
+- User invokes `/intent-cli`
+- User says "记录语义", "record what we did", "记录一下", or similar
 
-- Relationships are **bidirectional**, **append-only**: creating an intent auto-attaches all active decisions; creating a decision auto-attaches all active intents. Both sides update.
-- Objects are **immutable** after creation. Correct mistakes by writing a new snap.
+## Recording flow
 
-## Workflow
+Recording is **retrospective**. You look back at the work since the last recording and summarize:
 
-### 1. Session start
-
-**Every session begins with `itt inspect`.** Not optional.
-
-1. Continue from each active intent's `latest_snap`. Do not ask user to re-explain.
-2. Respect `active_decisions` — they are standing constraints.
-3. Check `suspended` — mention or reactivate if relevant.
-4. If `warnings` exist, run `itt doctor`.
-5. Everything empty → fresh workspace.
-
-### 2. Work freely
-
-Focus on the user's request. Semantic recording happens when the user asks for it, not during work.
-
-### 3. Record when asked
-
-When the user tells you to record (e.g. "记录一下", "let's record what we did", or signals the goal is achieved), look back at the work and create:
-
-1. **One intent** — summarize the goal of this interaction
-2. **Snaps** — one per milestone or meaningful chunk of work, capturing what/why/next
-3. **`itt intent done`** — if the goal is fully resolved
+1. Run `itt inspect` to check current state (active intents, decisions, suspended work)
+2. Create **one intent** — the goal of this interaction
+3. Create **snaps** — one per meaningful milestone
+4. Identify **decisions** — long-lived constraints worth formalizing (requires user confirmation)
+5. `itt intent done` — if the goal is fully resolved
 
 ```bash
 itt intent create "Implemented auth retry logic" \
-  --query "fix the login timeout" \
   --why "users on slow networks were getting logged out"
 itt snap create "Added exponential backoff to API client" \
-  --why "transient 503s from upstream caused cascading failures" \
-  --next "monitoring dashboard needs retry metrics"
+  --why "transient 503s from upstream caused cascading failures"
 itt snap create "Updated error handling in login flow" \
   --why "old handler swallowed retry errors silently"
 itt intent done
 ```
 
-Snap fields:
-- `WHAT`: concise action description for scanning
-- `--query`: the user query that triggered the work (optional)
-- `--why`: reasoning behind this approach (optional; fill when meaningful)
-- `--next`: remaining work, direction, blockers (optional)
-- `--intent`: required only when multiple intents are active (CLI infers single active)
+## Writing high-quality semantics
 
-### 4. Record decisions
+Every object has two core fields: **`what`** (concise action/theme) and **`why`** (reasoning).
+
+### Intent: `what` + `why`
+
+- `what`: one sentence summarizing the goal — **not** a step, not a file name
+- `why`: the context or motivation behind the goal
+
+| Good | Bad |
+|------|-----|
+| "Migrate auth middleware to JWT" | "Update auth.py" |
+| "Fix cascading timeout on slow networks" | "Fix bug" |
+
+**One intent per recording, not per step.** A recording session typically produces exactly one intent.
+
+### Snap: `what` + `why`
+
+A snap is a **milestone** — a meaningful chunk of completed work under the intent.
+
+- `what`: what was done, scannable in a list
+- `why`: why this approach was chosen, not a restatement of what
+
+| Good | Bad |
+|------|-----|
+| what: "Added retry with exponential backoff" | what: "Modified api_client.py lines 42-78" |
+| why: "Linear retry overwhelmed the upstream during recovery" | why: "Because we needed retries" |
+
+### Snap boundary judgment
+
+```
+Ask: "If I removed this snap, would the intent's story have a gap?"
+  Yes → keep it as a snap
+  No  → too granular, merge into another snap or skip
+```
+
+Rules of thumb:
+- **Snap it**: architectural choice, non-obvious trade-off, significant code change, a conclusion from investigation
+- **Skip it**: routine edits, formatting, dependency bumps, trivial fixes that need no explanation
+
+### Decision: `what` + `why`
+
+A decision is a **long-lived constraint** that outlives the current intent.
+
+**The test:** would a future intent on a completely different problem still need to respect this? Yes → decision. No → it's just a snap.
+
+| Decision | Not a decision (snap it) |
+|----------|--------------------------|
+| "All API responses must include request_id for tracing" | "Added request_id to the auth endpoint response" |
+| "SKILL must be self-contained — agent reads only SKILL" | "Rewrote SKILL to clarify the recording flow" |
 
 **Never create a decision without user involvement.**
 
 | Path | Trigger | Action |
 |------|---------|--------|
 | Explicit | User says `decision-[text]` or `决定-[text]` | Create directly |
-| Discovered | You spot a long-lived constraint | Ask user: "Should I record this as a decision?" → create only after confirmation |
+| Discovered | You spot a long-lived constraint | Ask: "Should I record this as a decision?" → create only after confirmation |
 
 If a user request conflicts with an active decision, say so and ask whether to deprecate.
 
-### 5. Context switching
+## Session recovery
 
-```bash
-itt intent suspend intent-001            # pause current work
-itt intent create "Urgent fix" --query "..."  # handle interruption
-# ... work ...
-itt intent done intent-002               # complete the fix
-itt intent activate intent-001           # resume; active decisions are caught up
-```
+When activated, always run `itt inspect` first:
 
-### 6. Goal complete
-
-`itt intent done` — terminal. If the problem resurfaces, create a new intent.
+1. **Active intents** → continue from `latest_snap`, don't ask user to re-explain
+2. **Active decisions** → respect them as standing constraints
+3. **Suspended intents** → mention if relevant
+4. **Warnings** → run `itt doctor`
+5. **Everything empty** → fresh workspace
 
 ## Key rules
 
-- **Recording is user-initiated** — like git commit, record when the user asks
-- **Decisions require user confirmation** — never create on your own judgment alone
-- **Always `done` completed intents** — stale intents pollute inspect and auto-attach to unrelated decisions
-- **Snap reasoning, not mechanics** — capture why and what's next, not diffs or command logs
-- **One intent per goal, not per step** — "Migrate auth to JWT", not "Add JWT token generation"
-- **Decision hygiene** — when `active_decisions` exceeds 20, prompt the user: "当前有 N 条 active decision，要做一轮清理吗？" If yes, review all active decisions, propose merging same-topic ones into a consolidated decision, and deprecate the originals after user confirmation
+- **Recording is user-initiated** — like git commit, only when asked
+- **One intent per recording** — summarize the goal, not each step
+- **Snap reasoning, not mechanics** — capture why, not diffs
+- **Decisions require user confirmation** — never create on your own judgment
+- **Always `done` completed intents** — stale intents pollute inspect
+- **Decision hygiene** — when `active_decisions > 20`, prompt: "当前有 N 条 active decision，要做一轮清理吗？"
+
+## Objects
+
+| Object | Fields | States |
+|--------|--------|--------|
+| **Intent** | `what`, `why`, `snap_ids[]`, `decision_ids[]` | `active` → `suspend` ↔ `active` → `done` |
+| **Snap** | `what`, `why`, `intent_id` | Immutable |
+| **Decision** | `what`, `why`, `intent_ids[]`, `reason` | `active` → `deprecated` |
+
+All objects also carry: `id`, `object`, `created_at`, `origin` (auto-detected).
+
+Relationships are **bidirectional** and **append-only**. Objects are **immutable** after creation — correct via new snap.
 
 ## Command reference
 
@@ -105,72 +132,46 @@ itt intent activate intent-001           # resume; active decisions are caught u
 | Command | What it does |
 |---|---|
 | `itt init` | Create `.intent/` in current git repo |
-| `itt inspect` | Resume-first recovery view — **start every session here** |
-| `itt doctor` | Validate object graph structure and links |
+| `itt inspect` | Recovery view — start every recording here |
+| `itt doctor` | Validate object graph |
 | `itt version` | Print version |
 
 ### Intent
 
 | Command | What it does |
 |---|---|
-| `itt intent create WHAT --query Q [--why W] [--origin LABEL]` | New intent (auto-attaches active decisions; `origin` auto-filled from env) |
-| `itt intent activate [ID]` | `suspend` → `active` (catches up on active decisions; infers the only suspended intent if unique) |
-| `itt intent suspend [ID]` | `active` → `suspend` (infers the only active intent if unique) |
-| `itt intent done [ID]` | `active` → `done` (terminal; infers the only active intent if unique) |
+| `itt intent create WHAT [--why W]` | New intent (auto-attaches active decisions) |
+| `itt intent activate [ID]` | `suspend` → `active` (catches up decisions; infers ID when unique) |
+| `itt intent suspend [ID]` | `active` → `suspend` (infers ID when unique) |
+| `itt intent done [ID]` | `active` → `done` (infers ID when unique) |
 
 ### Snap
 
 | Command | What it does |
 |---|---|
-| `itt snap create WHAT [--query Q] [--why W] [--next N] [--origin LABEL]` | Semantic snapshot. Auto-attaches to active intent; if multiple, re-run with `--intent ID`. |
+| `itt snap create WHAT [--why W]` | Semantic snapshot (auto-attaches to active intent; `--intent ID` if multiple) |
 
 ### Decision
 
 | Command | What it does |
 |---|---|
-| `itt decision create WHAT [--query Q] [--why W] [--origin LABEL]` | New decision (auto-attaches active intents; `origin` auto-filled from env) |
-| `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` (terminal); `--reason` records why |
+| `itt decision create WHAT [--why W]` | New decision (auto-attaches active intents) |
+| `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` |
 
 ### Hub
 
 | Command | What it does |
 |---|---|
-| `itt hub start [--port PORT] [--no-open]` | Launch IntHub Local (runs from any directory) |
-| `itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]` | Link current workspace to an IntHub project |
-| `itt hub sync [--api-base-url URL] [--token TOKEN] [--dry-run]` | Push local semantic history + Git context to IntHub |
+| `itt hub start [--port PORT] [--no-open]` | Launch IntHub Local |
+| `itt hub link [--project-name NAME] [--api-base-url URL]` | Link workspace to IntHub |
+| `itt hub sync [--dry-run]` | Push semantic history to IntHub |
 
-Hub does **not** replace local commands. First record locally, then sync.
+## JSON output
 
-## JSON output contract
+**Success:** `{"ok": true, "action": "...", "result": {...}, "warnings": []}`
 
-**Success:**
-```json
-{"ok": true, "action": "snap.create", "result": {...}, "warnings": []}
-```
+**Inspect:** `{"ok": true, "active_intents": [], "active_decisions": [], "suspended": [], "warnings": []}`
 
-`action` values: `intent.create`, `intent.activate`, `intent.suspend`, `intent.done`, `snap.create`, `decision.create`, `decision.deprecate`, `version`, `init`, `doctor`, `hub.start`, `hub.link`, `hub.sync`.
-
-**`inspect`** is different: top-level `ok`, `active_intents`, `active_decisions`, `suspended`, `warnings` (no `action`/`result` envelope).
-
-**Error:**
-```json
-{"ok": false, "error": {"code": "ERROR_CODE", "message": "...", "suggested_fix": "itt ..."}}
-```
+**Error:** `{"ok": false, "error": {"code": "...", "message": "...", "suggested_fix": "itt ..."}}`
 
 When `suggested_fix` is present, follow it.
-
-Error codes: `NOT_INITIALIZED`, `ALREADY_EXISTS`, `GIT_STATE_INVALID`, `STATE_CONFLICT`, `OBJECT_NOT_FOUND`, `INVALID_INPUT`, `NO_ACTIVE_INTENT`, `MULTIPLE_ACTIVE_INTENTS`, `NO_SUSPENDED_INTENT`, `MULTIPLE_SUSPENDED_INTENTS`, `HUB_NOT_CONFIGURED`, `NOT_LINKED`, `PROVIDER_UNSUPPORTED`, `NETWORK_ERROR`, `SERVER_ERROR`.
-
-**`doctor`:** `result.healthy` (bool) + `result.issues[]` with codes: `MISSING_REFERENCE`, `BROKEN_LINK`, `INVALID_STATUS`, `OBJECT_TYPE_MISMATCH`.
-
-## Storage
-
-```
-.intent/
-  hub.json                 # local IntHub access + workspace binding
-  intents/intent-001.json
-  snaps/snap-001.json
-  decisions/decision-001.json
-```
-
-IDs are zero-padded to 3 digits, auto-incremented per type.

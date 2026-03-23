@@ -110,7 +110,7 @@ itt hub link --api-base-url http://127.0.0.1:7210
 itt hub sync
 ```
 
-> **Tips:** Because `itt` is a new command, agents are not trained on it yet. We recommend typing `/` at the start of each session, selecting the skill, and pressing Enter to enter the workflow.
+> **Tips:** Type `/intent-cli` to load the recording guide, or simply say "record semantics" / "记录语义" if the agent already knows about Intent.
 
 ## Showcase
 
