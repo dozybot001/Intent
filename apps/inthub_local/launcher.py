@@ -46,7 +46,7 @@ def build_local_server(host, port, db_path, default_project_id=None, web_static_
 def _load_showcase(db_path, showcase_dir):
     """Import showcase projects into IntHub on startup."""
     for project_dir in sorted(showcase_dir.iterdir()):
-        if not project_dir.is_dir():
+        if not project_dir.is_dir() or project_dir.name.startswith("."):
             continue
         config_path = project_dir / "config.json"
         if not config_path.exists():
