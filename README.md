@@ -96,6 +96,7 @@ npx skills add dozybot001/Intent -g --all
 ```
 
 Requires Python 3.9+ and Git. The install script handles pipx automatically.
+Re-run the installer anytime to upgrade or repair an existing `itt` install.
 
 To browse semantic history in a browser, start **IntHub Local** (works from any directory):
 

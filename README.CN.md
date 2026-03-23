@@ -96,6 +96,7 @@ npx skills add dozybot001/Intent -g --all
 ```
 
 需要 Python 3.9+ 和 Git。安装脚本会自动处理 pipx。
+需要升级或修复已有的 `itt` 安装时，直接重新运行安装脚本即可。
 
 想在浏览器中查看语义历史，启动 **IntHub Local**（任意目录可用）：
 

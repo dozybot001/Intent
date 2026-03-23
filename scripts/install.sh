@@ -41,8 +41,7 @@ info "pipx $(pipx --version)"
 
 # --- intent-cli ---
 info "Installing intent-cli..."
-pipx install "intent-cli @ git+${REPO}" 2>/dev/null \
-  || pipx install "intent-cli @ git+${REPO}" --force
+pipx install "intent-cli @ git+${REPO}" --force
 
 info "Done! Run 'itt version' to verify."
 info "To add the agent skill: npx skills add dozybot001/Intent -g --all"
