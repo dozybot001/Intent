@@ -68,7 +68,7 @@ Intent 的定位就是这一层。
 
 - 当前到底在解决什么问题
 - 最近一次交互实际推进了什么
-- 用户对这次推进给了什么反馈
+- 当前方案背后的推理是什么
 - 哪些长期决策仍然有效
 - 为什么当前会沿着这条路径继续推进
 
@@ -149,16 +149,17 @@ sequenceDiagram
   participant B as Agent B
 
   H->>A: “修复登录超时”
-  A->>I: intent create + snap（summary）
-  A-->>H: 今天到这里
+  A-->>H: 完成
+  H->>A: “记录一下”
+  A->>I: intent create + snaps（回溯记录）
+  A->>I: intent done
 
   Note over A,B: session 结束，上下文丢失
 
   H->>B: “接着上次继续”
   B->>I: itt inspect
   I-->>B: active intents、decisions、latest snap
-  B->>B: 读 snap → 知道做了什么、为什么、下一步
-  B->>I: snap（继续推进）
+  B->>B: 读 snap → 知道做了什么、为什么
 ```
 
 在传统开发里，语义在程序员脑中。在 agent 时代，session 会中断、agent 会切换、上下文会丢失。Intent 让这个交接变成结构化的，而不是口头的。

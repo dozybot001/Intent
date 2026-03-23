@@ -68,7 +68,7 @@ This leads to a very practical problem: we can see how code changed, but we can'
 
 - What problem are we actually solving right now
 - What did the last interaction actually accomplish
-- What feedback did the user give on that progress
+- What reasoning led to the current approach
 - Which long-term decisions are still in effect
 - Why are we continuing along this particular path
 
@@ -149,16 +149,17 @@ sequenceDiagram
   participant B as Agent B
 
   H->>A: "fix the login timeout"
-  A->>I: intent create + snap (summary)
-  A-->>H: done for today
+  A-->>H: done
+  H->>A: "record what we did"
+  A->>I: intent create + snaps (retrospective)
+  A->>I: intent done
 
   Note over A,B: session ends, context lost
 
   H->>B: "continue where we left off"
   B->>I: itt inspect
   I-->>B: active intents, decisions, latest snap
-  B->>B: reads snap → knows what was done, why, what's next
-  B->>I: snap (continues work)
+  B->>B: reads snap → knows what was done and why
 ```
 
 In traditional development, semantics lived in the programmer's head. In the agent era, sessions are interrupted, agents are swapped, and context is lost between turns. Intent makes this handoff structural — not verbal.
