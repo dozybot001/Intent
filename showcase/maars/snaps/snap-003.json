@@ -1,0 +1,9 @@
+{
+  "id": "snap-003",
+  "object": "snap",
+  "created_at": "2026-03-23T14:57:32.652040+00:00",
+  "what": "Refine & Plan pipeline implementation",
+  "why": "RefineStage: 3 轮 Explore→Evaluate→Crystallize，每轮不同 system prompt + 历史上下文。PlanStage: 递归分解树 + 依赖解析（继承+展开两步算法），前端分解树实时渲染。BaseStage 新增 process_response + finalize 钩子。plan.py 包含完整的 Task 数据结构、_resolve_dependencies、_ancestor_chain、_get_atomic_descendants。",
+  "intent_id": "intent-001",
+  "origin": "claude-code"
+}

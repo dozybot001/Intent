@@ -1,0 +1,9 @@
+{
+  "id": "snap-007",
+  "object": "snap",
+  "created_at": "2026-03-23T14:58:19.621375+00:00",
+  "what": "UI consolidation: dual-panel workspace + collapsible stages",
+  "why": "前端重构为左右双栏 workspace：左侧 LLM Output Log（阶段标识 + call_id 文本块 + max-height 限制），右侧 Process & Output（分解树 + 执行树 + 文件图标）。统一 log-separator 样式，点击折叠/展开。autoscroll 模块（wheel 事件检测用户滚动解锁）。移除 <reasoning>/<output> 标签系统，LLM 直接输出。prompt 优化：全局纯文本管道约束 + 全自动无人干预声明。",
+  "intent_id": "intent-001",
+  "origin": "claude-code"
+}

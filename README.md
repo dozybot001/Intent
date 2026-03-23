@@ -116,7 +116,8 @@ itt hub sync
 
 This project manages its own development with Intent. Two showcase projects are included under `showcase/`:
 
-- **`retrospective-v4`** — recorded with the current v4 retrospective model (`what` + `why`)
+- **`maars`** — [MAARS](https://github.com/dozybot001/MAARS) project: 1 intent, 8 snaps, 3 decisions
+- **`retrospective-v4`** — Intent's own v4 pivot: 1 intent, 3 snaps
 - **`intent-project`** — legacy semantic history spanning earlier schema iterations
 
 Run `itt hub start` to browse them in IntHub.

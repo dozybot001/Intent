@@ -1,0 +1,12 @@
+{
+  "id": "decision-001",
+  "object": "decision",
+  "created_at": "2026-03-23T14:58:41.679728+00:00",
+  "what": "Three-layer architecture: llm(interface) → pipeline(framework) → mode(mock/gemini/agent)",
+  "status": "active",
+  "why": "Pipeline 层只依赖 LLMClient ABC，不知道背后是 mock 还是真实 LLM。模式层实现接口并组装 stages。main.py 只做模式选择。零耦合。",
+  "origin": "claude-code",
+  "intent_ids": [
+    "intent-001"
+  ]
+}

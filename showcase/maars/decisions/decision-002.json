@@ -1,0 +1,12 @@
+{
+  "id": "decision-002",
+  "object": "decision",
+  "created_at": "2026-03-23T14:58:49.819668+00:00",
+  "what": "Unified call_id streaming model for all stages",
+  "status": "active",
+  "why": "所有 LLM 调用（顺序/并行）统一通过 call_id 标记 chunk。前端按 call_id 路由到独立 DOM 块。左侧显示 LLM 输出过程，右侧显示结构化产出。Agent 模式的 ReAct 事件也走同一机制。",
+  "origin": "claude-code",
+  "intent_ids": [
+    "intent-001"
+  ]
+}
