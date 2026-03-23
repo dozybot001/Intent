@@ -69,6 +69,17 @@ flowchart LR
   D2 -- auto-attach --> Intent2
 ```
 
+## Two modes
+
+Intent supports two official recording modes:
+
+| Mode | Intent = | Snap = | When to record | Best for |
+|---|---|---|---|---|
+| **Intent–Session** (recommended) | One session | Milestones within that session | Retrospectively, at session end | Most workflows — you start a session with a purpose, review at the end |
+| **Snap–Query** | A recognized goal (may span sessions) | Each meaningful query | Real-time, during work | Long-running goals that span multiple sessions |
+
+Both produce valid semantic history. [MAARS](https://github.com/dozybot001/MAARS) is an example of the Intent–Session mode; this project (Intent itself) uses both.
+
 ## Quick Start
 
 ```bash
@@ -103,8 +114,6 @@ itt hub sync
 ## Showcase
 
 This project manages its own development with Intent. Run `itt hub start` and the full semantic history is auto-loaded as a showcase project in IntHub.
-
-[MAARS](https://github.com/dozybot001/MAARS) is another project using Intent — with a session-granularity approach where intents map to sessions and snaps mark milestones, recorded retrospectively.
 
 > The showcase spans multiple schema iterations. Legacy data has not been aligned to the new format; missing fields are marked with "-".
 

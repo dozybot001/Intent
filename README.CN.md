@@ -69,6 +69,17 @@ flowchart LR
   D2 -- auto-attach --> Intent2
 ```
 
+## 两种模式
+
+Intent 提供两种官方记录模式：
+
+| 模式 | Intent = | Snap = | 记录时机 | 适用场景 |
+|---|---|---|---|---|
+| **Intent–Session**（推荐） | 一个 session | session 中的里程碑 | 回溯式，session 结束后 | 大多数场景——开 session 带着目的，结束后回顾 |
+| **Snap–Query** | 识别出的目标（可跨 session） | 每个有意义的 query | 实时，工作过程中 | 跨多个 session 的长期目标 |
+
+两种方式都能产出有效的语义历史。[MAARS](https://github.com/dozybot001/MAARS) 是 Intent–Session 模式的实例；本项目（Intent 自身）两种模式都在用。
+
 ## 快速开始
 
 ```bash
@@ -103,8 +114,6 @@ itt hub sync
 ## Showcase
 
 这个项目用 Intent 管理自身的开发过程。运行 `itt hub start` 后，完整的语义历史会作为 showcase 项目自动加载到 IntHub。
-
-[MAARS](https://github.com/dozybot001/MAARS) 是另一个使用 Intent 的项目——采用 session 粒度的回溯模式，intent 对标 session，snap 对标里程碑。
 
 > Showcase 跨越了多次格式迭代，旧数据未对齐新格式，缺失字段用”-”表示。
 
