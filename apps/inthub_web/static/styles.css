@@ -89,12 +89,113 @@ a {
   letter-spacing: -0.02em;
 }
 
-select {
+/* ---- Project picker ---- */
+
+.project-picker {
+  position: relative;
+}
+
+.project-picker-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 6px 10px;
   background: rgba(255, 252, 245, 0.95);
   color: var(--ink);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: border-color 120ms, box-shadow 120ms;
+  max-width: 360px;
+}
+
+.project-picker-trigger:hover {
+  border-color: rgba(112, 63, 24, 0.3);
+}
+
+.project-picker-trigger.is-open {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(146, 88, 38, 0.12);
+}
+
+.project-picker-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-picker-arrow {
+  font-size: 0.7rem;
+  color: var(--muted);
+  flex-shrink: 0;
+  transition: transform 150ms;
+}
+
+.project-picker-trigger.is-open .project-picker-arrow {
+  transform: rotate(180deg);
+}
+
+.project-picker-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  max-width: 420px;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 252, 245, 0.98);
+  box-shadow: 0 8px 24px rgba(61, 38, 14, 0.12);
+  z-index: 80;
+  padding: 4px;
+}
+
+.project-picker-dropdown.is-open {
+  display: block;
+}
+
+.project-picker-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  margin-bottom: 2px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 80ms;
+}
+
+.project-picker-option:last-child {
+  margin-bottom: 0;
+}
+
+.project-picker-option:hover {
+  background: var(--primary-light);
+}
+
+.project-picker-option.is-selected {
+  background: rgba(146, 88, 38, 0.1);
+}
+
+.project-picker-option-name {
+  display: block;
+  font-weight: 600;
+  font-size: 0.88rem;
+  line-height: 1.3;
+}
+
+.project-picker-option-repo {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 1px;
 }
 
 input {

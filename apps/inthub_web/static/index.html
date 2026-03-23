@@ -14,7 +14,13 @@
       <header class="header">
         <div class="header-left">
           <span class="logo">IntHub</span>
-          <select id="project-select"></select>
+          <div class="project-picker" id="project-picker">
+            <button class="project-picker-trigger" id="project-picker-trigger" type="button">
+              <span class="project-picker-label" id="project-picker-label">No projects yet</span>
+              <span class="project-picker-arrow">&#9662;</span>
+            </button>
+            <div class="project-picker-dropdown" id="project-picker-dropdown"></div>
+          </div>
         </div>
         <div class="header-right">
           <button id="refresh-btn" type="button">Refresh</button>

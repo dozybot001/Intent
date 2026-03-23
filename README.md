@@ -104,6 +104,8 @@ itt hub sync
 
 This project manages its own development with Intent. Run `itt hub start` and the full semantic history is auto-loaded as a showcase project in IntHub.
 
+[MAARS](https://github.com/dozybot001/MAARS) is another project using Intent — with a session-granularity approach where intents map to sessions and snaps mark milestones, recorded retrospectively.
+
 > The showcase spans multiple schema iterations. Legacy data has not been aligned to the new format; missing fields are marked with "-".
 
 ## Docs

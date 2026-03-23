@@ -48,6 +48,10 @@ Structured `itt` command outputs are JSON — parse them, don't guess. `argparse
 
 If you are about to begin meaningful work and no active intent explains the goal, create the intent first.
 
+### Alternative: session-granularity (retrospective mode)
+
+Instead of creating intents per recognized goal and snaps per query, you can work at **session granularity**: one intent per session, snaps per milestone. Record them retrospectively at the end of the session when the full picture is clear. This reduces judgment overhead during work and produces higher signal-to-noise ratio. Both modes are valid — choose based on context.
+
 ### 3. Create snaps
 
 | Category | When | Action |

@@ -14,7 +14,10 @@ const state = {
 
 const el = {
   shell: document.getElementById("shell"),
-  projectSelect: document.getElementById("project-select"),
+  projectPicker: document.getElementById("project-picker"),
+  projectPickerTrigger: document.getElementById("project-picker-trigger"),
+  projectPickerLabel: document.getElementById("project-picker-label"),
+  projectPickerDropdown: document.getElementById("project-picker-dropdown"),
   refreshBtn: document.getElementById("refresh-btn"),
   syncChip: document.getElementById("sync-chip"),
   apiChip: document.getElementById("api-chip"),
@@ -734,18 +737,31 @@ function renderSetupGuide(mode) {
 
 function renderProjectSelector() {
   if (!state.projects.length) {
-    el.projectSelect.disabled = true;
-    el.projectSelect.innerHTML =
-      '<option value="">No projects yet</option>';
+    el.projectPickerTrigger.disabled = true;
+    el.projectPickerLabel.textContent = "No projects yet";
+    el.projectPickerDropdown.innerHTML = "";
     return;
   }
-  el.projectSelect.disabled = false;
-  el.projectSelect.innerHTML = state.projects
+  el.projectPickerTrigger.disabled = false;
+  const current = state.projects.find((p) => p.id === state.currentProjectId);
+  el.projectPickerLabel.textContent = current
+    ? `${current.name} · ${current.repo.owner}/${current.repo.name}`
+    : state.projects[0].name;
+  el.projectPickerDropdown.innerHTML = state.projects
     .map(
       (p) =>
-        `<option value="${esc(p.id)}"${p.id === state.currentProjectId ? " selected" : ""}>${esc(p.name)} \u00b7 ${esc(p.repo.owner)}/${esc(p.repo.name)}</option>`,
+        `<button class="project-picker-option${p.id === state.currentProjectId ? " is-selected" : ""}" data-id="${esc(p.id)}">
+          <span class="project-picker-option-name">${esc(p.name)}</span>
+          <span class="project-picker-option-repo">${esc(p.repo.owner)}/${esc(p.repo.name)}</span>
+        </button>`,
     )
     .join("");
+}
+
+function toggleProjectPicker(open) {
+  const isOpen = open ?? !el.projectPickerDropdown.classList.contains("is-open");
+  el.projectPickerDropdown.classList.toggle("is-open", isOpen);
+  el.projectPickerTrigger.classList.toggle("is-open", isOpen);
 }
 
 /* ---- Project loading ---- */
@@ -822,14 +838,28 @@ async function loadProjects() {
 /* ---- Events ---- */
 
 function bindEvents() {
-  el.projectSelect.addEventListener("change", async (e) => {
-    if (!e.target.value) return;
+  el.projectPickerTrigger.addEventListener("click", () => {
+    toggleProjectPicker();
+  });
+
+  el.projectPickerDropdown.addEventListener("click", async (e) => {
+    const option = e.target.closest(".project-picker-option");
+    if (!option) return;
+    toggleProjectPicker(false);
+    const id = option.dataset.id;
+    if (!id || id === state.currentProjectId) return;
     try {
       state.selectedDetail = null;
       state.overview = null;
-      await loadProject(e.target.value);
+      await loadProject(id);
     } catch (err) {
       setStatus(err.message, true);
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!el.projectPicker.contains(e.target)) {
+      toggleProjectPicker(false);
     }
   });
 
@@ -837,10 +867,7 @@ function bindEvents() {
     el.refreshBtn.disabled = true;
     el.refreshBtn.textContent = "Refreshing…";
     try {
-      await Promise.all([
-        loadProjects(),
-        new Promise((r) => setTimeout(r, 1000)),
-      ]);
+      await loadProjects();
     } catch (err) {
       setStatus(err.message, true);
     } finally {

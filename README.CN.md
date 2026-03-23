@@ -104,6 +104,8 @@ itt hub sync
 
 这个项目用 Intent 管理自身的开发过程。运行 `itt hub start` 后，完整的语义历史会作为 showcase 项目自动加载到 IntHub。
 
+[MAARS](https://github.com/dozybot001/MAARS) 是另一个使用 Intent 的项目——采用 session 粒度的回溯模式，intent 对标 session，snap 对标里程碑。
+
 > Showcase 跨越了多次格式迭代，旧数据未对齐新格式，缺失字段用”-”表示。
 
 ## 文档
