@@ -5,7 +5,7 @@
 Intent CLI is the local semantic-history CLI for Intent. It manages only three object types:
 
 - `intent`: a recoverable goal
-- `snap`: a semantic snapshot — what was done, why, what's next
+- `snap`: a semantic snapshot — what was done and why
 - `decision`: a long-lived constraint across intents
 
 The CLI is intentionally small:
@@ -22,12 +22,12 @@ The CLI is intentionally small:
 | `itt init` | Initialize `.intent/` in current Git repo | |
 | `itt inspect` | Resume-first recovery view | Start every session here. Returns `active_intents`, `active_decisions`, `suspended`, `warnings`. |
 | `itt doctor` | Validate object graph | Use when `inspect` shows warnings. Returns `healthy`, `issues`. |
-| `itt intent create WHAT --query Q [--why W]` | Create a new intent | Auto-attaches all active decisions. `origin` auto-filled. |
+| `itt intent create WHAT [--why W]` | Create a new intent | Auto-attaches all active decisions. `origin` auto-filled. |
 | `itt intent activate [ID]` | `suspend` → `active` | Catches up active decisions. Infers ID when unique. |
 | `itt intent suspend [ID]` | `active` → `suspend` | Infers ID when unique. |
 | `itt intent done [ID]` | `active` → `done` (terminal) | Infers ID when unique. |
-| `itt snap create WHAT [--query Q] [--why W] [--next N]` | Create a semantic snapshot | Auto-attaches to active intent. If multiple, CLI returns candidates for `--intent ID`. |
-| `itt decision create WHAT [--query Q] --why W` | Create a long-lived constraint | Auto-attaches all active intents. `origin` auto-filled. |
+| `itt snap create WHAT [--why W]` | Create a semantic snapshot | Auto-attaches to active intent. If multiple, CLI returns candidates for `--intent ID`. |
+| `itt decision create WHAT [--why W]` | Create a long-lived constraint | Auto-attaches all active intents. `origin` auto-filled. |
 | `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` (terminal) | Preserves history; stops future auto-attach. |
 | `itt hub link [--api-base-url URL] [--project-name NAME]` | Link workspace to IntHub | Writes `.intent/hub.json`. Requires GitHub remote. |
 | `itt hub sync [--dry-run]` | Push snapshot to IntHub | Full snapshot, not incremental. Includes Git context. |
@@ -58,18 +58,16 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  Q["query\n👤 user said what"] --> W["what\n🤖 AI did what"] --> Y["why\n💡 why"] --> N["next\n➡️ what's next"]
+  W["what\n🤖 AI did what"] --> Y["why\n💡 why"]
 ```
 
 ### When to create a snap
 
 ```mermaid
 flowchart TD
-  Q["User query completed"] --> C{Code changes?}
-  C -->|Yes| B["✅ Snap\nwhat = what was done\nwhy + next"]
-  C -->|No| D{Formed conclusions\nworth preserving?}
-  D -->|Yes| E["✅ Snap\nrecord conclusions"]
-  D -->|No| A["⏭️ No snap\nsimple Q&A"]
+  Q["User asks to record"] --> C{Meaningful milestone?}
+  C -->|Yes| B["✅ Snap\nwhat = what was done\nwhy = reasoning"]
+  C -->|No| A["⏭️ No snap\ntoo granular"]
 ```
 
 ### State machines
@@ -99,11 +97,9 @@ stateDiagram-v2
 | `object` | ✓ | ✓ | ✓ | `"intent"`, `"snap"`, or `"decision"` |
 | `created_at` | ✓ | ✓ | ✓ | ISO 8601 UTC timestamp |
 | `what` | ✓ | ✓ | ✓ | Intent/Decision: short theme. Snap: what was done (concise action). |
-| `query` | ✓ | ✓ | ✓ | User query that triggered the object |
 | `origin` | ✓ | ✓ | ✓ | Auto-detected from environment (e.g. `claude-code`, `cursor`, `codex-desktop`) |
 | `why` | ✓ | ✓ | ✓ | Intent: why this goal. Snap: why this approach. Decision: why this constraint. |
 | `status` | ✓ | | ✓ | Intent: `active` / `suspend` / `done`. Decision: `active` / `deprecated`. |
-| `next` | | ✓ | | What comes next — remaining work, direction, blockers |
 | `intent_id` | | ✓ | | Parent intent |
 | `snap_ids` | ✓ | | | Ordered list of child snaps |
 | `decision_ids` | ✓ | | | Linked decisions (auto-attached on create) |

@@ -67,7 +67,6 @@ def main():
 
     p = s_intent.add_parser("create")
     p.add_argument("what", metavar="WHAT")
-    p.add_argument("--query", default="")
     p.add_argument("--why", default="")
     p.add_argument("--origin", default=None, metavar="LABEL")
 
@@ -87,9 +86,7 @@ def main():
     p = s_snap.add_parser("create")
     p.add_argument("what", metavar="WHAT")
     p.add_argument("--intent", default=None)
-    p.add_argument("--query", default="")
     p.add_argument("--why", default="")
-    p.add_argument("--next", default="", dest="next_step")
     p.add_argument("--origin", default=None, metavar="LABEL")
 
     # --- decision ---
@@ -98,7 +95,6 @@ def main():
 
     p = s_decision.add_parser("create")
     p.add_argument("what", metavar="WHAT")
-    p.add_argument("--query", default="")
     p.add_argument("--why", default="")
     p.add_argument("--origin", default=None, metavar="LABEL")
 

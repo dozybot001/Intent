@@ -60,7 +60,6 @@ def cmd_inspect(_args):
                         "id": snap["id"],
                         "what": snap["what"],
                         "why": snap.get("why", ""),
-                        "next": snap.get("next", ""),
                         "origin": snap.get("origin", ""),
                     }
             active_intents.append({
@@ -163,7 +162,6 @@ def cmd_intent_create(args):
         "created_at": now_utc(),
         "what": args.what,
         "status": "active",
-        "query": args.query,
         "why": args.why,
         "origin": origin,
         "decision_ids": decision_ids,
@@ -291,7 +289,7 @@ def cmd_snap_create(args):
             error(
                 "NO_ACTIVE_INTENT",
                 "No active intent to attach the snap to.",
-                suggested_fix='Create or activate an intent first, e.g. itt intent create "WHAT" --query "..." or itt intent activate <id>',
+                suggested_fix='Create or activate an intent first, e.g. itt intent create "WHAT" or itt intent activate <id>',
             )
         if len(active) > 1:
             candidates = sorted(
@@ -328,9 +326,7 @@ def cmd_snap_create(args):
         "object": "snap",
         "created_at": now_utc(),
         "what": args.what,
-        "query": args.query,
         "why": args.why,
-        "next": args.next_step,
         "intent_id": intent_id,
         "origin": origin,
     }
@@ -367,7 +363,6 @@ def cmd_decision_create(args):
         "created_at": now_utc(),
         "what": args.what,
         "status": "active",
-        "query": args.query,
         "why": args.why,
         "origin": origin,
         "intent_ids": intent_ids,
