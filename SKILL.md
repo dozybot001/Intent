@@ -16,7 +16,7 @@ This repo uses Intent (`.intent/`) to record semantic history: **what you did an
 
 ## Recording flow
 
-Recording is **retrospective**. You look back at the work **from the last semantic recording to now** and summarize. This ensures semantic continuity — each recording picks up exactly where the previous one left off. If no previous recording exists (inspect is empty), tell the user you'll record from the current session.
+Recording is **retrospective**. You look back at the work **from the last semantic recording to now** and summarize. This ensures semantic continuity — each recording picks up exactly where the previous one left off. If no previous recording exists (inspect is empty), tell the user you'll record from the current session start.
 
 1. Run `itt inspect` to check current state (active intents, decisions, suspended work)
 2. Create **one intent** — the goal of this interaction
