@@ -108,7 +108,7 @@ Decision 是**长期约束**，生命周期超越当前 intent。
 
 - **记录由用户发起** — 和 git commit 一样，用户要求时才记录
 - **一次记录一个 intent** — 概括目标，不是逐步骤
-- **Snap 记录推理，不记录操作** — 记 why，不记 diff
+- **Snap 记录语义，不记录机械细节** — 记 what+why，不记 diff 和命令日志
 - **Decision 必须用户确认** — 绝不凭自己判断单独创建
 - **完成的 intent 必须 `done`** — 残留 intent 会污染 inspect
 - **Decision 清理** — 当 `active_decisions > 20` 时，提醒："当前有 N 条 active decision，要做一轮清理吗？"

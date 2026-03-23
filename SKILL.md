@@ -108,7 +108,7 @@ When activated, always run `itt inspect` first:
 
 - **Recording is user-initiated** — like git commit, only when asked
 - **One intent per recording** — summarize the goal, not each step
-- **Snap reasoning, not mechanics** — capture why, not diffs
+- **Snap semantics, not mechanical details** — capture what+why, not diffs or command logs
 - **Decisions require user confirmation** — never create on your own judgment
 - **Always `done` completed intents** — stale intents pollute inspect
 - **Decision hygiene** — when `active_decisions > 20`, prompt: "当前有 N 条 active decision，要做一轮清理吗？"
