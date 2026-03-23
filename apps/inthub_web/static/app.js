@@ -584,8 +584,7 @@ function buildIntentDetailHtml(payload) {
     ${intent.why ? detailSection("Why", formatText(intent.why)) : ""}
     ${detailSection("Snap Timeline (" + allSnaps.length + ")", snapTimelineBody)}
     ${detailSection("Linked Decisions (" + allIds.length + ")", decisionsBody)}
-    ${rawToggle({ intent, snaps: payload.snaps })}
-    ${intent.query ? detailSection("Query", formatText(intent.query)) : ""}`;
+    ${rawToggle({ intent, snaps: payload.snaps })}`;
 }
 
 function renderIntentDetail(payload) {
@@ -615,7 +614,7 @@ function buildDecisionDetailHtml(payload) {
       remoteId(payload.workspace_id, i.id),
       i.id,
       i.what || i.title || i.id,
-      truncate(i.query || i.why || "", 80),
+      truncate(i.why || "", 80),
       i.status,
     ),
   );
@@ -637,8 +636,7 @@ function buildDecisionDetailHtml(payload) {
     ${detailSection("Why", formatText(decision.why) || `<p>No why provided.</p>`)}
     ${decision.reason ? detailSection("Reason", formatText(decision.reason)) : ""}
     ${detailSection("Affected Intents (" + payload.intents.length + ")", intentsBody)}
-    ${rawToggle({ decision, intents: payload.intents })}
-    ${decision.query ? detailSection("Query", formatText(decision.query)) : ""}`;
+    ${rawToggle({ decision, intents: payload.intents })}`;
 }
 
 function renderDecisionDetail(payload) {
@@ -657,7 +655,7 @@ function buildSnapDetailHtml(payload) {
         remoteId(payload.workspace_id, payload.intent.id),
         payload.intent.id,
         payload.intent.what || payload.intent.id,
-        truncate(payload.intent.query || payload.intent.why || "", 80),
+        truncate(payload.intent.why || "", 80),
         payload.intent.status,
       )}</div>`
     : '<div class="empty-state">No linked intent.</div>';
@@ -672,10 +670,8 @@ function buildSnapDetailHtml(payload) {
       </div>
     </div>
     ${detailSection("Why", formatText(snap.why) || `<p>No why provided.</p>`)}
-    ${snap.next ? detailSection("Next", formatText(snap.next)) : ""}
     ${detailSection("Parent Intent", parentLink)}
-    ${rawToggle({ snap, intent: payload.intent })}
-    ${snap.query ? detailSection("Query", formatText(snap.query)) : ""}`;
+    ${rawToggle({ snap, intent: payload.intent })}`;
 }
 
 function renderSnapDetail(payload) {

@@ -116,7 +116,6 @@ def project_overview(db_path, project_id):
                 "decision_ids": intent.get("decision_ids", []),
                 "latest_snap_id": latest_snap_id,
                 "origin": intent.get("origin", ""),
-                "query": _f(intent, "query"),
                 "why": _f(intent, "why"),
                 "branch": git.get("branch"),
                 "head_commit": git.get("head_commit"),
@@ -150,8 +149,6 @@ def project_overview(db_path, project_id):
                 "what": _f(snap, "what"),
                 "intent_id": snap.get("intent_id"),
                 "why": _f(snap, "why"),
-                "next": snap.get("next", ""),
-                "query": _f(snap, "query"),
                 "origin": snap.get("origin", ""),
                 "created_at": snap.get("created_at"),
             })
@@ -251,7 +248,6 @@ def project_handoff(db_path, project_id):
                 "id": intent["id"],
                 "what": _f(intent, "what"),
                 "status": intent["status"],
-                "query": _f(intent, "query"),
                 "why": _f(intent, "why"),
                 "decision_ids": intent.get("decision_ids", []),
                 "latest_snap": latest_snap,
@@ -367,9 +363,7 @@ def search_project(db_path, project_id, query):
             for obj in snapshot.get(object_type, []):
                 fields = [
                     obj.get("what", ""),
-                    obj.get("query", ""),
                     obj.get("why", ""),
-                    obj.get("next", ""),
                 ]
                 haystack = " ".join(fields).lower()
                 if q not in haystack:
