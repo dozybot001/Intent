@@ -71,14 +71,16 @@ flowchart LR
 
 ## Two modes
 
-Intent supports two official recording modes:
+| | **Intent–Session** (recommended) | **Snap–Query** |
+|---|---|---|
+| **How it works** | One intent per session, snaps per milestone. Recorded at session end. | Intent per recognized goal, snap per query. Recorded in real-time. |
+| **Disruption** | Zero — agent works freely, reviews at the end | Agent evaluates every query: "create intent? snap? skip?" |
+| **Signal quality** | High — full session context available when recording | Lower — agent judges in real-time without knowing what comes next |
+| **Trade-off** | Requires you to ask the agent to review at session end | Fully automatic, but noisier |
 
-| Mode | Intent = | Snap = | When to record | Best for |
-|---|---|---|---|---|
-| **Intent–Session** (recommended) | One session | Milestones within that session | Retrospectively, at session end | Most workflows — you start a session with a purpose, review at the end |
-| **Snap–Query** | A recognized goal (may span sessions) | Each meaningful query | Real-time, during work | Long-running goals that span multiple sessions |
+We recommend **Intent–Session**: at the end of a session, ask the agent to look back and build the semantic history. You get cleaner records with no interruption to your workflow.
 
-Both produce valid semantic history. [MAARS](https://github.com/dozybot001/MAARS) is an example of the Intent–Session mode; this project (Intent itself) uses both.
+[MAARS](https://github.com/dozybot001/MAARS) is an example of Intent–Session mode; this project (Intent itself) uses both.
 
 ## Quick Start
 

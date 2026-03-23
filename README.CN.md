@@ -71,14 +71,16 @@ flowchart LR
 
 ## 两种模式
 
-Intent 提供两种官方记录模式：
+| | **Intent–Session**（推荐） | **Snap–Query** |
+|---|---|---|
+| **工作方式** | 一个 session 一个 intent，snap 对标里程碑。session 结束后回溯记录。 | intent 对标识别出的目标，snap 对标 query。实时记录。 |
+| **干扰程度** | 零——agent 自由工作，最后回顾 | agent 每个 query 都要判断："建 intent？snap？跳过？" |
+| **信号质量** | 高——记录时已有完整 session 上下文 | 较低——agent 实时判断，不知道后续会发生什么 |
+| **代价** | 需要你在 session 结束时让 agent 回顾 | 全自动，但噪声更多 |
 
-| 模式 | Intent = | Snap = | 记录时机 | 适用场景 |
-|---|---|---|---|---|
-| **Intent–Session**（推荐） | 一个 session | session 中的里程碑 | 回溯式，session 结束后 | 大多数场景——开 session 带着目的，结束后回顾 |
-| **Snap–Query** | 识别出的目标（可跨 session） | 每个有意义的 query | 实时，工作过程中 | 跨多个 session 的长期目标 |
+推荐 **Intent–Session**：session 结束时，让 agent 回顾本次工作并构建语义历史。记录更干净，工作不被打断。
 
-两种方式都能产出有效的语义历史。[MAARS](https://github.com/dozybot001/MAARS) 是 Intent–Session 模式的实例；本项目（Intent 自身）两种模式都在用。
+[MAARS](https://github.com/dozybot001/MAARS) 是 Intent–Session 模式的实例；本项目（Intent 自身）两种模式都在用。
 
 ## 快速开始
 
