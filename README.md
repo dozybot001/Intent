@@ -71,7 +71,9 @@ flowchart LR
 
 ## How to record
 
-Intent uses the **Intent–Session** model: the agent works freely, and you tell it when to record.
+Early versions used a **Snap–Query** model where the agent autonomously captured snapshots after each interaction. It worked — but it was noisy, expensive on tokens, and interrupted the natural flow of work.
+
+We switched to the **Intent–Session** model: the agent works freely, and you tell it when to record. This turns out to be more pragmatic — it costs fewer tokens, never interrupts your workflow, and actually produces better semantic data because the human decides what's worth preserving. The overhead for you is near zero: just say "record semantics" when a goal is done.
 
 1. Work with the agent on your goal
 2. When the goal is achieved, ask the agent to look back and build the semantic history
