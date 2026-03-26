@@ -1,0 +1,786 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "decision": {
+      "id": "decision-014",
+      "object": "decision",
+      "created_at": "2026-03-20T07:26:23.339953+00:00",
+      "status": "active",
+      "intent_ids": [
+        "intent-018",
+        "intent-021",
+        "intent-022",
+        "intent-023",
+        "intent-024",
+        "intent-025",
+        "intent-026",
+        "intent-027",
+        "intent-028",
+        "intent-029",
+        "intent-030",
+        "intent-031",
+        "intent-032",
+        "intent-033",
+        "intent-034",
+        "intent-035",
+        "intent-036",
+        "intent-037",
+        "intent-038",
+        "intent-039",
+        "intent-040",
+        "intent-041",
+        "intent-042",
+        "intent-043",
+        "intent-044"
+      ],
+      "what": "Intent 需要一个静态展示前端页面，作为讲述产品故事的核心入口",
+      "why": "用户明确要求将静态展示页面提升为下一阶段目标，用于更好地讲清 Intent 的设计理念与产品价值。",
+      "query": "-"
+    },
+    "intents": [
+      {
+        "id": "intent-018",
+        "object": "intent",
+        "created_at": "2026-03-19T20:16:07.290233+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-002",
+          "decision-003",
+          "decision-004",
+          "decision-008",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-012",
+          "decision-013",
+          "decision-014"
+        ],
+        "snap_ids": [
+          "snap-088",
+          "snap-093"
+        ],
+        "what": "发布包含 IntHub Local 的下一个项目版本",
+        "why": "当前仓库已提交 IntHub Local 启动器、release assets 构建脚本、用户文档与发布 workflow，用户要求直接推送并发布新的项目版本",
+        "query": "直接推送并发版"
+      },
+      {
+        "id": "intent-021",
+        "object": "intent",
+        "created_at": "2026-03-20T06:39:22.175322+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-002",
+          "decision-003",
+          "decision-004",
+          "decision-008",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-012",
+          "decision-013",
+          "decision-014"
+        ],
+        "snap_ids": [
+          "snap-094",
+          "snap-095",
+          "snap-096",
+          "snap-097",
+          "snap-098",
+          "snap-099",
+          "snap-100",
+          "snap-101",
+          "snap-102",
+          "snap-103",
+          "snap-104"
+        ],
+        "what": "重构 architecture.html 为科研论文风格架构图",
+        "why": "当前架构图页面是暗色主题，视觉效果不佳，需要重构为类似顶级 CS 会议论文的学术风格架构可视化",
+        "query": "检查itt，重构架构图页面，目前不好看，有没有那种简约、美观、清晰的科研论文架构图，不要过于简单了，有色彩，有图像，有点缀"
+      },
+      {
+        "id": "intent-022",
+        "object": "intent",
+        "created_at": "2026-03-20T07:26:23.338198+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-002",
+          "decision-003",
+          "decision-004",
+          "decision-008",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-012",
+          "decision-013",
+          "decision-014"
+        ],
+        "snap_ids": [
+          "snap-105",
+          "snap-106",
+          "snap-107",
+          "snap-108",
+          "snap-109",
+          "snap-110",
+          "snap-111",
+          "snap-112",
+          "snap-113",
+          "snap-114",
+          "snap-115",
+          "snap-119",
+          "snap-120"
+        ],
+        "what": "设计用于讲好 Intent 故事的静态展示前端页面",
+        "why": "这不再是单个 architecture 页面细修，而是一个新的产品化叙事目标，需要跨页面信息架构、文案和展示策略持续推进。",
+        "query": "决定-我们需要做一个静态Intent展示用的前端页面。这一项升格为项目的下一阶段目标，如何讲好Intent故事。"
+      },
+      {
+        "id": "intent-023",
+        "object": "intent",
+        "created_at": "2026-03-20T09:30:49.739359+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-002",
+          "decision-003",
+          "decision-004",
+          "decision-008",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-012",
+          "decision-013",
+          "decision-014"
+        ],
+        "snap_ids": [
+          "snap-116",
+          "snap-117",
+          "snap-118"
+        ],
+        "what": "用 Mermaid 重画 README 的 gap 架构对比图",
+        "why": "这是 README 文档层面的新图示收敛任务，不再属于已暂停的静态产品页探索，应以新的文档意图单独跟踪。",
+        "query": "我们现在只用mermaid来画readme的架构分析图。我们先在gap处画一个对比图，传统开发（只有两层，git够了）和agent驱动的开发（三层，缺失了语义层历史追踪）"
+      },
+      {
+        "id": "intent-024",
+        "object": "intent",
+        "created_at": "2026-03-20T17:58:12.484678+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-002",
+          "decision-003",
+          "decision-004",
+          "decision-008",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-012",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016"
+        ],
+        "snap_ids": [
+          "snap-121"
+        ],
+        "what": "收紧 Intent 与 Git 的语义边界表述",
+        "why": "这是对 Intent/Git 分层原则的正式收紧，需要同时调整 decision 与 skill/doc 表述，避免继续诱导过度记录。",
+        "query": "这些其实属于与最初的设计原则有冲突，可能除了放弃decision外，文档其他地方的表述也需要微调"
+      },
+      {
+        "id": "intent-025",
+        "object": "intent",
+        "created_at": "2026-03-20T18:07:05.302778+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-004",
+          "decision-008",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-012",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-017",
+          "decision-018",
+          "decision-019"
+        ],
+        "snap_ids": [
+          "snap-122",
+          "snap-123",
+          "snap-124",
+          "snap-125",
+          "snap-126",
+          "snap-127",
+          "snap-128",
+          "snap-129",
+          "snap-130",
+          "snap-131",
+          "snap-132",
+          "snap-133",
+          "snap-134",
+          "snap-135",
+          "snap-136",
+          "snap-137",
+          "snap-138",
+          "snap-139",
+          "snap-140",
+          "snap-141",
+          "snap-142",
+          "snap-143",
+          "snap-144",
+          "snap-145"
+        ],
+        "what": "收紧 intent-cli 的命令面设计",
+        "why": "这是对 intent-cli 命令面本身的系统性收敛目标，需要跨多轮评估 inspect/version/doctor 等全局命令的边界、输出与噪音控制。",
+        "query": "是的，我觉得有很多很多冗余噪音，我们需要仔细优化一下命令面设计了。先从全局命令开始。"
+      },
+      {
+        "id": "intent-026",
+        "object": "intent",
+        "created_at": "2026-03-21T06:32:18.210415+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-004",
+          "decision-008",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-012",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020"
+        ],
+        "snap_ids": [
+          "snap-146",
+          "snap-147",
+          "snap-148",
+          "snap-149"
+        ],
+        "what": "统一 snap 为语义检查点表述",
+        "why": "当前公开文档和 SKILL 里仍有 recovery checkpoint / 恢复检查点 的表述，容易把 snap 的定位收窄成只服务恢复。需要统一改为 semantic checkpoint / 语义检查点，并补上简短解释，使其同时覆盖产品形成历史与跨 session/agent 恢复。",
+        "query": "是的，应该全部改为语义检查点，后面可以再解释一下语义检查点是什么"
+      },
+      {
+        "id": "intent-027",
+        "object": "intent",
+        "created_at": "2026-03-21T06:46:05.896740+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-004",
+          "decision-008",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-012",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020"
+        ],
+        "snap_ids": [
+          "snap-150"
+        ],
+        "what": "继续收紧 intent-cli 以减轻 agent 负担",
+        "why": "进一步减少日常 itt 命令中的机械参数输入，并把非 happy-path 命令移出公开命令面。",
+        "query": "可以，你的建议我都采纳"
+      },
+      {
+        "id": "intent-028",
+        "object": "intent",
+        "created_at": "2026-03-21T06:51:33.779576+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-004",
+          "decision-008",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-012",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020"
+        ],
+        "snap_ids": [
+          "snap-151"
+        ],
+        "what": "增强 origin 自动识别",
+        "why": "在不增加 agent 输入负担的前提下，提高跨 agent/宿主环境来源识别的稳定性，增强 IntHub 与 dogfooding 的分析价值。",
+        "query": "可以，续增强 origin 的自动识别，不增加手填负担。"
+      },
+      {
+        "id": "intent-029",
+        "object": "intent",
+        "created_at": "2026-03-21T06:57:33.089086+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-004",
+          "decision-008",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-012",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020"
+        ],
+        "snap_ids": [
+          "snap-152",
+          "snap-153"
+        ],
+        "what": "添加 Claude Code origin 自动检测",
+        "why": "",
+        "query": "你也可以加origin标签"
+      },
+      {
+        "id": "intent-030",
+        "object": "intent",
+        "created_at": "2026-03-21T07:33:44.313026+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-004",
+          "decision-008",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-021"
+        ],
+        "snap_ids": [
+          "snap-154"
+        ],
+        "what": "IntHub Local 分发方式与 README 用户体验重构",
+        "why": "用户不是 Intent 开发者，需要最简路径：clone → 安装 → 使用。Release assets 流程太繁琐",
+        "query": "IntHub Local 放进仓库、README 一键启动命令、分离 IntHub 启动步骤"
+      },
+      {
+        "id": "intent-031",
+        "object": "intent",
+        "created_at": "2026-03-21T07:43:24.802514+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-004",
+          "decision-008",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-021",
+          "decision-022"
+        ],
+        "snap_ids": [
+          "snap-155"
+        ],
+        "what": "添加 itt hub start 命令替代 pyz 构建",
+        "why": "省去构建步骤，用户体验更简洁，且保持 CLI 与 IntHub 分离",
+        "query": "用户在 clone 的 Intent 目录运行 itt hub start 直接启动 IntHub Local，不需要构建 pyz"
+      },
+      {
+        "id": "intent-032",
+        "object": "intent",
+        "created_at": "2026-03-21T08:03:03.774373+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-004",
+          "decision-008",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-022"
+        ],
+        "snap_ids": [
+          "snap-156"
+        ],
+        "what": "去除 PyPI 分发，统一为仓库源码安装",
+        "why": "用户已经需要 clone 仓库才能用 itt hub start，PyPI 是多余的发布步骤",
+        "query": "pypi包没必要了，直接从仓库源码安装itt，CLI版本和IntHub版本都不需要了"
+      },
+      {
+        "id": "intent-033",
+        "object": "intent",
+        "created_at": "2026-03-21T08:30:32.970740+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-022"
+        ],
+        "snap_ids": [
+          "snap-157"
+        ],
+        "what": "添加 showcase 及 IntHub 自动导入",
+        "why": "让用户开箱就能看到真实的产品形成历史，作为 Intent 的最佳使用示范",
+        "query": "把 Intent 项目自身的语义历史作为官方 showcase，IntHub 启动时自动导入"
+      },
+      {
+        "id": "intent-034",
+        "object": "intent",
+        "created_at": "2026-03-21T08:43:34.100546+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-022"
+        ],
+        "snap_ids": [
+          "snap-158"
+        ],
+        "what": "decision deprecate 增加 --reason 参数",
+        "why": "废弃原因是重要的语义信息，不追踪的话下一个 session 不知道为什么废弃、用什么替代",
+        "query": "被废弃的decision应该给个理由或者是被哪些新的decision替代"
+      },
+      {
+        "id": "intent-035",
+        "object": "intent",
+        "created_at": "2026-03-21T13:06:47.298990+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-022"
+        ],
+        "snap_ids": [
+          "snap-159"
+        ],
+        "what": "收紧 README 顶部产品定位",
+        "why": "README 顶部一句话应先定义 Intent 的本质是 Git 之上的语义历史层，再谈产品形成历史和恢复能力，避免把定位降成单纯的跨 agent 上下文工具。",
+        "query": "我觉得readme第一句话不太合适，没有讲出intent的本质，而且也不是专门为了跨agent记录上下文设计的，这样会把intent的定位拉低了"
+      },
+      {
+        "id": "intent-036",
+        "object": "intent",
+        "created_at": "2026-03-21T13:28:23.468491+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-022"
+        ],
+        "snap_ids": [
+          "snap-160"
+        ],
+        "what": "收敛仓库目录结构",
+        "why": "清理历史遗留的目录与分发痕迹，收紧项目目录语义，降低新机器或新贡献者理解成本。",
+        "query": "你可以帮我把目录收敛一遍吗"
+      },
+      {
+        "id": "intent-037",
+        "object": "intent",
+        "created_at": "2026-03-21T13:32:55.116632+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-022"
+        ],
+        "snap_ids": [
+          "snap-161"
+        ],
+        "what": "移除历史 releases 目录与相关引用",
+        "why": "仓库已不再维护项目版本 release manifests，releases/ 若无运行或文档依赖则应移除，避免继续制造版本心智负担。",
+        "query": "releases也没用了，已经不分版本了"
+      },
+      {
+        "id": "intent-038",
+        "object": "intent",
+        "created_at": "2026-03-21T13:35:13.559390+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-022"
+        ],
+        "snap_ids": [
+          "snap-162"
+        ],
+        "what": "提交目录收敛与历史版本索引清理",
+        "why": "将已完成的目录收敛和 releases/VERSION 清理正式提交推送，并明确换机时需要迁移的本地语义数据与本机安装态边界。",
+        "query": "push。现在我只需要把.intent数据移过去就可以了吧"
+      },
+      {
+        "id": "intent-039",
+        "object": "intent",
+        "created_at": "2026-03-21T14:25:44.645582+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-022"
+        ],
+        "snap_ids": [
+          "snap-163"
+        ],
+        "what": "Rename package from intent-cli-python to intent-cli",
+        "why": "intent-cli more concise and direct than intent-cli-python as the package name",
+        "query": "我想把包名改了，改成intent-cli"
+      },
+      {
+        "id": "intent-040",
+        "object": "intent",
+        "created_at": "2026-03-21T14:31:16.958300+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-022"
+        ],
+        "snap_ids": [
+          "snap-164"
+        ],
+        "what": "One-line install script for Intent CLI",
+        "why": "Lower the barrier to entry — a single command should handle pipx bootstrap and intent-cli installation",
+        "query": "安装intent太麻烦了，要先装scoop再装pipx再装intent"
+      },
+      {
+        "id": "intent-041",
+        "object": "intent",
+        "created_at": "2026-03-21T14:34:53.438065+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-022"
+        ],
+        "snap_ids": [
+          "snap-165"
+        ],
+        "what": "Fix itt stdout encoding on Windows",
+        "why": "itt output layer should explicitly use UTF-8 so Chinese Windows users don't need workarounds",
+        "query": "为什么命令前面一直要加PYTHONIOENCODING=utf-8"
+      },
+      {
+        "id": "intent-042",
+        "object": "intent",
+        "created_at": "2026-03-21T16:20:29.413882+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-022"
+        ],
+        "snap_ids": [
+          "snap-166"
+        ],
+        "what": "IntHub UI polish and bug fixes",
+        "why": "Multiple UI issues discovered during hands-on review: font rendering, badge noise, missing data, layout problems",
+        "query": "IntHub UI改进和bug修复"
+      },
+      {
+        "id": "intent-043",
+        "object": "intent",
+        "created_at": "2026-03-22T06:41:01.190787+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-022"
+        ],
+        "snap_ids": [
+          "snap-167",
+          "snap-168",
+          "snap-169",
+          "snap-170",
+          "snap-171"
+        ],
+        "what": "IntHub frontend polish round 2",
+        "why": "Ongoing UI refinements based on hands-on review",
+        "query": "继续优化IntHub前端体验"
+      },
+      {
+        "id": "intent-044",
+        "object": "intent",
+        "created_at": "2026-03-22T09:28:11.210877+00:00",
+        "what": "Test new CLI",
+        "status": "done",
+        "query": "测试命令面",
+        "why": "验证所有新字段是否生效",
+        "origin": "claude-code",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-022",
+          "decision-023"
+        ],
+        "snap_ids": [
+          "snap-172"
+        ]
+      }
+    ]
+  }
+}

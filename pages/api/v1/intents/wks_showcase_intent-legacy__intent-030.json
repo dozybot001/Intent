@@ -1,0 +1,48 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "intent": {
+      "id": "intent-030",
+      "object": "intent",
+      "created_at": "2026-03-21T07:33:44.313026+00:00",
+      "status": "done",
+      "decision_ids": [
+        "decision-001",
+        "decision-003",
+        "decision-004",
+        "decision-008",
+        "decision-009",
+        "decision-010",
+        "decision-011",
+        "decision-013",
+        "decision-014",
+        "decision-015",
+        "decision-016",
+        "decision-018",
+        "decision-019",
+        "decision-020",
+        "decision-021"
+      ],
+      "snap_ids": [
+        "snap-154"
+      ],
+      "what": "IntHub Local 分发方式与 README 用户体验重构",
+      "why": "用户不是 Intent 开发者，需要最简路径：clone → 安装 → 使用。Release assets 流程太繁琐",
+      "query": "IntHub Local 放进仓库、README 一键启动命令、分离 IntHub 启动步骤"
+    },
+    "snaps": [
+      {
+        "id": "snap-154",
+        "object": "snap",
+        "created_at": "2026-03-21T07:33:54.418664+00:00",
+        "intent_id": "intent-030",
+        "origin": "claude-code",
+        "what": "分发与 README 重构完成",
+        "why": "1) 废弃 decision-012（Release assets 分发），新建 decision-021（仓库内 pyz 分发）。2) 预构建 inthub-local.pyz 放入 bin/，Release assets 同步替换为 0.3.1。3) README 重构为 Quick Start 流程：clone → 一行安装 CLI+skill → 独立启动 IntHub Local → 用户项目 link/sync。IntHub 启动从安装命令中分离，用完可关。4) inthub-local 双语文档同步更新，移除下载/asset bundle 说明。5) tab 栏 CSS 修复（横向滚动替代换行）已包含在 pyz 中。全部已提交推送。",
+        "next": "-",
+        "query": "-"
+      }
+    ]
+  }
+}

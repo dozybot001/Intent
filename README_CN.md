@@ -117,13 +117,11 @@ itt hub sync
 
 ## Showcase
 
-本项目用 Intent 管理自身的开发过程。`showcase/` 下包含示例项目：
+本项目用 Intent 管理自身的开发过程。在线浏览语义历史：
 
-- **`intent-project`** — 当前语义历史（从 `.intent/` 同步）
-- **`maars`** — [MAARS](https://github.com/dozybot001/MAARS) 项目：1 intent、8 snaps、3 decisions
-- **`intent-legacy`** — 早期格式迭代的冻结历史记录
+**[IntHub Showcase](https://dozybot001.github.io/Intent/)** — 交互式查看 Intent 项目历史、MAARS 及早期数据。
 
-运行 `itt hub start` 在 IntHub 中浏览。
+也可运行 `itt hub start` 在本地浏览。
 
 ## 文档
 

@@ -1,0 +1,60 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-project",
+    "intent": {
+      "id": "intent-003",
+      "object": "intent",
+      "created_at": "2026-03-26T08:24:33.320719+00:00",
+      "what": "项目基础设施整理",
+      "status": "done",
+      "why": "v4 转向后项目结构需要跟进：双语文档散落各处、安装器重装行为异常、社区文档缺少统一组织",
+      "origin": "claude-code",
+      "decision_ids": [],
+      "snap_ids": [
+        "snap-007",
+        "snap-008",
+        "snap-009",
+        "snap-010"
+      ]
+    },
+    "snaps": [
+      {
+        "id": "snap-007",
+        "object": "snap",
+        "created_at": "2026-03-26T08:24:40.340576+00:00",
+        "what": "双语文档重组：移除散落的中文文档，统一到 bilingual 路径",
+        "why": "中文文档之前和英文文档混放，维护和查找困难",
+        "intent_id": "intent-003",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-008",
+        "object": "snap",
+        "created_at": "2026-03-26T08:24:40.394778+00:00",
+        "what": "修复安装器重装行为",
+        "why": "reinstall 场景下安装器行为异常",
+        "intent_id": "intent-003",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-009",
+        "object": "snap",
+        "created_at": "2026-03-26T08:24:40.449583+00:00",
+        "what": "社区文档重组为统一双语结构",
+        "why": "CONTRIBUTING、SECURITY 等社区文档缺乏一致的双语组织方式",
+        "intent_id": "intent-003",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-010",
+        "object": "snap",
+        "created_at": "2026-03-26T08:24:40.505093+00:00",
+        "what": "README 补充 Snap-Query → Intent-Session 演进说明",
+        "why": "用户需要理解为何从 Snap-Query 迁移到 Intent-Session 模式，以及回溯记录为何产生更好的数据",
+        "intent_id": "intent-003",
+        "origin": "claude-code"
+      }
+    ]
+  }
+}

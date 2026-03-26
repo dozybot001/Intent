@@ -1,0 +1,39 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_maars",
+    "snap": {
+      "id": "snap-006",
+      "object": "snap",
+      "created_at": "2026-03-23T14:58:08.300965+00:00",
+      "what": "Unified streaming model + Gemini integration",
+      "why": "所有 LLM 调用统一 call_id 机制：label chunk 创建块，text chunk 追加到对应块。前端 log-viewer 按 call_id 路由到独立 DOM 块，并行任务互不干扰。GeminiClient 实现 LLMClient ABC（消息格式转换 OpenAI→Gemini）。.env 切换 MAARS_LLM_MODE=gemini 即可。真实 Gemini 调用验证通过：完整论文生成（Cognitive Buffer Hypothesis，31 原子任务，~153KB 输出）。",
+      "intent_id": "intent-001",
+      "origin": "claude-code"
+    },
+    "intent": {
+      "id": "intent-001",
+      "object": "intent",
+      "created_at": "2026-03-23T14:56:46.649102+00:00",
+      "what": "Build MAARS: Multi-Agent Automated Research System from scratch",
+      "status": "active",
+      "why": "构建一个全自动的研究论文生成系统，支持 mock/gemini/agent 三种模式，架构解耦，从零开始。",
+      "origin": "claude-code",
+      "decision_ids": [
+        "decision-001",
+        "decision-002",
+        "decision-003"
+      ],
+      "snap_ids": [
+        "snap-001",
+        "snap-002",
+        "snap-003",
+        "snap-004",
+        "snap-005",
+        "snap-006",
+        "snap-007",
+        "snap-008"
+      ]
+    }
+  }
+}

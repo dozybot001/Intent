@@ -1,0 +1,51 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "snap": {
+      "id": "snap-100",
+      "object": "snap",
+      "created_at": "2026-03-20T07:02:43.917741+00:00",
+      "intent_id": "intent-021",
+      "query": "图标很好看应保留，三个子图都应该有。第二个子图和第三个子图没有水平对齐",
+      "what": "恢复图标到三个面板 + 对齐 Panel B/C 节点 y 坐标",
+      "why": "图标增加设计感应保留并统一；B/C 面板 Agent 和 Code 节点 y 坐标不一致（186 vs 194、310 vs 312）导致视觉错位",
+      "next": "-"
+    },
+    "intent": {
+      "id": "intent-021",
+      "object": "intent",
+      "created_at": "2026-03-20T06:39:22.175322+00:00",
+      "status": "done",
+      "decision_ids": [
+        "decision-001",
+        "decision-002",
+        "decision-003",
+        "decision-004",
+        "decision-008",
+        "decision-009",
+        "decision-010",
+        "decision-011",
+        "decision-012",
+        "decision-013",
+        "decision-014"
+      ],
+      "snap_ids": [
+        "snap-094",
+        "snap-095",
+        "snap-096",
+        "snap-097",
+        "snap-098",
+        "snap-099",
+        "snap-100",
+        "snap-101",
+        "snap-102",
+        "snap-103",
+        "snap-104"
+      ],
+      "what": "重构 architecture.html 为科研论文风格架构图",
+      "why": "当前架构图页面是暗色主题，视觉效果不佳，需要重构为类似顶级 CS 会议论文的学术风格架构可视化",
+      "query": "检查itt，重构架构图页面，目前不好看，有没有那种简约、美观、清晰的科研论文架构图，不要过于简单了，有色彩，有图像，有点缀"
+    }
+  }
+}

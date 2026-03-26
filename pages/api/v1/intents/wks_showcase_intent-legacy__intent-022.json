@@ -1,0 +1,175 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "intent": {
+      "id": "intent-022",
+      "object": "intent",
+      "created_at": "2026-03-20T07:26:23.338198+00:00",
+      "status": "done",
+      "decision_ids": [
+        "decision-001",
+        "decision-002",
+        "decision-003",
+        "decision-004",
+        "decision-008",
+        "decision-009",
+        "decision-010",
+        "decision-011",
+        "decision-012",
+        "decision-013",
+        "decision-014"
+      ],
+      "snap_ids": [
+        "snap-105",
+        "snap-106",
+        "snap-107",
+        "snap-108",
+        "snap-109",
+        "snap-110",
+        "snap-111",
+        "snap-112",
+        "snap-113",
+        "snap-114",
+        "snap-115",
+        "snap-119",
+        "snap-120"
+      ],
+      "what": "设计用于讲好 Intent 故事的静态展示前端页面",
+      "why": "这不再是单个 architecture 页面细修，而是一个新的产品化叙事目标，需要跨页面信息架构、文案和展示策略持续推进。",
+      "query": "决定-我们需要做一个静态Intent展示用的前端页面。这一项升格为项目的下一阶段目标，如何讲好Intent故事。"
+    },
+    "snaps": [
+      {
+        "id": "snap-105",
+        "object": "snap",
+        "created_at": "2026-03-20T07:26:52.003893+00:00",
+        "intent_id": "intent-022",
+        "query": "决定-我们需要做一个静态Intent展示用的前端页面。这一项升格为项目的下一阶段目标，如何讲好Intent故事。",
+        "what": "将静态展示前端页面提升为 Intent 下一阶段目标",
+        "why": "",
+        "next": "-"
+      },
+      {
+        "id": "snap-106",
+        "object": "snap",
+        "created_at": "2026-03-20T07:28:16.892342+00:00",
+        "intent_id": "intent-022",
+        "query": "是的，前端页面不应该充斥大量的文字信息，而是用图像解释复杂概念。",
+        "what": "确认静态展示页应以图像而非长文为主",
+        "why": "",
+        "next": "-"
+      },
+      {
+        "id": "snap-107",
+        "object": "snap",
+        "created_at": "2026-03-20T07:47:12.601560+00:00",
+        "intent_id": "intent-022",
+        "query": "1.我回退了上一个snap。信息是不多的，不用再删。主要是排版的问题。例如fig1三张卡片内部元素太紧，而且人-agent-code作为主体，git和intent只是交互层载体，本来就不应该用一套设计语言。而且层与层之间间距也不一样，git为什么要设计一个点，而不是和上面一样的箭头。2.abstract 内容没有全宽，右侧空了一块。Fig2 的decision出发的箭头也错位。",
+        "what": "修正 architecture 页的主体层次与箭头对位",
+        "why": "",
+        "next": "-"
+      },
+      {
+        "id": "snap-108",
+        "object": "snap",
+        "created_at": "2026-03-20T07:49:49.609712+00:00",
+        "intent_id": "intent-022",
+        "query": "算了，fig1别用箭头，不好看",
+        "what": "去掉 Fig.1 的箭头头部，改为纯连接线",
+        "why": "",
+        "next": "-"
+      },
+      {
+        "id": "snap-109",
+        "object": "snap",
+        "created_at": "2026-03-20T08:02:01.994196+00:00",
+        "intent_id": "intent-022",
+        "query": "目前架构页面依旧有2小bug，检查并优化前端设计",
+        "what": "修复 architecture 页面的 2 个视觉 bug",
+        "why": "",
+        "next": "-"
+      },
+      {
+        "id": "snap-110",
+        "object": "snap",
+        "created_at": "2026-03-20T08:10:59.734581+00:00",
+        "intent_id": "intent-022",
+        "query": "改名为intent.html/css",
+        "what": "将 showcase 主页面重命名为 intent",
+        "why": "",
+        "next": "-"
+      },
+      {
+        "id": "snap-111",
+        "object": "snap",
+        "created_at": "2026-03-20T08:15:49.216003+00:00",
+        "intent_id": "intent-022",
+        "query": "",
+        "what": "清理展示前端的过渡结构与重复入口",
+        "why": "",
+        "next": "-"
+      },
+      {
+        "id": "snap-112",
+        "object": "snap",
+        "created_at": "2026-03-20T08:16:39.488828+00:00",
+        "intent_id": "intent-022",
+        "query": "",
+        "what": "澄清 frontend 两个 HTML 的职责边界",
+        "why": "",
+        "next": "-"
+      },
+      {
+        "id": "snap-113",
+        "object": "snap",
+        "created_at": "2026-03-20T08:21:24.873804+00:00",
+        "intent_id": "intent-022",
+        "query": "",
+        "what": "将 frontend 收口为单页入口",
+        "why": "",
+        "next": "-"
+      },
+      {
+        "id": "snap-114",
+        "object": "snap",
+        "created_at": "2026-03-20T08:48:54.186129+00:00",
+        "intent_id": "intent-022",
+        "query": "",
+        "what": "按参考布局重画 Fig.1",
+        "why": "",
+        "next": "-"
+      },
+      {
+        "id": "snap-115",
+        "object": "snap",
+        "created_at": "2026-03-20T09:04:33.509823+00:00",
+        "intent_id": "intent-022",
+        "query": "",
+        "what": "撤回当前产品页探索并清理代码",
+        "why": "",
+        "next": "-"
+      },
+      {
+        "id": "snap-119",
+        "object": "snap",
+        "created_at": "2026-03-20T09:39:19.672266+00:00",
+        "intent_id": "intent-022",
+        "query": "由于已经放弃了前端方案，readme改为插入mermaid图。调整：git和intent都是连接线上的说明，不是一层",
+        "what": "README Mermaid 图改为三列对比，Git/Intent 作为连接线标注",
+        "why": "Git 和 Intent 不是独立的层级节点，而是描述两层之间关系的桥梁标注",
+        "next": "-"
+      },
+      {
+        "id": "snap-120",
+        "object": "snap",
+        "created_at": "2026-03-20T17:28:19.548360+00:00",
+        "intent_id": "intent-022",
+        "query": "目前的项目的完成进度怎么样",
+        "what": "完成所有文档图表化和精简工作",
+        "why": "",
+        "next": "-"
+      }
+    ]
+  }
+}

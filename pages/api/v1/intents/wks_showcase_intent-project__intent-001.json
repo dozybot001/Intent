@@ -1,0 +1,50 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-project",
+    "intent": {
+      "id": "intent-001",
+      "object": "intent",
+      "created_at": "2026-03-23T17:45:25.488062+00:00",
+      "what": "全面转向回溯式语义记录模式",
+      "status": "done",
+      "why": "Intent 从实时埋点转为用户触发的回溯记录，对象模型精简为 what+why 语义对，SKILL 从 CLI 手册重写为语义记录质量指南",
+      "origin": "claude-code",
+      "decision_ids": [],
+      "snap_ids": [
+        "snap-001",
+        "snap-002",
+        "snap-003"
+      ]
+    },
+    "snaps": [
+      {
+        "id": "snap-001",
+        "object": "snap",
+        "created_at": "2026-03-23T17:45:30.477473+00:00",
+        "what": "CLI 精简：删除 query 和 next 字段",
+        "why": "回溯模式下 intent/snap/decision 可能跨多个 query，单一 query 字段不成立；next 字段在回溯视角下冗余，agent 已有全景",
+        "intent_id": "intent-001",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-002",
+        "object": "snap",
+        "created_at": "2026-03-23T17:45:33.240647+00:00",
+        "what": "文档体系全面对齐回溯模式",
+        "why": "CLI 文档分组重构、Vision 时序图改为回溯流程、README 对象描述和触发提示更新，消除所有与旧模式的措辞冲突",
+        "intent_id": "intent-001",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-003",
+        "object": "snap",
+        "created_at": "2026-03-23T17:45:35.507557+00:00",
+        "what": "SKILL 重写为语义记录质量指南",
+        "why": "SKILL 从 CLI 使用手册转为教 agent 判断对象边界、写高质量 what+why 的指南，新增 good/bad 示例对照和 snap 边界判断标准",
+        "intent_id": "intent-001",
+        "origin": "claude-code"
+      }
+    ]
+  }
+}

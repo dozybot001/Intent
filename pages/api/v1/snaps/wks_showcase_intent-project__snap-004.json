@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-project",
+    "snap": {
+      "id": "snap-004",
+      "object": "snap",
+      "created_at": "2026-03-26T08:24:24.893217+00:00",
+      "what": "添加 MAARS 为外部 showcase 项目",
+      "why": "MAARS 是第一个非 Intent 自身的真实项目语义历史，验证 showcase 对外部项目的适用性",
+      "intent_id": "intent-002",
+      "origin": "claude-code"
+    },
+    "intent": {
+      "id": "intent-002",
+      "object": "intent",
+      "created_at": "2026-03-26T08:24:18.205709+00:00",
+      "what": "构建 showcase 分发体系",
+      "status": "done",
+      "why": "v4 转向完成后需要真实项目演示 IntHub 能力，同时确保 showcase 加载器在多项目场景下稳定工作",
+      "origin": "claude-code",
+      "decision_ids": [],
+      "snap_ids": [
+        "snap-004",
+        "snap-005",
+        "snap-006"
+      ]
+    }
+  }
+}

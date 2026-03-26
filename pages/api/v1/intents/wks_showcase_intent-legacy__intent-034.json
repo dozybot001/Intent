@@ -1,0 +1,46 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "intent": {
+      "id": "intent-034",
+      "object": "intent",
+      "created_at": "2026-03-21T08:43:34.100546+00:00",
+      "status": "done",
+      "decision_ids": [
+        "decision-001",
+        "decision-003",
+        "decision-009",
+        "decision-010",
+        "decision-011",
+        "decision-013",
+        "decision-014",
+        "decision-015",
+        "decision-016",
+        "decision-018",
+        "decision-019",
+        "decision-020",
+        "decision-022"
+      ],
+      "snap_ids": [
+        "snap-158"
+      ],
+      "what": "decision deprecate 增加 --reason 参数",
+      "why": "废弃原因是重要的语义信息，不追踪的话下一个 session 不知道为什么废弃、用什么替代",
+      "query": "被废弃的decision应该给个理由或者是被哪些新的decision替代"
+    },
+    "snaps": [
+      {
+        "id": "snap-158",
+        "object": "snap",
+        "created_at": "2026-03-21T08:45:08.226613+00:00",
+        "intent_id": "intent-034",
+        "origin": "claude-code",
+        "what": "decision deprecate --reason 已实现",
+        "why": "itt decision deprecate 新增 --reason 参数，废弃原因写入对象的 deprecated_reason 字段。IntHub decision 详情页展示 Deprecated Reason 段落。SKILL.md 命令参考已更新。不传 --reason 时行为不变（无字段写入）。44 CLI tests passed。",
+        "next": "-",
+        "query": "-"
+      }
+    ]
+  }
+}

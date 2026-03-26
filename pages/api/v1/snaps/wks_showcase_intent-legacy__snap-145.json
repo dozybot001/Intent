@@ -1,0 +1,69 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "snap": {
+      "id": "snap-145",
+      "object": "snap",
+      "created_at": "2026-03-21T06:17:55.778418+00:00",
+      "intent_id": "intent-025",
+      "origin": "",
+      "what": "完成 CLI 文档与 SKILL 最终收口",
+      "why": "已完成当前命令面的文档收口：仓库与本机两份 SKILL 保持一致，并正式把 Intent 的目标表述为 Operational recovery + Product formation history；EN/CN cli.md 已继续收紧到当前真实命令面，decision attach 明确标成 repair only；EN/CN roadmap 也去掉了过时的 list/show 表述，改为 inspect、doctor、create、最小状态流转和低噪声记录。已确认 README、docs、SKILL 中不再把 intent/snap/decision list、show、snap revert、hub login 作为当前命令。",
+      "next": "-",
+      "query": "-"
+    },
+    "intent": {
+      "id": "intent-025",
+      "object": "intent",
+      "created_at": "2026-03-20T18:07:05.302778+00:00",
+      "status": "done",
+      "decision_ids": [
+        "decision-001",
+        "decision-003",
+        "decision-004",
+        "decision-008",
+        "decision-009",
+        "decision-010",
+        "decision-011",
+        "decision-012",
+        "decision-013",
+        "decision-014",
+        "decision-015",
+        "decision-016",
+        "decision-017",
+        "decision-018",
+        "decision-019"
+      ],
+      "snap_ids": [
+        "snap-122",
+        "snap-123",
+        "snap-124",
+        "snap-125",
+        "snap-126",
+        "snap-127",
+        "snap-128",
+        "snap-129",
+        "snap-130",
+        "snap-131",
+        "snap-132",
+        "snap-133",
+        "snap-134",
+        "snap-135",
+        "snap-136",
+        "snap-137",
+        "snap-138",
+        "snap-139",
+        "snap-140",
+        "snap-141",
+        "snap-142",
+        "snap-143",
+        "snap-144",
+        "snap-145"
+      ],
+      "what": "收紧 intent-cli 的命令面设计",
+      "why": "这是对 intent-cli 命令面本身的系统性收敛目标，需要跨多轮评估 inspect/version/doctor 等全局命令的边界、输出与噪音控制。",
+      "query": "是的，我觉得有很多很多冗余噪音，我们需要仔细优化一下命令面设计了。先从全局命令开始。"
+    }
+  }
+}
