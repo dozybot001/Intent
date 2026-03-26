@@ -1,0 +1,37 @@
+name: Deploy IntHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'showcase/**'
+      - 'apps/inthub_web/static/**'
+      - 'scripts/build_pages.py'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build static site
+        run: python scripts/build_pages.py
+
+      - name: Deploy to gh-pages
+        run: |
+          cd pages
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Deploy IntHub static site"
+          git push --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:gh-pages

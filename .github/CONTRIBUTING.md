@@ -50,7 +50,7 @@ Open a [GitHub issue](https://github.com/dozybot001/Intent/issues/new?template=b
 src/intent_cli/       CLI source (published via pip install .)
 apps/                 IntHub Local (API + Web UI)
 SKILL.md              Agent skill specification
-pages/                Static site & showcase data (GitHub Pages)
+showcase/             Official semantic history showcase
 docs/                 Documentation and references
 tests/                Test suite
 ```

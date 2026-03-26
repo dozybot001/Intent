@@ -116,14 +116,9 @@ def run_local(
     database_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Try package-relative showcase first, then cwd fallback
-    package_showcase = Path(__file__).resolve().parents[2] / "pages" / "showcase"
-    cwd_showcase = Path.cwd() / "pages" / "showcase"
-    legacy_showcase = Path.cwd() / "showcase"
-    showcase_dir = (
-        package_showcase if package_showcase.is_dir()
-        else cwd_showcase if cwd_showcase.is_dir()
-        else legacy_showcase
-    )
+    package_showcase = Path(__file__).resolve().parents[2] / "showcase"
+    cwd_showcase = Path.cwd() / "showcase"
+    showcase_dir = package_showcase if package_showcase.is_dir() else cwd_showcase
     if showcase_dir.is_dir():
         _load_showcase(database_path, showcase_dir)
 

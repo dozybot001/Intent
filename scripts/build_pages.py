@@ -12,7 +12,7 @@ import shutil
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SHOWCASE_DIR = REPO_ROOT / "pages" / "showcase"
+SHOWCASE_DIR = REPO_ROOT / "showcase"
 WEB_STATIC = REPO_ROOT / "apps" / "inthub_web" / "static"
 OUT_DIR = REPO_ROOT / "pages"
 
@@ -159,14 +159,10 @@ def _latest_date(objects: list[dict]) -> str | None:
 
 
 def build():
-    # Clean generated files (preserve showcase/ source data)
-    for name in ("api", "app.js", "config.json", "index.html", "styles.css"):
-        p = OUT_DIR / name
-        if p.is_dir():
-            shutil.rmtree(p)
-        elif p.exists():
-            p.unlink()
-    OUT_DIR.mkdir(exist_ok=True)
+    # Clean output
+    if OUT_DIR.exists():
+        shutil.rmtree(OUT_DIR)
+    OUT_DIR.mkdir()
 
     # Copy web assets
     shutil.copy2(WEB_STATIC / "styles.css", OUT_DIR / "styles.css")

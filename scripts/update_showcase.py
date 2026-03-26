@@ -1,7 +1,7 @@
-"""Sync .intent/ data to pages/showcase/intent-project/ for distribution.
+"""Sync .intent/ data to showcase/intent-project/ for distribution.
 
-Note: pages/showcase/intent-legacy/ contains frozen history from earlier
-schema iterations and is NOT updated by this script.
+Note: showcase/intent-legacy/ contains frozen history from earlier schema
+iterations and is NOT updated by this script.
 """
 
 import shutil
@@ -9,7 +9,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SOURCE = REPO_ROOT / ".intent"
-TARGET = REPO_ROOT / "pages" / "showcase" / "intent-project"
+TARGET = REPO_ROOT / "showcase" / "intent-project"
 DIRS = ("intents", "snaps", "decisions")
 
 
