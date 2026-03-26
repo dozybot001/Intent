@@ -1,10 +1,9 @@
 {
   "id": "snap-009",
   "object": "snap",
-  "created_at": "2026-03-19T10:34:31.222409+00:00",
-  "intent_id": "intent-008",
-  "query": "装完了，你检查一下，没问题我们就开始你上面说的优化。",
-  "what": "实现 doctor、关系过滤和状态校验",
-  "why": "在不破坏三对象极简设计的前提下，优先补足结构校验、关系查询和输入约束这三类最直接影响可用性的能力。",
-  "next": "-"
+  "created_at": "2026-03-26T08:24:40.449583+00:00",
+  "what": "社区文档重组为统一双语结构",
+  "why": "CONTRIBUTING、SECURITY 等社区文档缺乏一致的双语组织方式",
+  "intent_id": "intent-003",
+  "origin": "claude-code"
 }

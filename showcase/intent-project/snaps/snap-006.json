@@ -1,10 +1,9 @@
 {
   "id": "snap-006",
   "object": "snap",
-  "created_at": "2026-03-19T10:09:12.781571+00:00",
-  "intent_id": "intent-005",
-  "query": "等一下，我们上一轮的交互，其实不应该建立intent，我只是让你了解工作流，你觉得呢",
-  "what": "纠正上一轮过度记录",
-  "why": "需要根据用户反馈修正对 intent 边界的判断，避免把协作约定误记为工作目标",
-  "next": "-"
+  "created_at": "2026-03-26T08:24:25.001940+00:00",
+  "what": "清理 IntHub API 和 Web UI 中的 query/next 残留字段",
+  "why": "CLI 已在 v4 中移除这两个字段，IntHub 侧需同步清理保持一致",
+  "intent_id": "intent-002",
+  "origin": "claude-code"
 }

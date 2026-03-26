@@ -1,4 +1,8 @@
-"""Sync .intent/ data to showcase/intent-project/ for distribution."""
+"""Sync .intent/ data to showcase/intent-project/ for distribution.
+
+Note: showcase/intent-legacy/ contains frozen history from earlier schema
+iterations and is NOT updated by this script.
+"""
 
 import shutil
 from pathlib import Path

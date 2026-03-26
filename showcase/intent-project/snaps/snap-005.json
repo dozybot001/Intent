@@ -1,10 +1,9 @@
 {
   "id": "snap-005",
   "object": "snap",
-  "created_at": "2026-03-19T10:07:50.724981+00:00",
-  "intent_id": "intent-005",
-  "query": "当然，你先理解一下skill的内容，之后我们的对话都会伴随使用这个skill",
-  "what": "读取 skill 并完成仓库 inspect",
-  "why": "先明确 skill 的对象模型、创建规则和恢复流程，才能保证后续记录不是形式化打卡",
-  "next": "-"
+  "created_at": "2026-03-26T08:24:24.947433+00:00",
+  "what": "修复 showcase 加载器跳过隐藏目录",
+  "why": "加载器遍历 showcase/ 时误读 .DS_Store 等隐藏项导致报错",
+  "intent_id": "intent-002",
+  "origin": "claude-code"
 }

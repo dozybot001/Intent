@@ -1,10 +1,9 @@
 {
   "id": "snap-001",
   "object": "snap",
-  "created_at": "2026-03-18T07:21:30.640610+00:00",
+  "created_at": "2026-03-23T17:45:30.477473+00:00",
+  "what": "CLI 精简：删除 query 和 next 字段",
+  "why": "回溯模式下 intent/snap/decision 可能跨多个 query，单一 query 字段不成立；next 字段在回溯视角下冗余，agent 已有全景",
   "intent_id": "intent-001",
-  "query": "构建readme用于PyPI发布",
-  "what": "撰写 README.md",
-  "why": "基于 cli.md 和 pyproject.toml 撰写了面向 PyPI 的 README，涵盖三对象模型、安装、快速上手、全部命令表、设计原则和存储结构",
-  "next": "-"
+  "origin": "claude-code"
 }

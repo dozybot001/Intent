@@ -117,11 +117,11 @@ itt hub sync
 
 ## Showcase
 
-This project manages its own development with Intent. Two showcase projects are included under `showcase/`:
+This project manages its own development with Intent. Showcase projects are included under `showcase/`:
 
+- **`intent-project`** — current semantic history (synced from `.intent/`)
 - **`maars`** — [MAARS](https://github.com/dozybot001/MAARS) project: 1 intent, 8 snaps, 3 decisions
-- **`retrospective-v4`** — Intent's own v4 pivot: 1 intent, 3 snaps
-- **`intent-project`** — legacy semantic history spanning earlier schema iterations
+- **`intent-legacy`** — frozen legacy history from earlier schema iterations
 
 Run `itt hub start` to browse them in IntHub.
 
