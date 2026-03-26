@@ -255,7 +255,7 @@ def _build_static_app_js():
     # 1. Patch apiUrl to append .json
     js = js.replace(
         'function apiUrl(path) {\n  return `${state.config.apiBaseUrl}${path}`;',
-        'function apiUrl(path) {\n  if (state.config?.static) return `${path}.json`;\n  return `${state.config.apiBaseUrl}${path}`;',
+        'function apiUrl(path) {\n  if (state.config?.static) return `${path.replace(/^\\//, "")}.json`;\n  return `${state.config.apiBaseUrl}${path}`;',
     )
 
     # 2. Patch config loading to use relative path
