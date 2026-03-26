@@ -1,9 +1,0 @@
-{
-  "id": "snap-010",
-  "object": "snap",
-  "created_at": "2026-03-26T08:24:40.505093+00:00",
-  "what": "README 补充 Snap-Query → Intent-Session 演进说明",
-  "why": "用户需要理解为何从 Snap-Query 迁移到 Intent-Session 模式，以及回溯记录为何产生更好的数据",
-  "intent_id": "intent-003",
-  "origin": "claude-code"
-}

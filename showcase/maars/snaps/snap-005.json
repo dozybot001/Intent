@@ -1,9 +1,0 @@
-{
-  "id": "snap-005",
-  "object": "snap",
-  "created_at": "2026-03-23T14:57:56.259192+00:00",
-  "what": "Architecture decoupling: mock/gemini/agent modes",
-  "why": "三次重大解耦：1) MockClient 从 pipeline 分离到独立 mock/ 模块（data.py + client.py + 组装函数）。2) llm_factory 移除，改用 ParallelMockClient（per-asyncio-task 计数器）对齐 Gemini 无状态行为。3) LLMClient 从 stage 参数化注入，orchestrator 不持有 client。最终形成 llm/（接口）→ pipeline/（框架）→ mock/|gemini/|agent/（模式）三层架构。",
-  "intent_id": "intent-001",
-  "origin": "claude-code"
-}

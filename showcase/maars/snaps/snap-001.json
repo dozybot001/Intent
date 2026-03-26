@@ -1,9 +1,0 @@
-{
-  "id": "snap-001",
-  "object": "snap",
-  "created_at": "2026-03-23T14:57:10.617290+00:00",
-  "what": "Architecture design & skeleton",
-  "why": "从零设计 MAARS 架构：Python FastAPI 后端 + Vanilla JS 前端 + SSE 流式通信。BaseStage 状态机 + PipelineOrchestrator 调度 4 阶段。MockClient 模拟数据。前端输入框 + 4 卡片 + 日志区。run/stop/resume/retry 控制已实现并验证。",
-  "intent_id": "intent-001",
-  "origin": "claude-code"
-}

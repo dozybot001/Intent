@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
     paths:
-      - 'showcase/**'
       - 'apps/inthub_web/static/**'
       - 'scripts/build_pages.py'
       - '.github/workflows/pages.yml'
@@ -19,6 +18,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Fetch showcase data from gh-pages
+        run: |
+          git fetch origin gh-pages
+          git checkout origin/gh-pages -- showcase/
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -29,6 +33,7 @@ jobs:
       - name: Deploy to gh-pages
         run: |
           cd pages
+          cp -r ../showcase .
           git init
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

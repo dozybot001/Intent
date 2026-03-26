@@ -1,9 +1,0 @@
-{
-  "id": "snap-006",
-  "object": "snap",
-  "created_at": "2026-03-26T08:24:25.001940+00:00",
-  "what": "清理 IntHub API 和 Web UI 中的 query/next 残留字段",
-  "why": "CLI 已在 v4 中移除这两个字段，IntHub 侧需同步清理保持一致",
-  "intent_id": "intent-002",
-  "origin": "claude-code"
-}

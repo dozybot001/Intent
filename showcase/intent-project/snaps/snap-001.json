@@ -1,9 +1,0 @@
-{
-  "id": "snap-001",
-  "object": "snap",
-  "created_at": "2026-03-23T17:45:30.477473+00:00",
-  "what": "CLI 精简：删除 query 和 next 字段",
-  "why": "回溯模式下 intent/snap/decision 可能跨多个 query，单一 query 字段不成立；next 字段在回溯视角下冗余，agent 已有全景",
-  "intent_id": "intent-001",
-  "origin": "claude-code"
-}

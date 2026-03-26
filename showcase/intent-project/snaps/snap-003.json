@@ -1,9 +1,0 @@
-{
-  "id": "snap-003",
-  "object": "snap",
-  "created_at": "2026-03-23T17:45:35.507557+00:00",
-  "what": "SKILL 重写为语义记录质量指南",
-  "why": "SKILL 从 CLI 使用手册转为教 agent 判断对象边界、写高质量 what+why 的指南，新增 good/bad 示例对照和 snap 边界判断标准",
-  "intent_id": "intent-001",
-  "origin": "claude-code"
-}

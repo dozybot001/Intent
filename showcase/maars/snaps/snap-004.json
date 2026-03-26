@@ -1,9 +1,0 @@
-{
-  "id": "snap-004",
-  "object": "snap",
-  "created_at": "2026-03-23T14:57:44.833522+00:00",
-  "what": "Execute & Write stages + file DB",
-  "why": "ExecuteStage: 拓扑排序→批次并行执行（asyncio.gather）→验证→可选重试→存 DB。WriteStage: outline→逐章节写→polish 三阶段，每章节只拉关联 task 输出控制 prompt 大小。ResearchDB: 文件系统存储，per-session 文件夹（idea/refined/plan/tasks/paper）。四阶段端到端跑通。",
-  "intent_id": "intent-001",
-  "origin": "claude-code"
-}

@@ -1,9 +1,0 @@
-{
-  "id": "snap-007",
-  "object": "snap",
-  "created_at": "2026-03-26T08:24:40.340576+00:00",
-  "what": "双语文档重组：移除散落的中文文档，统一到 bilingual 路径",
-  "why": "中文文档之前和英文文档混放，维护和查找困难",
-  "intent_id": "intent-003",
-  "origin": "claude-code"
-}

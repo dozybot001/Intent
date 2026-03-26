@@ -1,9 +1,0 @@
-{
-  "id": "snap-006",
-  "object": "snap",
-  "created_at": "2026-03-23T14:58:08.300965+00:00",
-  "what": "Unified streaming model + Gemini integration",
-  "why": "所有 LLM 调用统一 call_id 机制：label chunk 创建块，text chunk 追加到对应块。前端 log-viewer 按 call_id 路由到独立 DOM 块，并行任务互不干扰。GeminiClient 实现 LLMClient ABC（消息格式转换 OpenAI→Gemini）。.env 切换 MAARS_LLM_MODE=gemini 即可。真实 Gemini 调用验证通过：完整论文生成（Cognitive Buffer Hypothesis，31 原子任务，~153KB 输出）。",
-  "intent_id": "intent-001",
-  "origin": "claude-code"
-}

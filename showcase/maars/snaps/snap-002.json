@@ -1,9 +1,0 @@
-{
-  "id": "snap-002",
-  "object": "snap",
-  "created_at": "2026-03-23T14:57:21.362993+00:00",
-  "what": "Retry robustness & broadcast SSE",
-  "why": "修复 retry 竞态：加入 _run_id 代际计数器防止新旧 run() 并发写入。SSE 从单队列改为广播模式（per-connection subscribe/unsubscribe），解决刷新页面事件串台问题。retry 前一阶段时自动失效所有下游阶段。前一阶段未完成时禁止执行后续阶段（check_runnable + 前端按钮 disable）。",
-  "intent_id": "intent-001",
-  "origin": "claude-code"
-}
