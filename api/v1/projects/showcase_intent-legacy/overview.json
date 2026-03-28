@@ -17,67 +17,7 @@
         "last_synced_at": "2026-03-28T10:32:17.825229+00:00"
       }
     ],
-    "active_intents": [
-      {
-        "id": "intent-045",
-        "object": "intent",
-        "created_at": "2026-03-22T12:54:47.094273+00:00",
-        "what": "SKILL.md 重写：渐进式披露架构",
-        "status": "active",
-        "query": "SKILL太重了，不符合渐进式披露的原则，需要重写",
-        "why": "当前 SKILL 约 23KB，每次 session 全量加载消耗约 6000 token context，大部分内容在 agent 熟练后变成死重；需要分层，让核心指令精简、扩展内容按需加载",
-        "origin": "claude-code",
-        "decision_ids": [
-          "decision-001",
-          "decision-003",
-          "decision-009",
-          "decision-010",
-          "decision-011",
-          "decision-013",
-          "decision-014",
-          "decision-015",
-          "decision-016",
-          "decision-018",
-          "decision-019",
-          "decision-020",
-          "decision-022",
-          "decision-024"
-        ],
-        "snap_ids": [
-          "snap-173",
-          "snap-174"
-        ],
-        "remote_id": "wks_showcase_intent-legacy__intent-045"
-      },
-      {
-        "id": "intent-046",
-        "object": "intent",
-        "created_at": "2026-03-22T14:11:09.109788+00:00",
-        "what": "将 snap 的 --why 从必填改为选填",
-        "status": "active",
-        "query": "why全部改为选填",
-        "why": "snap 的 --why 有时没有明显推理需要记录，强制填写只会产出低质量内容。intent 的 --why 已经是选填，统一行为。",
-        "origin": "claude-code",
-        "decision_ids": [
-          "decision-001",
-          "decision-003",
-          "decision-009",
-          "decision-010",
-          "decision-011",
-          "decision-013",
-          "decision-014",
-          "decision-015",
-          "decision-016",
-          "decision-018",
-          "decision-019",
-          "decision-020",
-          "decision-022",
-          "decision-024"
-        ],
-        "snap_ids": [],
-        "remote_id": "wks_showcase_intent-legacy__intent-046"
-      }
-    ],
+    "active_intents": [],
     "other_intents": [
       {
         "id": "intent-001",
@@ -1287,6 +1227,65 @@
           "snap-172"
         ],
         "remote_id": "wks_showcase_intent-legacy__intent-044"
+      },
+      {
+        "id": "intent-045",
+        "object": "intent",
+        "created_at": "2026-03-22T12:54:47.094273+00:00",
+        "what": "SKILL.md 重写：渐进式披露架构",
+        "status": "done",
+        "query": "SKILL太重了，不符合渐进式披露的原则，需要重写",
+        "why": "当前 SKILL 约 23KB，每次 session 全量加载消耗约 6000 token context，大部分内容在 agent 熟练后变成死重；需要分层，让核心指令精简、扩展内容按需加载",
+        "origin": "claude-code",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-022",
+          "decision-024"
+        ],
+        "snap_ids": [
+          "snap-173",
+          "snap-174"
+        ],
+        "remote_id": "wks_showcase_intent-legacy__intent-045"
+      },
+      {
+        "id": "intent-046",
+        "object": "intent",
+        "created_at": "2026-03-22T14:11:09.109788+00:00",
+        "what": "将 snap 的 --why 从必填改为选填",
+        "status": "done",
+        "query": "why全部改为选填",
+        "why": "snap 的 --why 有时没有明显推理需要记录，强制填写只会产出低质量内容。intent 的 --why 已经是选填，统一行为。",
+        "origin": "claude-code",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-022",
+          "decision-024"
+        ],
+        "snap_ids": [],
+        "remote_id": "wks_showcase_intent-legacy__intent-046"
       },
       {
         "id": "intent-047",
