@@ -1,0 +1,11 @@
+{
+  "id": "snap-144",
+  "object": "snap",
+  "created_at": "2026-03-21T06:12:34.473558+00:00",
+  "intent_id": "intent-025",
+  "origin": "",
+  "what": "收正 Intent 的两层目标",
+  "why": "已新增 decision-019，明确 Intent 语义历史同时服务两层目标：inspect 默认继续保持恢复优先，但 semantic history 整体也要保留产品与工作流如何逐步形成的历史。同步修改了仓库与本机两份 SKILL：将“Intent exists for one purpose”改为“Operational recovery + Product formation history”，在 snap 边界中增加形成性 checkpoint 的例外，在 summary 章节加入方向变化与路线否定的记录要求，并在 quality check 中加入是否能解释产品为何长成现在这样。两份 SKILL 已完全对齐。",
+  "next": "-",
+  "query": "-"
+}

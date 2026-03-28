@@ -1,0 +1,10 @@
+{
+  "id": "snap-103",
+  "object": "snap",
+  "created_at": "2026-03-20T07:14:57.753900+00:00",
+  "intent_id": "intent-021",
+  "query": "我让Claude加了一个展示架构的静态页面，但是改来改去一直有点显示问题。你来看看",
+  "what": "修复 architecture 页面首屏近乎空白的显示问题",
+  "why": "",
+  "next": "-"
+}

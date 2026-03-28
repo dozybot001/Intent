@@ -1,0 +1,10 @@
+{
+  "id": "snap-064",
+  "object": "snap",
+  "created_at": "2026-03-19T17:07:40.910642+00:00",
+  "intent_id": "intent-013",
+  "query": "可以，我同意。",
+  "what": "收紧 dogfooding 文档并补入口",
+  "why": "dogfooding 文档适合作为案例材料，但在合并前需要把叙事边界收紧，并确保读者能从 README 和 roadmap 找到它。",
+  "next": "-"
+}

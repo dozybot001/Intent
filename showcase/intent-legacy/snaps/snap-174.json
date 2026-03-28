@@ -1,0 +1,11 @@
+{
+  "id": "snap-174",
+  "object": "snap",
+  "created_at": "2026-03-22T13:34:20.849915+00:00",
+  "what": "SKILL 重写完成并推送，删除 skill-guide 独立文件",
+  "query": "提交推送了吗",
+  "why": "最终方案：SKILL.md 8KB 核心指令（npx 分发）+ SKILL.CN.md 中文版 + 改进建议文档。放弃了 SKILL-guide.md 独立文件方案，因为其内容与 SKILL/README/vision 重复，无独立存在价值。",
+  "next": "intent-045 可以 done；后续按 agent-improvement-proposals.md 逐步处理其他改进项",
+  "intent_id": "intent-045",
+  "origin": "claude-code"
+}

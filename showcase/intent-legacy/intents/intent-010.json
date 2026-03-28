@@ -1,0 +1,18 @@
+{
+  "id": "intent-010",
+  "object": "intent",
+  "created_at": "2026-03-19T10:55:05.132340+00:00",
+  "status": "done",
+  "decision_ids": [
+    "decision-001",
+    "decision-002"
+  ],
+  "snap_ids": [
+    "snap-012",
+    "snap-013",
+    "snap-014"
+  ],
+  "what": "发布 v1.0.0 并更新 release-publisher 技能规则",
+  "why": "用户要求发布当前版本，并将双语 release note 的版式约定固化到 release-publisher skill 中，作为后续发版工作流的一部分。",
+  "query": "好的，发版，额外的，release note要发中英双语，英语在上，中文在下，‘---’分割，这一点写进skill。"
+}

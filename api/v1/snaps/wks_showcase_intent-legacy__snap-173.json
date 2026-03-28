@@ -1,0 +1,47 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "snap": {
+      "id": "snap-173",
+      "object": "snap",
+      "created_at": "2026-03-22T13:03:32.177326+00:00",
+      "what": "SKILL.md 重写完成：23KB → 8KB 核心 + 8KB 按需指南",
+      "query": "SKILL太重了，不符合渐进式披露的原则，需要重写",
+      "why": "将教学性内容（哲学、anti-patterns、quality check、详细示例）全部移入 SKILL-guide.md；核心 SKILL 只保留可执行指令：对象表格、决策表工作流、命令参考、JSON 合约、关键规则 6 条。每次 session 节省约 4000 token context。",
+      "next": "需要更新引用 SKILL.md 的其他位置（如 Claude Code skill 配置文件）；待用户实际使用后评估新 SKILL 是否有遗漏关键规则",
+      "intent_id": "intent-045",
+      "origin": "claude-code"
+    },
+    "intent": {
+      "id": "intent-045",
+      "object": "intent",
+      "created_at": "2026-03-22T12:54:47.094273+00:00",
+      "what": "SKILL.md 重写：渐进式披露架构",
+      "status": "active",
+      "query": "SKILL太重了，不符合渐进式披露的原则，需要重写",
+      "why": "当前 SKILL 约 23KB，每次 session 全量加载消耗约 6000 token context，大部分内容在 agent 熟练后变成死重；需要分层，让核心指令精简、扩展内容按需加载",
+      "origin": "claude-code",
+      "decision_ids": [
+        "decision-001",
+        "decision-003",
+        "decision-009",
+        "decision-010",
+        "decision-011",
+        "decision-013",
+        "decision-014",
+        "decision-015",
+        "decision-016",
+        "decision-018",
+        "decision-019",
+        "decision-020",
+        "decision-022",
+        "decision-024"
+      ],
+      "snap_ids": [
+        "snap-173",
+        "snap-174"
+      ]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "id": "snap-162",
+  "object": "snap",
+  "created_at": "2026-03-21T13:35:32.294427+00:00",
+  "intent_id": "intent-038",
+  "origin": "codex-desktop",
+  "what": "推送目录收敛与版本索引清理",
+  "why": "已提交并推送目录收敛相关改动，commit 为 b912039（Prune local artifacts and legacy release manifests）。仓库现在移除了顶层 VERSION 与 releases/ 历史 manifest，并将 .claude/ 整体忽略。对换机迁移而言，源码侧已可直接 clone；若要延续当前工作语义，核心需要额外迁移的是 .intent/。",
+  "next": "-",
+  "query": "-"
+}

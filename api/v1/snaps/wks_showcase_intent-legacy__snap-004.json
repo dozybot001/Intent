@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "snap": {
+      "id": "snap-004",
+      "object": "snap",
+      "created_at": "2026-03-18T08:39:00.270280+00:00",
+      "intent_id": "intent-004",
+      "query": "readme完善，增加克隆链接、pipx安装cli命令，skill安装命令；docs双语化；发布",
+      "what": "README 安装改进 + 文档双语结构 + 双版本发布",
+      "why": "",
+      "next": "-"
+    },
+    "intent": {
+      "id": "intent-004",
+      "object": "intent",
+      "created_at": "2026-03-18T08:38:52.290410+00:00",
+      "status": "done",
+      "decision_ids": [
+        "decision-001"
+      ],
+      "snap_ids": [
+        "snap-004"
+      ],
+      "what": "README 完善与文档双语化发布",
+      "why": "",
+      "query": "readme完善，增加克隆链接、pipx安装cli命令，skill安装命令；docs双语化；发布 v0.6.0 和 v0.6.1"
+    }
+  }
+}

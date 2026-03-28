@@ -1,0 +1,10 @@
+{
+  "id": "snap-132",
+  "object": "snap",
+  "created_at": "2026-03-20T20:32:45.578422+00:00",
+  "intent_id": "intent-025",
+  "what": "Probe",
+  "why": "probe",
+  "next": "-",
+  "query": "-"
+}

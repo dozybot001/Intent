@@ -1,0 +1,12 @@
+{
+  "id": "decision-006",
+  "object": "decision",
+  "created_at": "2026-03-19T13:26:07.214829+00:00",
+  "status": "deprecated",
+  "intent_ids": [
+    "intent-013"
+  ],
+  "what": "当前阶段维持 monorepo；通过分离分发与 tag 前缀解决发布语义",
+  "why": "当前阶段仅因 deliverable 采用独立 tag（如 cli-vX.Y.Z、hub-vX.Y.Z）并不足以构成拆分仓库的理由。Intent 继续作为 umbrella project / monorepo，有利于 CLI、IntHub API、IntHub Web、sync contract、README 与 roadmap 的原子演进，降低跨边界重构和联调成本，并减少语义模型在多仓库间漂移。发布语义问题应通过分离分发边界和带前缀的 tag 命名解决，而不是提前以物理仓库拆分来解决。只有当不同 deliverable 的发布节奏长期显著分离、权限或部署职责需要独立、Hub 已形成大量与 CLI 无关的代码和 issue 流，或单仓库 CI / 发布已明显拖慢迭代时，再重新评估拆 repo。",
+  "query": "-"
+}

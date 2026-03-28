@@ -1,0 +1,10 @@
+{
+  "id": "snap-029",
+  "object": "snap",
+  "created_at": "2026-03-19T12:22:27.871049+00:00",
+  "intent_id": "intent-013",
+  "query": "纠正 snap-028 的摘要污染",
+  "what": "纠正 IntHub 当前阶段判断记录",
+  "why": "上一条 snap 的 summary 中包含反引号，导致 shell 把命令名解释成命令替换，写入了错误的 JSON 片段，需要用 append-only 方式补一条准确记录。",
+  "next": "-"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "snap-145",
+  "object": "snap",
+  "created_at": "2026-03-21T06:17:55.778418+00:00",
+  "intent_id": "intent-025",
+  "origin": "",
+  "what": "完成 CLI 文档与 SKILL 最终收口",
+  "why": "已完成当前命令面的文档收口：仓库与本机两份 SKILL 保持一致，并正式把 Intent 的目标表述为 Operational recovery + Product formation history；EN/CN cli.md 已继续收紧到当前真实命令面，decision attach 明确标成 repair only；EN/CN roadmap 也去掉了过时的 list/show 表述，改为 inspect、doctor、create、最小状态流转和低噪声记录。已确认 README、docs、SKILL 中不再把 intent/snap/decision list、show、snap revert、hub login 作为当前命令。",
+  "next": "-",
+  "query": "-"
+}

@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "result": {
+    "project": {
+      "id": "showcase_intent-project",
+      "name": "intent-project",
+      "repo": {
+        "owner": "showcase",
+        "name": "intent-project"
+      }
+    },
+    "workspaces": [
+      {
+        "workspace_id": "wks_showcase_intent-project",
+        "branch": "main",
+        "dirty": false,
+        "last_synced_at": null
+      }
+    ],
+    "active_intents": [],
+    "other_intents": [],
+    "active_decisions": [],
+    "deprecated_decisions": [],
+    "recent_snaps": [],
+    "total_snaps": 0
+  }
+}

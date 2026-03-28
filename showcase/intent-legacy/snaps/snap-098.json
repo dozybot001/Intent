@@ -1,0 +1,10 @@
+{
+  "id": "snap-098",
+  "object": "snap",
+  "created_at": "2026-03-20T06:56:12.108351+00:00",
+  "intent_id": "intent-021",
+  "query": "效果依旧不好，出现显示错误，intent到agent的箭头非常大。然后为什么intent和agent都是紫色的。可以提高设计感。按你的想法来。",
+  "what": "全面重设计 Fig.1，修复箭头、配色和设计感",
+  "why": "arrowPurple marker 尺寸 10x8 + stroke 1.8 导致箭头过大；Agent 和 Intent 同为紫色缺乏语义区分；整体设计缺少层次和精致感",
+  "next": "-"
+}

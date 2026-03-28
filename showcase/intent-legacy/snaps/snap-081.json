@@ -1,0 +1,10 @@
+{
+  "id": "snap-081",
+  "object": "snap",
+  "created_at": "2026-03-19T19:52:18.514988+00:00",
+  "intent_id": "intent-015",
+  "query": "目前暂时只放用户的体验命令吧。我想知道现在用户要体验是不是得先把IntHub的源码扒下来，然后才login、link、sync，我期望的是用户能够用IntHub看自己项目内建立的intent元数据。",
+  "what": "把 README 收紧为普通用户 IntHub 体验路径",
+  "why": "",
+  "next": "-"
+}

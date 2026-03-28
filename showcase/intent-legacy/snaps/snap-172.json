@@ -1,0 +1,11 @@
+{
+  "id": "snap-172",
+  "object": "snap",
+  "created_at": "2026-03-22T09:28:17.761381+00:00",
+  "what": "Test snap fields",
+  "query": "测试snap字段",
+  "why": "验证what/query/why/next四个字段",
+  "next": "确认无误后删除测试数据",
+  "intent_id": "intent-044",
+  "origin": "claude-code"
+}

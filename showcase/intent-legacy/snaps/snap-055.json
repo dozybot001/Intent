@@ -1,0 +1,10 @@
+{
+  "id": "snap-055",
+  "object": "snap",
+  "created_at": "2026-03-19T15:27:39.000033+00:00",
+  "intent_id": "intent-013",
+  "query": "有一些显示BUG：内容时常溢出容器。侧边decision和intent.decision_ids冗余。deprecated decisions也显示出来了",
+  "what": "修复溢出、去除 Handoff 冗余、分层展示 deprecated decisions",
+  "why": "",
+  "next": "-"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "decision-021",
+  "object": "decision",
+  "created_at": "2026-03-21T07:23:36.887891+00:00",
+  "status": "deprecated",
+  "intent_ids": [
+    "intent-030",
+    "intent-031"
+  ],
+  "what": "IntHub Local 作为预构建 pyz 放在仓库内分发，不再通过 Release assets",
+  "why": "Release assets 流程繁琐（构建、上传、下载），仓库内直接提供 pyz 更简单，clone 后即可运行",
+  "query": "-"
+}

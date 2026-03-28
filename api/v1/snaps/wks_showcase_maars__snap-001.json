@@ -1,0 +1,39 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_maars",
+    "snap": {
+      "id": "snap-001",
+      "object": "snap",
+      "created_at": "2026-03-23T14:57:10.617290+00:00",
+      "what": "Architecture design & skeleton",
+      "why": "从零设计 MAARS 架构：Python FastAPI 后端 + Vanilla JS 前端 + SSE 流式通信。BaseStage 状态机 + PipelineOrchestrator 调度 4 阶段。MockClient 模拟数据。前端输入框 + 4 卡片 + 日志区。run/stop/resume/retry 控制已实现并验证。",
+      "intent_id": "intent-001",
+      "origin": "claude-code"
+    },
+    "intent": {
+      "id": "intent-001",
+      "object": "intent",
+      "created_at": "2026-03-23T14:56:46.649102+00:00",
+      "what": "Build MAARS: Multi-Agent Automated Research System from scratch",
+      "status": "active",
+      "why": "构建一个全自动的研究论文生成系统，支持 mock/gemini/agent 三种模式，架构解耦，从零开始。",
+      "origin": "claude-code",
+      "decision_ids": [
+        "decision-001",
+        "decision-002",
+        "decision-003"
+      ],
+      "snap_ids": [
+        "snap-001",
+        "snap-002",
+        "snap-003",
+        "snap-004",
+        "snap-005",
+        "snap-006",
+        "snap-007",
+        "snap-008"
+      ]
+    }
+  }
+}

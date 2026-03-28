@@ -1,0 +1,106 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "decision": {
+      "id": "decision-024",
+      "object": "decision",
+      "created_at": "2026-03-22T14:24:53.577660+00:00",
+      "what": "IntHub Local 作为 pip package 的一部分分发，itt hub start 从任意目录可用",
+      "status": "active",
+      "query": "",
+      "why": "替代 decision-022；用户 pip install 后 IntHub 即可用，无需知道仓库路径，消除了 hub start 必须从 Intent 仓库目录运行的限制",
+      "origin": "claude-code",
+      "intent_ids": [
+        "intent-045",
+        "intent-046",
+        "intent-047"
+      ]
+    },
+    "intents": [
+      {
+        "id": "intent-045",
+        "object": "intent",
+        "created_at": "2026-03-22T12:54:47.094273+00:00",
+        "what": "SKILL.md 重写：渐进式披露架构",
+        "status": "active",
+        "query": "SKILL太重了，不符合渐进式披露的原则，需要重写",
+        "why": "当前 SKILL 约 23KB，每次 session 全量加载消耗约 6000 token context，大部分内容在 agent 熟练后变成死重；需要分层，让核心指令精简、扩展内容按需加载",
+        "origin": "claude-code",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-022",
+          "decision-024"
+        ],
+        "snap_ids": [
+          "snap-173",
+          "snap-174"
+        ]
+      },
+      {
+        "id": "intent-046",
+        "object": "intent",
+        "created_at": "2026-03-22T14:11:09.109788+00:00",
+        "what": "将 snap 的 --why 从必填改为选填",
+        "status": "active",
+        "query": "why全部改为选填",
+        "why": "snap 的 --why 有时没有明显推理需要记录，强制填写只会产出低质量内容。intent 的 --why 已经是选填，统一行为。",
+        "origin": "claude-code",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-022",
+          "decision-024"
+        ],
+        "snap_ids": []
+      },
+      {
+        "id": "intent-047",
+        "object": "intent",
+        "created_at": "2026-03-22T14:26:35.163429+00:00",
+        "what": "IntHub Local 打包进 pip：从任意目录可用",
+        "status": "done",
+        "query": "hub start 从任意目录可用",
+        "why": "当前 itt hub start 必须从 Intent 仓库目录运行，用户体验差。将 apps/ 打包进 pip package 后消除此限制。",
+        "origin": "claude-code",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-018",
+          "decision-019",
+          "decision-020",
+          "decision-024"
+        ],
+        "snap_ids": []
+      }
+    ]
+  }
+}

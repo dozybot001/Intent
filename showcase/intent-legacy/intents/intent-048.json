@@ -1,0 +1,17 @@
+{
+  "id": "intent-048",
+  "object": "intent",
+  "created_at": "2026-03-28T10:28:11.468904+00:00",
+  "what": "收敛 Intent-Session 契约并准备里程碑 release",
+  "status": "done",
+  "why": "当前 CLI、测试、技能文档和 Hub 展示已经形成闭环，需要把实现与文档收敛到同一契约并完成正式发布。",
+  "origin": "codex-desktop",
+  "decision_ids": [],
+  "snap_ids": [
+    "snap-175",
+    "snap-176",
+    "snap-177",
+    "snap-178",
+    "snap-179"
+  ]
+}

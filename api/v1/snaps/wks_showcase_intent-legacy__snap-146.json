@@ -1,0 +1,49 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "snap": {
+      "id": "snap-146",
+      "object": "snap",
+      "created_at": "2026-03-21T06:33:12.388698+00:00",
+      "intent_id": "intent-026",
+      "origin": "",
+      "what": "统一 snap 为语义检查点",
+      "why": "已将 README、EN/CN cli.md、EN/CN vision.md，以及仓库与本机两份 SKILL 中的 recovery checkpoint 与 恢复检查点 全部统一改为 semantic checkpoint 与 语义检查点，并补了短解释：snap 记录的是某个工作块的语义边界，包括发生了什么变化、学到了什么，以及后续反馈，而不只是服务恢复的技术性 checkpoint。已确认仓库与本机 SKILL 完全一致，公开文档中已无 recovery checkpoint 残留。",
+      "next": "-",
+      "query": "-"
+    },
+    "intent": {
+      "id": "intent-026",
+      "object": "intent",
+      "created_at": "2026-03-21T06:32:18.210415+00:00",
+      "status": "done",
+      "decision_ids": [
+        "decision-001",
+        "decision-003",
+        "decision-004",
+        "decision-008",
+        "decision-009",
+        "decision-010",
+        "decision-011",
+        "decision-012",
+        "decision-013",
+        "decision-014",
+        "decision-015",
+        "decision-016",
+        "decision-018",
+        "decision-019",
+        "decision-020"
+      ],
+      "snap_ids": [
+        "snap-146",
+        "snap-147",
+        "snap-148",
+        "snap-149"
+      ],
+      "what": "统一 snap 为语义检查点表述",
+      "why": "当前公开文档和 SKILL 里仍有 recovery checkpoint / 恢复检查点 的表述，容易把 snap 的定位收窄成只服务恢复。需要统一改为 semantic checkpoint / 语义检查点，并补上简短解释，使其同时覆盖产品形成历史与跨 session/agent 恢复。",
+      "query": "是的，应该全部改为语义检查点，后面可以再解释一下语义检查点是什么"
+    }
+  }
+}

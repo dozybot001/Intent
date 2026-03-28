@@ -1,0 +1,10 @@
+{
+  "id": "snap-137",
+  "object": "snap",
+  "created_at": "2026-03-21T05:22:56.913731+00:00",
+  "intent_id": "intent-025",
+  "what": "删除 snap revert 并收紧 snap 语义",
+  "why": "已从 CLI 中删除 ，并把 snap 状态从  收为仅 。对应地清理了 parser、dispatch、core handler、状态校验、CLI 测试、cli.md、两份 SKILL，以及 vision 中对 revert 的过时表述。新的边界是：snap 作为追加式 recovery checkpoint 被保留；纠正旧 checkpoint 通过 feedback 或新的 snap 完成，而不是回滚旧 snap。验证已通过：......................................                                   [100%]\n38 passed in 10.97s -> ，且 usage: itt snap [-h] {create,show,feedback} ...\n\npositional arguments:\n  {create,show,feedback}\n\noptions:\n  -h, --help            show this help message and exit 现在只剩 。",
+  "next": "-",
+  "query": "-"
+}
