@@ -99,6 +99,10 @@ function remoteId(wksId, objId) {
   return `${wksId}__${objId}`;
 }
 
+function workspaceIdFromRemoteId(rId) {
+  return String(rId || "").split("__", 1)[0] || "";
+}
+
 function apiUrl(path) {
   return `${state.config.apiBaseUrl}${path}`;
 }
@@ -487,7 +491,45 @@ async function openInDrawer(type, rId) {
   else renderSnapDetailTo(target, payload);
 }
 
+async function resolveProjectIdForRemoteId(rId) {
+  const workspaceId = workspaceIdFromRemoteId(rId);
+  if (!workspaceId) return state.currentProjectId;
+
+  if (!state._workspaceProjectMap) state._workspaceProjectMap = {};
+  if (state._workspaceProjectMap[workspaceId]) {
+    return state._workspaceProjectMap[workspaceId];
+  }
+
+  const currentWorkspaces = state.overview?.workspaces || [];
+  for (const ws of currentWorkspaces) {
+    state._workspaceProjectMap[ws.workspace_id] = state.currentProjectId;
+  }
+  if (currentWorkspaces.some((ws) => ws.workspace_id === workspaceId)) {
+    return state.currentProjectId;
+  }
+
+  for (const project of state.projects) {
+    if (project.id === state.currentProjectId) continue;
+    const overview = await fetchJson(apiUrl(`/api/v1/projects/${project.id}/overview`));
+    for (const ws of overview.workspaces || []) {
+      state._workspaceProjectMap[ws.workspace_id] = project.id;
+    }
+    if ((overview.workspaces || []).some((ws) => ws.workspace_id === workspaceId)) {
+      return project.id;
+    }
+  }
+
+  return null;
+}
+
 async function openDetail(type, rId) {
+  const targetProjectId = await resolveProjectIdForRemoteId(rId);
+  if (targetProjectId && targetProjectId !== state.currentProjectId) {
+    state.selectedDetail = { type, remoteId: rId };
+    await loadProject(targetProjectId);
+    return;
+  }
+
   state.selectedDetail = { type, remoteId: rId };
   el.shell.classList.add("detail-open");
   el.detailContent.innerHTML = '<div class="empty-state loading">Loading\u2026</div>';
@@ -768,6 +810,10 @@ async function loadProject(projectId) {
 
   const overview = await fetchJson(apiUrl(`/api/v1/projects/${projectId}/overview`));
   state.overview = overview;
+  if (!state._workspaceProjectMap) state._workspaceProjectMap = {};
+  for (const ws of overview.workspaces || []) {
+    state._workspaceProjectMap[ws.workspace_id] = projectId;
+  }
 
   el.intentCount.textContent = (overview.active_intents?.length || 0) + (overview.other_intents?.length || 0) || "";
   el.decisionCount.textContent = (overview.active_decisions?.length || 0) + (overview.deprecated_decisions?.length || 0) || "";
