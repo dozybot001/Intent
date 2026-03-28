@@ -123,7 +123,7 @@ When activated, always run `itt inspect` first:
 
 All objects also carry: `id`, `object`, `created_at`, `origin` (auto-detected).
 
-Relationships are **bidirectional** and **append-only**. Objects are **immutable** after creation — correct via new snap.
+Relationships are **bidirectional** and **append-only**. Treat `what` / `why` / `origin` as write-once; statuses and auto-maintained links can advance as work progresses.
 
 ## Command reference
 

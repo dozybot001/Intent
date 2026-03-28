@@ -129,7 +129,8 @@ stateDiagram-v2
 | `intent_ids` | | | ✓ | 关联 intent（创建时自动挂载） |
 | `reason` | | | ✓ | 废弃原因（通过 `--reason` 设置） |
 
-所有字段**创建后不可变**。
+通过 CLI 创建后，`what`、`why`、`origin`、`created_at` 等描述性字段视为写一次。
+后续命令可能推进 `status`，补充 `reason`，以及追加自动维护的关系字段（如 `snap_ids`、`decision_ids`、`intent_ids`）。
 
 ### Origin 检测
 
@@ -228,5 +229,5 @@ stateDiagram-v2
 ## 运行约束
 
 - `.intent/` 是本地工作区元数据，不应进入 Git 历史
-- 所有对象创建后不可变
+- 描述性字段写一次；状态与自动维护的关系字段会随着后续命令推进
 - ID 按对象类型单调递增并零填充，例如 `intent-001`、`snap-001`、`decision-001`

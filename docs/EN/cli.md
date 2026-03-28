@@ -129,7 +129,8 @@ stateDiagram-v2
 | `intent_ids` | | | ✓ | Linked intents (auto-attached on create) |
 | `reason` | | | ✓ | Why the decision was deprecated (set via `--reason`) |
 
-All fields are **immutable after creation**.
+Once created through the CLI, descriptive fields such as `what`, `why`, `origin`, and `created_at` are treated as write-once.
+Later commands may advance `status`, add `reason`, and append auto-maintained relationship fields such as `snap_ids`, `decision_ids`, and `intent_ids`.
 
 ### Origin detection
 
@@ -228,5 +229,5 @@ All successful commands except `inspect` use:
 ## Operational Notes
 
 - `.intent/` is local workspace metadata and should stay out of Git history
-- All objects are immutable after creation
+- Descriptive fields are write-once; status and auto-maintained relationship fields evolve through later commands
 - IDs are zero-padded and monotonic per object type: `intent-001`, `snap-001`, `decision-001`
