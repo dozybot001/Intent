@@ -1,0 +1,20 @@
+{
+  "id": "decision-007",
+  "object": "decision",
+  "created_at": "2026-03-25T14:28:24.366007+00:00",
+  "what": "Agent instructions are independent from pipeline prompts — pipeline flow is reference only",
+  "status": "deprecated",
+  "why": "Agent 有工具能力，能自主决定执行步骤，不需要 pipeline 手把手编排。Agent instruction 描述完整任务目标和参考流程，独立编写；pipeline 的多轮 prompt（Explore/Evaluate/Crystallize、outline/sections/polish）仅用于 Gemini/Mock 模式。两套 prompt 互不依赖，各自演进。",
+  "origin": "claude-code",
+  "intent_ids": [
+    "intent-001",
+    "intent-003",
+    "intent-004",
+    "intent-005",
+    "intent-006",
+    "intent-007",
+    "intent-008",
+    "intent-009"
+  ],
+  "reason": "AgnoClient is now a pure adapter with no baked-in instructions. All prompts flow from pipeline via system messages."
+}

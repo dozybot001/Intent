@@ -1,0 +1,22 @@
+{
+  "id": "intent-005",
+  "object": "intent",
+  "created_at": "2026-03-25T17:15:47.610491+00:00",
+  "what": "Control surface convergence: remove run, unify stop/resume/retry",
+  "status": "done",
+  "why": "四阶段的控制操作存在冗余——run 按钮和 START 重复、resume 对非 Execute 阶段无意义、_pause_event 机制在 task cancellation 模式下已死。需要收敛到最简控制面。",
+  "origin": "claude-code",
+  "decision_ids": [
+    "decision-001",
+    "decision-002",
+    "decision-004",
+    "decision-005",
+    "decision-006",
+    "decision-007",
+    "decision-008"
+  ],
+  "snap_ids": [
+    "snap-025",
+    "snap-026"
+  ]
+}

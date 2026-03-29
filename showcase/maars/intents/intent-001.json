@@ -3,13 +3,18 @@
   "object": "intent",
   "created_at": "2026-03-23T14:56:46.649102+00:00",
   "what": "Build MAARS: Multi-Agent Automated Research System from scratch",
-  "status": "active",
+  "status": "done",
   "why": "构建一个全自动的研究论文生成系统，支持 mock/gemini/agent 三种模式，架构解耦，从零开始。",
   "origin": "claude-code",
   "decision_ids": [
     "decision-001",
     "decision-002",
-    "decision-003"
+    "decision-003",
+    "decision-004",
+    "decision-005",
+    "decision-006",
+    "decision-007",
+    "decision-008"
   ],
   "snap_ids": [
     "snap-001",
@@ -19,6 +24,12 @@
     "snap-005",
     "snap-006",
     "snap-007",
-    "snap-008"
+    "snap-008",
+    "snap-009",
+    "snap-010",
+    "snap-011",
+    "snap-012",
+    "snap-013",
+    "snap-014"
   ]
 }

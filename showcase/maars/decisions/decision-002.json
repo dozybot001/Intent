@@ -7,6 +7,16 @@
   "why": "所有 LLM 调用（顺序/并行）统一通过 call_id 标记 chunk。前端按 call_id 路由到独立 DOM 块。左侧显示 LLM 输出过程，右侧显示结构化产出。Agent 模式的 ReAct 事件也走同一机制。",
   "origin": "claude-code",
   "intent_ids": [
-    "intent-001"
+    "intent-001",
+    "intent-002",
+    "intent-003",
+    "intent-004",
+    "intent-005",
+    "intent-006",
+    "intent-007",
+    "intent-008",
+    "intent-009",
+    "intent-010",
+    "intent-011"
   ]
 }

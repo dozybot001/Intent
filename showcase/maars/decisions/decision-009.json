@@ -1,0 +1,17 @@
+{
+  "id": "decision-009",
+  "object": "decision",
+  "created_at": "2026-03-25T20:49:57.824796+00:00",
+  "what": "LLMClient.stream() yields StreamEvent, pipeline is the only broadcast point",
+  "status": "active",
+  "why": "Client 不应该持有 broadcast 回调。所有 LLM 事件（content/think/tool/tokens）统一通过 StreamEvent 交给 pipeline dispatch，新增 Agent 框架只需映射事件类型，不需要重写广播逻辑。",
+  "origin": "claude-code",
+  "intent_ids": [
+    "intent-007",
+    "intent-006",
+    "intent-008",
+    "intent-009",
+    "intent-010",
+    "intent-011"
+  ]
+}

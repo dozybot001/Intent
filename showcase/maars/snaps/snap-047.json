@@ -1,0 +1,9 @@
+{
+  "id": "snap-047",
+  "object": "snap",
+  "created_at": "2026-03-29T13:55:45.041860+00:00",
+  "what": "Kaggle 数据流修复: idea 存原始输入, refined_idea 包含完整竞赛描述",
+  "why": "之前 idea 和 refined_idea 内容一样且信息量太少，现在 idea 存用户原文(URL+备注)，refined_idea 读取 data_description.txt 等构建丰富上下文",
+  "intent_id": "intent-011",
+  "origin": "claude-code"
+}

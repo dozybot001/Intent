@@ -1,0 +1,26 @@
+{
+  "id": "intent-010",
+  "object": "intent",
+  "created_at": "2026-03-29T04:36:45.695854+00:00",
+  "what": "Simplify MAARS to agno-only architecture with Strategy phase and score-driven iteration",
+  "status": "done",
+  "why": "Multiple LLM modes (ADK/Gemini/Mock) added complexity without value — agno covers all providers. Agent needed domain knowledge before decompose. Evaluation was too lenient (LLM-only judgment, no hard metrics).",
+  "origin": "claude-code",
+  "decision_ids": [
+    "decision-002",
+    "decision-005",
+    "decision-006",
+    "decision-009",
+    "decision-011",
+    "decision-013"
+  ],
+  "snap_ids": [
+    "snap-039",
+    "snap-040",
+    "snap-041",
+    "snap-042",
+    "snap-043",
+    "snap-044",
+    "snap-045"
+  ]
+}

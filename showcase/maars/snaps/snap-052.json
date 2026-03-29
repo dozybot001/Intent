@@ -1,0 +1,9 @@
+{
+  "id": "snap-052",
+  "object": "snap",
+  "created_at": "2026-03-29T13:56:27.897231+00:00",
+  "what": "统一streaming路径: _stream_llm提升到BaseStage, evaluate合入research, prompts独立文件",
+  "why": "之前evaluate.py和decompose.py有各自的streaming loop重复_dispatch_stream逻辑。evaluate合入research直接调_stream_llm，decompose通过stream_fn callable间接调用。prompts.py提取207行prompt常量",
+  "intent_id": "intent-011",
+  "origin": "claude-code"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "snap-018",
+  "object": "snap",
+  "created_at": "2026-03-25T14:27:14.829459+00:00",
+  "what": "MCP fault tolerance + arXiv disabled",
+  "why": "arXiv MCP server API 限流频繁超时，导致 Agent 任务 crash。加两层容错：启动时 toolset 创建失败返回 None 并过滤、运行时 MCP 超时去掉 MCP 工具重试。arXiv 暂时禁用，Agent 用 google_search + url_context 替代。",
+  "intent_id": "intent-002",
+  "origin": "claude-code"
+}

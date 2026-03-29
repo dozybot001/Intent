@@ -1,0 +1,9 @@
+{
+  "id": "snap-032",
+  "object": "snap",
+  "created_at": "2026-03-26T04:58:38.593189+00:00",
+  "what": "Assess GenerationDraft codebase — 6 core files identified",
+  "why": "核心文件：writing_agent_pipeline.py（主编排）、agents.py（WritingAgent 6 个方法：generate_paper_outline/draft_section/review_draft/revise_section/generate_abstract/fix_latex_errors）、schemas.py（PaperOutline/PaperReview Pydantic 模型）、utils.py（上下文加载/LaTeX 组装）、config.py。适配点：1）上下文从 MAARS DB 读取而非 exp_dir；2）LLM 调用从直接 genai.Client 改为 LLMClient.stream()；3）结构化输出 response_schema 需适配 Agno 的 output_schema；4）review-revision 循环放入 WriteStage.run() 内部；5）LaTeX 编译可选。",
+  "intent_id": "intent-008",
+  "origin": "claude-code"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "snap-039",
+  "object": "snap",
+  "created_at": "2026-03-29T04:36:52.668127+00:00",
+  "what": "Removed ADK, Gemini, Mock modes — agno as sole adapter",
+  "why": "Agno already supports all providers (Google/Anthropic/OpenAI). Three extra modes were 1600 lines of dead weight with no unique capability.",
+  "intent_id": "intent-010",
+  "origin": "claude-code"
+}

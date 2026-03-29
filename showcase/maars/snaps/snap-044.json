@@ -1,0 +1,9 @@
+{
+  "id": "snap-044",
+  "object": "snap",
+  "created_at": "2026-03-29T04:37:04.405697+00:00",
+  "what": "New UI: progress bar + command palette + session-grouped log",
+  "why": "Stage cards were heavy and static. New design: slim 7-node progress bar (tracks sub-phases), Cmd+K command palette, reasoning log organized by collapsible agent sessions.",
+  "intent_id": "intent-010",
+  "origin": "claude-code"
+}

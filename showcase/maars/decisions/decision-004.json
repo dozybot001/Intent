@@ -1,0 +1,21 @@
+{
+  "id": "decision-004",
+  "object": "decision",
+  "created_at": "2026-03-24T14:59:27.997030+00:00",
+  "what": "Tool selection priority: ADK built-in > MCP ecosystem > custom (internal data only)",
+  "status": "deprecated",
+  "why": "自建工具维护成本高且容易与生态重复。MCP/ADK 持续升级，复用生态工具质量更高。自建仅限无替代品的内部数据访问（如 DB tools）。",
+  "origin": "claude-code",
+  "intent_ids": [
+    "intent-001",
+    "intent-002",
+    "intent-003",
+    "intent-004",
+    "intent-005",
+    "intent-006",
+    "intent-007",
+    "intent-008",
+    "intent-009"
+  ],
+  "reason": "ADK removed. Tool strategy is now: Agno built-in (DuckDuckGo, arXiv, Wikipedia) + custom (DB, Docker)."
+}

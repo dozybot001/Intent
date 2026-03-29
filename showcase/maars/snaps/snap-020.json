@@ -1,0 +1,9 @@
+{
+  "id": "snap-020",
+  "object": "snap",
+  "created_at": "2026-03-25T14:27:36.170863+00:00",
+  "what": "Prompt engineering pass + Write Agent gets list_artifacts + token estimation + Agent stop",
+  "why": "全 stage prompt 优化（Refine 要求具体引用、Execute 区分分析/实验、Write 去掉固定模板引用 artifacts 图片、Polish 加 References）。Write Agent 加回 list_artifacts 工具。前端 header 加 token 估算 badge。Agent 模式 stop 通过 _stop_requested flag break ReAct 循环。",
+  "intent_id": "intent-002",
+  "origin": "claude-code"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "snap-028",
+  "object": "snap",
+  "created_at": "2026-03-25T20:49:31.303785+00:00",
+  "what": "StreamEvent replaces has_broadcast side-channel",
+  "why": "LLMClient.stream() 从 yield str 改为 yield StreamEvent（content/think/tool_call/tool_result/tokens）。Pipeline 通过 _dispatch_stream() 统一广播，Client 不再持有 _broadcast 回调。删除 has_broadcast、set_broadcast、_broadcast_chunk、_broadcast_label。净减 52 行。新增 Agent 框架只需映射事件类型。",
+  "intent_id": "intent-007",
+  "origin": "claude-code"
+}

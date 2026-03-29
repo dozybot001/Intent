@@ -1,0 +1,9 @@
+{
+  "id": "snap-015",
+  "object": "snap",
+  "created_at": "2026-03-25T14:26:49.976812+00:00",
+  "what": "Fix 3 CRITICAL code smells: global state, DI, SSE backpressure",
+  "why": "execution_log 全局共享导致并发 race，route 全局变量不用 FastAPI DI，SSE Queue 无 maxsize 导致内存泄漏。改为 db.execution_log per-session 隔离、app.state 依赖注入、Queue(maxsize=512) + drop-on-full。",
+  "intent_id": "intent-002",
+  "origin": "claude-code"
+}

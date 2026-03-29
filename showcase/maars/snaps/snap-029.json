@@ -1,0 +1,9 @@
+{
+  "id": "snap-029",
+  "object": "snap",
+  "created_at": "2026-03-25T20:49:38.510539+00:00",
+  "what": "Wire Agno research tools + remove BuiltInCodeExecutor",
+  "why": "注册 DuckDuckGoTools、ArxivTools、WikipediaTools 到 Agno 模式四个阶段。删除 ADK 的 BuiltInCodeExecutor，所有代码执行统一走 Docker code_execute。Agno 模式工具能力超过 ADK（搜索免费无 key，arXiv 不限速）。",
+  "intent_id": "intent-007",
+  "origin": "claude-code"
+}

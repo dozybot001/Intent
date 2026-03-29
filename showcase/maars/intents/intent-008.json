@@ -1,0 +1,25 @@
+{
+  "id": "intent-008",
+  "object": "intent",
+  "created_at": "2026-03-26T04:58:29.058570+00:00",
+  "what": "Integrate GenerationDraft 6-stage write pipeline into MAARS",
+  "status": "done",
+  "why": "当前 Write 阶段只有 outline→sections→polish 三步，输出 markdown。组员的 GenerationDraft 实现了更完整的学术写作流水线：Planning（结构化 outline）→ Drafting（逐章节 LaTeX）→ Review（结构化审查）→ Revision（按 feedback 修订，最多 3 轮，已通过章节锁定）→ Abstract → Compile（tectonic 编译 + 自动修错）。替换现有 Write 实现。",
+  "origin": "claude-code",
+  "decision_ids": [
+    "decision-001",
+    "decision-002",
+    "decision-004",
+    "decision-005",
+    "decision-006",
+    "decision-007",
+    "decision-008",
+    "decision-009",
+    "decision-010"
+  ],
+  "snap_ids": [
+    "snap-032",
+    "snap-033",
+    "snap-034"
+  ]
+}

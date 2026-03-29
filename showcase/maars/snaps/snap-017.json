@@ -1,0 +1,9 @@
+{
+  "id": "snap-017",
+  "object": "snap",
+  "created_at": "2026-03-25T14:27:07.434429+00:00",
+  "what": "Agent mode Refine/Write: single-session stages with independent instructions",
+  "why": "原架构 Agent 模式复用 pipeline 多轮循环（Refine 3 轮、Write 多 phase），每轮新建 session 丢失工具上下文。改为 AgentRefineStage/AgentWriteStage（max_rounds=1），Agent instruction 独立编写描述完整任务，pipeline 多轮 prompt 仅作参考流程。阶段边界对齐，内部执行各自最优。",
+  "intent_id": "intent-002",
+  "origin": "claude-code"
+}

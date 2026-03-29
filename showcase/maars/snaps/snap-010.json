@@ -1,0 +1,9 @@
+{
+  "id": "snap-010",
+  "object": "snap",
+  "created_at": "2026-03-24T14:59:09.315682+00:00",
+  "what": "Remove skills scaffold — model-native reasoning replaces Skill layer",
+  "why": "ADK 没有 Skill 原语，其职责被分解到 instruction/sub_agents/ExampleTool/planner。Gemini 2.0+ 模型能力足够自主编排工具调用，显式 Skill 编排层增加维护成本且随模型升级会成为限制。删除空的 skills/ 目录。",
+  "intent_id": "intent-001",
+  "origin": "claude-code"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "snap-038",
+  "object": "snap",
+  "created_at": "2026-03-27T23:36:50.220390+00:00",
+  "what": "Iteration counter derived from evaluations/ directory count, not separate state",
+  "why": "Evaluations are already persisted per-iteration — counting them is the single source of truth, no redundant state file needed",
+  "intent_id": "intent-009",
+  "origin": "claude-code"
+}

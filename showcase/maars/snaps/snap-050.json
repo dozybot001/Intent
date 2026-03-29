@@ -1,0 +1,9 @@
+{
+  "id": "snap-050",
+  "object": "snap",
+  "created_at": "2026-03-29T13:56:11.115617+00:00",
+  "what": "右侧结构化事件: document/score/task_summary 推送 + modal 组件",
+  "why": "右侧面板之前只有tree和exec_list有结构化数据，calibration/strategy/evaluation/score全靠左侧日志文本流。新增doc:ready和score:update事件，统一modal替代window.open",
+  "intent_id": "intent-011",
+  "origin": "claude-code"
+}

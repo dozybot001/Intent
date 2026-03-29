@@ -1,0 +1,9 @@
+{
+  "id": "snap-012",
+  "object": "snap",
+  "created_at": "2026-03-25T09:55:25.983617+00:00",
+  "what": "Agent instruction & prompt unification — adapter-specific task definitions, Chinese as pipeline-level constraint",
+  "why": "五项统一：1) 自主约束写入 Agent adapter instruction。2) Plan stage 直接读 DB，不依赖工具。3) 原子任务定义改为 adapter-specific（Agent 可更粗粒度）。4) pipeline system prompt 合并进 Agent instruction，删除 _AGENT_AUTO。5) 中文要求上提到 pipeline _AUTO 前缀，所有模式统一生效。",
+  "intent_id": "intent-001",
+  "origin": "claude-code"
+}

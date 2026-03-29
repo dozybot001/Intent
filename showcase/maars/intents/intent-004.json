@@ -1,0 +1,22 @@
+{
+  "id": "intent-004",
+  "object": "intent",
+  "created_at": "2026-03-25T16:02:00.927903+00:00",
+  "what": "Reasoning Log UX: real token counts and auto-fold",
+  "status": "done",
+  "why": "Token 估算用 chars/2 启发式偏差大（中英文比例不同可差 2x 且只算 output）；Log 面板内每阶段 Think/Tool/Result block 平铺堆叠，信息过载无法快速定位。",
+  "origin": "claude-code",
+  "decision_ids": [
+    "decision-001",
+    "decision-002",
+    "decision-004",
+    "decision-005",
+    "decision-006",
+    "decision-007",
+    "decision-008"
+  ],
+  "snap_ids": [
+    "snap-023",
+    "snap-024"
+  ]
+}

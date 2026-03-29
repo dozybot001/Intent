@@ -1,0 +1,9 @@
+{
+  "id": "snap-011",
+  "object": "snap",
+  "created_at": "2026-03-25T09:55:18.734302+00:00",
+  "what": "DB-centric inter-stage data flow — stages communicate through DB, not stage.output",
+  "why": "原架构（decision-003）是 stage.output 字符串直传，但 Agent 模式下 stage 产出存在 DB 中（工具写入），不走 stage.output。统一改为：所有模式的 stage 都通过 DB 读写数据。AgentClient adapter 桥接 ADK 到 pipeline 接口，broadcast 解耦为独立层。Agent 通过 DB tools 读取上游输出，Gemini/Mock 由 pipeline 从 DB 读取后注入 prompt。",
+  "intent_id": "intent-001",
+  "origin": "claude-code"
+}
