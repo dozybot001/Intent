@@ -49,7 +49,6 @@ def init_workspace():
     d.mkdir()
     for sub in SUBDIRS.values():
         (d / sub).mkdir()
-    (d / "config.json").write_text(json.dumps({}, indent=2), encoding="utf-8")
     return d, None
 
 
@@ -95,10 +94,6 @@ def list_objects(base, object_type, status=None):
             result.append(obj)
     return result
 
-
-def read_config(base):
-    """Read config.json. Returns dict."""
-    return json.loads((base / "config.json").read_text(encoding="utf-8"))
 
 
 def read_hub_config(base):
