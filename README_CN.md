@@ -127,6 +127,8 @@ itt hub sync
 
 - [愿景](docs/CN/vision.md) — 为什么需要语义历史
 - [CLI 设计文档](docs/CN/cli.md) — 对象模型、命令、JSON 契约
+- [评估设计](docs/CN/evaluation.md) — 如何可复现地验证语义历史的成本、收益和对象边界
+- [Benchmark CLI](docs/CN/benchmark-cli.md) — 使用 `itt benchmark` 运行通用接续任务评估
 
 ## 社区
 

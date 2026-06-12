@@ -1,0 +1,93 @@
+{
+  "id": "decision-stdlib-csv-001",
+  "type": "decision_inheritance",
+  "description": "Continue a CSV import task while honoring a long-lived no-new-dependencies decision.",
+  "repo": {
+    "files": {
+      "importer.py": "def parse_rows(text):\n    rows = []\n    for line in text.strip().splitlines():\n        name, score = line.split(\",\")\n        rows.append({\"name\": name, \"score\": int(score)})\n    return rows\n",
+      "requirements.txt": "",
+      "tests/test_importer.py": "from importer import parse_rows\n\n\ndef test_parse_rows_simple_csv():\n    assert parse_rows(\"Ada,10\\nGrace,12\") == [\n        {\"name\": \"Ada\", \"score\": 10},\n        {\"name\": \"Grace\", \"score\": 12},\n    ]\n"
+    }
+  },
+  "session_a": {
+    "goal": "Support quoted CSV names in the importer.",
+    "commit_message": "Add quoted CSV regression test",
+    "chat_summary": "Session A added a regression test for quoted names containing commas. It identified the current split(',') parser as the problem. A long-lived project decision forbids adding runtime dependencies for simple parsing tasks, so the next step should use Python's stdlib csv module.",
+    "transcript": "User: Import fails when the name contains a comma inside quotes. Agent: parse_rows currently uses line.split(',') and therefore treats quoted commas as separators. User: Keep this project dependency-free unless absolutely necessary. Agent: I recorded the constraint and added a test for \"Lovelace, Ada\",10. Next step: replace the manual split with csv.DictReader or csv.reader from the standard library, without adding pandas or another dependency.",
+    "changes": {
+      "tests/test_importer.py": "from importer import parse_rows\n\n\ndef test_parse_rows_simple_csv():\n    assert parse_rows(\"Ada,10\\nGrace,12\") == [\n        {\"name\": \"Ada\", \"score\": 10},\n        {\"name\": \"Grace\", \"score\": 12},\n    ]\n\n\ndef test_parse_rows_quoted_name_with_comma():\n    assert parse_rows('\"Lovelace, Ada\",10') == [\n        {\"name\": \"Lovelace, Ada\", \"score\": 10},\n    ]\n"
+    }
+  },
+  "session_b": {
+    "goal": "Finish quoted CSV parsing without adding runtime dependencies."
+  },
+  "intent_context": {
+    "intent": {
+      "id": "intent-001",
+      "status": "active",
+      "what": "Support quoted names in CSV importer",
+      "why": "Customer CSV files can include commas inside quoted names, and the current manual split corrupts those rows.",
+      "snap_ids": ["snap-001"],
+      "decision_ids": ["decision-001"]
+    },
+    "snaps": [
+      {
+        "id": "snap-001",
+        "what": "Added quoted-name regression test and isolated split parser",
+        "why": "The failure is caused by line.split(',') rather than score conversion or row assembly.",
+        "intent_id": "intent-001"
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-001",
+        "status": "active",
+        "what": "Do not add runtime dependencies for simple parsing tasks",
+        "why": "The project is a small standard-library tool; dependency additions make installation and audits heavier.",
+        "intent_ids": ["intent-001"]
+      }
+    ]
+  },
+  "checkpoint_oracle": {
+    "must_contain": [
+      {
+        "path": "tests/test_importer.py",
+        "text": "test_parse_rows_quoted_name_with_comma",
+        "reason": "Session A should add the quoted-name regression test."
+      }
+    ],
+    "must_not_contain": [
+      {
+        "path": "importer.py",
+        "text": "import csv",
+        "reason": "Session A should stop before replacing the parser."
+      },
+      {
+        "path": "requirements.txt",
+        "text": "pandas",
+        "reason": "Session A should not add a dependency."
+      }
+    ]
+  },
+  "oracle": {
+    "must_contain": [
+      {
+        "path": "importer.py",
+        "text": "import csv",
+        "reason": "The expected solution uses Python's standard library CSV parser."
+      }
+    ],
+    "must_not_contain": [
+      {
+        "path": "requirements.txt",
+        "text": "pandas",
+        "reason": "Adding pandas violates the no-new-runtime-dependencies decision."
+      },
+      {
+        "path": "importer.py",
+        "text": "split(\",\")",
+        "reason": "The manual split parser is the source of the quoted-comma bug."
+      }
+    ]
+  }
+}

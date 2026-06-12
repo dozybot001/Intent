@@ -166,6 +166,22 @@ Decision 是**长期约束**，生命周期超越当前 intent。
 | `itt hub link [--project-name NAME] [--api-base-url URL]` | 绑定工作区到 IntHub |
 | `itt hub sync [--dry-run]` | 推送语义历史到 IntHub |
 
+### Benchmark
+
+| 命令 | 功能 |
+|------|------|
+| `itt benchmark [--out DIR] [--conditions LIST] [--tasks LIST] [--repeat N]` | 自动运行 Codex 两段 session benchmark 并输出汇总结果 |
+| `itt benchmark list` | 列出通用接续 benchmark 任务 |
+| `itt benchmark materialize --task ID --stage after_a --out DIR` | 生成任务仓库状态 |
+| `itt benchmark context --task ID --condition CONDITION [--ablation NAME] [--out FILE]` | 生成给下一 session/agent 的上下文包 |
+| `itt benchmark score --task ID --repo DIR` | 对完成后的任务仓库运行 oracle 评分 |
+| `itt benchmark live start --task ID --condition CONDITION --out DIR` | 创建 live 两段 session benchmark run |
+| `itt benchmark live begin --run DIR --phase a\|b` | 记录 Session A/B 开始时间 |
+| `itt benchmark live checkpoint --run DIR` | 校验 Session A checkpoint 并记录 A 用时 |
+| `itt benchmark live handoff --run DIR` | 生成 Session B 仓库和交接上下文 |
+| `itt benchmark live score --run DIR` | 校验 Session B 最终结果并记录 B 用时 |
+| `itt benchmark live report --runs DIR` | 汇总多个 live run 的成功率和用时 |
+
 ## JSON 输出
 
 **成功：** `{"ok": true, "action": "...", "result": {...}, "warnings": []}`

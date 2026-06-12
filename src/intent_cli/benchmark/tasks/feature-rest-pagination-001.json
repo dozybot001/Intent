@@ -1,0 +1,93 @@
+{
+  "id": "feature-rest-pagination-001",
+  "type": "feature_continuation",
+  "description": "Continue a pagination feature after Session A added request parsing but not response slicing.",
+  "repo": {
+    "files": {
+      "api.py": "from store import list_items\n\n\ndef parse_pagination(query):\n    limit = int(query.get(\"limit\", 20))\n    offset = int(query.get(\"offset\", 0))\n    return {\"limit\": limit, \"offset\": offset}\n\n\ndef list_items_response(query):\n    return {\"items\": list_items()}\n",
+      "store.py": "ITEMS = [\n    {\"id\": 1, \"name\": \"alpha\"},\n    {\"id\": 2, \"name\": \"beta\"},\n    {\"id\": 3, \"name\": \"gamma\"},\n    {\"id\": 4, \"name\": \"delta\"},\n]\n\n\ndef list_items():\n    return list(ITEMS)\n",
+      "tests/test_api.py": "from api import list_items_response\n\n\ndef test_list_items_response_returns_items():\n    result = list_items_response({})\n    assert [item[\"id\"] for item in result[\"items\"]] == [1, 2, 3, 4]\n"
+    }
+  },
+  "session_a": {
+    "goal": "Start adding limit/offset pagination to the list items endpoint.",
+    "commit_message": "Add pagination parser scaffold",
+    "chat_summary": "Session A added parse_pagination(query) and decided the existing response must keep the items key. It did not yet apply limit/offset to list_items_response and did not expose next_offset.",
+    "transcript": "User: Add pagination to list_items_response. Agent: I added parse_pagination(query), converting limit and offset from query values with defaults 20 and 0. User: Do not break current callers. Agent: I kept the response shape with an items key and added tests for slicing plus next_offset, but list_items_response still returns every item. Next step: apply parsed limit/offset and include next_offset when more records remain.",
+    "changes": {
+      "tests/test_api.py": "from api import list_items_response\n\n\ndef test_list_items_response_returns_items():\n    result = list_items_response({})\n    assert [item[\"id\"] for item in result[\"items\"]] == [1, 2, 3, 4]\n\n\ndef test_list_items_response_paginates():\n    result = list_items_response({\"limit\": \"2\", \"offset\": \"1\"})\n    assert [item[\"id\"] for item in result[\"items\"]] == [2, 3]\n    assert result[\"next_offset\"] == 3\n"
+    }
+  },
+  "session_b": {
+    "goal": "Finish list_items_response pagination while preserving the existing items response key."
+  },
+  "intent_context": {
+    "intent": {
+      "id": "intent-001",
+      "status": "active",
+      "what": "Add pagination to list items endpoint",
+      "why": "The endpoint currently returns all records, which does not scale once the item list grows.",
+      "snap_ids": ["snap-001"],
+      "decision_ids": ["decision-001"]
+    },
+    "snaps": [
+      {
+        "id": "snap-001",
+        "what": "Added parser and regression test for limit/offset",
+        "why": "Parsing and expected behavior are now explicit, but the endpoint still needs to apply slicing.",
+        "intent_id": "intent-001"
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-001",
+        "status": "active",
+        "what": "Preserve the items response key",
+        "why": "Existing callers read result['items']; pagination metadata can be additive but must not replace that key.",
+        "intent_ids": ["intent-001"]
+      }
+    ]
+  },
+  "checkpoint_oracle": {
+    "must_contain": [
+      {
+        "path": "tests/test_api.py",
+        "text": "test_list_items_response_paginates",
+        "reason": "Session A should add the pagination regression test."
+      }
+    ],
+    "must_not_contain": [
+      {
+        "path": "api.py",
+        "text": "next_offset",
+        "reason": "Session A should stop before implementing response pagination metadata."
+      }
+    ]
+  },
+  "oracle": {
+    "must_contain": [
+      {
+        "path": "api.py",
+        "text": "parse_pagination(query)",
+        "reason": "The endpoint should use the parser created in Session A."
+      },
+      {
+        "path": "api.py",
+        "text": "next_offset",
+        "reason": "The response should expose continuation metadata."
+      },
+      {
+        "path": "api.py",
+        "text": "\"items\"",
+        "reason": "The existing response key must remain."
+      }
+    ],
+    "must_not_contain": [
+      {
+        "path": "api.py",
+        "text": "\"results\"",
+        "reason": "Renaming items to results violates the compatibility decision."
+      }
+    ]
+  }
+}
