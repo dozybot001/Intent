@@ -19,7 +19,7 @@ This repo uses Intent (`.intent/`) to record semantic history: **what you did an
 Recording is **retrospective**. You look back at the work **from the last semantic recording to now** and summarize. This ensures semantic continuity — each recording picks up exactly where the previous one left off. If no previous recording exists (inspect is empty), tell the user you'll record from the current session start.
 
 1. Run `itt inspect` to check current state (active intents, decisions, suspended work)
-2. Create **one intent** — the goal of this interaction
+2. Create **one or more intents** — split by coherent objective, not by step
 3. Create **snaps** — one per meaningful milestone
 4. Identify **decisions** — long-lived constraints worth formalizing (requires user confirmation)
 5. `itt intent done` — if the goal is fully resolved
@@ -48,7 +48,17 @@ Every object has two core fields: **`what`** (concise action/theme) and **`why`*
 | "Migrate auth middleware to JWT" | "Update auth.py" |
 | "Fix cascading timeout on slow networks" | "Fix bug" |
 
-**One intent per recording, not per step.** A recording session typically produces exactly one intent.
+**One intent per coherent objective, not per recording and not per step.** A retrospective recording can create multiple intents when the work contains multiple goals that a future agent could recover, continue, or mark done independently.
+
+Split intents when:
+- The session switched to a different goal with its own `why`
+- A side task became independently recoverable or has its own follow-up
+- A future agent could continue one objective without needing the other
+
+Do not split intents when:
+- The work is investigation, implementation, tests, and docs for the same goal
+- The only difference is file, command, or mechanical step
+- The item is better represented as a snap under the same objective
 
 ### Snap: `what` + `why`
 
@@ -107,7 +117,7 @@ When activated, always run `itt inspect` first:
 ## Key rules
 
 - **Recording is user-initiated** — like git commit, only when asked
-- **One intent per recording** — summarize the goal, not each step
+- **One intent per coherent objective** — split independent goals, not steps
 - **Snap semantics, not mechanical details** — capture what+why, not diffs or command logs
 - **Decisions require user confirmation** — never create on your own judgment
 - **Always `done` completed intents** — stale intents pollute inspect
