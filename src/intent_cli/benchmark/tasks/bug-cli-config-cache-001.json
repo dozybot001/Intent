@@ -1,7 +1,15 @@
 {
   "id": "bug-cli-config-cache-001",
   "type": "bug_continuation",
+  "stratum": "C0",
   "description": "Continue a config cache bug fix after Session A isolated stale-file caching.",
+  "construction_facts": [
+    {"id": "intent-001.status", "text": "The stale-config reload intent is active."},
+    {"id": "intent-001.what", "text": "Fix stale config reload in CLI settings."},
+    {"id": "intent-001.why", "text": "Users edit config files during CLI use, and stale cached values make the next command behave as if the edit never happened."},
+    {"id": "snap-001", "text": "For intent-001, Session A isolated stale reload to the path-only settings cache because it never checks file metadata."},
+    {"id": "decision-001", "text": "Active decision linked to intent-001: preserve load_settings(path) as the public API because downstream callers depend on that shape."}
+  ],
   "repo": {
     "files": {
       "settings.py": "import json\nfrom pathlib import Path\n\n_cache = {}\n\n\ndef load_settings(path):\n    key = str(Path(path))\n    if key not in _cache:\n        _cache[key] = json.loads(Path(path).read_text(encoding=\"utf-8\"))\n    return _cache[key]\n",

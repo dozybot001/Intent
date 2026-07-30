@@ -1,7 +1,15 @@
 {
   "id": "decision-stdlib-csv-001",
   "type": "decision_inheritance",
+  "stratum": "C0",
   "description": "Continue a CSV import task while honoring a long-lived no-new-dependencies decision.",
+  "construction_facts": [
+    {"id": "intent-001.status", "text": "The quoted-name CSV importer intent is active."},
+    {"id": "intent-001.what", "text": "Support quoted names in the CSV importer."},
+    {"id": "intent-001.why", "text": "Customer files can include commas inside quoted names, and the current manual split corrupts those rows."},
+    {"id": "snap-001", "text": "For intent-001, Session A added the quoted-name regression test and isolated line.split(',') as the cause."},
+    {"id": "decision-001", "text": "Active decision linked to intent-001: do not add runtime dependencies for simple parsing because the tool should remain lightweight and auditable."}
+  ],
   "repo": {
     "files": {
       "importer.py": "def parse_rows(text):\n    rows = []\n    for line in text.strip().splitlines():\n        name, score = line.split(\",\")\n        rows.append({\"name\": name, \"score\": int(score)})\n    return rows\n",

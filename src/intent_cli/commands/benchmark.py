@@ -1,5 +1,6 @@
 """Benchmark command handlers."""
 
+from intent_cli.benchmark.continuation import run_continuation_suite
 from intent_cli.benchmark.harness import (
     BenchError,
     build_context,
@@ -35,8 +36,17 @@ def _split_csv(value):
 
 
 def cmd_benchmark_run(args):
+    run_suite = run_continuation_suite if args.protocol == "continuation" else run_benchmark_suite
+    continuation_options = {
+        "stage": args.stage,
+        "confirmation_lock": args.confirmation_lock,
+        "seed": args.seed,
+        "max_pairs": args.max_pairs,
+        "max_total_input_tokens": args.max_total_input_tokens,
+        "max_total_wall_seconds": args.max_total_wall_seconds,
+    } if args.protocol == "continuation" else {}
     result = _run(
-        lambda: run_benchmark_suite(
+        lambda: run_suite(
             out_dir=args.out,
             tasks=_split_csv(args.tasks),
             conditions=_split_csv(args.conditions),
@@ -46,6 +56,7 @@ def cmd_benchmark_run(args):
             reasoning_effort=args.reasoning_effort,
             force=args.force,
             timeout=args.timeout,
+            **continuation_options,
         )
     )
     success("benchmark.run", result)

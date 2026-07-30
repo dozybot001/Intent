@@ -6,6 +6,7 @@ repositories against task oracles.
 """
 
 import difflib
+import hashlib
 import json
 import os
 import shlex
@@ -28,6 +29,8 @@ CONDITIONS = {
     "no-history",
     "git-only",
     "chat-summary",
+    "flat-facts",
+    "flat-facts-matched",
     "full-transcript",
     "intent-full",
 }
@@ -60,6 +63,10 @@ class BenchError(Exception):
     """User-facing benchmark error."""
 
 
+class RunnerTimeout(BenchError):
+    """A model trial exceeded its fixed budget and counts as task failure."""
+
+
 def load_tasks():
     """Load all task specs, sorted by ID."""
     tasks = []
@@ -85,6 +92,8 @@ def list_task_rows():
         {
             "id": task["id"],
             "type": task["type"],
+            "stratum": task.get("stratum"),
+            "scenario": task.get("scenario"),
             "description": task["description"],
         }
         for task in load_tasks()
@@ -105,7 +114,11 @@ def materialize_task(task_id, stage, out_dir, force=False):
 def build_context(task_id, condition, ablation=None, out_path=None):
     """Build a context packet and optionally write it to disk."""
     task = load_task(task_id)
-    text = render_context(task, condition, ablation)
+    if not ablation and condition in {"flat-facts-matched", "intent-full"}:
+        from intent_cli.benchmark.continuation import render_continuation_context
+        text = render_continuation_context(task, condition)
+    else:
+        text = render_context(task, condition, ablation)
     result = {
         "task": task["id"],
         "condition": condition,
@@ -353,6 +366,8 @@ def invoke_runner(
     reasoning_effort=None,
     timeout=None,
     runner_func=None,
+    expose_intent_cli=True,
+    isolate_evaluator=False,
 ):
     """Invoke an agent runner for one phase."""
     if runner_func is not None:
@@ -366,6 +381,8 @@ def invoke_runner(
             model=model,
             reasoning_effort=reasoning_effort,
             timeout=timeout,
+            expose_intent_cli=expose_intent_cli,
+            isolate_evaluator=isolate_evaluator,
         )
     raise BenchError(f"Unsupported runner: {runner}")
 
@@ -378,6 +395,8 @@ def run_codex_phase(
     model=None,
     reasoning_effort=None,
     timeout=None,
+    expose_intent_cli=True,
+    isolate_evaluator=False,
 ):
     """Run Codex CLI non-interactively for one benchmark phase."""
     phase_dir = Path(run_dir) / f"session-{phase}"
@@ -407,12 +426,24 @@ def run_codex_phase(
         cmd.extend(["-c", f'model_reasoning_effort="{reasoning_effort}"'])
     cmd.append("-")
 
+    if isolate_evaluator:
+        profile = evaluator_read_isolation_profile(run_dir)
+        if profile is None:
+            raise BenchError(
+                "Evaluator read isolation is unavailable on this platform; do not run this preregistered cohort."
+            )
+        cmd = ["sandbox-exec", "-p", profile, *cmd]
+
     prompt = Path(instructions).read_text(encoding="utf-8")
     try:
         with tempfile.TemporaryDirectory(prefix="intent-benchmark-codex-") as clean_root:
-            env = benchmark_runner_env(Path(clean_root))
+            env = benchmark_runner_env(
+                Path(clean_root),
+                expose_intent_cli=expose_intent_cli,
+            )
             result = subprocess.run(
                 cmd,
+                cwd=repo,
                 input=prompt,
                 text=True,
                 capture_output=True,
@@ -424,7 +455,7 @@ def run_codex_phase(
     except subprocess.TimeoutExpired as exc:
         stdout_path.write_text(decode_process_output(exc.stdout), encoding="utf-8")
         stderr_path.write_text(decode_process_output(exc.stderr), encoding="utf-8")
-        raise BenchError(f"Codex runner timed out in phase {phase}.") from exc
+        raise RunnerTimeout(f"Codex runner timed out in phase {phase}.") from exc
 
     stdout_path.write_text(result.stdout, encoding="utf-8")
     stderr_path.write_text(result.stderr, encoding="utf-8")
@@ -433,6 +464,28 @@ def run_codex_phase(
             f"Codex runner failed in phase {phase} with exit code {result.returncode}. See {stderr_path}"
         )
     return extract_codex_usage(result.stdout)
+
+
+def evaluator_read_isolation_profile(run_dir):
+    """Deny benchmark source and sibling trials while allowing the active trial."""
+    if sys.platform != "darwin" or shutil.which("sandbox-exec") is None:
+        return None
+    run = Path(run_dir).resolve()
+    suite_root = run.parents[1]
+    source_root = ROOT.parents[2].resolve()
+    real_codex_home = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex").resolve()
+
+    def scheme_path(path):
+        return json.dumps(str(path))
+
+    return " ".join([
+        "(version 1)",
+        "(allow default)",
+        f"(deny file-read* (subpath {scheme_path(source_root)}))",
+        f"(deny file-read* (subpath {scheme_path(suite_root)}))",
+        f"(deny file-read* (subpath {scheme_path(real_codex_home)}))",
+        f"(allow file-read* (subpath {scheme_path(run)}))",
+    ])
 
 
 def extract_codex_usage(events_text):
@@ -469,15 +522,18 @@ def decode_process_output(value):
     return value
 
 
-def benchmark_runner_env(phase_dir):
+def benchmark_runner_env(phase_dir, *, expose_intent_cli=True):
     """Build a clean runner environment for one Codex phase."""
     clean_home = prepare_clean_codex_home(phase_dir)
     env = minimal_process_env()
-    package_root = str(ROOT.parents[1])
-    existing = env.get("PYTHONPATH")
-    env["PYTHONPATH"] = os.pathsep.join(
-        [package_root] + ([existing] if existing else [])
-    )
+    if expose_intent_cli:
+        package_root = str(ROOT.parents[1])
+        existing = env.get("PYTHONPATH")
+        env["PYTHONPATH"] = os.pathsep.join(
+            [package_root] + ([existing] if existing else [])
+        )
+    else:
+        env.pop("PYTHONPATH", None)
     env["HOME"] = str(clean_home["home"])
     env["CODEX_HOME"] = str(clean_home["codex_home"])
     return env
@@ -704,10 +760,12 @@ def live_handoff(run_dir):
     return public_live_state(run, state)
 
 
-def live_score(run_dir):
+def live_score(run_dir, task=None):
     """Score Session B final repo and record elapsed time."""
     run, state = read_live_state(run_dir)
-    task = load_task(state["task_id"])
+    task = task or load_task(state["task_id"])
+    if state.get("task_sha256") and task_spec_sha256_for_state(task) != state["task_sha256"]:
+        raise BenchError("Frozen task hash changed before scoring.")
     repo = Path(state["paths"]["session_b_repo"])
     result = score_repo_with_oracle(task, repo, "oracle")
     now = now_utc()
@@ -743,20 +801,49 @@ def live_report(runs_dir):
             metrics.get("session_a_usage"),
             metrics.get("session_b_usage"),
         )
+        session_b_usage = combine_usage(metrics.get("session_b_usage"))
         final_ok = final.get("ok")
         if final_ok is None and state.get("status") in TERMINAL_FAILURE_STATUSES:
             final_ok = False
+        final_checks = final.get("checks", [])
+        behavior_checks = [check for check in final_checks if check.get("kind") == "hidden_tests"]
+        policy_checks = [check for check in final_checks if check.get("kind") != "hidden_tests"]
         rows.append({
             "run": str(path.parent),
+            "protocol": state.get("protocol", "live-two-session"),
             "task": state.get("task_id", ""),
+            "stratum": state.get("stratum"),
             "condition": state.get("condition", ""),
             "ablation": state.get("ablation", ""),
+            "pair_id": state.get("pair_id"),
+            "pair_valid": state.get("pair_valid", True),
+            "repeat_index": state.get("repeat_index"),
+            "order_index": state.get("order_index"),
+            "model": state.get("model"),
+            "reasoning_effort": state.get("reasoning_effort"),
+            "treatment_alias": state.get("treatment_alias"),
+            "task_alias": state.get("task_alias"),
+            "checkpoint_sha256": state.get("checkpoint_sha256"),
+            "context_sha256": state.get("context_sha256"),
             "status": state.get("status", ""),
             "error": state.get("error"),
             "checkpoint_ok": checkpoint.get("ok"),
             "final_ok": final_ok,
             "final_score": final.get("score"),
             "final_total": final.get("total"),
+            "hidden_behavior_ok": (
+                all(check.get("passed") for check in behavior_checks)
+                if behavior_checks
+                else None
+            ),
+            "policy_ok": (
+                all(check.get("passed") for check in policy_checks)
+                if policy_checks
+                else None
+            ),
+            "policy_violation_count": sum(
+                1 for check in policy_checks if not check.get("passed")
+            ),
             "session_a_elapsed_seconds": metrics.get("session_a_elapsed_seconds"),
             "handoff_elapsed_seconds": metrics.get("handoff_elapsed_seconds"),
             "handoff_chars": metrics.get("handoff_chars"),
@@ -768,6 +855,19 @@ def live_report(runs_dir):
             "cached_input_tokens": total_usage.get("cached_input_tokens") if total_usage else None,
             "output_tokens": total_usage.get("output_tokens") if total_usage else None,
             "reasoning_output_tokens": total_usage.get("reasoning_output_tokens") if total_usage else None,
+            "session_b_input_tokens": session_b_usage.get("input_tokens") if session_b_usage else None,
+            "session_b_cached_input_tokens": session_b_usage.get("cached_input_tokens") if session_b_usage else None,
+            "session_b_non_cached_input_tokens": (
+                max(
+                    0,
+                    session_b_usage.get("input_tokens", 0)
+                    - session_b_usage.get("cached_input_tokens", 0),
+                )
+                if session_b_usage
+                else None
+            ),
+            "session_b_output_tokens": session_b_usage.get("output_tokens") if session_b_usage else None,
+            "session_b_reasoning_output_tokens": session_b_usage.get("reasoning_output_tokens") if session_b_usage else None,
         })
     summary = summarize_live_rows(rows)
     return {
@@ -888,6 +988,13 @@ def combine_usage(*usage_rows):
         key: sum(row.get(key, 0) for row in rows if isinstance(row.get(key, 0), (int, float)))
         for key in keys
     }
+
+
+def task_spec_sha256_for_state(task):
+    """Hash a loaded task without its filesystem-only source path."""
+    payload = {key: value for key, value in task.items() if key != "_path"}
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
 
 
 def validate_task(task):
@@ -1128,16 +1235,27 @@ def load_live_intent_context(repo):
     intents = read_object_dir(base / "intents")
     snaps = read_object_dir(base / "snaps")
     decisions = read_object_dir(base / "decisions")
-    active = [obj for obj in intents if obj.get("status") == "active"]
-    intent = active[0] if active else (intents[0] if intents else None)
-    if intent is None:
+    if not intents:
         raise BenchError("intent-full live handoff requires at least one intent.")
 
-    snap_ids = set(intent.get("snap_ids", []))
-    decision_ids = set(intent.get("decision_ids", []))
+    snap_ids = {
+        snap_id
+        for intent in intents
+        for snap_id in intent.get("snap_ids", [])
+    }
+    decision_ids = {
+        decision_id
+        for intent in intents
+        for decision_id in intent.get("decision_ids", [])
+    }
     return {
-        "intent": intent,
-        "snaps": [snap for snap in snaps if snap.get("id") in snap_ids or snap.get("intent_id") == intent["id"]],
+        "intents": intents,
+        "snaps": [
+            snap
+            for snap in snaps
+            if snap.get("id") in snap_ids
+            or snap.get("intent_id") in {intent["id"] for intent in intents}
+        ],
         "decisions": [decision for decision in decisions if decision.get("id") in decision_ids],
     }
 
@@ -1229,7 +1347,16 @@ def read_repo_files(repo_dir):
         if not path.is_file():
             continue
         rel = path.relative_to(root)
-        if rel.parts and rel.parts[0] in {".git", ".intent", ".benchmark"}:
+        if rel.parts and rel.parts[0] in {
+            ".git",
+            ".intent",
+            ".benchmark",
+            ".pytest_cache",
+            ".mypy_cache",
+            ".ruff_cache",
+        }:
+            continue
+        if "__pycache__" in rel.parts or rel.name == ".coverage":
             continue
         try:
             files[str(rel)] = path.read_text(encoding="utf-8")
@@ -1263,16 +1390,14 @@ def unified_file_map_diff(base, after):
     return "\n".join(chunks).strip()
 
 
-def render_context(task, condition, ablation=None):
+def render_context(task, condition, ablation=None, disclose_condition=True):
     """Render a Session B context packet."""
     _validate_context(condition, ablation)
 
-    lines = [
-        f"# Benchmark Context: {task['id']}",
-        "",
-        f"Condition: `{condition}`",
-    ]
-    if ablation:
+    lines = [f"# Continuation Context: {task['id']}"]
+    if disclose_condition:
+        lines.extend(["", f"Condition: `{condition}`"])
+    if ablation and disclose_condition:
         lines.append(f"Ablation: `{ablation}`")
 
     lines.extend([
@@ -1307,6 +1432,13 @@ def render_context(task, condition, ablation=None):
             "",
             task["session_a"].get("chat_summary", "(none)"),
         ])
+    elif condition in {"flat-facts", "flat-facts-matched"}:
+        facts = task.get("construction_facts") or task.get("fact_ledger", [])
+        if not facts:
+            raise BenchError(f"Task {task['id']} has no construction_facts for flat-facts.")
+        lines.extend(["## Session A Facts", ""])
+        for fact_id, text in flat_fact_rows(facts):
+            lines.append(f"- `{fact_id}`: {text}")
     elif condition == "full-transcript":
         lines.extend([
             "## Session A Transcript",
@@ -1319,12 +1451,42 @@ def render_context(task, condition, ablation=None):
     return "\n".join(lines).rstrip() + "\n"
 
 
+def flat_fact_rows(ledger):
+    """Flatten canonical facts without exposing benchmark-only design notes."""
+    if isinstance(ledger, list):
+        rows = []
+        for index, fact in enumerate(ledger, start=1):
+            if isinstance(fact, dict):
+                rows.append((fact.get("id", f"fact-{index:03d}"), fact.get("text", "")))
+            else:
+                rows.append((f"fact-{index:03d}", str(fact)))
+        return rows
+
+    if isinstance(ledger, dict):
+        rows = []
+        for group, values in ledger.items():
+            if group == "fairness_note" or group.endswith("_note"):
+                continue
+            items = values if isinstance(values, list) else [values]
+            for index, fact in enumerate(items, start=1):
+                if isinstance(fact, dict):
+                    fact_id = fact.get("id", f"{group}.{index:03d}")
+                    text = fact.get("text", "")
+                else:
+                    fact_id = f"{group}.{index:03d}"
+                    text = str(fact)
+                rows.append((fact_id, text))
+        return rows
+
+    return [("fact-001", str(ledger))]
+
+
 def _field(obj, key, ablation):
     if ablation == "no-snap" and key == "snap_ids":
         return None
     if ablation == "no-decision" and key == "decision_ids":
         return None
-    if ablation == "no-why" and key == "why":
+    if ablation == "no-why" and key in {"why", "reason"}:
         return None
     if ablation == "no-status" and key == "status":
         return None
@@ -1337,14 +1499,29 @@ def render_intent_context(ctx, ablation=None):
     """Render Intent-style objects, optionally ablated."""
     lines = ["## Intent Context", ""]
 
+    intents = ctx.get("intents")
+    if intents is None:
+        single = ctx.get("intent")
+        intents = [single] if single else []
+
     if ablation != "no-intent":
-        intent = ctx.get("intent", {})
-        lines.extend(["### Intent", ""])
-        for key in ("id", "status", "what", "why", "snap_ids", "decision_ids"):
-            value = _field(intent, key, ablation)
-            if value in (None, [], ""):
-                continue
-            lines.append(f"- `{key}`: {_format_value(value)}")
+        heading = "### Intent" if len(intents) <= 1 else "### Intents"
+        lines.extend([heading, ""])
+        if len(intents) <= 1:
+            intent = intents[0] if intents else {}
+            for key in ("id", "status", "what", "why", "snap_ids", "decision_ids"):
+                value = _field(intent, key, ablation)
+                if value in (None, [], ""):
+                    continue
+                lines.append(f"- `{key}`: {_format_value(value)}")
+        else:
+            for intent in intents:
+                parts = []
+                for key in ("id", "status", "what", "why", "snap_ids", "decision_ids"):
+                    value = _field(intent, key, ablation)
+                    if value not in (None, [], ""):
+                        parts.append(f"{key}={_format_value(value)}")
+                lines.append(f"- {'; '.join(parts)}")
         lines.append("")
 
     if ablation != "no-snap":
@@ -1368,7 +1545,7 @@ def render_intent_context(ctx, ablation=None):
             lines.append("(none)")
         for decision in decisions:
             parts = []
-            for key in ("id", "status", "what", "why", "intent_ids"):
+            for key in ("id", "status", "what", "why", "reason", "intent_ids"):
                 value = _field(decision, key, ablation)
                 if value not in (None, [], ""):
                     parts.append(f"{key}={_format_value(value)}")
@@ -1405,6 +1582,9 @@ def score_repo_with_oracle(task, repo_dir, oracle_key):
         checks.append(_check_contains(repo, check, expected=False))
     for check in oracle.get("must_equal", []):
         checks.append(_check_equal(repo, check))
+    allowed_changes = oracle.get("only_paths_may_change")
+    if allowed_changes:
+        checks.append(_check_only_paths_changed(task, repo, allowed_changes))
     hidden_tests = oracle.get("hidden_tests")
     if hidden_tests:
         checks.append(_run_hidden_tests(repo, hidden_tests))
@@ -1446,6 +1626,32 @@ def _check_equal(repo, check):
         "path": rel_path,
         "text": expected,
         "reason": check.get("reason", ""),
+    }
+
+
+def _check_only_paths_changed(task, repo, spec):
+    if isinstance(spec, dict):
+        allowed = set(spec.get("paths", []))
+        reason = spec.get("reason", "")
+    else:
+        allowed = set(spec)
+        reason = ""
+    before = stage_files(task, "after_a")
+    after = read_repo_files(repo)
+    changed = sorted(
+        path
+        for path in set(before) | set(after)
+        if before.get(path) != after.get(path)
+    )
+    unexpected = [path for path in changed if path not in allowed]
+    return {
+        "passed": not unexpected,
+        "kind": "only_paths_may_change",
+        "path": ", ".join(unexpected) if unexpected else "(allowed scope)",
+        "text": ", ".join(sorted(allowed)),
+        "reason": reason,
+        "changed_paths": changed,
+        "unexpected_paths": unexpected,
     }
 
 

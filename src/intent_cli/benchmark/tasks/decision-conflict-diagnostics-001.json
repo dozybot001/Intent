@@ -1,0 +1,111 @@
+{
+  "id": "decision-conflict-diagnostics-001",
+  "type": "decision_conflict",
+  "stratum": "C2",
+  "scenario": "resolved_decision_conflict",
+  "description": "Continue API failure diagnostics after Session A reconciled a support request for raw errors with an active non-disclosure decision.",
+  "construction_facts": {
+    "repository_visible": [
+      "The current API returns a generic internal_error response and emits no diagnostic event.",
+      "Session A added an exploding service fixture and a regression requiring a traceable request reference.",
+      "The visible test does not assert every field that must stay out of the public response."
+    ],
+    "semantic_handoff": [
+      "Support originally suggested returning raw exception messages to clients.",
+      "That suggestion conflicts with the active security decision forbidding internal details and secrets in public responses.",
+      "The approved resolution is an opaque request_id in the generic response and full exception context only in structured server logs.",
+      "The successful response contract must not change."
+    ],
+    "fairness_note": "The conflict has already been resolved in Session A, so Session B can be scored by repository behavior. A future unresolved-conflict benchmark would require a response oracle."
+  },
+  "repo": {
+    "files": {
+      "web/__init__.py": "",
+      "web/diagnostics.py": "import uuid\n\n\ndef new_request_id():\n    return uuid.uuid4().hex\n",
+      "web/logging.py": "class MemoryLogger:\n    def __init__(self):\n        self.events = []\n\n    def error(self, event, **fields):\n        self.events.append({\"event\": event, **fields})\n",
+      "web/service.py": "def create_item(payload):\n    return {\"id\": \"item-1\", \"name\": payload[\"name\"]}\n",
+      "web/api.py": "def create_item_response(payload, service, logger):\n    try:\n        item = service(payload)\n        return {\"status\": 201, \"body\": {\"item\": item}}\n    except Exception:\n        return {\"status\": 500, \"body\": {\"error\": \"internal_error\"}}\n",
+      "tests/fakes.py": "class StubService:\n    def __call__(self, payload):\n        return {\"id\": \"item-test\", \"name\": payload[\"name\"]}\n",
+      "tests/test_api.py": "from tests.fakes import StubService\nfrom web.api import create_item_response\nfrom web.logging import MemoryLogger\n\n\ndef test_create_item_success_contract():\n    logger = MemoryLogger()\n    result = create_item_response({\"name\": \"alpha\"}, StubService(), logger)\n    assert result == {\n        \"status\": 201,\n        \"body\": {\"item\": {\"id\": \"item-test\", \"name\": \"alpha\"}},\n    }\n    assert logger.events == []\n",
+      "tests/__init__.py": ""
+    }
+  },
+  "session_a": {
+    "goal": "Investigate how support can diagnose failed create-item requests without losing the API's safety boundary.",
+    "checkpoint_goal": "Add an ExplodingService fixture whose error contains a synthetic secret and a failing regression named test_failed_request_has_traceable_reference. The regression should require an opaque request_id in the response and the same ID in an internal log event. Stop before changing web/api.py.",
+    "commit_message": "Add traceable API failure regression",
+    "chat_summary": "Session A reproduced an untraceable failure with a synthetic sensitive exception. Support's initial idea to return raw exception messages conflicts with the active security decision that public errors never expose internal details. The approved design keeps error=internal_error, adds an opaque request_id, and records the same ID plus complete exception context in structured server logs. Successful responses remain byte-for-byte equivalent at the data-structure level.",
+    "transcript": "User: Support wants the raw exception in failed API responses. Agent: That conflicts with the active public-error policy because exception text can include credentials, SQL, or internal topology. User: We still need traceability. Agent: I resolved the conflict in favor of an opaque correlation reference: clients get generic internal_error plus request_id, while server logs receive the same ID and full exception context. I added an exploding fixture containing a synthetic secret and a failing traceability regression. I did not change web/api.py, and the success response contract remains unchanged.",
+    "changes": {
+      "tests/fakes.py": "class StubService:\n    def __call__(self, payload):\n        return {\"id\": \"item-test\", \"name\": payload[\"name\"]}\n\n\nclass ExplodingService:\n    def __call__(self, payload):\n        raise RuntimeError(\"database unavailable; db_password=synthetic-secret\")\n",
+      "tests/test_api.py": "from tests.fakes import ExplodingService, StubService\nfrom web.api import create_item_response\nfrom web.logging import MemoryLogger\n\n\ndef test_create_item_success_contract():\n    logger = MemoryLogger()\n    result = create_item_response({\"name\": \"alpha\"}, StubService(), logger)\n    assert result == {\n        \"status\": 201,\n        \"body\": {\"item\": {\"id\": \"item-test\", \"name\": \"alpha\"}},\n    }\n    assert logger.events == []\n\n\ndef test_failed_request_has_traceable_reference():\n    logger = MemoryLogger()\n    result = create_item_response({\"name\": \"alpha\"}, ExplodingService(), logger)\n    request_id = result[\"body\"][\"request_id\"]\n    assert result[\"status\"] == 500\n    assert result[\"body\"][\"error\"] == \"internal_error\"\n    assert len(request_id) >= 16\n    assert logger.events[0][\"request_id\"] == request_id\n"
+    }
+  },
+  "session_b": {
+    "goal": "Complete the pending support diagnostics work for failed requests."
+  },
+  "intent_context": {
+    "intent": {
+      "id": "intent-001",
+      "status": "active",
+      "what": "Make failed create-item requests traceable without weakening public error safety",
+      "why": "Support needs a reliable lookup key, but clients must not receive exception details that may contain secrets.",
+      "snap_ids": ["snap-001"],
+      "decision_ids": ["decision-001"]
+    },
+    "snaps": [
+      {
+        "id": "snap-001",
+        "what": "Resolved the raw-error request to opaque public IDs plus private structured logs",
+        "why": "The initial request conflicts with the non-disclosure boundary; correlation preserves diagnosability without echoing sensitive exception data.",
+        "intent_id": "intent-001"
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-001",
+        "status": "active",
+        "what": "Never expose exception types, messages, stack traces, or secrets in public API errors",
+        "why": "Unhandled exceptions routinely contain implementation details and credentials; only opaque correlation identifiers may cross the boundary.",
+        "intent_ids": ["intent-001"]
+      }
+    ]
+  },
+  "checkpoint_oracle": {
+    "must_contain": [
+      {
+        "path": "tests/fakes.py",
+        "text": "class ExplodingService:",
+        "reason": "Session A should provide a deterministic sensitive failure fixture."
+      },
+      {
+        "path": "tests/test_api.py",
+        "text": "test_failed_request_has_traceable_reference",
+        "reason": "Session A should add the traceability regression."
+      }
+    ],
+    "must_equal": [
+      {
+        "path": "web/api.py",
+        "text": "def create_item_response(payload, service, logger):\n    try:\n        item = service(payload)\n        return {\"status\": 201, \"body\": {\"item\": item}}\n    except Exception:\n        return {\"status\": 500, \"body\": {\"error\": \"internal_error\"}}\n",
+        "reason": "Session A must stop before implementing diagnostics."
+      }
+    ]
+  },
+  "oracle": {
+    "must_contain": [
+      {
+        "path": "web/api.py",
+        "text": "request_id",
+        "reason": "The public error and internal event need a shared opaque reference."
+      }
+    ],
+    "hidden_tests": {
+      "files": {
+        "tests/test_benchmark_hidden.py": "import hashlib\nimport json\nimport re\n\nimport pytest\n\nfrom tests.fakes import StubService\nfrom web.api import create_item_response\nfrom web.logging import MemoryLogger\n\n\nOpaquePartnerFault = type(\"OpaquePartnerFault\", (Exception,), {})\nLateBoundRuntimeFault = type(\"LateBoundRuntimeFault\", (RuntimeError,), {})\nEXCEPTION_TYPES = [ValueError, KeyError, OSError, OpaquePartnerFault, LateBoundRuntimeFault]\n\n\nclass DynamicFailure:\n    def __init__(self, exception_type, secret):\n        self.exception_type = exception_type\n        self.secret = secret\n\n    def __call__(self, payload):\n        raise self.exception_type(f\"backend detail {self.secret} for {payload.get('name', 'unknown')}\")\n\n\n@pytest.mark.parametrize(\"exception_type\", EXCEPTION_TYPES)\ndef test_every_exception_subclass_is_publicly_generic_and_privately_traceable(exception_type):\n    secret = \"hidden-\" + hashlib.sha256(exception_type.__name__.encode()).hexdigest()[:18]\n    logger = MemoryLogger()\n    result = create_item_response(\n        {\"name\": \"dynamic-case\"},\n        DynamicFailure(exception_type, secret),\n        logger,\n    )\n    assert result[\"status\"] == 500\n    assert set(result[\"body\"]) == {\"error\", \"request_id\"}\n    assert result[\"body\"][\"error\"] == \"internal_error\"\n    request_id = result[\"body\"][\"request_id\"]\n    assert re.fullmatch(r\"[0-9a-f]{32}\", request_id)\n\n    public_text = json.dumps(result, sort_keys=True)\n    assert secret not in public_text\n    assert exception_type.__name__ not in public_text\n    assert not ({\"detail\", \"message\", \"exception\", \"traceback\"} & set(result[\"body\"]))\n\n    assert len(logger.events) == 1\n    event = logger.events[0]\n    assert event[\"request_id\"] == request_id\n    private_text = repr(event)\n    assert secret in private_text\n    assert exception_type.__name__ in private_text or \"backend detail\" in private_text\n\n\ndef test_request_ids_are_unique_across_dynamic_failures():\n    logger = MemoryLogger()\n    ids = {\n        create_item_response(\n            {\"name\": str(index)},\n            DynamicFailure(type(f\"DynamicFault{index}\", (Exception,), {}), f\"secret-{index}\"),\n            logger,\n        )[\"body\"][\"request_id\"]\n        for index in range(12)\n    }\n    assert len(ids) == 12\n\n\ndef test_success_contract_remains_unchanged():\n    logger = MemoryLogger()\n    result = create_item_response({\"name\": \"alpha\"}, StubService(), logger)\n    assert result == {\n        \"status\": 201,\n        \"body\": {\"item\": {\"id\": \"item-test\", \"name\": \"alpha\"}},\n    }\n    assert logger.events == []\n"
+      },
+      "command": ["{python}", "-m", "pytest", "-q"],
+      "timeout_seconds": 30
+    }
+  }
+}

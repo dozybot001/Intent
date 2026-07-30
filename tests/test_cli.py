@@ -139,6 +139,39 @@ class TestGlobal:
         assert r["suspended"] == []
         assert r["warnings"] == []
 
+    def test_inspect_full_returns_status_reason_and_relations(self, workspace):
+        _run(workspace, "decision", "create", "Keep public errors generic", "--why", "Avoid leakage")
+        _run(workspace, "intent", "create", "Improve diagnostics", "--why", "Support needs correlation")
+        _run(
+            workspace,
+            "snap",
+            "create",
+            "Added request ID scaffold",
+            "--why",
+            "Correlate public failures with private logs",
+        )
+        _run(workspace, "intent", "suspend", "intent-001")
+        _run(
+            workspace,
+            "decision",
+            "deprecate",
+            "decision-001",
+            "--reason",
+            "Replaced by scoped error policy",
+        )
+
+        r = _run(workspace, "inspect", "--full")
+
+        assert r["ok"] is True
+        assert r["mode"] == "full"
+        assert r["intents"][0]["status"] == "suspend"
+        assert r["intents"][0]["why"] == "Support needs correlation"
+        assert r["intents"][0]["decision_ids"] == ["decision-001"]
+        assert r["snaps"][0]["why"] == "Correlate public failures with private logs"
+        assert r["decisions"][0]["status"] == "deprecated"
+        assert r["decisions"][0]["reason"] == "Replaced by scoped error policy"
+        assert r["decisions"][0]["intent_ids"] == ["intent-001"]
+
     def test_not_initialized(self, tmp_path):
         subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
         subprocess.run(

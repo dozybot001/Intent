@@ -1,7 +1,15 @@
 {
   "id": "feature-rest-pagination-001",
   "type": "feature_continuation",
+  "stratum": "C0",
   "description": "Continue a pagination feature after Session A added request parsing but not response slicing.",
+  "construction_facts": [
+    {"id": "intent-001.status", "text": "The list-items pagination intent is active."},
+    {"id": "intent-001.what", "text": "Add pagination to the list items endpoint."},
+    {"id": "intent-001.why", "text": "The endpoint currently returns every record and will not scale as the item list grows."},
+    {"id": "snap-001", "text": "For intent-001, Session A added the limit/offset parser and regression test, but the endpoint still does not slice the response."},
+    {"id": "decision-001", "text": "Active decision linked to intent-001: preserve the items response key because existing callers depend on it; pagination metadata may only be additive."}
+  ],
   "repo": {
     "files": {
       "api.py": "from store import list_items\n\n\ndef parse_pagination(query):\n    limit = int(query.get(\"limit\", 20))\n    offset = int(query.get(\"offset\", 0))\n    return {\"limit\": limit, \"offset\": offset}\n\n\ndef list_items_response(query):\n    return {\"items\": list_items()}\n",

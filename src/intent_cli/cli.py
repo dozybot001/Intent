@@ -54,7 +54,12 @@ def main():
     # version / init / inspect / doctor
     sub.add_parser("version")
     sub.add_parser("init")
-    sub.add_parser("inspect")
+    p_inspect = sub.add_parser("inspect")
+    p_inspect.add_argument(
+        "--full",
+        action="store_true",
+        help="Return the complete intent, snap, decision, status, and relation graph",
+    )
     sub.add_parser("doctor")
 
     # --- hub ---
@@ -81,18 +86,63 @@ def main():
         description="Run the automated benchmark. Omit the debug command to run the suite.",
     )
     p_benchmark.add_argument("--out", default=None)
+    p_benchmark.add_argument(
+        "--protocol",
+        choices=["continuation", "live"],
+        default="continuation",
+        help="Benchmark protocol (default: frozen-checkpoint continuation)",
+    )
+    p_benchmark.add_argument(
+        "--stage",
+        choices=["screening", "confirmation", "exploratory"],
+        default="screening",
+        help="Study stage recorded in the reproducibility manifest",
+    )
+    p_benchmark.add_argument(
+        "--confirmation-lock",
+        default=None,
+        help="Frozen holdout lock JSON required for confirmation stage",
+    )
     p_benchmark.add_argument("--runner", choices=["codex"], default="codex")
     p_benchmark.add_argument("--tasks", default=None, help="Comma-separated task IDs")
     p_benchmark.add_argument("--conditions", default=None, help="Comma-separated conditions")
     p_benchmark.add_argument("--repeat", type=int, default=1)
-    p_benchmark.add_argument("--model", default=None)
+    p_benchmark.add_argument(
+        "--model",
+        default=None,
+        help="Explicit model; preregistered continuation runs require gpt-5.6-terra",
+    )
     p_benchmark.add_argument(
         "--reasoning-effort",
         choices=sorted(REASONING_EFFORTS),
         default="low",
         help="Codex reasoning effort for benchmark sessions (default: low)",
     )
-    p_benchmark.add_argument("--timeout", type=float, default=None)
+    p_benchmark.add_argument(
+        "--timeout",
+        type=float,
+        default=600,
+        help="Per-trial timeout in seconds (default: 600)",
+    )
+    p_benchmark.add_argument("--seed", type=int, default=1729)
+    p_benchmark.add_argument(
+        "--max-pairs",
+        type=int,
+        default=None,
+        help="Stop after this many pairs; must end on a complete task wave",
+    )
+    p_benchmark.add_argument(
+        "--max-total-input-tokens",
+        type=int,
+        default=None,
+        help="Stop before the next pair once cumulative input tokens reach this cap",
+    )
+    p_benchmark.add_argument(
+        "--max-total-wall-seconds",
+        type=float,
+        default=None,
+        help="Stop before the next pair once suite wall time reaches this cap",
+    )
     p_benchmark.add_argument("--force", action="store_true")
     s_benchmark = p_benchmark.add_subparsers(dest="sub")
 

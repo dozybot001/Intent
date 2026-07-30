@@ -23,6 +23,7 @@ The CLI is intentionally small:
 | `itt version` | Print CLI version |
 | `itt init` | Initialize `.intent/` in current Git repo |
 | `itt inspect` | Resume-first recovery view — start every session here |
+| `itt inspect --full` | Return the complete intents/snaps/decisions graph, including statuses, `why`/`reason`, and relationships, for exact recovery or benchmarking |
 | `itt doctor` | Validate object graph — use when `inspect` shows warnings |
 
 ### Intent
@@ -59,7 +60,11 @@ The CLI is intentionally small:
 
 | Command | What it does |
 |---|---|
-| `itt benchmark [--out DIR] [--conditions LIST] [--tasks LIST] [--repeat N]` | Run the automated Codex two-session benchmark and print the aggregate report |
+| `itt benchmark --model gpt-5.6-terra --reasoning-effort low [...]` | Run the default frozen-checkpoint, Session B-only continuation benchmark |
+| `itt benchmark --stage screening\|confirmation\|exploratory` | Record the study stage; screening is the default and cannot support a confirmatory claim |
+| `itt benchmark --stage confirmation --confirmation-lock FILE` | Run only when the frozen holdout lock exactly matches the cohort |
+| `itt benchmark --seed N --max-pairs N [--max-total-input-tokens N] [--max-total-wall-seconds S]` | Fix paired order and resource boundaries; token/wall thresholds are soft and checked between complete pairs |
+| `itt benchmark --protocol live --model MODEL [...]` | Run the legacy automated two-session Session A + Session B protocol |
 | `itt benchmark list` | List generic continuation benchmark tasks |
 | `itt benchmark materialize --task ID --stage after_a --out DIR` | Materialize a task repository state |
 | `itt benchmark context --task ID --condition CONDITION [--ablation NAME] [--out FILE]` | Build a Session B context packet |
@@ -188,6 +193,19 @@ All successful commands except `inspect` use:
   "active_intents": [],
   "active_decisions": [],
   "suspended": [],
+  "warnings": []
+}
+```
+
+`itt inspect --full` returns the complete semantic graph rather than the compact resume view. It includes all intents, snaps, and decisions, together with object statuses, `why`, decision deprecation `reason`, and relationship IDs. This is useful when exact recovery or a benchmark needs more than the latest active summary.
+
+```json
+{
+  "ok": true,
+  "mode": "full",
+  "intents": [],
+  "snaps": [],
+  "decisions": [],
   "warnings": []
 }
 ```
