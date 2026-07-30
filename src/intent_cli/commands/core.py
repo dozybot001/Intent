@@ -41,32 +41,15 @@ def cmd_init(_args):
     success("init", {"path": str(path)})
 
 
-def build_inspect_result(base, full=False):
-    """Build the default recovery view or the complete semantic object graph."""
+def cmd_inspect(_args):
+    base = require_init()
+
     all_snaps = list_objects(base, "snap")
     snap_by_id = {snap["id"]: snap for snap in all_snaps}
-    all_intents = list_objects(base, "intent")
-    all_decisions = list_objects(base, "decision")
-
-    warnings = []
-    intent_ids_on_disk = {obj["id"] for obj in all_intents}
-    for snap in all_snaps:
-        if snap.get("intent_id") and snap["intent_id"] not in intent_ids_on_disk:
-            warnings.append(f"Orphan snap {snap['id']}: intent {snap['intent_id']} not found")
-
-    if full:
-        return {
-            "ok": True,
-            "mode": "full",
-            "intents": [dict(intent) for intent in all_intents],
-            "snaps": [dict(snap) for snap in all_snaps],
-            "decisions": [dict(decision) for decision in all_decisions],
-            "warnings": warnings,
-        }
 
     active_intents = []
     suspended = []
-    for obj in all_intents:
+    for obj in list_objects(base, "intent"):
         latest_snap_id = obj["snap_ids"][-1] if obj.get("snap_ids") else None
         if obj["status"] == "active":
             latest_snap = None
@@ -92,30 +75,25 @@ def build_inspect_result(base, full=False):
             })
 
     active_decisions = []
-    for obj in all_decisions:
-        if obj.get("status") != "active":
-            continue
+    for obj in list_objects(base, "decision", status="active"):
         active_decisions.append({
             "id": obj["id"],
             "what": obj["what"],
         })
 
-    return {
+    warnings = []
+    intent_ids_on_disk = {obj["id"] for obj in list_objects(base, "intent")}
+    for snap in all_snaps:
+        if snap.get("intent_id") and snap["intent_id"] not in intent_ids_on_disk:
+            warnings.append(f"Orphan snap {snap['id']}: intent {snap['intent_id']} not found")
+
+    print(json.dumps({
         "ok": True,
         "active_intents": active_intents,
         "active_decisions": active_decisions,
         "suspended": suspended,
         "warnings": warnings,
-    }
-
-
-def cmd_inspect(args):
-    base = require_init()
-    print(json.dumps(
-        build_inspect_result(base, full=getattr(args, "full", False)),
-        indent=2,
-        ensure_ascii=False,
-    ))
+    }, indent=2, ensure_ascii=False))
 
 
 def cmd_doctor(_args):

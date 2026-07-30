@@ -7,9 +7,6 @@ backup/
 # Local IntHub runtime state; do not commit to Git
 .inthub/
 
-# Local benchmark run artifacts; do not commit to Git
-.itt-benchmark/
-
 # Claude Code local settings and personal workspace overrides
 .claude/
 

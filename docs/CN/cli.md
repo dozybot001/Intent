@@ -23,7 +23,6 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 | `itt version` | 输出 CLI 版本 |
 | `itt init` | 在当前 Git 仓库初始化 `.intent/` |
 | `itt inspect` | resume-first 恢复视图 — 每个 session 必须先跑 |
-| `itt inspect --full` | 返回完整的 intents/snaps/decisions 图，包括状态、`why`/`reason` 与关系，用于精确恢复或 benchmark |
 | `itt doctor` | 校验对象图 — `inspect` 有 warning 时使用 |
 
 ### Intent
@@ -55,26 +54,6 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 | `itt hub start [--port PORT] [--no-open]` | 启动 IntHub Local |
 | `itt hub link [--project-name NAME] [--api-base-url URL]` | 绑定工作区到 IntHub。写入 `.intent/hub.json`。 |
 | `itt hub sync [--dry-run]` | 推送快照到 IntHub。完整快照，非增量。 |
-
-### Benchmark
-
-| 命令 | 作用 |
-|---|---|
-| `itt benchmark --model gpt-5.6-terra --reasoning-effort low [...]` | 运行默认的冻结 checkpoint、仅 Session B 的 continuation benchmark |
-| `itt benchmark --stage screening\|confirmation\|exploratory` | 记录研究阶段；默认为 screening，不能据此得出确认性结论 |
-| `itt benchmark --stage confirmation --confirmation-lock FILE` | 仅在冻结 holdout lock 与 cohort 完全一致时运行 |
-| `itt benchmark --seed N --max-pairs N [--max-total-input-tokens N] [--max-total-wall-seconds S]` | 固定成对顺序与资源边界；token/wall 阈值是仅在完整 pair 之间检查的软阈值 |
-| `itt benchmark --protocol live --model MODEL [...]` | 运行旧版自动化 Session A + Session B 两段协议 |
-| `itt benchmark list` | 列出通用接续 benchmark 任务 |
-| `itt benchmark materialize --task ID --stage after_a --out DIR` | 生成任务仓库状态 |
-| `itt benchmark context --task ID --condition CONDITION [--ablation NAME] [--out FILE]` | 生成给 Session B 的上下文包 |
-| `itt benchmark score --task ID --repo DIR` | 对完成后的任务仓库运行 oracle 评分 |
-| `itt benchmark live start --task ID --condition CONDITION --out DIR` | 创建 live 两段 session benchmark run |
-| `itt benchmark live begin --run DIR --phase a\|b` | 记录 Session A/B 开始时间 |
-| `itt benchmark live checkpoint --run DIR` | 校验 Session A checkpoint 并记录 A 用时 |
-| `itt benchmark live handoff --run DIR` | 生成 Session B 仓库和交接上下文 |
-| `itt benchmark live score --run DIR` | 校验 Session B 最终结果并记录 B 用时 |
-| `itt benchmark live report --runs DIR` | 汇总多个 live run 的成功率和用时 |
 
 ## 对象模型
 
@@ -193,19 +172,6 @@ stateDiagram-v2
   "active_intents": [],
   "active_decisions": [],
   "suspended": [],
-  "warnings": []
-}
-```
-
-`itt inspect --full` 返回完整语义图，而不是紧凑的接续视图。它包含全部 intent、snap 和 decision，以及对象状态、`why`、decision 的废弃 `reason` 和关系 ID，适用于需要超出最新 active 摘要的精确恢复或 benchmark。
-
-```json
-{
-  "ok": true,
-  "mode": "full",
-  "intents": [],
-  "snaps": [],
-  "decisions": [],
   "warnings": []
 }
 ```

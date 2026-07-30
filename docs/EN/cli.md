@@ -23,7 +23,6 @@ The CLI is intentionally small:
 | `itt version` | Print CLI version |
 | `itt init` | Initialize `.intent/` in current Git repo |
 | `itt inspect` | Resume-first recovery view — start every session here |
-| `itt inspect --full` | Return the complete intents/snaps/decisions graph, including statuses, `why`/`reason`, and relationships, for exact recovery or benchmarking |
 | `itt doctor` | Validate object graph — use when `inspect` shows warnings |
 
 ### Intent
@@ -55,26 +54,6 @@ The CLI is intentionally small:
 | `itt hub start [--port PORT] [--no-open]` | Launch IntHub Local |
 | `itt hub link [--project-name NAME] [--api-base-url URL]` | Link workspace to IntHub. Writes `.intent/hub.json`. |
 | `itt hub sync [--dry-run]` | Push snapshot to IntHub. Full snapshot, not incremental. |
-
-### Benchmark
-
-| Command | What it does |
-|---|---|
-| `itt benchmark --model gpt-5.6-terra --reasoning-effort low [...]` | Run the default frozen-checkpoint, Session B-only continuation benchmark |
-| `itt benchmark --stage screening\|confirmation\|exploratory` | Record the study stage; screening is the default and cannot support a confirmatory claim |
-| `itt benchmark --stage confirmation --confirmation-lock FILE` | Run only when the frozen holdout lock exactly matches the cohort |
-| `itt benchmark --seed N --max-pairs N [--max-total-input-tokens N] [--max-total-wall-seconds S]` | Fix paired order and resource boundaries; token/wall thresholds are soft and checked between complete pairs |
-| `itt benchmark --protocol live --model MODEL [...]` | Run the legacy automated two-session Session A + Session B protocol |
-| `itt benchmark list` | List generic continuation benchmark tasks |
-| `itt benchmark materialize --task ID --stage after_a --out DIR` | Materialize a task repository state |
-| `itt benchmark context --task ID --condition CONDITION [--ablation NAME] [--out FILE]` | Build a Session B context packet |
-| `itt benchmark score --task ID --repo DIR` | Run oracle scoring on a completed task repository |
-| `itt benchmark live start --task ID --condition CONDITION --out DIR` | Create a live two-session benchmark run |
-| `itt benchmark live begin --run DIR --phase a\|b` | Record Session A/B start time |
-| `itt benchmark live checkpoint --run DIR` | Validate Session A checkpoint and record A time |
-| `itt benchmark live handoff --run DIR` | Generate Session B repo and handoff context |
-| `itt benchmark live score --run DIR` | Validate Session B final result and record B time |
-| `itt benchmark live report --runs DIR` | Aggregate success rate and timing across live runs |
 
 ## Object Model
 
@@ -193,19 +172,6 @@ All successful commands except `inspect` use:
   "active_intents": [],
   "active_decisions": [],
   "suspended": [],
-  "warnings": []
-}
-```
-
-`itt inspect --full` returns the complete semantic graph rather than the compact resume view. It includes all intents, snaps, and decisions, together with object statuses, `why`, decision deprecation `reason`, and relationship IDs. This is useful when exact recovery or a benchmark needs more than the latest active summary.
-
-```json
-{
-  "ok": true,
-  "mode": "full",
-  "intents": [],
-  "snaps": [],
-  "decisions": [],
   "warnings": []
 }
 ```

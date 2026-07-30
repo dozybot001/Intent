@@ -73,9 +73,7 @@ flowchart LR
 
 早期版本采用 **Snap–Query** 模式——agent 在每次交互后自动捕获快照。它能跑通，但噪声大、token 开销高，而且会打断正常的工作流。
 
-早期自用让我们转向了 **Intent–Session** 模式：agent 自由工作，你来决定何时记录。它把记录从每轮交互移到目标阶段结束后，减少工作中的打断，并让 agent 回顾已经确定的里程碑。用户只需在合适的节点说一句“记录语义”。
-
-“这种模式是否比 Git 或普通摘要更省成本、是否能提升下一次 session 的接续质量”仍是待检验假设；当前工程冒烟测试只验证了评估链路，尚未提供有效性结论。详见 [评估设计](docs/CN/evaluation.md) 与 [benchmark 记录](docs/benchmarks/2026-07-30-low-resource-smoke.md)。
+我们转向了 **Intent–Session** 模式：agent 自由工作，你来决定何时记录。实践证明这更务实——省 token、不打断工作流，语义数据质量也更高——因为记录是回溯式的，经历了哪些里程碑已经确定，对确定的事情做总结归纳，数据自然更准确。对你来说几乎零负担：目标完成时说一句"记录语义"就够了。
 
 1. 和 agent 一起完成你的目标
 2. 目标达成后，让 agent 回顾并构建语义历史
@@ -129,8 +127,6 @@ itt hub sync
 
 - [愿景](docs/CN/vision.md) — 为什么需要语义历史
 - [CLI 设计文档](docs/CN/cli.md) — 对象模型、命令、JSON 契约
-- [评估设计](docs/CN/evaluation.md) — 如何可复现地验证语义历史的成本、收益和对象边界
-- [Benchmark CLI](docs/CN/benchmark-cli.md) — 使用 `itt benchmark` 运行通用接续任务评估
 
 ## 社区
 

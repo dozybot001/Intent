@@ -176,22 +176,6 @@ Relationships are **bidirectional** and **append-only**. Treat `what` / `why` / 
 | `itt hub link [--project-name NAME] [--api-base-url URL]` | Link workspace to IntHub |
 | `itt hub sync [--dry-run]` | Push semantic history to IntHub |
 
-### Benchmark
-
-| Command | What it does |
-|---|---|
-| `itt benchmark [--out DIR] [--conditions LIST] [--tasks LIST] [--repeat N]` | Run the automated Codex two-session benchmark and print the aggregate report |
-| `itt benchmark list` | List generic continuation benchmark tasks |
-| `itt benchmark materialize --task ID --stage after_a --out DIR` | Materialize a task repository state |
-| `itt benchmark context --task ID --condition CONDITION [--ablation NAME] [--out FILE]` | Build a context packet for the next session/agent |
-| `itt benchmark score --task ID --repo DIR` | Run oracle scoring on a completed task repository |
-| `itt benchmark live start --task ID --condition CONDITION --out DIR` | Create a live two-session benchmark run |
-| `itt benchmark live begin --run DIR --phase a\|b` | Record Session A/B start time |
-| `itt benchmark live checkpoint --run DIR` | Validate Session A checkpoint and record A time |
-| `itt benchmark live handoff --run DIR` | Generate Session B repo and handoff context |
-| `itt benchmark live score --run DIR` | Validate Session B final result and record B time |
-| `itt benchmark live report --runs DIR` | Aggregate success rate and timing across live runs |
-
 ## JSON output
 
 **Success:** `{"ok": true, "action": "...", "result": {...}, "warnings": []}`

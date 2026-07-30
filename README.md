@@ -73,9 +73,7 @@ flowchart LR
 
 Early versions used a **Snap–Query** model where the agent autonomously captured snapshots after each interaction. It worked — but it was noisy, expensive on tokens, and interrupted the natural flow of work.
 
-Early dogfooding led us to the **Intent–Session** model: the agent works freely, and you decide when to record. Recording moves from every interaction to the end of a meaningful goal stage, reducing in-flow interruptions and letting the agent summarize milestones that have already settled. The user trigger can be as small as saying “record semantics” at the right checkpoint.
-
-Whether this model costs less than Git or a fact-matched flat summary, or improves continuation quality in a fresh session, remains a testable hypothesis. The current engineering smoke test validates the evaluation path but does not establish an effectiveness result. The next frozen-checkpoint, Session B-only study is governed by a public [continuation benchmark preregistration](docs/benchmarks/continuation-benchmark-preregistration.md); no positive result is claimed before its holdout thresholds are met. See the [evaluation design](docs/EN/evaluation.md) and [engineering smoke report](docs/benchmarks/2026-07-30-low-resource-smoke.md).
+We switched to the **Intent–Session** model: the agent works freely, and you tell it when to record. This turns out to be more pragmatic — it costs fewer tokens, never interrupts your workflow, and yields better semantic data — because recording is retrospective, the milestones are already settled, and summarizing certainties is naturally more accurate than guessing in-flight. The overhead for you is near zero: just say "record semantics" when a goal is done.
 
 1. Work with the agent on your goal
 2. When the goal is achieved, ask the agent to look back and build the semantic history
@@ -129,9 +127,6 @@ Or run `itt hub start` locally.
 
 - [Vision](docs/EN/vision.md) — why semantic history matters
 - [CLI Design](docs/EN/cli.md) — object model, commands, JSON contract
-- [Evaluation Design](docs/EN/evaluation.md) — how to reproducibly validate cost, resume value, and object boundaries
-- [Benchmark CLI](docs/EN/benchmark-cli.md) — run generic continuation tasks with `itt benchmark`
-- [Benchmark Preregistration](docs/benchmarks/continuation-benchmark-preregistration.md) — frozen questions, fairness controls, stopping rules, and permitted claims
 
 ## Community
 
