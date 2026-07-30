@@ -25,11 +25,7 @@ SOURCE_PATHS = [str(REPO_ROOT), str(REPO_ROOT / "src")]
 @pytest.fixture
 def workspace(tmp_path):
     """Create a git repo with .intent/ initialized."""
-    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
-    subprocess.run(
-        ["git", "commit", "--allow-empty", "-m", "init"],
-        cwd=tmp_path, capture_output=True, check=True,
-    )
+    _init_git_repo(tmp_path)
     result = _run(tmp_path, "init")
     assert result["ok"] is True
     return tmp_path
@@ -90,6 +86,23 @@ def _run(cwd, *args, extra_env=None):
             f"stdout={r.stdout!r}\n"
             f"stderr={r.stderr!r}"
         ) from exc
+
+
+def _init_git_repo(cwd):
+    """Create a hermetic test repository with repository-local author identity."""
+    subprocess.run(["git", "init"], cwd=cwd, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "config", "user.name", "Intent Tests"],
+        cwd=cwd, capture_output=True, check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "intent-tests@example.invalid"],
+        cwd=cwd, capture_output=True, check=True,
+    )
+    subprocess.run(
+        ["git", "commit", "--allow-empty", "-m", "init"],
+        cwd=cwd, capture_output=True, check=True,
+    )
 
 
 def _add_github_remote(cwd, remote_url="git@github.com:example/demo.git"):
@@ -157,11 +170,7 @@ class TestGlobal:
         assert r["warnings"] == []
 
     def test_not_initialized(self, tmp_path):
-        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
-        subprocess.run(
-            ["git", "commit", "--allow-empty", "-m", "init"],
-            cwd=tmp_path, capture_output=True, check=True,
-        )
+        _init_git_repo(tmp_path)
         r = _run(tmp_path, "inspect")
         assert r["ok"] is False
         assert r["error"]["code"] == "NOT_INITIALIZED"
