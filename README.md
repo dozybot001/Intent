@@ -127,8 +127,6 @@ Or run `itt hub start` locally.
 
 - [Vision](docs/EN/vision.md) — why semantic history matters
 - [CLI Design](docs/EN/cli.md) — object model, commands, JSON contract
-- [Evaluation Design](docs/EN/evaluation.md) — how to reproducibly validate cost, resume value, and object boundaries
-- [Benchmark CLI](docs/EN/benchmark-cli.md) — run generic continuation tasks with `itt benchmark`
 
 ## Community
 

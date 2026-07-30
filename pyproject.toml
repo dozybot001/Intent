@@ -30,11 +30,6 @@ classifiers = [
 Homepage = "https://github.com/dozybot001/Intent"
 Repository = "https://github.com/dozybot001/Intent"
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=8,<9",
-]
-
 [project.scripts]
 itt = "intent_cli.cli:main"
 
@@ -44,9 +39,5 @@ include = ["intent_cli*", "apps*"]
 
 [tool.setuptools.package-data]
 "apps.inthub_web" = ["static/*"]
-"intent_cli.benchmark" = ["tasks/*.json"]
 
 [tool.setuptools_scm]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
