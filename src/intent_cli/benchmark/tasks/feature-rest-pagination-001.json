@@ -11,6 +11,7 @@
   },
   "session_a": {
     "goal": "Start adding limit/offset pagination to the list items endpoint.",
+    "checkpoint_goal": "Add a failing regression test named test_list_items_response_paginates for applying limit/offset and returning continuation metadata. Stop before changing list_items_response or implementing response slicing.",
     "commit_message": "Add pagination parser scaffold",
     "chat_summary": "Session A added parse_pagination(query) and decided the existing response must keep the items key. It did not yet apply limit/offset to list_items_response and did not expose next_offset.",
     "transcript": "User: Add pagination to list_items_response. Agent: I added parse_pagination(query), converting limit and offset from query values with defaults 20 and 0. User: Do not break current callers. Agent: I kept the response shape with an items key and added tests for slicing plus next_offset, but list_items_response still returns every item. Next step: apply parsed limit/offset and include next_offset when more records remain.",
@@ -19,7 +20,7 @@
     }
   },
   "session_b": {
-    "goal": "Finish list_items_response pagination while preserving the existing items response key."
+    "goal": "Complete the pending list endpoint pagination work."
   },
   "intent_context": {
     "intent": {
@@ -88,6 +89,13 @@
         "text": "\"results\"",
         "reason": "Renaming items to results violates the compatibility decision."
       }
-    ]
+    ],
+    "hidden_tests": {
+      "files": {
+        "tests/test_benchmark_hidden.py": "from api import list_items_response\n\n\ndef test_pagination_keeps_items_and_advances_only_when_needed():\n    first = list_items_response({\"limit\": \"2\", \"offset\": \"0\"})\n    assert [item[\"id\"] for item in first[\"items\"]] == [1, 2]\n    assert first[\"next_offset\"] == 2\n\n    final = list_items_response({\"limit\": \"2\", \"offset\": \"2\"})\n    assert [item[\"id\"] for item in final[\"items\"]] == [3, 4]\n    assert final.get(\"next_offset\") in (None, 4)\n"
+      },
+      "command": ["{python}", "-m", "pytest", "-q"],
+      "timeout_seconds": 30
+    }
   }
 }

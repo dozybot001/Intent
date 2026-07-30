@@ -8,6 +8,7 @@ from intent_cli.benchmark.harness import (
     BenchError,
     build_context,
     decode_process_output,
+    extract_codex_usage,
     list_task_rows,
     live_begin,
     live_checkpoint,
@@ -88,6 +89,23 @@ def test_benchmark_materialize_and_score(tmp_path):
     assert final["score"] == final["total"]
 
 
+def test_benchmark_hidden_tests_reject_string_only_fake(tmp_path):
+    repo = tmp_path / "task"
+    materialize_task("decision-stdlib-csv-001", "after_a", repo)
+    (repo / "importer.py").write_text(
+        "# import csv\n\n"
+        "def parse_rows(text):\n"
+        "    return []\n",
+        encoding="utf-8",
+    )
+
+    result = score_task_repo("decision-stdlib-csv-001", repo)
+
+    assert result["ok"] is False
+    hidden = next(check for check in result["checks"] if check["kind"] == "hidden_tests")
+    assert hidden["passed"] is False
+
+
 def test_benchmark_cli_list_returns_json():
     result = _run_cli("benchmark", "list")
     payload = json.loads(result.stdout)
@@ -115,6 +133,11 @@ def test_benchmark_cli_live_start_returns_json(tmp_path):
     assert payload["action"] == "benchmark.live.start"
     assert payload["result"]["status"] == "started"
 
+    task = load_task("bug-cli-config-cache-001")
+    instructions = (tmp_path / "run" / "session-a" / "instructions.md").read_text(encoding="utf-8")
+    assert task["session_a"]["checkpoint_goal"] in instructions
+    assert "Do not implement any later fix" in instructions
+
 
 def test_benchmark_cli_default_dispatches_run(monkeypatch, capsys, tmp_path):
     import intent_cli.cli as cli
@@ -126,6 +149,7 @@ def test_benchmark_cli_default_dispatches_run(monkeypatch, capsys, tmp_path):
             "result": {
                 "out": args.out,
                 "conditions": args.conditions,
+                "reasoning_effort": args.reasoning_effort,
             },
             "warnings": [],
         }))
@@ -150,12 +174,53 @@ def test_benchmark_cli_default_dispatches_run(monkeypatch, capsys, tmp_path):
     assert payload["ok"] is True
     assert payload["action"] == "benchmark.run"
     assert payload["result"]["conditions"] == "git-only,intent-full"
+    assert payload["result"]["reasoning_effort"] == "low"
+
+
+def test_benchmark_session_b_goal_does_not_leak_decision_constraint():
+    task = load_task("decision-stdlib-csv-001")
+    assert "dependenc" not in task["session_b"]["goal"].lower()
+
+    context = build_context("decision-stdlib-csv-001", "no-history")["content"]
+    assert "without adding runtime dependencies" not in context
 
 
 def test_benchmark_decode_timeout_output_accepts_bytes():
     assert decode_process_output(b"hello\xc3\xa9") == "helloé"
     assert decode_process_output(None) == ""
     assert decode_process_output("already text") == "already text"
+
+
+def test_benchmark_extracts_codex_usage_from_jsonl():
+    events = "\n".join([
+        json.dumps({"type": "thread.started"}),
+        json.dumps({
+            "type": "turn.completed",
+            "usage": {
+                "input_tokens": 100,
+                "cached_input_tokens": 60,
+                "output_tokens": 20,
+                "reasoning_output_tokens": 3,
+            },
+        }),
+        "not-json",
+        json.dumps({
+            "type": "turn.completed",
+            "usage": {
+                "input_tokens": 50,
+                "cached_input_tokens": 40,
+                "output_tokens": 10,
+                "reasoning_output_tokens": 2,
+            },
+        }),
+    ])
+
+    assert extract_codex_usage(events) == {
+        "input_tokens": 150,
+        "cached_input_tokens": 100,
+        "output_tokens": 30,
+        "reasoning_output_tokens": 5,
+    }
 
 
 def test_benchmark_minimal_codex_config_removes_global_state():
@@ -284,10 +349,12 @@ def test_benchmark_suite_runs_fake_two_session_trials(tmp_path):
         tasks=["bug-cli-config-cache-001"],
         conditions=["no-history", "chat-summary", "intent-full", "full-transcript"],
         runner="fake",
+        reasoning_effort="low",
         runner_func=_fake_runner,
     )
 
     assert report["runner"] == "fake"
+    assert report["reasoning_effort"] == "low"
     assert report["errors"] == []
     assert len(report["runs"]) == 4
     assert all(row["final_ok"] is True for row in report["runs"])
@@ -304,12 +371,15 @@ def test_benchmark_suite_runs_fake_two_session_trials(tmp_path):
     assert table["chat-summary"]["handoff_chars"] is not None
     assert table["intent-full"]["b_time"] is not None
     assert table["full-transcript"]["success"] == "100%"
+    assert table["no-history"]["input_tokens"] == 200
+    assert table["no-history"]["reasoning_output_tokens"] == 2
 
     manifest = json.loads((suite_dir / "manifest.json").read_text(encoding="utf-8"))
     saved_report = json.loads((suite_dir / "report.json").read_text(encoding="utf-8"))
     assert manifest["schema"] == "intent-benchmark-suite-v1"
     assert manifest["status"] == "completed"
     assert manifest["runner_isolation"] == "injected-runner"
+    assert manifest["reasoning_effort"] == "low"
     assert manifest["tasks"] == ["bug-cli-config-cache-001"]
     assert manifest["conditions"] == ["no-history", "chat-summary", "intent-full", "full-transcript"]
     assert saved_report["table"] == report["table"]
@@ -330,6 +400,12 @@ def _fake_runner(phase, repo, instructions, run_dir):
         _fake_finish_task(Path(repo), task["id"])
     else:
         raise AssertionError(f"Unexpected benchmark phase: {phase}")
+    return {
+        "input_tokens": 100,
+        "cached_input_tokens": 80,
+        "output_tokens": 10,
+        "reasoning_output_tokens": 1,
+    }
 
 
 def _fake_handoff_artifacts(repo, task, condition):

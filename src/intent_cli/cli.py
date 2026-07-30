@@ -3,7 +3,7 @@
 import argparse
 import sys
 
-from intent_cli.benchmark.harness import ABLATIONS, CONDITIONS
+from intent_cli.benchmark.harness import ABLATIONS, CONDITIONS, REASONING_EFFORTS
 from intent_cli.commands.benchmark import (
     cmd_benchmark_context,
     cmd_benchmark_list,
@@ -86,6 +86,12 @@ def main():
     p_benchmark.add_argument("--conditions", default=None, help="Comma-separated conditions")
     p_benchmark.add_argument("--repeat", type=int, default=1)
     p_benchmark.add_argument("--model", default=None)
+    p_benchmark.add_argument(
+        "--reasoning-effort",
+        choices=sorted(REASONING_EFFORTS),
+        default="low",
+        help="Codex reasoning effort for benchmark sessions (default: low)",
+    )
     p_benchmark.add_argument("--timeout", type=float, default=None)
     p_benchmark.add_argument("--force", action="store_true")
     s_benchmark = p_benchmark.add_subparsers(dest="sub")

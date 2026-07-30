@@ -43,6 +43,7 @@ def cmd_benchmark_run(args):
             repeat=args.repeat,
             runner=args.runner,
             model=args.model,
+            reasoning_effort=args.reasoning_effort,
             force=args.force,
             timeout=args.timeout,
         )

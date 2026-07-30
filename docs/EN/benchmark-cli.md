@@ -29,10 +29,12 @@ itt benchmark \
   --out /tmp/intent-live \
   --conditions no-history,git-only,chat-summary,intent-full,full-transcript \
   --tasks bug-cli-config-cache-001 \
-  --repeat 1
+  --repeat 1 \
+  --model gpt-5.6-terra \
+  --reasoning-effort low
 ```
 
-Output remains standard Intent CLI JSON. `result.table` is the compact comparison table, while `result.runs` keeps per-trial details. The default runner is `codex`, so the machine must be able to run `codex exec`.
+Output remains standard Intent CLI JSON. `result.table` is the compact comparison table, while `result.runs` keeps per-trial details. The default runner is `codex`, so the machine must be able to run `codex exec`. Reasoning effort defaults to `low`; comparisons should pin both model and effort across all conditions.
 
 Each run also writes the durable data source into the benchmark directory:
 
@@ -51,7 +53,7 @@ Each run also writes the durable data source into the benchmark directory:
           session-b/
 ```
 
-- `manifest.json` records runner, model, tasks, conditions, repeat, Intent CLI version, and paths.
+- `manifest.json` records runner, model, reasoning effort, tasks, conditions, repeat, Intent CLI version, and paths.
 - `report.json` is the primary result artifact for later analysis and comparison.
 - `tasks/` stores the exact task spec snapshot used in this run.
 - `trials/*/run.json` stores per two-session trial events, scores, timing, and errors.
@@ -66,6 +68,17 @@ The automated runner does not use the full current user `~/.codex` directory dir
 - `manifest.json` records `runner_isolation` as `clean-home`.
 
 This keeps the benchmark closer to a fresh agent session and avoids contamination from machine-global agent instructions.
+
+## Resource and Validity Boundaries
+
+- Start with one task, two conditions, `repeat=1`, and `--reasoning-effort low`. Scale only after checkpoint, runner, and scoring paths are valid.
+- The current fixtures are an engineering pilot. Too few tasks or near-100% success in every condition cannot support a claim that Intent beats Git or a flat summary.
+- Final scoring runs hidden behavioral tests in an isolated repository copy and combines them with explicit policy constraints. Source-string checks are only supporting signals.
+- Session A receives an exact checkpoint. If the agent implements the Session B fix early, record a checkpoint failure rather than treating the trial as product-effect evidence.
+- Persist model, reasoning effort, task snapshots, and repeat count in the manifest. Do not pool results from different resource settings.
+- The automated Codex runner records input, cached-input, output, and reasoning tokens from JSONL events. Use them for resource auditing, not as a direct billing estimate.
+
+See the first [low-resource engineering smoke report](../benchmarks/2026-07-30-low-resource-smoke.md). Both conditions succeeded, exposing a ceiling effect rather than providing positive evidence for Intent.
 
 ## Debug Commands
 

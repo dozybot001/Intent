@@ -27,10 +27,12 @@ itt benchmark \
   --out /tmp/intent-live \
   --conditions no-history,git-only,chat-summary,intent-full,full-transcript \
   --tasks bug-cli-config-cache-001 \
-  --repeat 1
+  --repeat 1 \
+  --model gpt-5.6-terra \
+  --reasoning-effort low
 ```
 
-输出仍是 Intent CLI 的标准 JSON，其中 `result.table` 是紧凑对比表，`result.runs` 保留每个 trial 的明细。默认 runner 是 `codex`，要求本机可执行 `codex exec`。
+输出仍是 Intent CLI 的标准 JSON，其中 `result.table` 是紧凑对比表，`result.runs` 保留每个 trial 的明细。默认 runner 是 `codex`，要求本机可执行 `codex exec`。推理档位默认是 `low`；正式对比应显式指定模型与档位，并保证所有条件一致。
 
 每次运行也会把真实数据源写入 benchmark 专用目录：
 
@@ -49,7 +51,7 @@ itt benchmark \
           session-b/
 ```
 
-- `manifest.json` 记录 runner、model、tasks、conditions、repeat、Intent CLI 版本和路径。
+- `manifest.json` 记录 runner、model、reasoning effort、tasks、conditions、repeat、Intent CLI 版本和路径。
 - `report.json` 是本次 benchmark 的主结果，可作为后续分析和对比的数据源。
 - `tasks/` 保存本次使用的 task spec 快照，避免后续 task 修改后无法复现。
 - `trials/*/run.json` 保存单个两段 session 的事件、分数、用时和错误。
@@ -64,6 +66,17 @@ itt benchmark \
 - `manifest.json` 中的 `runner_isolation` 会标记为 `clean-home`。
 
 这样 benchmark 更接近“干净 agent session”，避免被本机全局 agent 指令污染。
+
+## 资源与有效性边界
+
+- 先用单任务、两个条件、`repeat=1` 和 `--reasoning-effort low` 做冒烟验证，确认 checkpoint、runner 与评分链路有效后再扩跑。
+- 现有 fixture 只适合作为工程 pilot。任务过少或所有条件成功率接近 100% 时，不应据此宣称 Intent 优于 Git 或普通摘要。
+- 最终评分会在隔离副本中运行隐藏行为测试，并结合显式策略约束；源码字符串检查只作为辅助信号。
+- Session A 指令包含精确 checkpoint。若 agent 越过停点提前完成 Session B 修复，该 trial 应记为 checkpoint failure，而不是产品效果数据。
+- 模型、推理档位、任务快照和重复次数必须保存在 manifest 中；不同资源配置的结果不可直接合并。
+- 自动 Codex runner 会从 JSONL 事件中记录输入、缓存输入、输出与推理 token；这些计数用于资源审计，不直接等同于账单。
+
+首个低资源工程冒烟结果见 [2026-07-30 记录](../benchmarks/2026-07-30-low-resource-smoke.md)。两个条件均成功，说明当前任务存在天花板效应；该结果不能作为 Intent 有效性的正向证据。
 
 ## 调试命令
 

@@ -41,6 +41,8 @@ ABLATIONS = {
     "no-relations",
 }
 
+REASONING_EFFORTS = {"low", "medium", "high", "xhigh"}
+
 DEFAULT_CONDITIONS = [
     "no-history",
     "git-only",
@@ -142,6 +144,7 @@ def run_benchmark_suite(
     repeat=1,
     runner="codex",
     model=None,
+    reasoning_effort=None,
     force=False,
     timeout=None,
     runner_func=None,
@@ -153,6 +156,8 @@ def run_benchmark_suite(
         raise BenchError("repeat must be >= 1")
     if runner != "codex" and runner_func is None:
         raise BenchError(f"Unsupported runner: {runner}")
+    if reasoning_effort and reasoning_effort not in REASONING_EFFORTS:
+        raise BenchError(f"Unsupported reasoning effort: {reasoning_effort}")
     loaded_tasks = [load_task(task_id) for task_id in task_ids]
     for condition in condition_names:
         _validate_context(condition)
@@ -179,6 +184,7 @@ def run_benchmark_suite(
         runner=runner,
         runner_isolation=runner_isolation,
         model=model,
+        reasoning_effort=reasoning_effort,
         timeout=timeout,
     )
     write_json(root / "manifest.json", manifest)
@@ -197,6 +203,7 @@ def run_benchmark_suite(
                         run_dir,
                         runner=runner,
                         model=model,
+                        reasoning_effort=reasoning_effort,
                         timeout=timeout,
                         runner_func=runner_func,
                     )
@@ -212,6 +219,8 @@ def run_benchmark_suite(
     report = live_report(root)
     report["out"] = str(root)
     report["runner"] = runner
+    report["model"] = model
+    report["reasoning_effort"] = reasoning_effort
     report["errors"] = errors
     report["manifest_path"] = str(root / "manifest.json")
     report["report_path"] = str(root / "report.json")
@@ -224,7 +233,18 @@ def run_benchmark_suite(
     return report
 
 
-def build_suite_manifest(root, *, task_ids, conditions, repeat, runner, runner_isolation, model, timeout):
+def build_suite_manifest(
+    root,
+    *,
+    task_ids,
+    conditions,
+    repeat,
+    runner,
+    runner_isolation,
+    model,
+    reasoning_effort,
+    timeout,
+):
     """Build the reproducibility manifest for one benchmark suite."""
     return {
         "schema": "intent-benchmark-suite-v1",
@@ -236,6 +256,7 @@ def build_suite_manifest(root, *, task_ids, conditions, repeat, runner, runner_i
         "runner": runner,
         "runner_isolation": runner_isolation,
         "model": model,
+        "reasoning_effort": reasoning_effort,
         "timeout": timeout,
         "tasks": list(task_ids),
         "conditions": list(conditions),
@@ -276,6 +297,7 @@ def run_single_live_benchmark(
     *,
     runner="codex",
     model=None,
+    reasoning_effort=None,
     timeout=None,
     runner_func=None,
 ):
@@ -284,16 +306,19 @@ def run_single_live_benchmark(
     run, state = read_live_state(run_dir)
 
     live_begin(run, "a")
-    invoke_runner(
+    session_a_usage = invoke_runner(
         runner,
         phase="a",
         repo=Path(state["paths"]["session_a_repo"]),
         instructions=Path(state["paths"]["session_a_instructions"]),
         run_dir=run,
         model=model,
+        reasoning_effort=reasoning_effort,
         timeout=timeout,
         runner_func=runner_func,
     )
+    if session_a_usage:
+        live_record_runner_usage(run, "a", session_a_usage)
     checkpoint = live_checkpoint(run)
     if not checkpoint["scores"]["checkpoint"]["ok"]:
         return checkpoint
@@ -301,16 +326,19 @@ def run_single_live_benchmark(
     live_handoff(run)
     _run, state = read_live_state(run)
     live_begin(run, "b")
-    invoke_runner(
+    session_b_usage = invoke_runner(
         runner,
         phase="b",
         repo=Path(state["paths"]["session_b_repo"]),
         instructions=Path(state["paths"]["session_b_instructions"]),
         run_dir=run,
         model=model,
+        reasoning_effort=reasoning_effort,
         timeout=timeout,
         runner_func=runner_func,
     )
+    if session_b_usage:
+        live_record_runner_usage(run, "b", session_b_usage)
     return live_score(run)
 
 
@@ -322,20 +350,35 @@ def invoke_runner(
     instructions,
     run_dir,
     model=None,
+    reasoning_effort=None,
     timeout=None,
     runner_func=None,
 ):
     """Invoke an agent runner for one phase."""
     if runner_func is not None:
-        runner_func(phase=phase, repo=repo, instructions=instructions, run_dir=run_dir)
-        return
+        return runner_func(phase=phase, repo=repo, instructions=instructions, run_dir=run_dir)
     if runner == "codex":
-        run_codex_phase(phase, repo, instructions, run_dir, model=model, timeout=timeout)
-        return
+        return run_codex_phase(
+            phase,
+            repo,
+            instructions,
+            run_dir,
+            model=model,
+            reasoning_effort=reasoning_effort,
+            timeout=timeout,
+        )
     raise BenchError(f"Unsupported runner: {runner}")
 
 
-def run_codex_phase(phase, repo, instructions, run_dir, model=None, timeout=None):
+def run_codex_phase(
+    phase,
+    repo,
+    instructions,
+    run_dir,
+    model=None,
+    reasoning_effort=None,
+    timeout=None,
+):
     """Run Codex CLI non-interactively for one benchmark phase."""
     phase_dir = Path(run_dir) / f"session-{phase}"
     phase_dir.mkdir(parents=True, exist_ok=True)
@@ -360,6 +403,8 @@ def run_codex_phase(phase, repo, instructions, run_dir, model=None, timeout=None
     ]
     if model:
         cmd.extend(["--model", model])
+    if reasoning_effort:
+        cmd.extend(["-c", f'model_reasoning_effort="{reasoning_effort}"'])
     cmd.append("-")
 
     prompt = Path(instructions).read_text(encoding="utf-8")
@@ -387,6 +432,32 @@ def run_codex_phase(phase, repo, instructions, run_dir, model=None, timeout=None
         raise BenchError(
             f"Codex runner failed in phase {phase} with exit code {result.returncode}. See {stderr_path}"
         )
+    return extract_codex_usage(result.stdout)
+
+
+def extract_codex_usage(events_text):
+    """Sum token usage from Codex JSONL turn completion events."""
+    totals = {
+        "input_tokens": 0,
+        "cached_input_tokens": 0,
+        "output_tokens": 0,
+        "reasoning_output_tokens": 0,
+    }
+    found = False
+    for raw_line in events_text.splitlines():
+        try:
+            event = json.loads(raw_line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("type") != "turn.completed" or not isinstance(event.get("usage"), dict):
+            continue
+        found = True
+        usage = event["usage"]
+        for key in totals:
+            value = usage.get(key, 0)
+            if isinstance(value, (int, float)):
+                totals[key] += value
+    return totals if found else None
 
 
 def decode_process_output(value):
@@ -576,6 +647,17 @@ def live_begin(run_dir, phase):
     return public_live_state(run, state)
 
 
+def live_record_runner_usage(run_dir, phase, usage):
+    """Persist model token usage for one automated benchmark phase."""
+    run, state = read_live_state(run_dir)
+    if phase not in {"a", "b"}:
+        raise BenchError(f"Unsupported live phase: {phase}")
+    state["metrics"] = state.get("metrics", {})
+    state["metrics"][f"session_{phase}_usage"] = dict(usage)
+    write_live_state(run, state)
+    return public_live_state(run, state)
+
+
 def live_checkpoint(run_dir):
     """Score Session A checkpoint and record elapsed time."""
     run, state = read_live_state(run_dir)
@@ -657,6 +739,10 @@ def live_report(runs_dir):
         metrics = state.get("metrics", {})
         final = state.get("scores", {}).get("final", {})
         checkpoint = state.get("scores", {}).get("checkpoint", {})
+        total_usage = combine_usage(
+            metrics.get("session_a_usage"),
+            metrics.get("session_b_usage"),
+        )
         final_ok = final.get("ok")
         if final_ok is None and state.get("status") in TERMINAL_FAILURE_STATUSES:
             final_ok = False
@@ -678,6 +764,10 @@ def live_report(runs_dir):
             "violations": metrics.get("violations"),
             "session_b_elapsed_seconds": metrics.get("session_b_elapsed_seconds"),
             "total_elapsed_seconds": metrics.get("total_elapsed_seconds"),
+            "input_tokens": total_usage.get("input_tokens") if total_usage else None,
+            "cached_input_tokens": total_usage.get("cached_input_tokens") if total_usage else None,
+            "output_tokens": total_usage.get("output_tokens") if total_usage else None,
+            "reasoning_output_tokens": total_usage.get("reasoning_output_tokens") if total_usage else None,
         })
     summary = summarize_live_rows(rows)
     return {
@@ -714,6 +804,10 @@ def summarize_live_rows(rows):
             "avg_handoff_chars": average_present(item.get("handoff_chars") for item in items),
             "repeated_investigation": None,
             "violations": None,
+            "avg_input_tokens": average_present(item.get("input_tokens") for item in items),
+            "avg_cached_input_tokens": average_present(item.get("cached_input_tokens") for item in items),
+            "avg_output_tokens": average_present(item.get("output_tokens") for item in items),
+            "avg_reasoning_output_tokens": average_present(item.get("reasoning_output_tokens") for item in items),
         })
 
     add_relative_labels(summary, "avg_total_elapsed_seconds", "total_time")
@@ -764,6 +858,10 @@ def summary_table(summary):
             "handoff_chars": item.get("handoff_chars"),
             "repeated_investigation": item.get("repeated_investigation"),
             "violations": item.get("violations"),
+            "input_tokens": item.get("avg_input_tokens"),
+            "cached_input_tokens": item.get("avg_cached_input_tokens"),
+            "output_tokens": item.get("avg_output_tokens"),
+            "reasoning_output_tokens": item.get("avg_reasoning_output_tokens"),
         }
         for item in summary
     ]
@@ -773,6 +871,23 @@ def format_success_rate(value):
     if value is None:
         return None
     return f"{round(value * 100)}%"
+
+
+def combine_usage(*usage_rows):
+    """Combine phase token usage dictionaries, preserving missing data as None."""
+    rows = [row for row in usage_rows if isinstance(row, dict)]
+    if not rows:
+        return None
+    keys = {
+        "input_tokens",
+        "cached_input_tokens",
+        "output_tokens",
+        "reasoning_output_tokens",
+    }
+    return {
+        key: sum(row.get(key, 0) for row in rows if isinstance(row.get(key, 0), (int, float)))
+        for key in keys
+    }
 
 
 def validate_task(task):
@@ -795,6 +910,8 @@ def validate_task(task):
         raise BenchError(f"Task {task['id']} missing repo.files")
     if "changes" not in task["session_a"]:
         raise BenchError(f"Task {task['id']} missing session_a.changes")
+    if not task["session_a"].get("checkpoint_goal"):
+        raise BenchError(f"Task {task['id']} missing session_a.checkpoint_goal")
 
 
 def _validate_context(condition, ablation=None):
@@ -888,9 +1005,14 @@ def render_session_a_instructions(task, state):
         "",
         task["session_a"]["goal"],
         "",
+        "## Required Checkpoint",
+        "",
+        task["session_a"]["checkpoint_goal"],
+        "",
         "## Stop Rule",
         "",
-        "Stop immediately after the checkpoint work is complete. Do not explain extra work.",
+        "Stop immediately after the exact checkpoint above is complete. Do not implement any later fix, even if it is obvious.",
+        "Do not explain extra work.",
         "When the checkpoint is complete, send exactly this final response and exit: `PHASE_A_DONE`.",
         "Do not keep running tests, watching files, or waiting for follow-up instructions after that final response.",
     ]
@@ -1281,6 +1403,11 @@ def score_repo_with_oracle(task, repo_dir, oracle_key):
         checks.append(_check_contains(repo, check, expected=True))
     for check in oracle.get("must_not_contain", []):
         checks.append(_check_contains(repo, check, expected=False))
+    for check in oracle.get("must_equal", []):
+        checks.append(_check_equal(repo, check))
+    hidden_tests = oracle.get("hidden_tests")
+    if hidden_tests:
+        checks.append(_run_hidden_tests(repo, hidden_tests))
 
     passed = sum(1 for check in checks if check["passed"])
     total = len(checks)
@@ -1305,4 +1432,72 @@ def _check_contains(repo, check, expected):
         "path": rel_path,
         "text": needle,
         "reason": check.get("reason", ""),
+    }
+
+
+def _check_equal(repo, check):
+    rel_path = check["path"]
+    path = repo / rel_path
+    content = path.read_text(encoding="utf-8") if path.exists() else ""
+    expected = check.get("text", "")
+    return {
+        "passed": content == expected,
+        "kind": "must_equal",
+        "path": rel_path,
+        "text": expected,
+        "reason": check.get("reason", ""),
+    }
+
+
+def _run_hidden_tests(repo, spec):
+    command = spec.get("command")
+    if not isinstance(command, list) or not command:
+        raise BenchError("hidden_tests.command must be a non-empty argument list.")
+    files = spec.get("files", {})
+    if not isinstance(files, dict) or not files:
+        raise BenchError("hidden_tests.files must contain at least one file.")
+
+    with tempfile.TemporaryDirectory(prefix="intent-benchmark-score-") as temp_root:
+        eval_repo = Path(temp_root) / "repo"
+        shutil.copytree(
+            repo,
+            eval_repo,
+            ignore=shutil.ignore_patterns(".git", ".intent", ".benchmark", "__pycache__"),
+        )
+        for rel_path, content in files.items():
+            relative = Path(rel_path)
+            if relative.is_absolute() or ".." in relative.parts:
+                raise BenchError(f"Unsafe hidden test path: {rel_path}")
+            target = eval_repo / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+
+        resolved_command = [sys.executable if part == "{python}" else str(part) for part in command]
+        timeout = float(spec.get("timeout_seconds", 30))
+        env = os.environ.copy()
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        try:
+            result = subprocess.run(
+                resolved_command,
+                cwd=eval_repo,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=env,
+            )
+            passed = result.returncode == 0
+            output = (result.stdout + result.stderr)[-2000:]
+        except subprocess.TimeoutExpired as exc:
+            passed = False
+            output = (
+                decode_process_output(exc.stdout) + decode_process_output(exc.stderr)
+            )[-2000:]
+
+    return {
+        "passed": passed,
+        "kind": "hidden_tests",
+        "path": "(isolated copy)",
+        "text": " ".join(resolved_command),
+        "reason": "Execute hidden behavioral tests in an isolated copy of the task repository.",
+        "output": output,
     }

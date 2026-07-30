@@ -11,6 +11,7 @@
   },
   "session_a": {
     "goal": "Support quoted CSV names in the importer.",
+    "checkpoint_goal": "Identify why quoted commas fail and add a failing regression test named test_parse_rows_quoted_name_with_comma for a quoted name containing a comma. Stop before changing importer.py or replacing the parser.",
     "commit_message": "Add quoted CSV regression test",
     "chat_summary": "Session A added a regression test for quoted names containing commas. It identified the current split(',') parser as the problem. A long-lived project decision forbids adding runtime dependencies for simple parsing tasks, so the next step should use Python's stdlib csv module.",
     "transcript": "User: Import fails when the name contains a comma inside quotes. Agent: parse_rows currently uses line.split(',') and therefore treats quoted commas as separators. User: Keep this project dependency-free unless absolutely necessary. Agent: I recorded the constraint and added a test for \"Lovelace, Ada\",10. Next step: replace the manual split with csv.DictReader or csv.reader from the standard library, without adding pandas or another dependency.",
@@ -19,7 +20,7 @@
     }
   },
   "session_b": {
-    "goal": "Finish quoted CSV parsing without adding runtime dependencies."
+    "goal": "Complete the pending quoted-name CSV support."
   },
   "intent_context": {
     "intent": {
@@ -88,6 +89,20 @@
         "text": "split(\",\")",
         "reason": "The manual split parser is the source of the quoted-comma bug."
       }
-    ]
+    ],
+    "must_equal": [
+      {
+        "path": "requirements.txt",
+        "text": "",
+        "reason": "The long-lived decision requires the runtime to remain dependency-free."
+      }
+    ],
+    "hidden_tests": {
+      "files": {
+        "tests/test_benchmark_hidden.py": "from importer import parse_rows\n\n\ndef test_parser_handles_quoted_commas_and_plain_rows():\n    assert parse_rows('\"Lovelace, Ada\",10\\nGrace,12') == [\n        {\"name\": \"Lovelace, Ada\", \"score\": 10},\n        {\"name\": \"Grace\", \"score\": 12},\n    ]\n"
+      },
+      "command": ["{python}", "-m", "pytest", "-q"],
+      "timeout_seconds": 30
+    }
   }
 }
