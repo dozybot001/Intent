@@ -22,8 +22,8 @@ The CLI is intentionally small:
 |---|---|
 | `itt version` | Print CLI version |
 | `itt init` | Initialize `.intent/` in current Git repo |
-| `itt inspect` | Resume-first recovery view — start every session here |
-| `itt doctor` | Validate object graph — use when `inspect` shows warnings |
+| `itt inspect` | Recovery view with each goal's rationale, latest snap, active decisions, and full graph warnings |
+| `itt doctor` | Return the same full object-graph diagnosis with an explicit `healthy` result |
 
 ### Intent
 
@@ -33,6 +33,7 @@ The CLI is intentionally small:
 | `itt intent activate [ID]` | `suspend` → `active`. Catches up active decisions. Infers ID when unique. |
 | `itt intent suspend [ID]` | `active` → `suspend`. Infers ID when unique. |
 | `itt intent done [ID]` | `active` → `done` (terminal). Infers ID when unique. |
+| `itt intent cancel [ID] [--reason TEXT]` | `active` / `suspend` → `cancelled` (terminal). Infers ID when only one open intent exists. |
 
 ### Snap
 
@@ -52,8 +53,8 @@ The CLI is intentionally small:
 | Command | What it does |
 |---|---|
 | `itt hub start [--port PORT] [--no-open]` | Launch IntHub Local |
-| `itt hub link [--project-name NAME] [--api-base-url URL]` | Link workspace to IntHub. Writes `.intent/hub.json`. |
-| `itt hub sync [--dry-run]` | Push snapshot to IntHub. Full snapshot, not incremental. |
+| `itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]` | Link workspace to IntHub. Writes `.intent/hub.json` without persisting the token. |
+| `itt hub sync [--api-base-url URL] [--token TOKEN] [--dry-run]` | Push snapshot to IntHub. Full snapshot, not incremental. |
 
 ## Object Model
 
@@ -102,6 +103,8 @@ stateDiagram-v2
     active --> suspend
     suspend --> active
     active --> done
+    active --> cancelled
+    suspend --> cancelled
   }
   state Decision {
     [*] --> active2: active
@@ -122,12 +125,12 @@ stateDiagram-v2
 | `what` | ✓ | ✓ | ✓ | Intent/Decision: short theme. Snap: what was done (concise action). |
 | `origin` | ✓ | ✓ | ✓ | Auto-detected from environment (e.g. `claude-code`, `cursor`, `codex-desktop`) |
 | `why` | ✓ | ✓ | ✓ | Intent: why this goal. Snap: why this approach. Decision: why this constraint. |
-| `status` | ✓ | | ✓ | Intent: `active` / `suspend` / `done`. Decision: `active` / `deprecated`. |
+| `status` | ✓ | | ✓ | Intent: `active` / `suspend` / `done` / `cancelled`. Decision: `active` / `deprecated`. |
 | `intent_id` | | ✓ | | Parent intent |
 | `snap_ids` | ✓ | | | Ordered list of child snaps |
 | `decision_ids` | ✓ | | | Linked decisions (auto-attached on create) |
 | `intent_ids` | | | ✓ | Linked intents (auto-attached on create) |
-| `reason` | | | ✓ | Why the decision was deprecated (set via `--reason`) |
+| `reason` | ✓ | | ✓ | Why an intent was cancelled or a decision was deprecated (set via `--reason`) |
 
 Once created through the CLI, descriptive fields such as `what`, `why`, `origin`, and `created_at` are treated as write-once.
 Later commands may advance `status`, add `reason`, and append auto-maintained relationship fields such as `snap_ids`, `decision_ids`, and `intent_ids`.
@@ -164,21 +167,52 @@ All successful commands except `inspect` use:
 
 ### `inspect`
 
-`inspect` returns:
+`inspect` returns the context needed to resume recorded work. `active_intents` and `suspended` include the goal's `why` and its complete latest Snap object when one exists; `active_decisions` includes each decision's `why`.
 
 ```json
 {
   "ok": true,
-  "active_intents": [],
-  "active_decisions": [],
-  "suspended": [],
+  "active_intents": [
+    {
+      "id": "intent-001",
+      "what": "Harden the release flow",
+      "why": "partial releases left the workspace inconsistent",
+      "latest_snap": {
+        "id": "snap-003",
+        "object": "snap",
+        "created_at": "2026-07-30T08:00:00+00:00",
+        "what": "Made artifact publication atomic",
+        "why": "consumers must never observe a partial release",
+        "intent_id": "intent-001",
+        "origin": "codex"
+      }
+    }
+  ],
+  "active_decisions": [
+    {
+      "id": "decision-001",
+      "what": "Build before switching the active release",
+      "why": "a failed build must leave the current release untouched"
+    }
+  ],
+  "suspended": [
+    {
+      "id": "intent-002",
+      "what": "Replace the legacy publisher",
+      "why": "the legacy path is difficult to recover",
+      "latest_snap_id": null,
+      "latest_snap": null
+    }
+  ],
   "warnings": []
 }
 ```
 
+`warnings` contains the complete structured issues returned by graph validation, not only orphaned Snaps. Each issue has `code`, `object`, `id`, and `message`; a healthy graph returns an empty list. Run `itt inspect` when resuming recorded work and before adding new semantic records.
+
 ### `doctor`
 
-`doctor` returns:
+`doctor` runs the same validation used by `inspect.warnings` and wraps the result with an explicit health flag:
 
 ```json
 {
@@ -220,6 +254,9 @@ All successful commands except `inspect` use:
 | `MULTIPLE_ACTIVE_INTENTS` | `snap create`, `intent suspend`, or `intent done` omitted the target intent and several are `active` |
 | `NO_SUSPENDED_INTENT` | `intent activate` omitted the target intent and none is `suspend` |
 | `MULTIPLE_SUSPENDED_INTENTS` | `intent activate` omitted the target intent and several are `suspend` |
+| `NO_OPEN_INTENT` | `intent cancel` omitted the target and no intent is `active` or `suspend` |
+| `MULTIPLE_OPEN_INTENTS` | `intent cancel` omitted the target and several intents are `active` or `suspend` |
+| `WORKSPACE_BUSY` | Another Intent command still holds the workspace write lock |
 | `HUB_NOT_CONFIGURED` | IntHub API base URL is missing |
 | `NOT_LINKED` | Current workspace has not been linked to IntHub |
 | `PROVIDER_UNSUPPORTED` | Current Git remote is not supported |
@@ -228,6 +265,9 @@ All successful commands except `inspect` use:
 
 ## Operational Notes
 
-- `.intent/` is local workspace metadata and should stay out of Git history
+- `itt init` adds `.intent/` to the current clone's `.git/info/exclude` without editing the shared `.gitignore`; it returns a warning if the local exclude cannot be updated
+- The current CLI accepts `--token` or `INTHUB_TOKEN` without persisting it; older `hub.json` files may still contain a plaintext `auth_token`, which should be removed before committing or sharing the directory
+- IntHub Local binds to `127.0.0.1` by default, but its current API does not enforce bearer-token authentication and uses permissive CORS; do not expose it to a LAN or the public internet
+- Object and Hub-config replacements are atomic, and mutating object commands use a workspace-level cross-process lock; this serializes Intent CLI writers but does not turn `.intent/` into a multi-user database
 - Descriptive fields are write-once; status and auto-maintained relationship fields evolve through later commands
 - IDs are zero-padded and monotonic per object type: `intent-001`, `snap-001`, `decision-001`

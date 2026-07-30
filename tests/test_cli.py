@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from urllib.request import urlopen
@@ -15,6 +16,7 @@ import pytest
 
 from apps.inthub_api.server import make_handler as make_inthub_api_handler
 from apps.inthub_web.server import make_handler as make_inthub_web_handler
+from intent_cli import store as intent_store
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_PATHS = [str(REPO_ROOT), str(REPO_ROOT / "src")]
@@ -23,11 +25,7 @@ SOURCE_PATHS = [str(REPO_ROOT), str(REPO_ROOT / "src")]
 @pytest.fixture
 def workspace(tmp_path):
     """Create a git repo with .intent/ initialized."""
-    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
-    subprocess.run(
-        ["git", "commit", "--allow-empty", "-m", "init"],
-        cwd=tmp_path, capture_output=True, check=True,
-    )
+    _init_git_repo(tmp_path)
     result = _run(tmp_path, "init")
     assert result["ok"] is True
     return tmp_path
@@ -90,6 +88,23 @@ def _run(cwd, *args, extra_env=None):
         ) from exc
 
 
+def _init_git_repo(cwd):
+    """Create a hermetic test repository with repository-local author identity."""
+    subprocess.run(["git", "init"], cwd=cwd, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "config", "user.name", "Intent Tests"],
+        cwd=cwd, capture_output=True, check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "intent-tests@example.invalid"],
+        cwd=cwd, capture_output=True, check=True,
+    )
+    subprocess.run(
+        ["git", "commit", "--allow-empty", "-m", "init"],
+        cwd=cwd, capture_output=True, check=True,
+    )
+
+
 def _add_github_remote(cwd, remote_url="git@github.com:example/demo.git"):
     subprocess.run(
         ["git", "remote", "add", "origin", remote_url],
@@ -131,6 +146,21 @@ class TestGlobal:
         assert r["ok"] is False
         assert r["error"]["code"] == "GIT_STATE_INVALID"
 
+    def test_init_excludes_local_semantic_data_from_git(self, workspace):
+        exclude_path = subprocess.run(
+            ["git", "rev-parse", "--git-path", "info/exclude"],
+            cwd=workspace, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        exclude_path = Path(exclude_path)
+        if not exclude_path.is_absolute():
+            exclude_path = workspace / exclude_path
+        assert ".intent/" in exclude_path.read_text(encoding="utf-8").splitlines()
+        status = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=workspace, capture_output=True, text=True, check=True,
+        )
+        assert status.stdout == ""
+
     def test_inspect_empty(self, workspace):
         r = _run(workspace, "inspect")
         assert r["ok"] is True
@@ -140,11 +170,7 @@ class TestGlobal:
         assert r["warnings"] == []
 
     def test_not_initialized(self, tmp_path):
-        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
-        subprocess.run(
-            ["git", "commit", "--allow-empty", "-m", "init"],
-            cwd=tmp_path, capture_output=True, check=True,
-        )
+        _init_git_repo(tmp_path)
         r = _run(tmp_path, "inspect")
         assert r["ok"] is False
         assert r["error"]["code"] == "NOT_INITIALIZED"
@@ -237,7 +263,10 @@ class TestHub:
         js = urlopen(f"{inthub_web_server}/app.js").read().decode("utf-8")
         assert "Raw JSON" in js
         assert "Linked Decisions" in js
+        assert "card-cancelled" in js
         assert "itt hub sync" in js
+        css = urlopen(f"{inthub_web_server}/styles.css").read().decode("utf-8")
+        assert ".badge.status-cancelled" in css
 
 
 # ---------------------------------------------------------------------------
@@ -313,6 +342,42 @@ class TestIntent:
         _run(workspace, "intent", "done", "intent-001")
         r = _run(workspace, "intent", "activate", "intent-001")
         assert r["error"]["code"] == "STATE_CONFLICT"
+
+    def test_cancel_active_with_reason(self, workspace):
+        _run(workspace, "intent", "create", "A")
+        r = _run(
+            workspace, "intent", "cancel", "intent-001",
+            "--reason", "The product direction changed",
+        )
+        assert r["ok"] is True
+        assert r["result"]["status"] == "cancelled"
+        assert r["result"]["reason"] == "The product direction changed"
+        assert _run(workspace, "inspect")["active_intents"] == []
+
+    def test_cancel_suspended_and_infer_unique_open_intent(self, workspace):
+        _run(workspace, "intent", "create", "A")
+        _run(workspace, "intent", "suspend")
+        r = _run(workspace, "intent", "cancel")
+        assert r["ok"] is True
+        assert r["result"]["status"] == "cancelled"
+        assert any("only open intent" in warning for warning in r["warnings"])
+
+    def test_cancel_rejects_terminal_intent(self, workspace):
+        _run(workspace, "intent", "create", "A")
+        _run(workspace, "intent", "done")
+        r = _run(workspace, "intent", "cancel", "intent-001")
+        assert r["ok"] is False
+        assert r["error"]["code"] == "STATE_CONFLICT"
+
+    def test_cancel_without_id_requires_unique_open_intent(self, workspace):
+        _run(workspace, "intent", "create", "A")
+        _run(workspace, "intent", "create", "B")
+        r = _run(workspace, "intent", "cancel")
+        assert r["ok"] is False
+        assert r["error"]["code"] == "MULTIPLE_OPEN_INTENTS"
+        assert {item["id"] for item in r["error"]["details"]["candidates"]} == {
+            "intent-001", "intent-002",
+        }
 
     def test_suspend_only_active(self, workspace):
         _run(workspace, "intent", "create", "A")
@@ -489,29 +554,40 @@ class TestDecision:
 
 class TestInspect:
     def test_full_graph(self, workspace):
-        _run(workspace, "intent", "create", "Active")
-        _run(workspace, "intent", "create", "Will suspend")
+        _run(workspace, "intent", "create", "Active", "--why", "active why")
+        _run(workspace, "intent", "create", "Will suspend", "--why", "suspended why")
+        _run(workspace, "snap", "create", "Paused checkpoint", "--intent", "intent-002",
+             "--why", "pause reason", "--origin", "test-agent")
         _run(workspace, "intent", "suspend", "intent-002")
         _run(workspace, "decision", "create", "Rule", "--why", "reason")
         _run(workspace, "snap", "create", "S1", "--intent", "intent-001",
-             "--why", "did something")
+             "--why", "did something", "--origin", "test-agent")
 
         r = _run(workspace, "inspect")
         assert r["ok"] is True
         assert len(r["active_intents"]) == 1
         assert r["active_intents"][0]["id"] == "intent-001"
         assert r["active_intents"][0]["what"] == "Active"
-        assert r["active_intents"][0]["latest_snap"]["id"] == "snap-001"
+        assert r["active_intents"][0]["why"] == "active why"
+        assert r["active_intents"][0]["latest_snap"]["id"] == "snap-002"
         assert r["active_intents"][0]["latest_snap"]["what"] == "S1"
         assert r["active_intents"][0]["latest_snap"]["why"] == "did something"
+        assert r["active_intents"][0]["latest_snap"] == json.loads(
+            (workspace / ".intent" / "snaps" / "snap-002.json").read_text()
+        )
         assert len(r["suspended"]) == 1
         assert r["suspended"][0]["id"] == "intent-002"
         assert r["suspended"][0]["what"] == "Will suspend"
-        assert r["suspended"][0]["latest_snap_id"] is None
+        assert r["suspended"][0]["why"] == "suspended why"
+        assert r["suspended"][0]["latest_snap_id"] == "snap-001"
+        assert r["suspended"][0]["latest_snap"] == json.loads(
+            (workspace / ".intent" / "snaps" / "snap-001.json").read_text()
+        )
         assert len(r["active_decisions"]) == 1
         assert r["active_decisions"][0] == {
             "id": "decision-001",
             "what": "Rule",
+            "why": "reason",
         }
 
     def test_orphan_snap_warning(self, workspace):
@@ -522,7 +598,29 @@ class TestInspect:
         intent_file = workspace / ".intent" / "intents" / "intent-001.json"
         intent_file.unlink()
         r = _run(workspace, "inspect")
-        assert any("Orphan" in w for w in r["warnings"])
+        assert any(
+            issue["code"] == "MISSING_REFERENCE"
+            and issue["object"] == "snap"
+            and issue["id"] == "snap-001"
+            for issue in r["warnings"]
+        )
+
+    def test_inspect_warnings_match_doctor_issues(self, workspace):
+        _run(workspace, "intent", "create", "Goal")
+        intent_file = workspace / ".intent" / "intents" / "intent-001.json"
+        data = json.loads(intent_file.read_text())
+        data["status"] = "paused"
+        data["snap_ids"] = ["snap-999"]
+        intent_file.write_text(json.dumps(data, indent=2))
+
+        inspect = _run(workspace, "inspect")
+        doctor = _run(workspace, "doctor")
+
+        assert inspect["warnings"] == doctor["result"]["issues"]
+        assert {issue["code"] for issue in inspect["warnings"]} == {
+            "INVALID_STATUS",
+            "MISSING_REFERENCE",
+        }
 
     def test_doctor_reports_broken_links(self, workspace):
         _run(workspace, "intent", "create", "Goal")
@@ -545,3 +643,79 @@ class TestInspect:
         r = _run(workspace, "doctor")
         assert r["result"]["healthy"] is False
         assert any(issue["code"] == "INVALID_STATUS" for issue in r["result"]["issues"])
+
+
+class TestAtomicWrites:
+    def test_write_object_replaces_from_same_directory(self, workspace, monkeypatch):
+        base = workspace / ".intent"
+        destination = base / "intents" / "intent-001.json"
+        calls = []
+        real_replace = intent_store.os.replace
+
+        def record_replace(source, target):
+            source_path = Path(source)
+            target_path = Path(target)
+            calls.append((source_path, target_path))
+            assert source_path.parent == target_path.parent
+            assert json.loads(source_path.read_text()) == {"id": "intent-001"}
+            real_replace(source, target)
+
+        monkeypatch.setattr(intent_store.os, "replace", record_replace)
+        intent_store.write_object(base, "intent", "intent-001", {"id": "intent-001"})
+
+        assert calls and calls[0][1] == destination
+        assert json.loads(destination.read_text()) == {"id": "intent-001"}
+        assert list(destination.parent.glob(f".{destination.name}.*.tmp")) == []
+
+    def test_write_object_cleans_temp_file_when_replace_fails(self, workspace, monkeypatch):
+        base = workspace / ".intent"
+        destination = base / "intents" / "intent-001.json"
+
+        def fail_replace(_source, _target):
+            raise OSError("replace failed")
+
+        monkeypatch.setattr(intent_store.os, "replace", fail_replace)
+        with pytest.raises(OSError, match="replace failed"):
+            intent_store.write_object(base, "intent", "intent-001", {"id": "intent-001"})
+
+        assert not destination.exists()
+        assert list(destination.parent.glob(f".{destination.name}.*.tmp")) == []
+
+    def test_write_hub_config_is_atomic(self, workspace, monkeypatch):
+        base = workspace / ".intent"
+        destination = base / "hub.json"
+        real_replace = intent_store.os.replace
+        calls = []
+
+        def record_replace(source, target):
+            calls.append((Path(source), Path(target)))
+            real_replace(source, target)
+
+        monkeypatch.setattr(intent_store.os, "replace", record_replace)
+        intent_store.write_hub_config(base, {"api_base_url": "http://127.0.0.1"})
+
+        assert calls and calls[0][0].parent == destination.parent
+        assert calls[0][1] == destination
+        assert json.loads(destination.read_text()) == {
+            "api_base_url": "http://127.0.0.1"
+        }
+
+    def test_workspace_write_lock_times_out_for_second_writer(self, workspace):
+        base = workspace / ".intent"
+        with intent_store.workspace_write_lock(base):
+            with pytest.raises(intent_store.WorkspaceBusyError):
+                with intent_store.workspace_write_lock(base, timeout=0.01):
+                    pass
+
+    def test_concurrent_cli_writers_receive_unique_ids(self, workspace):
+        def create(index):
+            return _run(workspace, "intent", "create", f"Goal {index}")
+
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            results = list(pool.map(create, range(8)))
+
+        assert all(result["ok"] is True for result in results)
+        assert {result["result"]["id"] for result in results} == {
+            f"intent-{index:03d}" for index in range(1, 9)
+        }
+        assert _run(workspace, "doctor")["result"]["healthy"] is True

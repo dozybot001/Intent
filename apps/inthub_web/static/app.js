@@ -206,7 +206,13 @@ function linkButton(type, rId, label, meta) {
 }
 
 function relationItem(type, rId, id, title, meta, status) {
-  const cls = status === "deprecated" ? " rel-deprecated" : status === "done" ? " rel-muted" : "";
+  const cls = status === "deprecated"
+    ? " rel-deprecated"
+    : status === "cancelled"
+      ? " rel-cancelled"
+      : status === "done"
+        ? " rel-muted"
+        : "";
   return `<button type="button" class="relation-item${cls}" data-detail-type="${esc(type)}" data-remote-id="${esc(rId)}">
     <span class="relation-id"><span class="badge">${esc(id)}</span>${status ? statusBadge(status) : ""}</span>
     <span class="relation-title">${esc(title)}</span>
@@ -251,7 +257,11 @@ function renderSidebar() {
 
 
 function intentCard(intent) {
-  const cls = intent.status === "done" ? " card-muted" : "";
+  const cls = intent.status === "done"
+    ? " card-muted"
+    : intent.status === "cancelled"
+      ? " card-cancelled"
+      : "";
   return `
     <article class="card${cls}" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
       <h4 class="card-title">${esc(intent.what)}</h4>
@@ -567,6 +577,10 @@ function buildIntentDetailHtml(payload) {
   const activeIds = activeDecisionIds();
 
   const dMap = allDecisionsMap();
+  for (const decision of payload.decisions || []) {
+    dMap[decision.id] = decision;
+    if (decision.status === "active") activeIds.add(decision.id);
+  }
   const allIds = intent.decision_ids || [];
   const activeLinks = allIds
     .filter((dId) => activeIds.has(dId))
@@ -626,7 +640,7 @@ function buildIntentDetailHtml(payload) {
     ${intent.why ? detailSection("Why", formatText(intent.why)) : ""}
     ${detailSection("Snap Timeline (" + allSnaps.length + ")", snapTimelineBody)}
     ${detailSection("Linked Decisions (" + allIds.length + ")", decisionsBody)}
-    ${rawToggle({ intent, snaps: payload.snaps })}`;
+    ${rawToggle({ intent, snaps: payload.snaps, decisions: payload.decisions || [] })}`;
 }
 
 function renderIntentDetail(payload) {

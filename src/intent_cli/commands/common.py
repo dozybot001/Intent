@@ -1,9 +1,16 @@
 """Shared helpers for CLI command handlers."""
 
 from datetime import datetime, timezone
+from functools import wraps
 
 from intent_cli.output import error
-from intent_cli.store import VALID_STATUSES, ensure_init, git_root
+from intent_cli.store import (
+    VALID_STATUSES,
+    WorkspaceBusyError,
+    ensure_init,
+    git_root,
+    workspace_write_lock,
+)
 
 
 def now_utc():
@@ -26,6 +33,23 @@ def require_init():
         ".intent/ directory not found.",
         suggested_fix="itt init",
     )
+
+
+def workspace_mutation(command):
+    """Run a mutating command under the workspace's cross-process lock."""
+    @wraps(command)
+    def wrapped(args):
+        base = require_init()
+        try:
+            with workspace_write_lock(base):
+                return command(args)
+        except WorkspaceBusyError:
+            error(
+                "WORKSPACE_BUSY",
+                "Another Intent command is writing to this workspace.",
+                suggested_fix="Wait for that command to finish, then retry.",
+            )
+    return wrapped
 
 
 def validate_status_filter(object_type, status):

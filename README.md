@@ -71,9 +71,9 @@ flowchart LR
 
 ## How to record
 
-Early versions used a **Snap–Query** model where the agent autonomously captured snapshots after each interaction. It worked — but it was noisy, expensive on tokens, and interrupted the natural flow of work.
+Early versions used a **Snap–Query** model where the agent autonomously captured snapshots after each interaction. In self-use, that produced too many low-value records and interrupted the natural flow of work.
 
-We switched to the **Intent–Session** model: the agent works freely, and you tell it when to record. This turns out to be more pragmatic — it costs fewer tokens, never interrupts your workflow, and yields better semantic data — because recording is retrospective, the milestones are already settled, and summarizing certainties is naturally more accurate than guessing in-flight. The overhead for you is near zero: just say "record semantics" when a goal is done.
+Intent now uses an **Intent–Session** model: the agent works freely, and you decide when to record. Recording is retrospective, so it can focus on settled goals, milestones, and decisions instead of capturing every intermediate action. This is a product trade-off intended to keep recording lightweight; unrecorded work is not recovered automatically.
 
 1. Work with the agent on your goal
 2. When the goal is achieved, ask the agent to look back and build the semantic history
@@ -82,6 +82,17 @@ We switched to the **Intent–Session** model: the agent works freely, and you t
 "Session" doesn't strictly mean a full conversation — it represents any purposeful interaction where you know what you set out to do. Like `git commit`, recording is user-initiated.
 
 [MAARS](https://github.com/dozybot001/MAARS) uses this approach — each session's semantic history was recorded retrospectively.
+
+## What success means
+
+Intent is designed around two goals, not established comparative claims:
+
+| Goal | What still needs to be validated in real use |
+|---|---|
+| Low-disruption recording | Recording takes little time and context, does not interrupt normal development, and avoids command-log noise. |
+| Useful continuation | A later session or another agent can recover the goal and its rationale, the latest meaningful milestone, and active long-lived decisions with less re-explanation. |
+
+Self-dogfooding shows that the workflow is usable end to end. It does not yet establish that Intent is more efficient or more effective than a well-written handoff, ordinary notes, or other context sources.
 
 ## Quick Start
 
@@ -100,6 +111,15 @@ npx skills add dozybot001/Intent -g --all
 Requires Python 3.9+ and Git. The install script handles pipx automatically.
 Re-run the installer anytime to upgrade or repair an existing `itt` install.
 
+Initialize Intent inside the Git repository you want to record:
+
+```bash
+cd your-project
+itt init
+```
+
+`itt init` creates `.intent/` and adds it to this clone's Git-local `.git/info/exclude`; it does **not** edit the shared `.gitignore`. The command returns a warning if the local exclude cannot be updated. Review the files before intentionally sharing them, and add `.intent/` to `.gitignore` separately if the whole team should inherit that rule. The current CLI does not persist `--token`, but `hub.json` written by an older release may still contain one; remove any legacy token before committing or sharing the directory.
+
 To browse semantic history in a browser, start **IntHub Local** (works from any directory):
 
 ```bash
@@ -113,19 +133,22 @@ itt hub link --api-base-url http://127.0.0.1:7210
 itt hub sync
 ```
 
+IntHub Local binds to `127.0.0.1` by default. Its current local API does not enforce bearer-token authentication and returns permissive CORS headers, so use it only on a trusted machine and do not expose it through a public interface or reverse proxy.
+
 > **Tips:** Type `/intent-cli` to load the recording guide, or simply say "record semantics" / "记录语义" if the agent already knows about Intent.
 
 ## Showcase
 
-This project manages its own development with Intent. Browse the live semantic history:
+This project has used Intent to manage its own development. Browse a published semantic-history snapshot:
 
-**[IntHub Showcase](https://dozybot001.github.io/Intent/)** — interactive viewer for Intent project history, MAARS, and legacy data.
+**[IntHub Showcase](https://dozybot001.github.io/Intent/)** — interactive viewer for Intent's early project history, MAARS, and legacy data.
 
 Or run `itt hub start` locally.
 
 ## Docs
 
 - [Vision](docs/EN/vision.md) — why semantic history matters
+- [Continuation Case](docs/EN/continuation-case.md) — a reproducible interruption-to-resumption walkthrough
 - [CLI Design](docs/EN/cli.md) — object model, commands, JSON contract
 
 ## Community

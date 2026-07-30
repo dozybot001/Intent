@@ -1,17 +1,25 @@
 """Storage layer — .intent/ directory I/O and ID generation."""
 
 import json
+import os
 import subprocess
+import tempfile
+import time
 import uuid
+from contextlib import contextmanager
 from pathlib import Path
 
 INTENT_DIR = ".intent"
 SUBDIRS = {"intent": "intents", "snap": "snaps", "decision": "decisions"}
 HUB_CONFIG = "hub.json"
 VALID_STATUSES = {
-    "intent": {"active", "suspend", "done"},
+    "intent": {"active", "suspend", "done", "cancelled"},
     "decision": {"active", "deprecated"},
 }
+
+
+class WorkspaceBusyError(RuntimeError):
+    """Raised when another Intent writer holds the workspace lock."""
 
 
 def git_root():
@@ -46,10 +54,89 @@ def init_workspace():
     d = root / INTENT_DIR
     if d.is_dir():
         return None, "ALREADY_EXISTS"
-    d.mkdir()
+    try:
+        d.mkdir()
+    except FileExistsError:
+        return None, "ALREADY_EXISTS"
     for sub in SUBDIRS.values():
         (d / sub).mkdir()
     return d, None
+
+
+def ensure_local_git_exclude(root):
+    """Exclude .intent/ through Git's repository-local info/exclude file."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-path", "info/exclude"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        path = Path(result.stdout.strip())
+        if not path.is_absolute():
+            path = root / path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        existing = path.read_text(encoding="utf-8") if path.exists() else ""
+        if any(line.strip() in {INTENT_DIR, f"{INTENT_DIR}/"} for line in existing.splitlines()):
+            return True
+        with path.open("a", encoding="utf-8") as exclude_file:
+            if existing and not existing.endswith("\n"):
+                exclude_file.write("\n")
+            exclude_file.write(f"{INTENT_DIR}/\n")
+        return True
+    except (OSError, subprocess.CalledProcessError):
+        return False
+
+
+@contextmanager
+def workspace_write_lock(base, timeout=10.0):
+    """Serialize writers for one workspace without leaving a stale lock state."""
+    lock_path = base / ".write.lock"
+    lock_file = lock_path.open("a+b")
+    acquired = False
+    deadline = time.monotonic() + timeout
+
+    if os.name == "nt":
+        import msvcrt
+
+        lock_file.seek(0, os.SEEK_END)
+        if lock_file.tell() == 0:
+            lock_file.write(b"\0")
+            lock_file.flush()
+
+        def try_lock():
+            lock_file.seek(0)
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+
+        def unlock():
+            lock_file.seek(0)
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+    else:
+        import fcntl
+
+        def try_lock():
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+        def unlock():
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+    try:
+        while not acquired:
+            try:
+                try_lock()
+                acquired = True
+            except (BlockingIOError, OSError):
+                if time.monotonic() >= deadline:
+                    raise WorkspaceBusyError(
+                        "Another Intent command is writing to this workspace."
+                    )
+                time.sleep(0.05)
+        yield
+    finally:
+        if acquired:
+            unlock()
+        lock_file.close()
 
 
 def make_runtime_id(prefix):
@@ -78,10 +165,35 @@ def read_object(base, object_type, obj_id):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _write_json_atomic(path, data):
+    """Write JSON through a same-directory temporary file and atomic replace."""
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=str(path.parent),
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temp_file:
+            temp_path = Path(temp_file.name)
+            temp_file.write(json.dumps(data, indent=2, ensure_ascii=False))
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+        os.replace(str(temp_path), str(path))
+    finally:
+        if temp_path is not None:
+            try:
+                temp_path.unlink()
+            except FileNotFoundError:
+                pass
+
+
 def write_object(base, object_type, obj_id, data):
-    """Write object dict to JSON file."""
+    """Atomically write an object dict to its JSON file."""
     path = base / SUBDIRS[object_type] / f"{obj_id}.json"
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    _write_json_atomic(path, data)
 
 
 def list_objects(base, object_type, status=None):
@@ -105,8 +217,8 @@ def read_hub_config(base):
 
 
 def write_hub_config(base, data):
-    """Write hub.json."""
-    (base / HUB_CONFIG).write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    """Atomically write hub.json."""
+    _write_json_atomic(base / HUB_CONFIG, data)
 
 
 def git_current_branch():

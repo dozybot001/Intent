@@ -125,6 +125,15 @@ In one sentence:
 
 **Git records code changes. Intent records semantic history.**
 
+### The Intent–IntHub ecosystem direction
+
+The long-term shape is analogous to Git and GitHub, while serving a different kind of history:
+
+- **Intent** is the local, open semantic-history substrate. It owns portable objects, lifecycle rules, validation, and agent-readable recovery.
+- **IntHub** is the organization and collaboration surface. It turns multiple local histories into browsable handoffs, shared context, and eventually a networked ecosystem.
+
+The current IntHub Local is deliberately a local proof of this boundary, not a claim that remote collaboration is already complete. Intent must remain useful without IntHub; IntHub should amplify Intent rather than becoming a prerequisite for recording.
+
 ## 5. Project boundaries
 
 Intent currently does not intend to:
@@ -176,6 +185,15 @@ More specifically:
 - Are long-term decisions more reliably inherited, rather than buried in chat or memory
 
 If these benefits don't materialize, then no matter how elegant the schema or how complete the commands, Intent doesn't hold up.
+
+The desired product experience has an intentional contrast:
+
+- **At recording time:** low interruption, low resource cost, and only a few high-value semantic nodes.
+- **At continuation time:** enough context to recover the goal, latest meaningful progress, reasoning, and standing constraints without asking the user to reconstruct the session.
+
+That contrast is the product's success criterion. It remains a hypothesis to validate with reproducible continuation cases; it should not be treated as a proven efficiency claim yet.
+
+Intent also preserves corrections as history instead of silently rewriting it: a later snap explains a changed understanding, an abandoned intent is cancelled with a reason, and a superseded decision is deprecated with a reason.
 
 ## 8. One-line definition
 
