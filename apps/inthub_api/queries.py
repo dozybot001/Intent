@@ -218,6 +218,7 @@ def project_handoff(db_path, project_id):
         payloads = _latest_payloads(conn, project_id)
 
     intents_view = []
+    suspended_intents = []
     active_decisions = []
 
     for payload in payloads:
@@ -235,14 +236,15 @@ def project_handoff(db_path, project_id):
                     "workspace_id": workspace_id,
                     "id": decision["id"],
                     "what": _f(decision, "what"),
+                    "why": _f(decision, "why"),
                     "status": decision["status"],
                 })
 
         for intent in intents:
-            if intent.get("status") != "active":
+            if intent.get("status") not in {"active", "suspend"}:
                 continue
             latest_snap = _latest_snap_for_intent(intent, snaps)
-            intents_view.append({
+            entry = {
                 "remote_id": make_remote_object_id(workspace_id, intent["id"]),
                 "workspace_id": workspace_id,
                 "id": intent["id"],
@@ -257,7 +259,11 @@ def project_handoff(db_path, project_id):
                     "dirty": git.get("dirty"),
                 },
                 "synced_at": payload.get("generated_at"),
-            })
+            }
+            if intent.get("status") == "active":
+                intents_view.append(entry)
+            else:
+                suspended_intents.append(entry)
 
     return {
         "project": {
@@ -266,6 +272,7 @@ def project_handoff(db_path, project_id):
         },
         "active_decisions": active_decisions,
         "intents": intents_view,
+        "suspended_intents": suspended_intents,
     }
 
 
@@ -277,16 +284,24 @@ def get_intent_detail(db_path, remote_object_id):
     snapshot = payload.get("snapshot", {})
     intents = snapshot.get("intents", [])
     snaps = snapshot.get("snaps", [])
+    decisions = snapshot.get("decisions", [])
     for intent in intents:
         if intent["id"] != local_object_id:
             continue
         related_snaps = [snap for snap in snaps if snap.get("intent_id") == local_object_id]
+        decision_map = {decision["id"]: decision for decision in decisions}
+        related_decisions = [
+            decision_map[decision_id]
+            for decision_id in intent.get("decision_ids", [])
+            if decision_id in decision_map
+        ]
         return {
             "remote_id": remote_object_id,
             "workspace_id": workspace_id,
             "id": local_object_id,
             "intent": intent,
             "snaps": related_snaps,
+            "decisions": related_decisions,
             "git": payload.get("git", {}),
             "synced_at": payload.get("generated_at"),
         }

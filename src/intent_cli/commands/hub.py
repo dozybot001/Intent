@@ -1,9 +1,10 @@
 """Hub command handlers for the Intent CLI."""
 
-from intent_cli.commands.common import require_init
+from intent_cli.commands.common import require_init, workspace_mutation
 from intent_cli.hub.client import http_json
 from intent_cli.hub.payload import build_sync_payload, current_github_repo
 from intent_cli.hub.runtime import (
+    config_without_auth_token,
     hub_api_base,
     hub_auth_token,
     load_hub,
@@ -31,6 +32,7 @@ def cmd_hub_start(args):
     launch_main(argv)
 
 
+@workspace_mutation
 def cmd_hub_link(args):
     base = require_init()
     hub = load_hub(base)
@@ -45,11 +47,6 @@ def cmd_hub_link(args):
             "IntHub API base URL is not configured.",
             suggested_fix="Run: itt hub link --api-base-url http://127.0.0.1:8000",
         )
-
-    if args.token:
-        hub["auth_token"] = args.token
-    elif "auth_token" not in hub:
-        hub["auth_token"] = ""
 
     token = hub_auth_token(base, args)
 
@@ -70,17 +67,18 @@ def cmd_hub_link(args):
 
     updated = {
         "api_base_url": api_base_url,
-        "auth_token": hub.get("auth_token", ""),
         "workspace_id": result["workspace_id"],
         "project_id": result["project_id"],
         "repo_binding": result["repo_binding"],
         "last_sync_batch_id": hub.get("last_sync_batch_id"),
         "last_synced_at": hub.get("last_synced_at"),
     }
-    write_hub_config(base, updated)
-    success("hub.link", sanitize_hub_config(updated))
+    persisted = config_without_auth_token(updated)
+    write_hub_config(base, persisted)
+    success("hub.link", sanitize_hub_config(persisted))
 
 
+@workspace_mutation
 def cmd_hub_sync(args):
     base = require_init()
     hub = load_hub(base)
@@ -95,8 +93,9 @@ def cmd_hub_sync(args):
 
     api_base_url = hub_api_base(base, args)
     token = hub_auth_token(base, args)
+    persisted = config_without_auth_token(hub)
 
-    sync_hub = dict(hub)
+    sync_hub = dict(persisted)
     sync_hub["sync_batch_id"] = make_runtime_id("sync")
     payload = build_sync_payload(base, sync_hub)
 
@@ -106,13 +105,13 @@ def cmd_hub_sync(args):
 
     result = http_json("POST", f"{api_base_url}/api/v1/sync-batches", payload, token)
 
-    hub["last_sync_batch_id"] = payload["sync_batch_id"]
-    hub["last_synced_at"] = result.get("accepted_at", payload["generated_at"])
-    write_hub_config(base, hub)
+    persisted["last_sync_batch_id"] = payload["sync_batch_id"]
+    persisted["last_synced_at"] = result.get("accepted_at", payload["generated_at"])
+    write_hub_config(base, persisted)
     success(
         "hub.sync",
         {
             "batch": result,
-            "hub": sanitize_hub_config(hub),
+            "hub": sanitize_hub_config(persisted),
         },
     )

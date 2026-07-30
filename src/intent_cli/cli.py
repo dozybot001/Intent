@@ -10,6 +10,7 @@ from intent_cli.commands.core import (
     cmd_init,
     cmd_inspect,
     cmd_intent_activate,
+    cmd_intent_cancel,
     cmd_intent_create,
     cmd_intent_done,
     cmd_intent_suspend,
@@ -79,6 +80,10 @@ def main():
     p = s_intent.add_parser("done")
     p.add_argument("id", nargs="?")
 
+    p = s_intent.add_parser("cancel")
+    p.add_argument("id", nargs="?")
+    p.add_argument("--reason", default="")
+
     # --- snap ---
     p_snap = sub.add_parser("snap")
     s_snap = p_snap.add_subparsers(dest="sub")
@@ -135,6 +140,7 @@ def main():
         ("intent", "activate"):        cmd_intent_activate,
         ("intent", "suspend"):         cmd_intent_suspend,
         ("intent", "done"):            cmd_intent_done,
+        ("intent", "cancel"):          cmd_intent_cancel,
         ("snap", "create"):            cmd_snap_create,
         ("decision", "create"):        cmd_decision_create,
         ("decision", "deprecate"):     cmd_decision_deprecate,

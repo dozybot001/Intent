@@ -3,11 +3,12 @@
 import json
 
 from intent_cli import __version__
-from intent_cli.commands.common import now_utc, require_init
+from intent_cli.commands.common import now_utc, require_init, workspace_mutation
 from intent_cli.output import error, success
 from intent_cli.origin import detect_origin
 from intent_cli.store import (
     VALID_STATUSES,
+    ensure_local_git_exclude,
     git_root,
     init_workspace,
     list_objects,
@@ -38,7 +39,12 @@ def cmd_init(_args):
             ".intent/ already exists.",
             suggested_fix="Remove .intent/ first if you want to reinitialize.",
         )
-    success("init", {"path": str(path)})
+    warnings = []
+    if not ensure_local_git_exclude(path.parent):
+        warnings.append(
+            "Could not add .intent/ to Git's local exclude file; exclude it manually before recording private semantics."
+        )
+    success("init", {"path": str(path)}, warnings)
 
 
 def cmd_inspect(_args):
@@ -51,27 +57,21 @@ def cmd_inspect(_args):
     suspended = []
     for obj in list_objects(base, "intent"):
         latest_snap_id = obj["snap_ids"][-1] if obj.get("snap_ids") else None
+        latest_snap = snap_by_id.get(latest_snap_id) if latest_snap_id else None
         if obj["status"] == "active":
-            latest_snap = None
-            if latest_snap_id:
-                snap = snap_by_id.get(latest_snap_id)
-                if snap is not None:
-                    latest_snap = {
-                        "id": snap["id"],
-                        "what": snap["what"],
-                        "why": snap.get("why", ""),
-                        "origin": snap.get("origin", ""),
-                    }
             active_intents.append({
                 "id": obj["id"],
                 "what": obj["what"],
+                "why": obj.get("why", ""),
                 "latest_snap": latest_snap,
             })
         elif obj["status"] == "suspend":
             suspended.append({
                 "id": obj["id"],
                 "what": obj["what"],
+                "why": obj.get("why", ""),
                 "latest_snap_id": latest_snap_id,
+                "latest_snap": latest_snap,
             })
 
     active_decisions = []
@@ -79,13 +79,10 @@ def cmd_inspect(_args):
         active_decisions.append({
             "id": obj["id"],
             "what": obj["what"],
+            "why": obj.get("why", ""),
         })
 
-    warnings = []
-    intent_ids_on_disk = {obj["id"] for obj in list_objects(base, "intent")}
-    for snap in all_snaps:
-        if snap.get("intent_id") and snap["intent_id"] not in intent_ids_on_disk:
-            warnings.append(f"Orphan snap {snap['id']}: intent {snap['intent_id']} not found")
+    warnings = validate_graph(base)["issues"]
 
     print(json.dumps({
         "ok": True,
@@ -140,6 +137,7 @@ def _resolve_inferred_intent_id(
     return candidates[0]["id"], True
 
 
+@workspace_mutation
 def cmd_intent_create(args):
     base = require_init()
     obj_id = next_id(base, "intent")
@@ -176,6 +174,7 @@ def cmd_intent_create(args):
 
     success("intent.create", _intent_result_for_json(intent), warnings)
 
+@workspace_mutation
 def cmd_intent_activate(args):
     base = require_init()
     intent_id, inferred = _resolve_inferred_intent_id(
@@ -216,6 +215,7 @@ def cmd_intent_activate(args):
     success("intent.activate", _intent_result_for_json(obj), warnings)
 
 
+@workspace_mutation
 def cmd_intent_suspend(args):
     base = require_init()
     intent_id, inferred = _resolve_inferred_intent_id(
@@ -247,6 +247,7 @@ def cmd_intent_suspend(args):
     success("intent.suspend", _intent_result_for_json(obj), warnings)
 
 
+@workspace_mutation
 def cmd_intent_done(args):
     base = require_init()
     intent_id, inferred = _resolve_inferred_intent_id(
@@ -278,6 +279,59 @@ def cmd_intent_done(args):
     success("intent.done", _intent_result_for_json(obj), warnings)
 
 
+@workspace_mutation
+def cmd_intent_cancel(args):
+    base = require_init()
+    if args.id:
+        intent_id = args.id
+        inferred = False
+    else:
+        candidates = sorted(
+            (
+                {"id": obj["id"], "what": obj["what"]}
+                for obj in list_objects(base, "intent")
+                if obj.get("status") in {"active", "suspend"}
+            ),
+            key=lambda candidate: candidate["id"],
+        )
+        if not candidates:
+            error(
+                "NO_OPEN_INTENT",
+                "No active or suspended intent to cancel.",
+                suggested_fix="Use: itt inspect",
+            )
+        if len(candidates) > 1:
+            error(
+                "MULTIPLE_OPEN_INTENTS",
+                "Multiple active or suspended intents; specify which one with ID.",
+                details={"candidates": candidates},
+                suggested_fix="itt intent cancel <id> --reason TEXT",
+            )
+        intent_id = candidates[0]["id"]
+        inferred = True
+
+    obj = read_object(base, "intent", intent_id)
+    if obj is None:
+        error("OBJECT_NOT_FOUND", f"Intent {intent_id} not found.")
+    if obj["status"] not in {"active", "suspend"}:
+        error(
+            "STATE_CONFLICT",
+            f"Cannot cancel intent with status '{obj['status']}'. Only 'active' or 'suspend' intents can be cancelled.",
+            suggested_fix="Use: itt inspect",
+        )
+
+    obj["status"] = "cancelled"
+    reason = getattr(args, "reason", "") or ""
+    if reason:
+        obj["reason"] = reason
+    write_object(base, "intent", intent_id, obj)
+    warnings = []
+    if inferred:
+        warnings.append(f"Inferred intent {intent_id} (only open intent).")
+    success("intent.cancel", _intent_result_for_json(obj), warnings)
+
+
+@workspace_mutation
 def cmd_snap_create(args):
     base = require_init()
     if args.intent:
@@ -341,6 +395,7 @@ def cmd_snap_create(args):
     success("snap.create", snap, warnings)
 
 
+@workspace_mutation
 def cmd_decision_create(args):
     base = require_init()
     obj_id = next_id(base, "decision")
@@ -377,6 +432,7 @@ def cmd_decision_create(args):
     success("decision.create", decision, warnings)
 
 
+@workspace_mutation
 def cmd_decision_deprecate(args):
     base = require_init()
     obj = read_object(base, "decision", args.id)

@@ -7,6 +7,8 @@ Usage:
     python3 scripts/build_pages.py
 """
 
+from __future__ import annotations
+
 import json
 import shutil
 from pathlib import Path
@@ -99,12 +101,18 @@ def build_project(project_dir: Path) -> dict:
             for sid in intent.get("snap_ids", [])
             if sid in snap_map
         ]
+        intent_decisions = [
+            decision_map[did]
+            for did in intent.get("decision_ids", [])
+            if did in decision_map
+        ]
         write_json(
             OUT_DIR / "api" / "v1" / "intents" / f"{rid}.json",
             wrap({
                 "workspace_id": workspace_id,
                 "intent": intent,
                 "snaps": intent_snaps,
+                "decisions": intent_decisions,
             }),
         )
 

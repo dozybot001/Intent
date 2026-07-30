@@ -22,7 +22,7 @@ Recording is **retrospective**. You look back at the work **from the last semant
 2. Create **one or more intents** — split by coherent objective, not by step
 3. Create **snaps** — one per meaningful milestone
 4. Identify **decisions** — long-lived constraints worth formalizing (requires user confirmation)
-5. `itt intent done` — if the goal is fully resolved
+5. Close the lifecycle: `itt intent done` when resolved, or `itt intent cancel --reason ...` when deliberately abandoned
 
 ```bash
 itt intent create "Implemented auth retry logic" \
@@ -121,13 +121,15 @@ When activated, always run `itt inspect` first:
 - **Snap semantics, not mechanical details** — capture what+why, not diffs or command logs
 - **Decisions require user confirmation** — never create on your own judgment
 - **Always `done` completed intents** — stale intents pollute inspect
+- **Cancel abandoned intents** — do not label a changed or invalidated goal as completed
 - **Decision hygiene** — when `active_decisions > 20`, prompt: "当前有 N 条 active decision，要做一轮清理吗？"
+- **Correct by appending context** — preserve old objects; explain a correction in a later snap, or deprecate a superseded decision with a reason
 
 ## Objects
 
 | Object | Fields | States |
 |--------|--------|--------|
-| **Intent** | `what`, `why`, `snap_ids[]`, `decision_ids[]` | `active` → `suspend` ↔ `active` → `done` |
+| **Intent** | `what`, `why`, `snap_ids[]`, `decision_ids[]`, `reason` | `active` ↔ `suspend`; `active` → `done`; `active` / `suspend` → `cancelled` |
 | **Snap** | `what`, `why`, `intent_id` | Immutable |
 | **Decision** | `what`, `why`, `intent_ids[]`, `reason` | `active` → `deprecated` |
 
@@ -154,6 +156,7 @@ Relationships are **bidirectional** and **append-only**. Treat `what` / `why` / 
 | `itt intent activate [ID]` | `suspend` → `active` (catches up decisions; infers ID when unique) |
 | `itt intent suspend [ID]` | `active` → `suspend` (infers ID when unique) |
 | `itt intent done [ID]` | `active` → `done` (infers ID when unique) |
+| `itt intent cancel [ID] [--reason TEXT]` | `active` / `suspend` → `cancelled` (infers ID when there is one open intent) |
 
 ### Snap
 

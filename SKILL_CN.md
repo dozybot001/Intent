@@ -22,7 +22,7 @@ description: 记录语义历史（.intent/）——目标、快照和决策，�
 2. 创建**一个或多个 intent** — 按连贯目标拆分，不按步骤拆分
 3. 创建**若干 snap** — 每个有意义的里程碑一个
 4. 识别 **decision** — 值得正式化的长期约束（需用户确认）
-5. `itt intent done` — 目标已完全解决时
+5. 闭合生命周期：目标解决时运行 `itt intent done`；目标被主动放弃时运行 `itt intent cancel --reason ...`
 
 ```bash
 itt intent create "实现了认证重试逻辑" \
@@ -121,13 +121,15 @@ Decision 是**长期约束**，生命周期超越当前 intent。
 - **Snap 记录语义，不记录机械细节** — 记 what+why，不记 diff 和命令日志
 - **Decision 必须用户确认** — 绝不凭自己判断单独创建
 - **完成的 intent 必须 `done`** — 残留 intent 会污染 inspect
+- **放弃的 intent 必须 `cancel`** — 不要把方向改变或已失效的目标误记为完成
 - **Decision 清理** — 当 `active_decisions > 20` 时，提醒："当前有 N 条 active decision，要做一轮清理吗？"
+- **用追加语义表达纠偏** — 保留旧对象；在后续 snap 解释修正，或带原因地废弃已被替代的 decision
 
 ## 对象
 
 | 对象 | 字段 | 状态 |
 |------|------|------|
-| **Intent** | `what`, `why`, `snap_ids[]`, `decision_ids[]` | `active` → `suspend` ↔ `active` → `done` |
+| **Intent** | `what`, `why`, `snap_ids[]`, `decision_ids[]`, `reason` | `active` ↔ `suspend`；`active` → `done`；`active` / `suspend` → `cancelled` |
 | **Snap** | `what`, `why`, `intent_id` | 不可变 |
 | **Decision** | `what`, `why`, `intent_ids[]`, `reason` | `active` → `deprecated` |
 
@@ -154,6 +156,7 @@ Decision 是**长期约束**，生命周期超越当前 intent。
 | `itt intent activate [ID]` | `suspend` → `active`（同步 decision；唯一时自动推断） |
 | `itt intent suspend [ID]` | `active` → `suspend`（唯一时自动推断） |
 | `itt intent done [ID]` | `active` → `done`（唯一时自动推断） |
+| `itt intent cancel [ID] [--reason TEXT]` | `active` / `suspend` → `cancelled`（只有一个未终结目标时自动推断） |
 
 ### Snap
 

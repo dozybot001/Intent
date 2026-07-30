@@ -354,6 +354,15 @@ input {
   text-decoration: line-through;
 }
 
+.card-cancelled {
+  opacity: 0.55;
+}
+
+.card-cancelled .card-title {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
 .card:hover {
   transform: translateY(-1px);
   border-color: rgba(112, 63, 24, 0.25);
@@ -434,6 +443,12 @@ input {
   color: #fff;
   background: #4a7fa5;
   border-color: #4a7fa5;
+}
+
+.badge.status-cancelled {
+  color: #fff;
+  background: #705b56;
+  border-color: #705b56;
 }
 
 .badge.origin-claude-code {
@@ -704,6 +719,14 @@ input {
 }
 
 .relation-item.rel-deprecated .relation-title {
+  text-decoration: line-through;
+}
+
+.relation-item.rel-cancelled {
+  opacity: 0.55;
+}
+
+.relation-item.rel-cancelled .relation-title {
   text-decoration: line-through;
 }
 
