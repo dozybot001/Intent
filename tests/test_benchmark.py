@@ -379,15 +379,19 @@ def test_benchmark_prepare_clean_codex_home_copies_only_auth_and_minimal_config(
     assert "notify" not in (codex_home / "config.toml").read_text(encoding="utf-8")
 
 
-def test_evaluator_read_isolation_allows_current_trial_and_denies_siblings(tmp_path):
+def test_evaluator_read_isolation_allows_current_trial_and_denies_siblings(tmp_path, monkeypatch):
     if sys.platform != "darwin":
         return
     current = tmp_path / "suite" / "trials" / "trial-0001"
     sibling = tmp_path / "suite" / "trials" / "trial-0002"
+    real_codex_home = tmp_path / "real-codex-home"
     current.mkdir(parents=True)
     sibling.mkdir(parents=True)
+    real_codex_home.mkdir()
     (current / "allowed.txt").write_text("allowed", encoding="utf-8")
     (sibling / "denied.txt").write_text("denied", encoding="utf-8")
+    (real_codex_home / "secret.txt").write_text("secret", encoding="utf-8")
+    monkeypatch.setenv("CODEX_HOME", str(real_codex_home))
     profile = evaluator_read_isolation_profile(current)
 
     allowed = subprocess.run(
@@ -402,10 +406,24 @@ def test_evaluator_read_isolation_allows_current_trial_and_denies_siblings(tmp_p
         capture_output=True,
         text=True,
     )
+    codex_home_metadata = subprocess.run(
+        ["sandbox-exec", "-p", profile, "/usr/bin/stat", "-f", "%N", str(real_codex_home)],
+        cwd=current,
+        capture_output=True,
+        text=True,
+    )
+    codex_home_secret = subprocess.run(
+        ["sandbox-exec", "-p", profile, "/bin/cat", str(real_codex_home / "secret.txt")],
+        cwd=current,
+        capture_output=True,
+        text=True,
+    )
 
     assert allowed.returncode == 0
     assert allowed.stdout == "allowed"
     assert denied.returncode != 0
+    assert codex_home_metadata.returncode == 0
+    assert codex_home_secret.returncode != 0
 
 
 def test_benchmark_score_requires_existing_repo(tmp_path):

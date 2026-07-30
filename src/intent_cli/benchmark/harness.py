@@ -484,6 +484,11 @@ def evaluator_read_isolation_profile(run_dir):
         f"(deny file-read* (subpath {scheme_path(source_root)}))",
         f"(deny file-read* (subpath {scheme_path(suite_root)}))",
         f"(deny file-read* (subpath {scheme_path(real_codex_home)}))",
+        # Codex probes the conventional home directory itself even when
+        # CODEX_HOME points at the isolated runner home.  Permit only that
+        # directory metadata lookup; descendants and file contents stay
+        # unreadable.
+        f"(allow file-read-metadata (literal {scheme_path(real_codex_home)}))",
         f"(allow file-read* (subpath {scheme_path(run)}))",
     ])
 
