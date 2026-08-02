@@ -3,8 +3,11 @@ FROM python:3.13-slim
 ARG INTHUB_VERSION=0.0.0
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    SETUPTOOLS_SCM_PRETEND_VERSION=${INTHUB_VERSION}
+    PYTHONDONTWRITEBYTECODE=1
+
+LABEL org.opencontainers.image.title="IntHub" \
+    org.opencontainers.image.source="https://github.com/dozybot001/Intent" \
+    org.opencontainers.image.version="${INTHUB_VERSION}"
 
 WORKDIR /app
 
@@ -15,7 +18,9 @@ RUN groupadd --gid 10001 inthub \
 
 COPY --chown=inthub:inthub . /app
 
-RUN python -m pip install --no-cache-dir ".[server]"
+# The source tree runs directly from /app. Installing only the runtime driver
+# avoids an unnecessary PEP 517 build-isolation round trip in production.
+RUN python -m pip install --no-cache-dir "psycopg[binary]>=3.2,<4"
 
 USER 10001:10001
 
