@@ -569,6 +569,8 @@ class TestInspect:
         assert r["active_intents"][0]["id"] == "intent-001"
         assert r["active_intents"][0]["what"] == "Active"
         assert r["active_intents"][0]["why"] == "active why"
+        assert r["active_intents"][0]["snap_count"] == 1
+        assert r["active_intents"][0]["has_more"] is False
         assert r["active_intents"][0]["latest_snap"]["id"] == "snap-002"
         assert r["active_intents"][0]["latest_snap"]["what"] == "S1"
         assert r["active_intents"][0]["latest_snap"]["why"] == "did something"
@@ -579,6 +581,8 @@ class TestInspect:
         assert r["suspended"][0]["id"] == "intent-002"
         assert r["suspended"][0]["what"] == "Will suspend"
         assert r["suspended"][0]["why"] == "suspended why"
+        assert r["suspended"][0]["snap_count"] == 1
+        assert r["suspended"][0]["has_more"] is False
         assert r["suspended"][0]["latest_snap_id"] == "snap-001"
         assert r["suspended"][0]["latest_snap"] == json.loads(
             (workspace / ".intent" / "snaps" / "snap-001.json").read_text()
@@ -589,6 +593,114 @@ class TestInspect:
             "what": "Rule",
             "why": "reason",
         }
+
+    def test_default_reports_when_more_snap_history_exists(self, workspace):
+        _run(workspace, "intent", "create", "With history")
+        _run(workspace, "intent", "create", "Without history")
+        for index in range(3):
+            _run(
+                workspace,
+                "snap", "create", f"S{index + 1}",
+                "--intent", "intent-001",
+            )
+        _run(workspace, "intent", "suspend", "intent-002")
+
+        r = _run(workspace, "inspect")
+
+        assert r["active_intents"][0]["snap_count"] == 3
+        assert r["active_intents"][0]["has_more"] is True
+        assert r["active_intents"][0]["latest_snap"]["id"] == "snap-003"
+        assert r["suspended"][0]["snap_count"] == 0
+        assert r["suspended"][0]["has_more"] is False
+        assert r["suspended"][0]["latest_snap"] is None
+
+    def test_history_returns_recent_snaps_oldest_to_newest(self, workspace):
+        _run(workspace, "intent", "create", "Target")
+        _run(workspace, "intent", "create", "Other")
+        _run(workspace, "decision", "create", "Keep this rule")
+        for index in range(5):
+            _run(
+                workspace,
+                "snap", "create", f"S{index + 1}",
+                "--intent", "intent-001",
+            )
+
+        r = _run(
+            workspace,
+            "inspect", "--intent", "intent-001", "--history", "3",
+        )
+
+        assert [entry["id"] for entry in r["active_intents"]] == ["intent-001"]
+        assert r["suspended"] == []
+        target = r["active_intents"][0]
+        assert target["snap_count"] == 5
+        assert target["has_more"] is True
+        assert [snap["id"] for snap in target["recent_snaps"]] == [
+            "snap-003", "snap-004", "snap-005",
+        ]
+        assert target["latest_snap"] == target["recent_snaps"][-1]
+        assert r["active_decisions"][0]["id"] == "decision-001"
+
+    def test_history_can_return_all_snaps_for_suspended_intent(self, workspace):
+        _run(workspace, "intent", "create", "Paused")
+        _run(workspace, "snap", "create", "S1", "--intent", "intent-001")
+        _run(workspace, "snap", "create", "S2", "--intent", "intent-001")
+        _run(workspace, "intent", "suspend", "intent-001")
+
+        r = _run(
+            workspace,
+            "inspect", "--intent", "intent-001", "--history", "3",
+        )
+
+        assert r["active_intents"] == []
+        target = r["suspended"][0]
+        assert target["snap_count"] == 2
+        assert target["has_more"] is False
+        assert [snap["id"] for snap in target["recent_snaps"]] == [
+            "snap-001", "snap-002",
+        ]
+        assert target["latest_snap_id"] == "snap-002"
+
+    def test_history_rejects_invalid_target_or_limit(self, workspace):
+        _run(workspace, "intent", "create", "Done")
+        _run(workspace, "intent", "done", "intent-001")
+
+        missing_target = _run(workspace, "inspect", "--history", "3")
+        assert missing_target["error"]["code"] == "INVALID_INPUT"
+
+        for invalid_limit in ("0", "-1"):
+            invalid = _run(
+                workspace,
+                "inspect", "--intent", "intent-001",
+                "--history", invalid_limit,
+            )
+            assert invalid["error"]["code"] == "INVALID_INPUT"
+
+        unknown = _run(workspace, "inspect", "--intent", "intent-999")
+        assert unknown["error"]["code"] == "OBJECT_NOT_FOUND"
+
+        terminal = _run(workspace, "inspect", "--intent", "intent-001")
+        assert terminal["error"]["code"] == "INVALID_INPUT"
+        assert terminal["error"]["details"]["status"] == "done"
+
+    def test_history_preserves_missing_snap_positions(self, workspace):
+        _run(workspace, "intent", "create", "Goal")
+        _run(workspace, "snap", "create", "S1", "--intent", "intent-001")
+        intent_file = workspace / ".intent" / "intents" / "intent-001.json"
+        data = json.loads(intent_file.read_text())
+        data["snap_ids"].append("snap-999")
+        intent_file.write_text(json.dumps(data, indent=2))
+
+        r = _run(
+            workspace,
+            "inspect", "--intent", "intent-001", "--history", "2",
+        )
+
+        target = r["active_intents"][0]
+        assert target["snap_count"] == 2
+        assert target["recent_snaps"][0]["id"] == "snap-001"
+        assert target["recent_snaps"][1] is None
+        assert any(issue["code"] == "MISSING_REFERENCE" for issue in r["warnings"])
 
     def test_orphan_snap_warning(self, workspace):
         _run(workspace, "intent", "create", "Goal")
@@ -643,6 +755,93 @@ class TestInspect:
         r = _run(workspace, "doctor")
         assert r["result"]["healthy"] is False
         assert any(issue["code"] == "INVALID_STATUS" for issue in r["result"]["issues"])
+
+
+class TestCliStorageSecurity:
+    @pytest.mark.parametrize(
+        ("args", "object_type", "status"),
+        [
+            (("intent", "activate", "../../victim"), "intent", "suspend"),
+            (("intent", "suspend", "../../victim"), "intent", "active"),
+            (("intent", "done", "../../victim"), "intent", "active"),
+            (("intent", "cancel", "../../victim"), "intent", "active"),
+            (("snap", "create", "S", "--intent", "../../victim"), "intent", "active"),
+            (("decision", "deprecate", "../../victim"), "decision", "active"),
+            (("inspect", "--intent", "../../victim"), "intent", "active"),
+        ],
+    )
+    def test_explicit_traversal_ids_return_json_without_touching_target(
+        self, workspace, args, object_type, status
+    ):
+        victim = workspace / "victim.json"
+        payload = {
+            "id": "../../victim",
+            "object": object_type,
+            "status": status,
+            "what": "outside target",
+            "why": "must remain unchanged",
+            "snap_ids": [],
+            "decision_ids": [],
+            "intent_ids": [],
+        }
+        original = json.dumps(payload, indent=2)
+        victim.write_text(original, encoding="utf-8")
+
+        r = _run(workspace, *args)
+
+        assert r["ok"] is False
+        assert r["error"]["code"] == "INVALID_OBJECT_ID"
+        assert victim.read_text(encoding="utf-8") == original
+        assert list((workspace / ".intent" / "snaps").glob("snap-*.json")) == []
+
+    def test_absolute_id_cannot_read_or_modify_external_object(self, workspace):
+        target_without_suffix = workspace.parent / "absolute-decision-target"
+        victim = Path(f"{target_without_suffix}.json")
+        payload = {
+            "id": str(target_without_suffix),
+            "object": "decision",
+            "status": "active",
+            "what": "outside target",
+            "why": "must remain unchanged",
+            "intent_ids": [],
+        }
+        original = json.dumps(payload, indent=2)
+        victim.write_text(original, encoding="utf-8")
+
+        r = _run(
+            workspace,
+            "decision", "deprecate", str(target_without_suffix),
+        )
+
+        assert r["error"]["code"] == "INVALID_OBJECT_ID"
+        assert victim.read_text(encoding="utf-8") == original
+
+    def test_poisoned_stored_id_stops_before_partial_write(self, workspace):
+        _run(workspace, "intent", "create", "Goal")
+        intent_file = workspace / ".intent" / "intents" / "intent-001.json"
+        payload = json.loads(intent_file.read_text(encoding="utf-8"))
+        payload["id"] = "../../victim"
+        intent_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+        r = _run(workspace, "decision", "create", "Rule")
+
+        assert r["ok"] is False
+        assert r["error"]["code"] == "STORAGE_INTEGRITY_ERROR"
+        assert list((workspace / ".intent" / "decisions").glob("decision-*.json")) == []
+
+    def test_symlinked_intent_root_returns_structured_error(self, workspace):
+        storage = workspace / ".intent"
+        real_storage = workspace / ".intent-real"
+        storage.rename(real_storage)
+        try:
+            storage.symlink_to(real_storage, target_is_directory=True)
+        except (NotImplementedError, OSError) as exc:
+            pytest.skip(f"symlinks are unavailable in this environment: {exc}")
+
+        r = _run(workspace, "inspect")
+
+        assert r["ok"] is False
+        assert r["error"]["code"] == "UNSAFE_STORAGE"
 
 
 class TestAtomicWrites:

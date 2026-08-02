@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 import tempfile
 import time
@@ -16,10 +17,137 @@ VALID_STATUSES = {
     "intent": {"active", "suspend", "done", "cancelled"},
     "decision": {"active", "deprecated"},
 }
+OBJECT_ID_PATTERNS = {
+    object_type: re.compile(rf"{object_type}-[0-9]+", re.ASCII)
+    for object_type in SUBDIRS
+}
+
+
+class StorageSecurityError(RuntimeError):
+    """Base class for storage paths or data that are unsafe to use."""
+
+
+class InvalidObjectIdError(StorageSecurityError):
+    """Raised when an object ID cannot name an object of the requested type."""
+
+    def __init__(self, object_type, obj_id):
+        self.object_type = object_type
+        self.obj_id = obj_id
+        super().__init__(
+            f"Invalid {object_type} ID {obj_id!r}; expected "
+            f"'{object_type}-' followed by ASCII digits."
+        )
+
+
+class UnsafeStoragePathError(StorageSecurityError):
+    """Raised when a storage path escapes or redirects the .intent boundary."""
+
+    def __init__(self, path, message):
+        self.path = Path(path)
+        super().__init__(f"{message}: {self.path}")
+
+
+class StoredObjectIntegrityError(StorageSecurityError):
+    """Raised when a stored object's filename and identity fields disagree."""
+
+    def __init__(self, path, message):
+        self.path = Path(path)
+        super().__init__(f"Invalid stored object at {self.path}: {message}")
 
 
 class WorkspaceBusyError(RuntimeError):
     """Raised when another Intent writer holds the workspace lock."""
+
+
+def validate_object_id(object_type, obj_id):
+    """Validate and return a type-specific, path-safe local object ID."""
+    pattern = OBJECT_ID_PATTERNS.get(object_type)
+    if (
+        pattern is None
+        or not isinstance(obj_id, str)
+        or pattern.fullmatch(obj_id) is None
+    ):
+        raise InvalidObjectIdError(object_type, obj_id)
+    return obj_id
+
+
+def _safe_storage_root(base):
+    """Return a real .intent directory that is not itself a symlink."""
+    base = Path(base)
+    if base.is_symlink():
+        raise UnsafeStoragePathError(base, ".intent storage must not be a symlink")
+    if not base.is_dir():
+        raise UnsafeStoragePathError(base, ".intent storage is not a directory")
+    try:
+        resolved = base.resolve(strict=True)
+        resolved_parent = base.parent.resolve(strict=True)
+    except OSError as exc:
+        raise UnsafeStoragePathError(base, "Could not resolve .intent storage") from exc
+    if resolved.parent != resolved_parent:
+        raise UnsafeStoragePathError(base, ".intent storage escapes its repository")
+    return base, resolved
+
+
+def _safe_object_dir(base, object_type):
+    """Return the real object directory after enforcing the storage boundary."""
+    if object_type not in SUBDIRS:
+        raise InvalidObjectIdError(object_type, None)
+
+    base, resolved_base = _safe_storage_root(base)
+    subdir = base / SUBDIRS[object_type]
+    if subdir.is_symlink():
+        raise UnsafeStoragePathError(
+            subdir, f"{object_type} storage directory must not be a symlink"
+        )
+    if not subdir.is_dir():
+        raise UnsafeStoragePathError(
+            subdir, f"{object_type} storage path is not a directory"
+        )
+    try:
+        resolved_subdir = subdir.resolve(strict=True)
+    except OSError as exc:
+        raise UnsafeStoragePathError(
+            subdir, f"Could not resolve {object_type} storage directory"
+        ) from exc
+    if resolved_subdir.parent != resolved_base:
+        raise UnsafeStoragePathError(
+            subdir, f"{object_type} storage directory escapes .intent"
+        )
+    return subdir, resolved_subdir
+
+
+def _safe_object_path(base, object_type, obj_id):
+    """Build a contained object path and reject every symlink redirection."""
+    validate_object_id(object_type, obj_id)
+    subdir, resolved_subdir = _safe_object_dir(base, object_type)
+    path = subdir / f"{obj_id}.json"
+    if path.is_symlink():
+        raise UnsafeStoragePathError(path, "Object file must not be a symlink")
+    try:
+        resolved_path = path.resolve(strict=False)
+    except OSError as exc:
+        raise UnsafeStoragePathError(path, "Could not resolve object path") from exc
+    if resolved_path.parent != resolved_subdir:
+        raise UnsafeStoragePathError(path, "Object path escapes its storage directory")
+    return path
+
+
+def _validate_stored_object_id(obj, path, expected_id):
+    """Verify that object data agrees with its storage filename."""
+    if not isinstance(obj, dict):
+        raise StoredObjectIntegrityError(path, "top-level JSON must be an object")
+    if obj.get("id") != expected_id:
+        raise StoredObjectIntegrityError(
+            path,
+            f"field 'id' is {obj.get('id')!r}, expected {expected_id!r}",
+        )
+    return obj
+
+
+def _load_and_validate_object_id(path, expected_id):
+    """Load JSON and verify that its ID agrees with its storage filename."""
+    obj = json.loads(path.read_text(encoding="utf-8"))
+    return _validate_stored_object_id(obj, path, expected_id)
 
 
 def git_root():
@@ -43,7 +171,12 @@ def intent_dir():
 def ensure_init():
     """Return .intent/ Path if initialized, else None."""
     d = intent_dir()
-    return d if d and d.is_dir() else None
+    if d is None or (not d.exists() and not d.is_symlink()):
+        return None
+    _safe_storage_root(d)
+    for object_type in SUBDIRS:
+        _safe_object_dir(d, object_type)
+    return d
 
 
 def init_workspace():
@@ -52,6 +185,8 @@ def init_workspace():
     if root is None:
         return None, "GIT_STATE_INVALID"
     d = root / INTENT_DIR
+    if d.is_symlink():
+        raise UnsafeStoragePathError(d, ".intent storage must not be a symlink")
     if d.is_dir():
         return None, "ALREADY_EXISTS"
     try:
@@ -92,7 +227,10 @@ def ensure_local_git_exclude(root):
 @contextmanager
 def workspace_write_lock(base, timeout=10.0):
     """Serialize writers for one workspace without leaving a stale lock state."""
+    base, _resolved_base = _safe_storage_root(base)
     lock_path = base / ".write.lock"
+    if lock_path.is_symlink():
+        raise UnsafeStoragePathError(lock_path, "Workspace lock must not be a symlink")
     lock_file = lock_path.open("a+b")
     acquired = False
     deadline = time.monotonic() + timeout
@@ -146,23 +284,27 @@ def make_runtime_id(prefix):
 
 def next_id(base, object_type):
     """Generate next zero-padded ID for a given object type."""
-    subdir = base / SUBDIRS[object_type]
+    subdir, _resolved_subdir = _safe_object_dir(base, object_type)
     max_num = 0
     for f in subdir.glob(f"{object_type}-*.json"):
         try:
-            num = int(f.stem.split("-", 1)[1])
-            max_num = max(max_num, num)
-        except (ValueError, IndexError):
-            continue
+            validate_object_id(object_type, f.stem)
+        except InvalidObjectIdError as exc:
+            raise StoredObjectIntegrityError(
+                f, "filename is not a valid object ID"
+            ) from exc
+        _safe_object_path(base, object_type, f.stem)
+        num = int(f.stem.split("-", 1)[1])
+        max_num = max(max_num, num)
     return f"{object_type}-{max_num + 1:03d}"
 
 
 def read_object(base, object_type, obj_id):
     """Read object JSON by ID. Returns dict or None."""
-    path = base / SUBDIRS[object_type] / f"{obj_id}.json"
+    path = _safe_object_path(base, object_type, obj_id)
     if not path.is_file():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    return _load_and_validate_object_id(path, obj_id)
 
 
 def _write_json_atomic(path, data):
@@ -192,16 +334,24 @@ def _write_json_atomic(path, data):
 
 def write_object(base, object_type, obj_id, data):
     """Atomically write an object dict to its JSON file."""
-    path = base / SUBDIRS[object_type] / f"{obj_id}.json"
+    path = _safe_object_path(base, object_type, obj_id)
+    _validate_stored_object_id(data, path, obj_id)
     _write_json_atomic(path, data)
 
 
 def list_objects(base, object_type, status=None):
     """List all objects of a type, optionally filtered by status."""
-    subdir = base / SUBDIRS[object_type]
+    subdir, _resolved_subdir = _safe_object_dir(base, object_type)
     result = []
     for f in sorted(subdir.glob(f"{object_type}-*.json")):
-        obj = json.loads(f.read_text(encoding="utf-8"))
+        try:
+            validate_object_id(object_type, f.stem)
+        except InvalidObjectIdError as exc:
+            raise StoredObjectIntegrityError(
+                f, "filename is not a valid object ID"
+            ) from exc
+        path = _safe_object_path(base, object_type, f.stem)
+        obj = _load_and_validate_object_id(path, f.stem)
         if status is None or obj.get("status") == status:
             result.append(obj)
     return result

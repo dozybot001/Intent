@@ -19,14 +19,14 @@ python -m pytest -q
 
 ## Development Workflow
 
-This project uses Intent to manage its own development. If you have `itt` installed:
+This project dogfoods Intent, but `.intent/` writes remain explicit. Do not initialize or record merely because you started contributing. When the user asks to record or recover through Intent, begin with:
 
 ```bash
 itt init          # if your fork doesn't have .intent/ yet
 itt inspect       # see current state
 ```
 
-Create an intent before starting meaningful work, and create a snap when you reach a meaningful checkpoint.
+Reuse a semantically matching active Intent, or reactivate a relevant suspended Intent, before creating a new one. Zero writes is valid when there is no new high-signal semantic information. Before suspending open work, make its latest Snap a self-contained continuation checkpoint.
 
 ## Reporting Bugs
 

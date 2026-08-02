@@ -22,7 +22,7 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 |---|---|
 | `itt version` | 输出 CLI 版本 |
 | `itt init` | 在当前 Git 仓库初始化 `.intent/` |
-| `itt inspect` | 恢复视图，返回目标原因、最新 Snap、有效 Decision 和完整图诊断 |
+| `itt inspect [--intent ID] [--history N]` | 恢复视图，返回目标原因、最新 Snap、可选的受限历史、有效 Decision 和完整图诊断 |
 | `itt doctor` | 返回同一套完整对象图诊断，并显式给出 `healthy` 结果 |
 
 ### Intent
@@ -167,7 +167,7 @@ stateDiagram-v2
 
 ### `inspect`
 
-`inspect` 返回接续已记录工作所需的上下文。`active_intents` 和 `suspended` 会包含目标的 `why`，并在存在时返回完整的最新 Snap 对象；`active_decisions` 也会包含每项 Decision 的 `why`。
+`inspect` 返回接续已记录工作所需的上下文。`active_intents` 和 `suspended` 会包含目标的 `why`、存在时的完整最新 Snap 对象、`snap_count` 和 `has_more`；`active_decisions` 也会包含每项 Decision 的 `why`。在默认视图中，若 `latest_snap` 之前还有更早的 Snap，`has_more` 为 true。
 
 ```json
 {
@@ -177,6 +177,8 @@ stateDiagram-v2
       "id": "intent-001",
       "what": "收紧发布流程",
       "why": "部分发布会让工作区处于不一致状态",
+      "snap_count": 3,
+      "has_more": true,
       "latest_snap": {
         "id": "snap-003",
         "object": "snap",
@@ -200,11 +202,28 @@ stateDiagram-v2
       "id": "intent-002",
       "what": "替换旧发布器",
       "why": "旧链路难以恢复",
+      "snap_count": 0,
+      "has_more": false,
       "latest_snap_id": null,
       "latest_snap": null
     }
   ],
   "warnings": []
+}
+```
+
+使用 `itt inspect --intent intent-001` 可将恢复视图聚焦到一个 active 或 suspended Intent。再加正整数 `--history N` 时，响应会包含 `recent_snaps`，按记录顺序从旧到新返回最多最近 N 个完整 Snap 对象。为保持兼容，`latest_snap` 仍会保留；目标条目的 `has_more` 表示这次受限选择之前是否还有更早的 Snap。`--history` 必须与 `--intent` 同用；done 和 cancelled Intent 的历史仍通过 IntHub 浏览，不进入恢复视图。
+
+```json
+{
+  "snap_count": 5,
+  "has_more": true,
+  "latest_snap": { "id": "snap-005" },
+  "recent_snaps": [
+    { "id": "snap-003" },
+    { "id": "snap-004" },
+    { "id": "snap-005" }
+  ]
 }
 ```
 
@@ -250,6 +269,10 @@ stateDiagram-v2
 | `STATE_CONFLICT` | 状态流转非法 |
 | `OBJECT_NOT_FOUND` | 找不到对应对象 ID |
 | `INVALID_INPUT` | 参数非法或缺少必填输入 |
+| `INVALID_OBJECT_ID` | 显式对象 ID 不是与类型匹配的本地 ID，例如 `intent-001` |
+| `UNSAFE_STORAGE` | `.intent/`、对象目录、锁或对象文件通过符号链接重定向，或越出存储边界 |
+| `STORAGE_INTEGRITY_ERROR` | 对象文件名与 JSON `id` 不一致；重试前需人工检查并修复报告的本地文件 |
+| `STORAGE_SECURITY_ERROR` | 其他存储安全不变量校验失败 |
 | `NO_ACTIVE_INTENT` | `snap create`、`intent suspend` 或 `intent done` 在省略目标时，没有 `active` intent |
 | `MULTIPLE_ACTIVE_INTENTS` | `snap create`、`intent suspend` 或 `intent done` 在省略目标时，存在多个 `active` intent |
 | `NO_SUSPENDED_INTENT` | `intent activate` 在省略目标时，没有 `suspend` intent |
@@ -269,5 +292,6 @@ stateDiagram-v2
 - 当前 CLI 接受 `--token` 或 `INTHUB_TOKEN` 但不会持久化；旧 `hub.json` 仍可能含有明文 `auth_token`，提交或共享目录前应将其清除
 - IntHub Local 默认绑定 `127.0.0.1`，但当前 API 不强制校验 Bearer Token，且使用宽松 CORS；不要将它暴露到局域网或公网
 - 对象和 Hub 配置通过原子替换写入，对象变更命令使用工作区级跨进程写锁；这会串行化 Intent CLI 写入，但不会把 `.intent/` 变成多用户数据库
+- 对象 ID 在路径 I/O 前校验，对象路径必须留在对应类型目录内，`.intent/` 对象存储拒绝符号链接重定向
 - 描述性字段写一次；状态与自动维护的关系字段会随着后续命令推进
 - ID 按对象类型单调递增并零填充，例如 `intent-001`、`snap-001`、`decision-001`

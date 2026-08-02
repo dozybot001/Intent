@@ -22,7 +22,7 @@ The CLI is intentionally small:
 |---|---|
 | `itt version` | Print CLI version |
 | `itt init` | Initialize `.intent/` in current Git repo |
-| `itt inspect` | Recovery view with each goal's rationale, latest snap, active decisions, and full graph warnings |
+| `itt inspect [--intent ID] [--history N]` | Recovery view with each goal's rationale, latest snap, optional bounded history, active decisions, and full graph warnings |
 | `itt doctor` | Return the same full object-graph diagnosis with an explicit `healthy` result |
 
 ### Intent
@@ -167,7 +167,7 @@ All successful commands except `inspect` use:
 
 ### `inspect`
 
-`inspect` returns the context needed to resume recorded work. `active_intents` and `suspended` include the goal's `why` and its complete latest Snap object when one exists; `active_decisions` includes each decision's `why`.
+`inspect` returns the context needed to resume recorded work. `active_intents` and `suspended` include the goal's `why`, its complete latest Snap object when one exists, `snap_count`, and `has_more`; `active_decisions` includes each decision's `why`. In the default view, `has_more` is true when older Snaps exist beyond `latest_snap`.
 
 ```json
 {
@@ -177,6 +177,8 @@ All successful commands except `inspect` use:
       "id": "intent-001",
       "what": "Harden the release flow",
       "why": "partial releases left the workspace inconsistent",
+      "snap_count": 3,
+      "has_more": true,
       "latest_snap": {
         "id": "snap-003",
         "object": "snap",
@@ -200,11 +202,28 @@ All successful commands except `inspect` use:
       "id": "intent-002",
       "what": "Replace the legacy publisher",
       "why": "the legacy path is difficult to recover",
+      "snap_count": 0,
+      "has_more": false,
       "latest_snap_id": null,
       "latest_snap": null
     }
   ],
   "warnings": []
+}
+```
+
+Use `itt inspect --intent intent-001` to focus the recovery view on one active or suspended Intent. Add a positive `--history N` to include `recent_snaps`, containing at most the last N complete Snap objects in their recorded order from oldest to newest. `latest_snap` remains present for compatibility, and the focused entry's `has_more` reports whether additional earlier Snaps exist beyond that bounded selection. `--history` requires `--intent`; completed and cancelled Intent history remains available through IntHub rather than the recovery view.
+
+```json
+{
+  "snap_count": 5,
+  "has_more": true,
+  "latest_snap": { "id": "snap-005" },
+  "recent_snaps": [
+    { "id": "snap-003" },
+    { "id": "snap-004" },
+    { "id": "snap-005" }
+  ]
 }
 ```
 
@@ -250,6 +269,10 @@ All successful commands except `inspect` use:
 | `STATE_CONFLICT` | Illegal state transition |
 | `OBJECT_NOT_FOUND` | Object ID not found |
 | `INVALID_INPUT` | Invalid arguments or missing required input |
+| `INVALID_OBJECT_ID` | An explicit object ID is not a type-matching local ID such as `intent-001` |
+| `UNSAFE_STORAGE` | `.intent/`, an object directory, lock, or object file redirects through a symlink or escapes its storage boundary |
+| `STORAGE_INTEGRITY_ERROR` | A stored filename and its JSON `id` disagree; inspect and repair the reported local file before retrying |
+| `STORAGE_SECURITY_ERROR` | Another storage-safety invariant failed |
 | `NO_ACTIVE_INTENT` | `snap create`, `intent suspend`, or `intent done` omitted the target intent and none is `active` |
 | `MULTIPLE_ACTIVE_INTENTS` | `snap create`, `intent suspend`, or `intent done` omitted the target intent and several are `active` |
 | `NO_SUSPENDED_INTENT` | `intent activate` omitted the target intent and none is `suspend` |
@@ -269,5 +292,6 @@ All successful commands except `inspect` use:
 - The current CLI accepts `--token` or `INTHUB_TOKEN` without persisting it; older `hub.json` files may still contain a plaintext `auth_token`, which should be removed before committing or sharing the directory
 - IntHub Local binds to `127.0.0.1` by default, but its current API does not enforce bearer-token authentication and uses permissive CORS; do not expose it to a LAN or the public internet
 - Object and Hub-config replacements are atomic, and mutating object commands use a workspace-level cross-process lock; this serializes Intent CLI writers but does not turn `.intent/` into a multi-user database
+- Object IDs are validated before path I/O, object paths must remain under their type directory, and `.intent/` object storage refuses symlink redirection
 - Descriptive fields are write-once; status and auto-maintained relationship fields evolve through later commands
 - IDs are zero-padded and monotonic per object type: `intent-001`, `snap-001`, `decision-001`

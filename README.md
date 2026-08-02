@@ -69,19 +69,20 @@ flowchart LR
   D2 -- auto-attach --> Intent2
 ```
 
-## How to record
+## Record and resume
 
 Early versions used a **Snap–Query** model where the agent autonomously captured snapshots after each interaction. In self-use, that produced too many low-value records and interrupted the natural flow of work.
 
-Intent now uses an **Intent–Session** model: the agent works freely, and you decide when to record. Recording is retrospective, so it can focus on settled goals, milestones, and decisions instead of capturing every intermediate action. This is a product trade-off intended to keep recording lightweight; unrecorded work is not recovered automatically.
+Intent now uses an **Intent–Session** model: the agent works freely, and you explicitly decide when Intent should write. Recording focuses on verified goals, milestones, and decisions instead of every intermediate action. This is a product trade-off intended to keep recording lightweight; unrecorded work is not recovered automatically.
 
 1. Work with the agent on your goal
-2. When the goal is achieved, ask the agent to look back and build the semantic history
-3. The agent creates one intent (the goal) + snaps (milestones) + marks it done
+2. Explicitly ask the agent to record or update the work with Intent
+3. The agent inspects existing state, reuses a matching active or suspended Intent, and writes only new high-signal semantics
+4. If the goal remains open, its latest Snap is a self-contained checkpoint: verified state, current boundary, next step, and blockers or local constraints
 
-"Session" doesn't strictly mean a full conversation — it represents any purposeful interaction where you know what you set out to do. Like `git commit`, recording is user-initiated.
+Zero writes is a valid result when there is no new critical semantic information. A typical recording may contain `0–1` Intent, `1–3` Snaps, and `0` Decisions, but these are expectations rather than quotas. Like `git commit`, recording is user-initiated; generic requests to summarize, take notes, or report status do not authorize writes to `.intent/`.
 
-[MAARS](https://github.com/dozybot001/MAARS) uses this approach — each session's semantic history was recorded retrospectively.
+To resume, explicitly ask the agent to recover the project through Intent. It starts with `itt inspect`; if the latest checkpoint is not enough and `has_more` is true, it can narrowly read recent history with `itt inspect --intent ID --history 3`. Merely inspecting or explaining recovery state is read-only.
 
 ## What success means
 
@@ -92,7 +93,7 @@ Intent is designed around two goals, not established comparative claims:
 | Low-disruption recording | Recording takes little time and context, does not interrupt normal development, and avoids command-log noise. |
 | Useful continuation | A later session or another agent can recover the goal and its rationale, the latest meaningful milestone, and active long-lived decisions with less re-explanation. |
 
-Self-dogfooding shows that the workflow is usable end to end. It does not yet establish that Intent is more efficient or more effective than a well-written handoff, ordinary notes, or other context sources.
+Historical self-use shows that earlier workflows ran end to end, but it is not evidence for the current continuation contract. The current version is evaluated with natural continuation cases that distinguish facts supplied by Intent from facts later rediscovered in code or re-explained by the user. See the [dogfooding protocol](docs/EN/dogfooding.md).
 
 ## Quick Start
 
@@ -135,7 +136,7 @@ itt hub sync
 
 IntHub Local binds to `127.0.0.1` by default. Its current local API does not enforce bearer-token authentication and returns permissive CORS headers, so use it only on a trusted machine and do not expose it through a public interface or reverse proxy.
 
-> **Tips:** Type `/intent-cli` to load the recording guide, or simply say "record semantics" / "记录语义" if the agent already knows about Intent.
+> **Tips:** Be explicit: “Use Intent to record this work in `.intent/`” enters recording mode; “Resume this project through Intent” enters recovery mode. Ordinary summaries and status reports remain read-only.
 
 ## Showcase
 
@@ -149,6 +150,7 @@ Or run `itt hub start` locally.
 
 - [Vision](docs/EN/vision.md) — why semantic history matters
 - [Continuation Case](docs/EN/continuation-case.md) — a reproducible interruption-to-resumption walkthrough
+- [Dogfooding Protocol](docs/EN/dogfooding.md) — source-labelled validation on natural continuations
 - [CLI Design](docs/EN/cli.md) — object model, commands, JSON contract
 
 ## Community

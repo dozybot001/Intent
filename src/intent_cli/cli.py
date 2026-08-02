@@ -3,6 +3,13 @@
 import argparse
 import sys
 
+from intent_cli.output import error
+from intent_cli.store import (
+    InvalidObjectIdError,
+    StorageSecurityError,
+    StoredObjectIntegrityError,
+    UnsafeStoragePathError,
+)
 from intent_cli.commands.core import (
     cmd_decision_create,
     cmd_decision_deprecate,
@@ -18,6 +25,35 @@ from intent_cli.commands.core import (
     cmd_version,
 )
 from intent_cli.commands.hub import cmd_hub_link, cmd_hub_start, cmd_hub_sync
+
+
+def _invoke(command, args):
+    """Run one command and keep storage-safety failures in the JSON contract."""
+    try:
+        command(args)
+    except InvalidObjectIdError as exc:
+        error(
+            "INVALID_OBJECT_ID",
+            str(exc),
+            details={"object_type": exc.object_type, "id": exc.obj_id},
+        )
+    except UnsafeStoragePathError as exc:
+        error(
+            "UNSAFE_STORAGE",
+            str(exc),
+            details={"path": str(exc.path)},
+        )
+    except StoredObjectIntegrityError as exc:
+        error(
+            "STORAGE_INTEGRITY_ERROR",
+            str(exc),
+            details={"path": str(exc.path)},
+        )
+    except StorageSecurityError as exc:
+        error(
+            "STORAGE_SECURITY_ERROR",
+            str(exc),
+        )
 
 
 def _ensure_utf8_stdio():
@@ -41,7 +77,9 @@ def main():
     # version / init / inspect / doctor
     sub.add_parser("version")
     sub.add_parser("init")
-    sub.add_parser("inspect")
+    p = sub.add_parser("inspect")
+    p.add_argument("--intent", default=None, metavar="ID")
+    p.add_argument("--history", type=int, default=None, metavar="N")
     sub.add_parser("doctor")
 
     # --- hub ---
@@ -120,7 +158,7 @@ def main():
         "doctor": cmd_doctor,
     }
     if args.command in dispatch_global:
-        dispatch_global[args.command](args)
+        _invoke(dispatch_global[args.command], args)
         return
 
     if not getattr(args, "sub", None):
@@ -145,4 +183,4 @@ def main():
         ("decision", "create"):        cmd_decision_create,
         ("decision", "deprecate"):     cmd_decision_deprecate,
     }
-    dispatch[(args.command, args.sub)](args)
+    _invoke(dispatch[(args.command, args.sub)], args)

@@ -14,6 +14,7 @@ from intent_cli.store import (
     list_objects,
     next_id,
     read_object,
+    validate_object_id,
     validate_graph,
     write_object,
 )
@@ -47,32 +48,68 @@ def cmd_init(_args):
     success("init", {"path": str(path)}, warnings)
 
 
-def cmd_inspect(_args):
+def cmd_inspect(args):
     base = require_init()
+
+    if args.history is not None:
+        if args.intent is None:
+            error(
+                "INVALID_INPUT",
+                "--history requires --intent ID.",
+                suggested_fix="itt inspect --intent <id> --history <positive-number>",
+            )
+        if args.history < 1:
+            error(
+                "INVALID_INPUT",
+                "--history must be a positive integer.",
+                suggested_fix="Use a value of 1 or greater.",
+            )
+    if args.intent is not None:
+        validate_object_id("intent", args.intent)
 
     all_snaps = list_objects(base, "snap")
     snap_by_id = {snap["id"]: snap for snap in all_snaps}
 
+    intents = list_objects(base, "intent")
+    if args.intent is not None:
+        selected = next((obj for obj in intents if obj["id"] == args.intent), None)
+        if selected is None:
+            error("OBJECT_NOT_FOUND", f"Intent {args.intent} not found.")
+        if selected.get("status") not in {"active", "suspend"}:
+            error(
+                "INVALID_INPUT",
+                f"Intent {args.intent} is not open and cannot be resumed with inspect.",
+                details={"status": selected.get("status")},
+                suggested_fix="Use IntHub to browse completed or cancelled intent history.",
+            )
+        intents = [selected]
+
+    history_limit = args.history if args.history is not None else 1
+
     active_intents = []
     suspended = []
-    for obj in list_objects(base, "intent"):
-        latest_snap_id = obj["snap_ids"][-1] if obj.get("snap_ids") else None
+    for obj in intents:
+        snap_ids = obj.get("snap_ids") or []
+        latest_snap_id = snap_ids[-1] if snap_ids else None
         latest_snap = snap_by_id.get(latest_snap_id) if latest_snap_id else None
+        entry = {
+            "id": obj["id"],
+            "what": obj["what"],
+            "why": obj.get("why", ""),
+            "snap_count": len(snap_ids),
+            "has_more": len(snap_ids) > history_limit,
+            "latest_snap": latest_snap,
+        }
+        if args.history is not None:
+            entry["recent_snaps"] = [
+                snap_by_id.get(snap_id)
+                for snap_id in snap_ids[-history_limit:]
+            ]
         if obj["status"] == "active":
-            active_intents.append({
-                "id": obj["id"],
-                "what": obj["what"],
-                "why": obj.get("why", ""),
-                "latest_snap": latest_snap,
-            })
+            active_intents.append(entry)
         elif obj["status"] == "suspend":
-            suspended.append({
-                "id": obj["id"],
-                "what": obj["what"],
-                "why": obj.get("why", ""),
-                "latest_snap_id": latest_snap_id,
-                "latest_snap": latest_snap,
-            })
+            entry["latest_snap_id"] = latest_snap_id
+            suspended.append(entry)
 
     active_decisions = []
     for obj in list_objects(base, "decision", status="active"):
