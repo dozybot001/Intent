@@ -5,10 +5,6 @@ ARG INTHUB_VERSION=0.0.0
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-LABEL org.opencontainers.image.title="IntHub" \
-    org.opencontainers.image.source="https://github.com/dozybot001/Intent" \
-    org.opencontainers.image.version="${INTHUB_VERSION}"
-
 WORKDIR /app
 
 RUN groupadd --gid 10001 inthub \
@@ -21,6 +17,12 @@ COPY --chown=inthub:inthub . /app
 # The source tree runs directly from /app. Installing only the runtime driver
 # avoids an unnecessary PEP 517 build-isolation round trip in production.
 RUN python -m pip install --no-cache-dir "psycopg[binary]>=3.2,<4"
+
+# Keep revision-specific metadata after the dependency layer so a new release
+# can reuse the already downloaded PostgreSQL driver.
+LABEL org.opencontainers.image.title="IntHub" \
+    org.opencontainers.image.source="https://github.com/dozybot001/Intent" \
+    org.opencontainers.image.version="${INTHUB_VERSION}"
 
 USER 10001:10001
 
