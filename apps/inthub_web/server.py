@@ -15,6 +15,8 @@ def make_handler(api_base_url, default_project_id=None, static_dir=None):
     config = {
         "apiBaseUrl": api_base_url.rstrip("/"),
         "defaultProjectId": default_project_id,
+        "authRequired": False,
+        "authMode": "none",
     }
 
     class IntHubWebHandler(SimpleHTTPRequestHandler):

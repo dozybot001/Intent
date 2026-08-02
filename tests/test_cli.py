@@ -364,6 +364,8 @@ class TestHub:
     def test_read_only_web_shell_serves_config(self, inthub_web_server, inthub_server):
         config = _get_json(f"{inthub_web_server}/config.json")
         assert config["apiBaseUrl"] == inthub_server
+        assert config["authRequired"] is False
+        assert config["authMode"] == "none"
         html = urlopen(f"{inthub_web_server}/").read().decode("utf-8")
         assert "IntHub" in html
         assert 'id="sidebar-body"' in html

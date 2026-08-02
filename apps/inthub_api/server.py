@@ -13,6 +13,17 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from apps.inthub_api.auth import (
+    GitHubOAuthClient,
+    account_for_session,
+    consume_login_attempt,
+    create_login_attempt,
+    create_web_session,
+    delete_web_session,
+    github_user_allowed,
+    safe_return_to,
+    upsert_github_account,
+)
 from apps.inthub_api.common import APIError
 from apps.inthub_api.db import check_database, describe_database
 from apps.inthub_api.ingest import link_project, store_sync_batch
@@ -29,7 +40,10 @@ from apps.inthub_api.queries import (
 STATIC_DIR = Path(__file__).resolve().parents[1] / "inthub_web" / "static"
 DEFAULT_MAX_BODY_BYTES = 16 * 1024 * 1024
 SESSION_COOKIE = "inthub_session"
+OAUTH_STATE_COOKIE = "inthub_oauth_state"
 SESSION_TTL_SECONDS = 12 * 60 * 60
+ACCOUNT_SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
+OAUTH_STATE_TTL_SECONDS = 10 * 60
 LOGGER = logging.getLogger("inthub.api")
 
 
@@ -90,6 +104,14 @@ def _normalize_origins(allowed_origins):
     return {origin.strip().rstrip("/") for origin in allowed_origins if origin.strip()}
 
 
+def _normalize_csv(values):
+    if values is None:
+        return set()
+    if isinstance(values, str):
+        values = values.split(",")
+    return {str(value).strip() for value in values if str(value).strip()}
+
+
 def make_handler(
     db_path,
     serve_web=False,
@@ -102,16 +124,32 @@ def make_handler(
     allowed_origins=None,
     max_body_bytes=DEFAULT_MAX_BODY_BYTES,
     secure_cookies=False,
+    github_client_id=None,
+    github_client_secret=None,
+    github_allowed_user_ids=None,
+    oauth_client=None,
+    account_session_ttl_seconds=ACCOUNT_SESSION_TTL_SECONDS,
+    oauth_state_ttl_seconds=OAUTH_STATE_TTL_SECONDS,
 ):
     root = Path(web_static_dir or STATIC_DIR).resolve()
     token_digest = _normalize_token_digest(auth_token, auth_token_sha256)
-    auth_required = bool(require_auth or token_digest)
-    if auth_required and token_digest is None:
-        raise ValueError("Authentication is required but no IntHub API token is configured.")
+    github_configured = bool(github_client_id or github_client_secret)
+    if github_configured and not (github_client_id and github_client_secret):
+        raise ValueError("Both GitHub OAuth client ID and client secret are required.")
+    allowed_user_ids = _normalize_csv(github_allowed_user_ids)
+    if github_configured and not allowed_user_ids:
+        raise ValueError("GitHub OAuth requires at least one allowed numeric user ID.")
+    provider_client = oauth_client
+    if github_configured and provider_client is None:
+        provider_client = GitHubOAuthClient(github_client_id, github_client_secret)
+    auth_required = bool(require_auth or token_digest or github_configured)
+    if auth_required and token_digest is None and not github_configured:
+        raise ValueError("Authentication is required but no IntHub authentication is configured.")
+    auth_mode = "github" if github_configured else ("token" if token_digest else "none")
     origin_allowlist = _normalize_origins(allowed_origins)
 
     class IntHubHandler(BaseHTTPRequestHandler):
-        server_version = "IntHubAPI/0.2"
+        server_version = "IntHubAPI/0.3"
 
         def _send_json(self, status, payload, extra_headers=None):
             body = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
@@ -139,6 +177,14 @@ def make_handler(
             self.send_header("X-Frame-Options", "DENY")
             self.send_header("Referrer-Policy", "no-referrer")
             self.send_header(
+                "Content-Security-Policy",
+                "default-src 'self'; "
+                "img-src 'self' https://avatars.githubusercontent.com data:; "
+                "script-src 'self'; style-src 'self'; connect-src 'self'; "
+                "object-src 'none'; base-uri 'none'; frame-ancestors 'none'; "
+                "form-action 'self'",
+            )
+            self.send_header(
                 "Permissions-Policy",
                 "camera=(), microphone=(), geolocation=(), payment=()",
             )
@@ -149,7 +195,8 @@ def make_handler(
                 elif request_origin.rstrip("/") in origin_allowlist:
                     self.send_header("Access-Control-Allow-Origin", request_origin)
                     self.send_header("Vary", "Origin")
-            for name, value in (extra_headers or {}).items():
+            header_items = (extra_headers or {}).items() if hasattr(extra_headers or {}, "items") else extra_headers
+            for name, value in header_items:
                 self.send_header(name, value)
             self.end_headers()
             if self.command != "HEAD":
@@ -163,6 +210,20 @@ def make_handler(
             if not host:
                 host = f"{self.server.server_address[0]}:{self.server.server_address[1]}"
             return f"{proto}://{host}"
+
+        def _oauth_callback_url(self):
+            return f"{self._request_base_url()}/api/v1/auth/github/callback"
+
+        def _send_redirect(self, location, cookies=None):
+            headers = [("Location", location)]
+            headers.extend(("Set-Cookie", cookie) for cookie in (cookies or ()))
+            self._send_bytes(
+                302,
+                b"",
+                "text/plain; charset=utf-8",
+                extra_headers=headers,
+                cache_control="no-store",
+            )
 
         def _send_file(self, path):
             body = path.read_bytes()
@@ -186,6 +247,7 @@ def make_handler(
                         "apiBaseUrl": self._request_base_url(),
                         "defaultProjectId": default_project_id,
                         "authRequired": auth_required,
+                        "authMode": auth_mode,
                     },
                 )
                 return True
@@ -259,18 +321,29 @@ def make_handler(
             scheme, separator, token = header.partition(" ")
             return bool(separator and scheme.lower() == "bearer" and self._valid_token(token))
 
-        def _cookie_authorized(self):
-            if not token_digest:
-                return False
+        def _cookie_value(self, name):
             cookie = SimpleCookie()
             try:
                 cookie.load(self.headers.get("Cookie", ""))
             except Exception:
+                return None
+            morsel = cookie.get(name)
+            return morsel.value if morsel else None
+
+        def _current_account(self):
+            if not github_configured:
+                return None
+            return account_for_session(db_path, self._cookie_value(SESSION_COOKIE))
+
+        def _cookie_authorized(self):
+            if self._current_account() is not None:
+                return True
+            if not token_digest:
                 return False
-            morsel = cookie.get(SESSION_COOKIE)
-            if not morsel:
+            value = self._cookie_value(SESSION_COOKIE)
+            if not value:
                 return False
-            issued_raw, separator, signature = morsel.value.partition(".")
+            issued_raw, separator, signature = value.partition(".")
             if not separator:
                 return False
             try:
@@ -294,14 +367,26 @@ def make_handler(
                 status=401,
             )
 
-        def _session_cookie(self, value, max_age):
+        def _cookie_header(self, name, value, max_age, same_site="Lax", path="/"):
             cookie = (
-                f"{SESSION_COOKIE}={value}; Path=/; HttpOnly; SameSite=Strict; "
+                f"{name}={value}; Path={path}; HttpOnly; SameSite={same_site}; "
                 f"Max-Age={max_age}"
             )
             if secure_cookies:
                 cookie += "; Secure"
             return cookie
+
+        def _session_cookie(self, value, max_age):
+            return self._cookie_header(SESSION_COOKIE, value, max_age, same_site="Strict")
+
+        def _oauth_state_cookie(self, value, max_age):
+            return self._cookie_header(
+                OAUTH_STATE_COOKIE,
+                value,
+                max_age,
+                same_site="Lax",
+                path="/api/v1/auth/github",
+            )
 
         def _handle_login(self):
             payload = self._read_json_body()
@@ -316,10 +401,90 @@ def make_handler(
             )
 
         def _handle_logout(self):
+            delete_web_session(db_path, self._cookie_value(SESSION_COOKIE))
             self._send_json(
                 200,
                 _json_success({"authenticated": False}),
                 {"Set-Cookie": self._session_cookie("", 0)},
+            )
+
+        def _handle_auth_me(self):
+            if not auth_required:
+                self._send_json(
+                    200,
+                    _json_success({"authenticated": True, "account": None}),
+                )
+                return
+            account = self._current_account()
+            if account is None:
+                raise APIError("AUTH_REQUIRED", "Sign in to continue.", status=401)
+            self._send_json(
+                200,
+                _json_success({"authenticated": True, "account": account}),
+            )
+
+        def _handle_github_start(self, query):
+            if not github_configured:
+                raise APIError("AUTH_FLOW_UNAVAILABLE", "GitHub sign-in is not configured.", 404)
+            return_to = safe_return_to(query.get("return_to", ["/"])[0])
+            attempt = create_login_attempt(
+                db_path,
+                return_to=return_to,
+                ttl_seconds=oauth_state_ttl_seconds,
+            )
+            location = provider_client.authorization_url(
+                self._oauth_callback_url(),
+                attempt["state"],
+                attempt["code_challenge"],
+            )
+            self._send_redirect(
+                location,
+                [self._oauth_state_cookie(attempt["state"], oauth_state_ttl_seconds)],
+            )
+
+        def _handle_github_callback(self, query):
+            clear_state = self._oauth_state_cookie("", 0)
+            if query.get("error"):
+                self._send_redirect("/?auth_error=github_denied", [clear_state])
+                return
+
+            state = query.get("state", [""])[0]
+            cookie_state = self._cookie_value(OAUTH_STATE_COOKIE) or ""
+            if not state or not hmac.compare_digest(state, cookie_state):
+                self._send_redirect("/?auth_error=invalid_state", [clear_state])
+                return
+
+            try:
+                attempt = consume_login_attempt(db_path, state)
+                code = query.get("code", [""])[0]
+                if not code:
+                    raise APIError("OAUTH_CODE_MISSING", "GitHub did not return a sign-in code.", 400)
+                access_token = provider_client.exchange_code(
+                    code,
+                    self._oauth_callback_url(),
+                    attempt["code_verifier"],
+                )
+                user = provider_client.get_user(access_token)
+                if not github_user_allowed(user, allowed_user_ids):
+                    raise APIError("ACCOUNT_NOT_ALLOWED", "This GitHub account cannot access IntHub.", 403)
+                account = upsert_github_account(db_path, user)
+                session = create_web_session(
+                    db_path,
+                    account["id"],
+                    ttl_seconds=account_session_ttl_seconds,
+                )
+            except APIError as exc:
+                LOGGER.warning("GitHub sign-in failed: %s", exc.code)
+                code = "account_not_allowed" if exc.code == "ACCOUNT_NOT_ALLOWED" else "github_failed"
+                self._send_redirect(f"/?auth_error={code}", [clear_state])
+                return
+
+            self._send_redirect(
+                attempt["return_to"],
+                [
+                    self._session_cookie(session["token"], account_session_ttl_seconds),
+                    clear_state,
+                ],
             )
 
         def _handle_api_error(self, exc):
@@ -420,6 +585,14 @@ def make_handler(
         def do_GET(self):
             parsed = urlparse(self.path)
             try:
+                if parsed.path == "/api/v1/auth/github/start":
+                    self._handle_github_start(parse_qs(parsed.query))
+                    return
+
+                if parsed.path == "/api/v1/auth/github/callback":
+                    self._handle_github_callback(parse_qs(parsed.query))
+                    return
+
                 if parsed.path in {"/health", "/healthz"}:
                     self._send_json(
                         200,
@@ -433,6 +606,11 @@ def make_handler(
                         200,
                         _json_success({"service": "inthub-api", "status": "ready"}),
                     )
+                    return
+
+                if parsed.path == "/api/v1/auth/me":
+                    self._check_origin()
+                    self._handle_auth_me()
                     return
 
                 if parsed.path.startswith("/api/"):
@@ -495,6 +673,12 @@ def build_server(
     allowed_origins=None,
     max_body_bytes=DEFAULT_MAX_BODY_BYTES,
     secure_cookies=False,
+    github_client_id=None,
+    github_client_secret=None,
+    github_allowed_user_ids=None,
+    oauth_client=None,
+    account_session_ttl_seconds=ACCOUNT_SESSION_TTL_SECONDS,
+    oauth_state_ttl_seconds=OAUTH_STATE_TTL_SECONDS,
 ):
     check_database(db_path)
     return ThreadingHTTPServer(
@@ -511,6 +695,12 @@ def build_server(
             allowed_origins=allowed_origins,
             max_body_bytes=max_body_bytes,
             secure_cookies=secure_cookies,
+            github_client_id=github_client_id,
+            github_client_secret=github_client_secret,
+            github_allowed_user_ids=github_allowed_user_ids,
+            oauth_client=oauth_client,
+            account_session_ttl_seconds=account_session_ttl_seconds,
+            oauth_state_ttl_seconds=oauth_state_ttl_seconds,
         ),
     )
 
@@ -529,6 +719,12 @@ def run_server(
     allowed_origins=None,
     max_body_bytes=DEFAULT_MAX_BODY_BYTES,
     secure_cookies=False,
+    github_client_id=None,
+    github_client_secret=None,
+    github_allowed_user_ids=None,
+    oauth_client=None,
+    account_session_ttl_seconds=ACCOUNT_SESSION_TTL_SECONDS,
+    oauth_state_ttl_seconds=OAUTH_STATE_TTL_SECONDS,
 ):
     server = build_server(
         host,
@@ -544,6 +740,12 @@ def run_server(
         allowed_origins=allowed_origins,
         max_body_bytes=max_body_bytes,
         secure_cookies=secure_cookies,
+        github_client_id=github_client_id,
+        github_client_secret=github_client_secret,
+        github_allowed_user_ids=github_allowed_user_ids,
+        oauth_client=oauth_client,
+        account_session_ttl_seconds=account_session_ttl_seconds,
+        oauth_state_ttl_seconds=oauth_state_ttl_seconds,
     )
     web_status = " + Web" if serve_web else ""
     print(
@@ -582,6 +784,9 @@ def main():
     auth_token = _env_or_file("INTHUB_API_TOKEN")
     auth_token_sha256 = _env_or_file("INTHUB_API_TOKEN_SHA256")
     auth_configured = bool(auth_token or auth_token_sha256)
+    github_client_id = _env_or_file("INTHUB_GITHUB_CLIENT_ID")
+    github_client_secret = _env_or_file("INTHUB_GITHUB_CLIENT_SECRET")
+    github_configured = bool(github_client_id or github_client_secret)
     allowed_origins = os.getenv("INTHUB_ALLOWED_ORIGINS")
     run_server(
         args.host,
@@ -591,12 +796,18 @@ def main():
         public_api_base_url=args.public_api_base_url,
         default_project_id=args.default_project_id,
         web_static_dir=args.web_static_dir,
-        require_auth=_env_flag("INTHUB_REQUIRE_AUTH", auth_configured),
+        require_auth=_env_flag("INTHUB_REQUIRE_AUTH", auth_configured or github_configured),
         auth_token=auth_token,
         auth_token_sha256=auth_token_sha256,
         allowed_origins=allowed_origins,
         max_body_bytes=int(os.getenv("INTHUB_MAX_BODY_BYTES", str(DEFAULT_MAX_BODY_BYTES))),
         secure_cookies=_env_flag("INTHUB_SECURE_COOKIES", False),
+        github_client_id=github_client_id,
+        github_client_secret=github_client_secret,
+        github_allowed_user_ids=os.getenv("INTHUB_GITHUB_ALLOWED_USER_IDS"),
+        account_session_ttl_seconds=int(
+            os.getenv("INTHUB_SESSION_TTL_SECONDS", str(ACCOUNT_SESSION_TTL_SECONDS))
+        ),
     )
 
 

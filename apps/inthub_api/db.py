@@ -179,6 +179,45 @@ def _create_sqlite_schema(conn):
 
     conn.raw.executescript(
         """
+        CREATE TABLE IF NOT EXISTS accounts (
+            id TEXT PRIMARY KEY,
+            provider TEXT NOT NULL,
+            provider_user_id TEXT NOT NULL,
+            login TEXT NOT NULL,
+            display_name TEXT,
+            avatar_url TEXT,
+            role TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            last_login_at TEXT NOT NULL,
+            UNIQUE (provider, provider_user_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS oauth_login_attempts (
+            state_hash TEXT PRIMARY KEY,
+            code_verifier TEXT NOT NULL,
+            return_to TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS web_sessions (
+            id TEXT PRIMARY KEY,
+            token_hash TEXT NOT NULL UNIQUE,
+            account_id TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            last_seen_at TEXT NOT NULL,
+            FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_web_sessions_account
+            ON web_sessions(account_id);
+        CREATE INDEX IF NOT EXISTS idx_web_sessions_expires
+            ON web_sessions(expires_at);
+        CREATE INDEX IF NOT EXISTS idx_oauth_login_attempts_expires
+            ON oauth_login_attempts(expires_at);
+
         CREATE INDEX IF NOT EXISTS idx_workspaces_project
             ON workspaces(project_id);
         CREATE INDEX IF NOT EXISTS idx_sync_batches_project_workspace_sequence
@@ -222,6 +261,52 @@ def _create_postgresql_schema(conn):
             accepted_at TEXT NOT NULL,
             payload_json TEXT NOT NULL
         )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS accounts (
+            id TEXT PRIMARY KEY,
+            provider TEXT NOT NULL,
+            provider_user_id TEXT NOT NULL,
+            login TEXT NOT NULL,
+            display_name TEXT,
+            avatar_url TEXT,
+            role TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            last_login_at TEXT NOT NULL,
+            UNIQUE (provider, provider_user_id)
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS oauth_login_attempts (
+            state_hash TEXT PRIMARY KEY,
+            code_verifier TEXT NOT NULL,
+            return_to TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS web_sessions (
+            id TEXT PRIMARY KEY,
+            token_hash TEXT NOT NULL UNIQUE,
+            account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            last_seen_at TEXT NOT NULL
+        )
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_web_sessions_account
+            ON web_sessions(account_id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_web_sessions_expires
+            ON web_sessions(expires_at)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_oauth_login_attempts_expires
+            ON oauth_login_attempts(expires_at)
         """,
         """
         CREATE INDEX IF NOT EXISTS idx_workspaces_project

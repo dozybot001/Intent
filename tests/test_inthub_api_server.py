@@ -1,10 +1,55 @@
 import json
 import threading
+from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from apps.inthub_api.server import make_handler
+
+
+class FakeGitHubOAuthClient:
+    def __init__(self, user=None):
+        self.user = user or {
+            "id": 4242,
+            "login": "dozy",
+            "name": "Dozy",
+            "avatar_url": "https://avatars.example/dozy.png",
+        }
+        self.exchange = None
+
+    def authorization_url(self, redirect_uri, state, code_challenge):
+        query = parse_qs(
+            f"redirect_uri={redirect_uri}&state={state}&code_challenge={code_challenge}"
+        )
+        assert query["redirect_uri"] == [redirect_uri]
+        return (
+            "https://github.example/authorize"
+            f"?state={state}&code_challenge={code_challenge}"
+        )
+
+    def exchange_code(self, code, redirect_uri, code_verifier):
+        self.exchange = {
+            "code": code,
+            "redirect_uri": redirect_uri,
+            "code_verifier": code_verifier,
+        }
+        return "github-token-used-once"
+
+    def get_user(self, access_token):
+        assert access_token == "github-token-used-once"
+        return self.user
+
+
+def _raw_request(server, path, method="GET", headers=None, body=None):
+    connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+    connection.request(method, path, body=body, headers=headers or {})
+    response = connection.getresponse()
+    payload = response.read()
+    result = response.status, response.getheaders(), payload
+    connection.close()
+    return result
 
 
 def _get_json(url):
@@ -152,6 +197,112 @@ def test_private_api_uses_bearer_for_writes_and_http_only_cookie_for_web_reads(t
         )
         assert status == 200
         assert body["result"]["project_id"].startswith("proj_")
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+def test_github_account_login_uses_pkce_database_session_and_logout(tmp_path):
+    oauth = FakeGitHubOAuthClient()
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0),
+        make_handler(
+            str(tmp_path / "inthub.db"),
+            serve_web=True,
+            public_api_base_url="https://inthub.example",
+            auth_token="cli-write-token",
+            github_client_id="github-client-id",
+            github_client_secret="github-client-secret",
+            github_allowed_user_ids="4242",
+            oauth_client=oauth,
+            secure_cookies=True,
+        ),
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = f"http://127.0.0.1:{server.server_port}"
+        config = _get_json(f"{base}/config.json")
+        assert config["authMode"] == "github"
+
+        status, root_headers, _ = _raw_request(server, "/")
+        assert status == 200
+        assert "default-src 'self'" in dict(root_headers)["Content-Security-Policy"]
+
+        status, headers, _ = _raw_request(
+            server,
+            "/api/v1/auth/github/start?return_to=%2Fprojects%2Fdemo%3Ftab%3Dsnaps",
+        )
+        assert status == 302
+        header_map = dict(headers)
+        authorize = header_map["Location"]
+        state = parse_qs(urlparse(authorize).query)["state"][0]
+        state_cookie = header_map["Set-Cookie"].split(";", 1)[0]
+        assert "HttpOnly" in header_map["Set-Cookie"]
+        assert "Secure" in header_map["Set-Cookie"]
+
+        status, callback_headers, _ = _raw_request(
+            server,
+            f"/api/v1/auth/github/callback?code=temporary-code&state={state}",
+            headers={"Cookie": state_cookie},
+        )
+        assert status == 302
+        assert dict(callback_headers)["Location"] == "/projects/demo?tab=snaps"
+        cookies = [value for name, value in callback_headers if name == "Set-Cookie"]
+        session_cookie = next(value.split(";", 1)[0] for value in cookies if "ith_ses_" in value)
+        assert "SameSite=Strict" in next(value for value in cookies if "ith_ses_" in value)
+        assert oauth.exchange["code"] == "temporary-code"
+        assert oauth.exchange["redirect_uri"] == (
+            "https://inthub.example/api/v1/auth/github/callback"
+        )
+        assert oauth.exchange["code_verifier"]
+
+        status, _, body = _request_json(
+            f"{base}/api/v1/auth/me",
+            headers={"Cookie": session_cookie},
+        )
+        assert status == 200
+        assert body["result"]["account"]["login"] == "dozy"
+        assert body["result"]["account"]["role"] == "owner"
+
+        status, _, body = _request_json(
+            f"{base}/api/v1/projects",
+            headers={"Cookie": session_cookie},
+        )
+        assert status == 200
+        assert body["result"]["projects"] == []
+
+        status, _, body = _request_json(
+            f"{base}/api/v1/hub/link",
+            method="POST",
+            payload={
+                "project_name": "Must stay read-only",
+                "repo": {
+                    "provider": "github",
+                    "repo_id": "example/read-only",
+                    "owner": "example",
+                    "name": "read-only",
+                },
+                "workspace": {"workspace_id": "wks_read_only"},
+            },
+            headers={"Cookie": session_cookie},
+        )
+        assert status == 401
+        assert body["error"]["code"] == "AUTH_REQUIRED"
+
+        status, _, _ = _request_json(
+            f"{base}/api/v1/auth/logout",
+            method="POST",
+            headers={"Cookie": session_cookie},
+        )
+        assert status == 200
+        status, _, body = _request_json(
+            f"{base}/api/v1/auth/me",
+            headers={"Cookie": session_cookie},
+        )
+        assert status == 401
+        assert body["error"]["code"] == "AUTH_REQUIRED"
     finally:
         server.shutdown()
         thread.join()

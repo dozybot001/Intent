@@ -2,6 +2,7 @@ import os
 
 import pytest
 
+from apps.inthub_api.auth import account_for_session, create_web_session, upsert_github_account
 from apps.inthub_api.ingest import link_project, store_sync_batch
 from apps.inthub_api.queries import list_projects, project_overview
 
@@ -52,3 +53,21 @@ def test_postgresql_link_sync_and_read_round_trip():
     assert overview["active_intents"][0]["what"] == "Verify PostgreSQL"
     projects = list_projects(POSTGRES_URL)["projects"]
     assert any(project["id"] == linked["project_id"] for project in projects)
+
+
+@pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")
+def test_postgresql_account_and_session_round_trip():
+    suffix = os.urandom(6).hex()
+    account = upsert_github_account(
+        POSTGRES_URL,
+        {
+            "id": f"integration-{suffix}",
+            "login": f"integration-{suffix}",
+            "name": "Integration Account",
+        },
+    )
+    session = create_web_session(POSTGRES_URL, account["id"], ttl_seconds=60)
+
+    recovered = account_for_session(POSTGRES_URL, session["token"])
+    assert recovered["id"] == account["id"]
+    assert recovered["login"] == f"integration-{suffix}"

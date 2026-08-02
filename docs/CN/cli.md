@@ -294,7 +294,7 @@ stateDiagram-v2
 - `itt init` 会将 `.intent/` 加入当前克隆的 `.git/info/exclude`，不修改团队共享的 `.gitignore`；本地忽略规则写入失败时会返回 warning
 - 当前 CLI 接受 `--token` 或 `INTHUB_TOKEN` 但不会持久化；旧 `hub.json` 仍可能含有明文 `auth_token`，提交或共享目录前应将其清除
 - IntHub Local 默认绑定 `127.0.0.1`，但当前 API 不强制校验 Bearer Token，且使用宽松 CORS；不要将它暴露到局域网或公网
-- IntHub 生产配置要求 Bearer Token，浏览器令牌只换取有时限的只读 HttpOnly 会话；生产数据库使用 PostgreSQL，详见 [IntHub 生产部署](inthub-production.md)
+- IntHub 生产配置使用 GitHub 账户登录和有时限的只读 HttpOnly Web 会话；CLI 写入仍要求 Bearer Token，生产数据库使用 PostgreSQL，详见 [IntHub 生产部署](inthub-production.md)
 - 对象和 Hub 配置通过原子替换写入，对象变更命令使用工作区级跨进程写锁；这会串行化 Intent CLI 写入，但不会把 `.intent/` 变成多用户数据库
 - 对象 ID 在路径 I/O 前校验，对象路径必须留在对应类型目录内，`.intent/` 对象存储拒绝符号链接重定向
 - 描述性字段写一次；状态与自动维护的关系字段会随着后续命令推进

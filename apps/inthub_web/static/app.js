@@ -11,6 +11,7 @@ const state = {
   searchQuery: "",
   overview: null,
   authenticated: false,
+  account: null,
 };
 
 const el = {
@@ -36,11 +37,17 @@ const el = {
   drawerClose: document.getElementById("drawer-close"),
   drawerContent: document.getElementById("drawer-content"),
   logoutBtn: document.getElementById("logout-btn"),
+  accountControl: document.getElementById("account-control"),
+  accountAvatar: document.getElementById("account-avatar"),
+  accountLabel: document.getElementById("account-label"),
   authGate: document.getElementById("auth-gate"),
   authForm: document.getElementById("auth-form"),
   authToken: document.getElementById("auth-token"),
   authSubmit: document.getElementById("auth-submit"),
   authError: document.getElementById("auth-error"),
+  authDescription: document.getElementById("auth-description"),
+  authFootnote: document.getElementById("auth-footnote"),
+  githubLogin: document.getElementById("github-login"),
 };
 
 /* ---- Helpers ---- */
@@ -146,17 +153,45 @@ function showAuthGate(message = "") {
   state.authenticated = false;
   el.shell.classList.add("is-locked");
   el.authGate.classList.remove("is-hidden");
-  el.logoutBtn.classList.add("is-hidden");
+  el.accountControl.classList.add("is-hidden");
   el.authError.textContent = message;
   el.authError.classList.toggle("is-hidden", !message);
-  window.setTimeout(() => el.authToken.focus(), 0);
+  const usesGitHub = state.config?.authMode === "github";
+  el.githubLogin.classList.toggle("is-hidden", !usesGitHub);
+  el.authForm.classList.toggle("is-hidden", usesGitHub);
+  if (usesGitHub) {
+    const returnTo = `${window.location.pathname}${window.location.search}`;
+    el.githubLogin.href = `/api/v1/auth/github/start?return_to=${encodeURIComponent(returnTo)}`;
+    el.authDescription.textContent =
+      "Sign in with your GitHub identity to open this private semantic history.";
+    el.authFootnote.textContent =
+      "GitHub confirms your identity. IntHub stores its own revocable browser session and never stores your GitHub token.";
+  } else {
+    el.authDescription.textContent =
+      "Enter this deployment's access token to open a temporary, read-only browser session.";
+    el.authFootnote.textContent =
+      "The token is exchanged for an HttpOnly session cookie and is not stored in this page.";
+  }
+  window.setTimeout(() => (usesGitHub ? el.githubLogin : el.authToken).focus(), 0);
 }
 
 function hideAuthGate() {
   state.authenticated = true;
   el.shell.classList.remove("is-locked");
   el.authGate.classList.add("is-hidden");
-  el.logoutBtn.classList.toggle("is-hidden", !state.config?.authRequired);
+  el.accountControl.classList.toggle("is-hidden", !state.config?.authRequired);
+  const account = state.account;
+  el.accountLabel.textContent = account
+    ? account.display_name || `@${account.login}`
+    : "Private session";
+  el.accountAvatar.classList.toggle("is-hidden", !account?.avatar_url);
+  if (account?.avatar_url) {
+    el.accountAvatar.src = account.avatar_url;
+    el.accountAvatar.alt = account.login ? `${account.login}'s avatar` : "Account avatar";
+  } else {
+    el.accountAvatar.removeAttribute("src");
+    el.accountAvatar.alt = "";
+  }
   el.authError.textContent = "";
   el.authError.classList.add("is-hidden");
   el.authToken.value = "";
@@ -179,6 +214,32 @@ async function unlock(token) {
   }
   hideAuthGate();
   await loadProjects();
+}
+
+async function loadCurrentAccount() {
+  if (state.config?.authMode !== "github") return;
+  const result = await fetchJson(apiUrl("/api/v1/auth/me"));
+  state.account = result.account;
+}
+
+function callbackErrorMessage() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("auth_error");
+  if (!code) return "";
+  params.delete("auth_error");
+  const query = params.toString();
+  window.history.replaceState(
+    {},
+    "",
+    `${window.location.pathname}${query ? `?${query}` : ""}`,
+  );
+  const messages = {
+    github_denied: "GitHub sign-in was cancelled.",
+    invalid_state: "That sign-in attempt expired. Please try again.",
+    account_not_allowed: "This GitHub account does not have access to this IntHub.",
+    github_failed: "GitHub sign-in could not be completed. Please try again.",
+  };
+  return messages[code] || "Sign-in could not be completed.";
 }
 
 /* ---- URL state ---- */
@@ -983,6 +1044,7 @@ function bindEvents() {
     } catch {}
     state.projects = [];
     state.overview = null;
+    state.account = null;
     showAuthGate();
   });
 
@@ -1057,8 +1119,10 @@ function bindEvents() {
 /* ---- Init ---- */
 
 async function init() {
+  let authError = "";
   try {
     state.config = await fetch("/config.json").then((r) => r.json());
+    authError = callbackErrorMessage();
     const route = readRoute();
     el.apiChip.textContent = state.config.apiBaseUrl;
 
@@ -1076,11 +1140,12 @@ async function init() {
     }
 
     bindEvents();
+    await loadCurrentAccount();
     await loadProjects();
     hideAuthGate();
   } catch (err) {
     if (err.status === 401 && state.config?.authRequired) {
-      showAuthGate();
+      showAuthGate(authError);
       return;
     }
     setStatus(err.message, true);
