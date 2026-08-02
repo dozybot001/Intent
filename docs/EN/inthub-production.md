@@ -2,15 +2,23 @@
 
 [中文](../CN/inthub-production.md) | [English](inthub-production.md)
 
-The production profile is a private semantic-history viewer. The browser signs in through GitHub OAuth, IntHub creates a revocable account session in PostgreSQL, and an HttpOnly, SameSite=Strict cookie reads the API. The GitHub access token is used only for that identity check and is never persisted. Mutations such as `itt hub link` and `itt hub sync` continue to use a separate deployment-level Bearer token.
+IntHub production has one account path: a user's first GitHub authorization creates an IntHub account, later browser access uses a database-backed Web session, and the CLI uses an access token issued by that account. Projects, workspace views, and sync history are account-scoped. There is no deployment-wide access token.
 
-This is the single-owner phase of the account system, not full multi-tenancy. Production should allow one stable numeric GitHub user ID, and every project remains in the deployment's shared data domain. The database now has accounts, OAuth login attempts, and Web sessions; project ownership, account PATs, and account-scoped queries remain future work.
+The GitHub App and IntHub accounts are separate boundaries:
 
-## Database choice
+- The GitHub App is OAuth infrastructure owned and configured once by the platform operator.
+- Owning the GitHub App does not make that identity the only IntHub user.
+- Regular GitHub users neither create nor own the App; their first sign-in creates their own IntHub account.
 
-Production uses PostgreSQL while local `itt hub start` keeps SQLite. Current single-user traffic does not require PostgreSQL; it is selected for concurrent writes, backup and recovery, connection handling, and a cleaner future migration to accounts. Both backends use the same query layer and an explicit `sequence_id`, and CI exercises both.
+## Data and authentication model
 
-PostgreSQL is not a tenant model by itself. Multi-account support still requires project ownership, account-scoped uniqueness and queries, account access tokens, authorization policy, quotas, and a data migration. The current GitHub allowlist establishes browser identity only and must not be described as project-level authorization.
+- Browser: GitHub OAuth with PKCE and one-time state. The GitHub access token is used only for the identity request and is never persisted.
+- Web session: random HttpOnly, SameSite=Strict cookie; only its hash is stored.
+- CLI: an account issues an `ith_pat_...` token. Only its hash, label, expiry, last-used time, and revocation state are stored.
+- Writes: `itt hub link` and `itt hub sync` accept only account tokens. Browser sessions remain read-only except for managing the current account's tokens.
+- Data: every production project has an `account_id`; lists, details, search, and sync writes apply the same account boundary. Different IntHub accounts may link their own copy of the same GitHub repository.
+
+Production uses PostgreSQL. Local `itt hub start` remains an unauthenticated SQLite process bound only to loopback. PostgreSQL supplies a durable boundary for concurrent writes, backup and recovery, and future team collaboration, but it does not replace application authorization.
 
 ## Topology
 
@@ -23,20 +31,32 @@ Internet
 ```
 
 - Use the independent Compose project `inthub`, its own network, and its own data volume.
-- Publish only Caddy on host ports 80/443. Bind the app to loopback and do not publish PostgreSQL.
-- Keep production configuration at `/opt/inthub/shared/inthub.env` with mode `0600`.
-- Keep releases at `/opt/inthub/releases/<git-sha>` and point `/opt/inthub/current` at the active release.
+- Publish only Caddy on 80/443. Bind the app to loopback and do not publish PostgreSQL.
+- Keep `/opt/inthub/shared/inthub.env` at mode `0600`.
+- Store releases at `/opt/inthub/releases/<git-sha>` and point `/opt/inthub/current` at the active release.
 - Never reuse another service's containers, database, credentials, directories, or Caddy site file.
 
-## Configuration and release
+## First deployment and GitHub App configuration
 
-Create production configuration from [inthub.env.example](../../deploy/inthub/inthub.env.example). Give the deployment access token only to the CLI and configure its SHA-256 digest on the server. Generate the token and PostgreSQL password with a cryptographically secure source and keep them out of Git, shell history, chat, and logs.
+Manually register one public GitHub App in GitHub Developer settings. This is a platform deployment action performed once:
 
-Register a private GitHub App with `https://inthub.example.com` as its Homepage URL and `https://inthub.example.com/api/v1/auth/github/callback` as its user authorization callback URL. Disable webhooks and grant no repository or account permissions; IntHub reads only the public account identity needed to sign in. Put the Client ID, Client Secret, and the allowed account's numeric GitHub user ID in the mode-`0600` production env file; do not rely on a renameable login as the long-term authorization boundary.
+- Homepage URL: `https://inthub.example.com`
+- User authorization callback URL: `https://inthub.example.com/api/v1/auth/github/callback`
+- Webhook: disabled
+- Repository permissions: none
+- Organization / account permissions: none
+- `Where can this GitHub App be installed?`: `Any account` (public); this does not grant the App access to users' repositories
 
-The authorization flow uses one-time state and PKCE. After sign-in, only the hash of IntHub's own random session is stored. Sessions last seven days by default and are deleted from the database on logout.
+After generating a Client Secret, write the Client ID and Client Secret directly to `/opt/inthub/shared/inthub.env` on the server and keep the file at mode `0600`. Do not send the secret through chat, commit it, or print it in logs:
 
-Start or upgrade the release with:
+```text
+INTHUB_GITHUB_CLIENT_ID=<GitHub App Client ID>
+INTHUB_GITHUB_CLIENT_SECRET=<GitHub App Client Secret>
+```
+
+Complete the remaining configuration from [inthub.env.example](../../deploy/inthub/inthub.env.example). Use a URL-safe random PostgreSQL password.
+
+Start the release:
 
 ```bash
 sudo docker compose \
@@ -46,32 +66,65 @@ sudo docker compose \
   up --detach --build --remove-orphans
 ```
 
-Install only `/etc/caddy/sites-enabled/inthub.caddy`, then validate the shared root configuration before reload:
+After startup, the homepage exposes only normal `Continue with GitHub`. Any GitHub user's first authorization creates an ordinary `member` account; owning the GitHub App grants no additional data access.
+
+## Account token and sync
+
+After signing in, select `CLI token` in the account area. IntHub creates a 90-day account token and shows it once:
+
+```bash
+export INTHUB_TOKEN='<ith_pat_...>'
+itt hub link --api-base-url https://inthub.example.com
+itt hub sync --dry-run
+itt hub sync
+```
+
+`--token` can supply a token to one CLI command. The CLI never persists it to `.intent/hub.json`. HTTP sends it as `Authorization: Bearer <token>`; Bearer is the transport scheme, while the authorization principal remains the specific IntHub account.
+
+## Verification
+
+```bash
+curl --fail --silent --show-error https://inthub.example.com/healthz
+curl --fail --silent --show-error https://inthub.example.com/readyz
+
+# Unauthenticated reads must return 401.
+curl --silent --output /dev/null --write-out '%{http_code}\n' \
+  https://inthub.example.com/api/v1/projects
+
+# An account token returns only that account's projects.
+curl --fail --silent --show-error \
+  -H "Authorization: Bearer $INTHUB_TOKEN" \
+  https://inthub.example.com/api/v1/projects
+```
+
+`/health` and `/healthz` report liveness only; `/readyz` also checks PostgreSQL. None returns a database address, version, credential, or project data. After OAuth, `GET /api/v1/auth/me` returns the current account. After logout, the old cookie must receive `401`.
+
+Install only `/etc/caddy/sites-enabled/inthub.caddy`, validate from the shared root configuration, and then reload:
 
 ```bash
 sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 sudo systemctl reload caddy
 ```
 
-Never replace `/etc/caddy/Caddyfile` or another service's site file.
+## Backup, release, and rollback
 
-## Verification and sync
+Before every release, preserve both:
 
-`/health` and `/healthz` report liveness only. `/readyz` also checks PostgreSQL. None returns a database address, version, credential, or project data. An unauthenticated `/api/v1/projects` request must return `401`; an authenticated CLI request uses `Authorization: Bearer <token>`. The browser must show `Continue with GitHub`, and the GitHub login endpoint must redirect to `github.com`.
+- a self-contained PostgreSQL `pg_dump --format=custom`;
+- `/opt/inthub/shared/inthub.env` at mode `0600`.
+
+The account model is the only supported data model. There is no compatibility migration from the preview deployment-wide-token database. Back up such a deployment, create the current empty schema, let users register through GitHub, and resync with their account tokens.
+
+Application rollback does not roll back data. Point `/opt/inthub/current` to a retained release, update the release variables, and rerun `compose up`. A release with an incompatible schema change requires its matching database restore; switching code alone is insufficient.
+
+Use bounded diagnostics:
 
 ```bash
-export INTHUB_TOKEN='<access token>'
-itt hub link --api-base-url https://inthub.example.com
-itt hub sync --dry-run
-itt hub sync
+sudo docker compose --project-name inthub \
+  --env-file /opt/inthub/shared/inthub.env \
+  --file /opt/inthub/current/deploy/inthub/compose.yaml ps
+sudo docker logs --tail 200 inthub-app
+sudo docker logs --tail 200 inthub-postgres
 ```
 
-The CLI does not persist the token in `.intent/hub.json`.
-
-## Backup and rollback
-
-Use `pg_dump --format=custom` from the `database` service and store backups outside the Docker volume under `/opt/inthub/backups`. Before restore, stop the app, preserve the current database, and use a maintenance window; never overwrite the database without inspecting the restore target.
-
-An application rollback does not roll back data. Point `/opt/inthub/current` to a retained release, update `INTHUB_RELEASE` and `INTHUB_PACKAGE_VERSION`, and rerun the same Compose command. A release with a backward-incompatible data migration needs its matching database recovery procedure.
-
-Use `docker compose ... ps` and bounded `docker logs --tail 200` for diagnostics. Logs and diagnostic output must never include the access token or PostgreSQL password.
+Logs and diagnostics must never contain account tokens, the GitHub Client Secret, or the PostgreSQL password.

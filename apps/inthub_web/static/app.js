@@ -37,17 +37,19 @@ const el = {
   drawerClose: document.getElementById("drawer-close"),
   drawerContent: document.getElementById("drawer-content"),
   logoutBtn: document.getElementById("logout-btn"),
+  tokenBtn: document.getElementById("token-btn"),
+  tokenDialog: document.getElementById("token-dialog"),
+  tokenOutput: document.getElementById("token-output"),
+  tokenCopy: document.getElementById("token-copy"),
   accountControl: document.getElementById("account-control"),
   accountAvatar: document.getElementById("account-avatar"),
   accountLabel: document.getElementById("account-label"),
   authGate: document.getElementById("auth-gate"),
-  authForm: document.getElementById("auth-form"),
-  authToken: document.getElementById("auth-token"),
-  authSubmit: document.getElementById("auth-submit"),
   authError: document.getElementById("auth-error"),
   authDescription: document.getElementById("auth-description"),
   authFootnote: document.getElementById("auth-footnote"),
   githubLogin: document.getElementById("github-login"),
+  githubLoginLabel: document.getElementById("github-login-label"),
 };
 
 /* ---- Helpers ---- */
@@ -156,23 +158,15 @@ function showAuthGate(message = "") {
   el.accountControl.classList.add("is-hidden");
   el.authError.textContent = message;
   el.authError.classList.toggle("is-hidden", !message);
-  const usesGitHub = state.config?.authMode === "github";
-  el.githubLogin.classList.toggle("is-hidden", !usesGitHub);
-  el.authForm.classList.toggle("is-hidden", usesGitHub);
-  if (usesGitHub) {
-    const returnTo = `${window.location.pathname}${window.location.search}`;
-    el.githubLogin.href = `/api/v1/auth/github/start?return_to=${encodeURIComponent(returnTo)}`;
-    el.authDescription.textContent =
-      "Sign in with your GitHub identity to open this private semantic history.";
-    el.authFootnote.textContent =
-      "GitHub confirms your identity. IntHub stores its own revocable browser session and never stores your GitHub token.";
-  } else {
-    el.authDescription.textContent =
-      "Enter this deployment's access token to open a temporary, read-only browser session.";
-    el.authFootnote.textContent =
-      "The token is exchanged for an HttpOnly session cookie and is not stored in this page.";
-  }
-  window.setTimeout(() => (usesGitHub ? el.githubLogin : el.authToken).focus(), 0);
+  el.githubLogin.classList.remove("is-hidden");
+  const returnTo = `${window.location.pathname}${window.location.search}`;
+  el.githubLogin.href = `/api/v1/auth/github/start?return_to=${encodeURIComponent(returnTo)}`;
+  el.githubLoginLabel.textContent = "Continue with GitHub";
+  el.authDescription.textContent =
+    "Sign in or create your IntHub account with your GitHub identity.";
+  el.authFootnote.textContent =
+    "GitHub confirms your identity. IntHub stores its own revocable browser session and never stores your GitHub token.";
+  window.setTimeout(() => el.githubLogin.focus(), 0);
 }
 
 function hideAuthGate() {
@@ -194,26 +188,6 @@ function hideAuthGate() {
   }
   el.authError.textContent = "";
   el.authError.classList.add("is-hidden");
-  el.authToken.value = "";
-}
-
-async function unlock(token) {
-  const response = await fetch(apiUrl("/api/v1/auth/session"), {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token }),
-  });
-  const payload = await response.json();
-  if (!response.ok || payload.ok === false) {
-    throw new ApiRequestError(
-      payload?.error?.message || "Could not unlock IntHub.",
-      response.status,
-      payload?.error?.code,
-    );
-  }
-  hideAuthGate();
-  await loadProjects();
 }
 
 async function loadCurrentAccount() {
@@ -236,7 +210,6 @@ function callbackErrorMessage() {
   const messages = {
     github_denied: "GitHub sign-in was cancelled.",
     invalid_state: "That sign-in attempt expired. Please try again.",
-    account_not_allowed: "This GitHub account does not have access to this IntHub.",
     github_failed: "GitHub sign-in could not be completed. Please try again.",
   };
   return messages[code] || "Sign-in could not be completed.";
@@ -1023,19 +996,36 @@ async function loadProjects() {
 /* ---- Events ---- */
 
 function bindEvents() {
-  el.authForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    el.authSubmit.disabled = true;
-    el.authSubmit.textContent = "Unlocking…";
+  el.tokenBtn.addEventListener("click", async () => {
+    el.tokenBtn.disabled = true;
     try {
-      await unlock(el.authToken.value);
+      const issued = await fetchJson(apiUrl("/api/v1/auth/tokens"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "CLI token", ttl_seconds: 7776000 }),
+      });
+      el.tokenOutput.value = issued.token;
+      el.tokenDialog.showModal();
+      el.tokenOutput.select();
     } catch (err) {
-      showAuthGate(err.message);
-      el.authToken.select();
+      setStatus(err.message, true);
     } finally {
-      el.authSubmit.disabled = false;
-      el.authSubmit.textContent = "Unlock IntHub";
+      el.tokenBtn.disabled = false;
     }
+  });
+
+  el.tokenCopy.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(el.tokenOutput.value);
+      el.tokenCopy.textContent = "Copied";
+    } catch {
+      el.tokenOutput.select();
+    }
+  });
+
+  el.tokenDialog.addEventListener("close", () => {
+    el.tokenOutput.value = "";
+    el.tokenCopy.textContent = "Copy token";
   });
 
   el.logoutBtn.addEventListener("click", async () => {

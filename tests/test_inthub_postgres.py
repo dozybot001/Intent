@@ -2,7 +2,13 @@ import os
 
 import pytest
 
-from apps.inthub_api.auth import account_for_session, create_web_session, upsert_github_account
+from apps.inthub_api.auth import (
+    account_for_access_token,
+    account_for_session,
+    create_account_access_token,
+    create_web_session,
+    upsert_github_account,
+)
 from apps.inthub_api.ingest import link_project, store_sync_batch
 from apps.inthub_api.queries import list_projects, project_overview
 
@@ -71,3 +77,11 @@ def test_postgresql_account_and_session_round_trip():
     recovered = account_for_session(POSTGRES_URL, session["token"])
     assert recovered["id"] == account["id"]
     assert recovered["login"] == f"integration-{suffix}"
+
+    access_token = create_account_access_token(
+        POSTGRES_URL,
+        account["id"],
+        ttl_seconds=60,
+    )
+    recovered_for_cli = account_for_access_token(POSTGRES_URL, access_token["token"])
+    assert recovered_for_cli["id"] == account["id"]

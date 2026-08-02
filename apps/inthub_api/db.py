@@ -106,12 +106,14 @@ def _create_sqlite_schema(conn):
         """
         CREATE TABLE IF NOT EXISTS projects (
             id TEXT PRIMARY KEY,
+            account_id TEXT,
             name TEXT NOT NULL,
             provider TEXT NOT NULL,
-            repo_id TEXT NOT NULL UNIQUE,
+            repo_id TEXT NOT NULL,
             owner TEXT NOT NULL,
             repo_name TEXT NOT NULL,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            UNIQUE (account_id, provider, repo_id)
         );
 
         CREATE TABLE IF NOT EXISTS workspaces (
@@ -122,60 +124,20 @@ def _create_sqlite_schema(conn):
             created_at TEXT NOT NULL,
             FOREIGN KEY (project_id) REFERENCES projects(id)
         );
+
+        CREATE TABLE IF NOT EXISTS sync_batches (
+            sequence_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id TEXT NOT NULL UNIQUE,
+            project_id TEXT NOT NULL,
+            workspace_id TEXT NOT NULL,
+            generated_at TEXT NOT NULL,
+            accepted_at TEXT NOT NULL,
+            payload_json TEXT NOT NULL,
+            FOREIGN KEY (project_id) REFERENCES projects(id),
+            FOREIGN KEY (workspace_id) REFERENCES workspaces(id)
+        );
         """
     )
-
-    existing = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'sync_batches'"
-    ).fetchone()
-    if existing is None:
-        conn.raw.executescript(
-            """
-            CREATE TABLE sync_batches (
-                sequence_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                id TEXT NOT NULL UNIQUE,
-                project_id TEXT NOT NULL,
-                workspace_id TEXT NOT NULL,
-                generated_at TEXT NOT NULL,
-                accepted_at TEXT NOT NULL,
-                payload_json TEXT NOT NULL,
-                FOREIGN KEY (project_id) REFERENCES projects(id),
-                FOREIGN KEY (workspace_id) REFERENCES workspaces(id)
-            );
-            """
-        )
-    else:
-        columns = set()
-        for row in conn.execute("PRAGMA table_info(sync_batches)").fetchall():
-            columns.add(row["name"] if hasattr(row, "keys") else row[1])
-        if "sequence_id" not in columns:
-            # v1 stored ordering implicitly in rowid. Rebuild once so the same
-            # explicit ordering key works on SQLite and PostgreSQL.
-            conn.raw.executescript(
-                """
-                ALTER TABLE sync_batches RENAME TO sync_batches_v1;
-                CREATE TABLE sync_batches (
-                    sequence_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    id TEXT NOT NULL UNIQUE,
-                    project_id TEXT NOT NULL,
-                    workspace_id TEXT NOT NULL,
-                    generated_at TEXT NOT NULL,
-                    accepted_at TEXT NOT NULL,
-                    payload_json TEXT NOT NULL,
-                    FOREIGN KEY (project_id) REFERENCES projects(id),
-                    FOREIGN KEY (workspace_id) REFERENCES workspaces(id)
-                );
-                INSERT INTO sync_batches (
-                    sequence_id, id, project_id, workspace_id,
-                    generated_at, accepted_at, payload_json
-                )
-                SELECT rowid, id, project_id, workspace_id,
-                       generated_at, accepted_at, payload_json
-                FROM sync_batches_v1
-                ORDER BY rowid;
-                DROP TABLE sync_batches_v1;
-                """
-            )
 
     conn.raw.executescript(
         """
@@ -211,12 +173,30 @@ def _create_sqlite_schema(conn):
             FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
         );
 
+        CREATE TABLE IF NOT EXISTS account_access_tokens (
+            id TEXT PRIMARY KEY,
+            token_hash TEXT NOT NULL UNIQUE,
+            account_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            last_used_at TEXT,
+            revoked_at TEXT,
+            FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+        );
+
         CREATE INDEX IF NOT EXISTS idx_web_sessions_account
             ON web_sessions(account_id);
         CREATE INDEX IF NOT EXISTS idx_web_sessions_expires
             ON web_sessions(expires_at);
         CREATE INDEX IF NOT EXISTS idx_oauth_login_attempts_expires
             ON oauth_login_attempts(expires_at);
+        CREATE INDEX IF NOT EXISTS idx_account_access_tokens_account
+            ON account_access_tokens(account_id);
+        CREATE INDEX IF NOT EXISTS idx_account_access_tokens_expires
+            ON account_access_tokens(expires_at);
+        CREATE INDEX IF NOT EXISTS idx_projects_account
+            ON projects(account_id);
 
         CREATE INDEX IF NOT EXISTS idx_workspaces_project
             ON workspaces(project_id);
@@ -233,13 +213,14 @@ def _create_postgresql_schema(conn):
         """
         CREATE TABLE IF NOT EXISTS projects (
             id TEXT PRIMARY KEY,
+            account_id TEXT,
             name TEXT NOT NULL,
             provider TEXT NOT NULL,
             repo_id TEXT NOT NULL,
             owner TEXT NOT NULL,
             repo_name TEXT NOT NULL,
             created_at TEXT NOT NULL,
-            UNIQUE (provider, repo_id)
+            UNIQUE (account_id, provider, repo_id)
         )
         """,
         """
@@ -297,6 +278,18 @@ def _create_postgresql_schema(conn):
         )
         """,
         """
+        CREATE TABLE IF NOT EXISTS account_access_tokens (
+            id TEXT PRIMARY KEY,
+            token_hash TEXT NOT NULL UNIQUE,
+            account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            last_used_at TEXT,
+            revoked_at TEXT
+        )
+        """,
+        """
         CREATE INDEX IF NOT EXISTS idx_web_sessions_account
             ON web_sessions(account_id)
         """,
@@ -307,6 +300,18 @@ def _create_postgresql_schema(conn):
         """
         CREATE INDEX IF NOT EXISTS idx_oauth_login_attempts_expires
             ON oauth_login_attempts(expires_at)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_account_access_tokens_account
+            ON account_access_tokens(account_id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_account_access_tokens_expires
+            ON account_access_tokens(expires_at)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_projects_account
+            ON projects(account_id)
         """,
         """
         CREATE INDEX IF NOT EXISTS idx_workspaces_project

@@ -1,13 +1,11 @@
 """HTTP server for the IntHub V1 API and optional Web shell."""
 
 import argparse
-import hashlib
 import hmac
 import json
 import logging
 import mimetypes
 import os
-import time
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -15,12 +13,15 @@ from urllib.parse import parse_qs, urlparse
 
 from apps.inthub_api.auth import (
     GitHubOAuthClient,
+    account_for_access_token,
     account_for_session,
     consume_login_attempt,
+    create_account_access_token,
     create_login_attempt,
     create_web_session,
     delete_web_session,
-    github_user_allowed,
+    list_account_access_tokens,
+    revoke_account_access_token,
     safe_return_to,
     upsert_github_account,
 )
@@ -41,7 +42,6 @@ STATIC_DIR = Path(__file__).resolve().parents[1] / "inthub_web" / "static"
 DEFAULT_MAX_BODY_BYTES = 16 * 1024 * 1024
 SESSION_COOKIE = "inthub_session"
 OAUTH_STATE_COOKIE = "inthub_oauth_state"
-SESSION_TTL_SECONDS = 12 * 60 * 60
 ACCOUNT_SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
 OAUTH_STATE_TTL_SECONDS = 10 * 60
 LOGGER = logging.getLogger("inthub.api")
@@ -79,37 +79,12 @@ def _env_or_file(name, default=None):
     return default
 
 
-def _normalize_token_digest(auth_token=None, auth_token_sha256=None):
-    if auth_token_sha256:
-        digest = auth_token_sha256.strip().lower()
-        if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
-            raise ValueError("INTHUB_API_TOKEN_SHA256 must be a 64-character hex digest.")
-        return digest
-    if auth_token:
-        return hashlib.sha256(auth_token.encode("utf-8")).hexdigest()
-    return None
-
-
-def _session_signature(token_digest, issued_at):
-    key = bytes.fromhex(token_digest)
-    message = f"inthub-web-session-v1:{issued_at}".encode("ascii")
-    return hmac.new(key, message, hashlib.sha256).hexdigest()
-
-
 def _normalize_origins(allowed_origins):
     if allowed_origins is None:
         return None
     if isinstance(allowed_origins, str):
         allowed_origins = allowed_origins.split(",")
     return {origin.strip().rstrip("/") for origin in allowed_origins if origin.strip()}
-
-
-def _normalize_csv(values):
-    if values is None:
-        return set()
-    if isinstance(values, str):
-        values = values.split(",")
-    return {str(value).strip() for value in values if str(value).strip()}
 
 
 def make_handler(
@@ -119,33 +94,26 @@ def make_handler(
     default_project_id=None,
     web_static_dir=None,
     require_auth=False,
-    auth_token=None,
-    auth_token_sha256=None,
     allowed_origins=None,
     max_body_bytes=DEFAULT_MAX_BODY_BYTES,
     secure_cookies=False,
     github_client_id=None,
     github_client_secret=None,
-    github_allowed_user_ids=None,
     oauth_client=None,
     account_session_ttl_seconds=ACCOUNT_SESSION_TTL_SECONDS,
     oauth_state_ttl_seconds=OAUTH_STATE_TTL_SECONDS,
 ):
     root = Path(web_static_dir or STATIC_DIR).resolve()
-    token_digest = _normalize_token_digest(auth_token, auth_token_sha256)
     github_configured = bool(github_client_id or github_client_secret)
     if github_configured and not (github_client_id and github_client_secret):
         raise ValueError("Both GitHub OAuth client ID and client secret are required.")
-    allowed_user_ids = _normalize_csv(github_allowed_user_ids)
-    if github_configured and not allowed_user_ids:
-        raise ValueError("GitHub OAuth requires at least one allowed numeric user ID.")
     provider_client = oauth_client
     if github_configured and provider_client is None:
         provider_client = GitHubOAuthClient(github_client_id, github_client_secret)
-    auth_required = bool(require_auth or token_digest or github_configured)
-    if auth_required and token_digest is None and not github_configured:
+    auth_required = bool(require_auth or github_configured)
+    if auth_required and not github_configured:
         raise ValueError("Authentication is required but no IntHub authentication is configured.")
-    auth_mode = "github" if github_configured else ("token" if token_digest else "none")
+    auth_mode = "github" if github_configured else "none"
     origin_allowlist = _normalize_origins(allowed_origins)
 
     class IntHubHandler(BaseHTTPRequestHandler):
@@ -310,16 +278,12 @@ def make_handler(
                 raise APIError("INVALID_INPUT", "Request body must be a JSON object.", status=400)
             return payload
 
-        def _valid_token(self, presented):
-            if not token_digest or not isinstance(presented, str) or not presented:
-                return False
-            presented_digest = hashlib.sha256(presented.encode("utf-8")).hexdigest()
-            return hmac.compare_digest(token_digest, presented_digest)
-
-        def _bearer_authorized(self):
+        def _bearer_account(self):
             header = self.headers.get("Authorization", "")
             scheme, separator, token = header.partition(" ")
-            return bool(separator and scheme.lower() == "bearer" and self._valid_token(token))
+            if not separator or scheme.lower() != "bearer":
+                return None
+            return account_for_access_token(db_path, token)
 
         def _cookie_value(self, name):
             cookie = SimpleCookie()
@@ -335,35 +299,19 @@ def make_handler(
                 return None
             return account_for_session(db_path, self._cookie_value(SESSION_COOKIE))
 
-        def _cookie_authorized(self):
-            if self._current_account() is not None:
-                return True
-            if not token_digest:
-                return False
-            value = self._cookie_value(SESSION_COOKIE)
-            if not value:
-                return False
-            issued_raw, separator, signature = value.partition(".")
-            if not separator:
-                return False
-            try:
-                issued_at = int(issued_raw)
-            except ValueError:
-                return False
-            now = int(time.time())
-            if issued_at > now + 60 or now - issued_at > SESSION_TTL_SECONDS:
-                return False
-            expected = _session_signature(token_digest, issued_at)
-            return hmac.compare_digest(expected, signature)
-
         def _require_auth(self, allow_cookie=False):
             if not auth_required:
-                return
-            if self._bearer_authorized() or (allow_cookie and self._cookie_authorized()):
-                return
+                return {"account": None}
+            account = self._bearer_account()
+            if account is not None:
+                return {"account": account}
+            if allow_cookie:
+                account = self._current_account()
+                if account is not None:
+                    return {"account": account}
             raise APIError(
                 "AUTH_REQUIRED",
-                "A valid IntHub access token is required.",
+                "Sign in or provide a valid IntHub account access token.",
                 status=401,
             )
 
@@ -386,18 +334,6 @@ def make_handler(
                 max_age,
                 same_site="Lax",
                 path="/api/v1/auth/github",
-            )
-
-        def _handle_login(self):
-            payload = self._read_json_body()
-            if not self._valid_token(payload.get("token")):
-                raise APIError("AUTH_INVALID", "The IntHub access token is invalid.", status=401)
-            issued_at = int(time.time())
-            session = f"{issued_at}.{_session_signature(token_digest, issued_at)}"
-            self._send_json(
-                200,
-                _json_success({"authenticated": True}),
-                {"Set-Cookie": self._session_cookie(session, SESSION_TTL_SECONDS)},
             )
 
         def _handle_logout(self):
@@ -423,13 +359,54 @@ def make_handler(
                 _json_success({"authenticated": True, "account": account}),
             )
 
-        def _handle_github_start(self, query):
-            if not github_configured:
+        def _handle_create_account_token(self):
+            account = self._current_account()
+            if account is None:
+                raise APIError("AUTH_REQUIRED", "Sign in to continue.", status=401)
+            payload = self._read_json_body()
+            ttl_seconds = payload.get("ttl_seconds", 90 * 24 * 60 * 60)
+            try:
+                ttl_seconds = int(ttl_seconds)
+            except (TypeError, ValueError) as exc:
+                raise APIError(
+                    "INVALID_INPUT",
+                    "ttl_seconds must be an integer.",
+                    400,
+                ) from exc
+            token = create_account_access_token(
+                db_path,
+                account["id"],
+                name=payload.get("name", "CLI"),
+                ttl_seconds=ttl_seconds,
+            )
+            self._send_json(201, _json_success(token))
+
+        def _require_browser_account(self):
+            account = self._current_account()
+            if account is None:
+                raise APIError("AUTH_REQUIRED", "Sign in to continue.", status=401)
+            return account
+
+        def _handle_list_account_tokens(self):
+            account = self._require_browser_account()
+            self._send_json(
+                200,
+                _json_success(
+                    {"tokens": list_account_access_tokens(db_path, account["id"])}
+                ),
+            )
+
+        def _handle_revoke_account_token(self, token_id):
+            account = self._require_browser_account()
+            revoke_account_access_token(db_path, account["id"], token_id)
+            self._send_json(200, _json_success({"revoked": True, "id": token_id}))
+
+        def _begin_github_login(self, return_to="/"):
+            if not github_configured or provider_client is None:
                 raise APIError("AUTH_FLOW_UNAVAILABLE", "GitHub sign-in is not configured.", 404)
-            return_to = safe_return_to(query.get("return_to", ["/"])[0])
             attempt = create_login_attempt(
                 db_path,
-                return_to=return_to,
+                return_to=safe_return_to(return_to),
                 ttl_seconds=oauth_state_ttl_seconds,
             )
             location = provider_client.authorization_url(
@@ -441,6 +418,10 @@ def make_handler(
                 location,
                 [self._oauth_state_cookie(attempt["state"], oauth_state_ttl_seconds)],
             )
+
+        def _handle_github_start(self, query):
+            return_to = safe_return_to(query.get("return_to", ["/"])[0])
+            self._begin_github_login(return_to=return_to)
 
         def _handle_github_callback(self, query):
             clear_state = self._oauth_state_cookie("", 0)
@@ -459,14 +440,14 @@ def make_handler(
                 code = query.get("code", [""])[0]
                 if not code:
                     raise APIError("OAUTH_CODE_MISSING", "GitHub did not return a sign-in code.", 400)
+                if provider_client is None:
+                    raise APIError("AUTH_FLOW_UNAVAILABLE", "GitHub sign-in is not configured.", 404)
                 access_token = provider_client.exchange_code(
                     code,
                     self._oauth_callback_url(),
                     attempt["code_verifier"],
                 )
                 user = provider_client.get_user(access_token)
-                if not github_user_allowed(user, allowed_user_ids):
-                    raise APIError("ACCOUNT_NOT_ALLOWED", "This GitHub account cannot access IntHub.", 403)
                 account = upsert_github_account(db_path, user)
                 session = create_web_session(
                     db_path,
@@ -475,8 +456,7 @@ def make_handler(
                 )
             except APIError as exc:
                 LOGGER.warning("GitHub sign-in failed: %s", exc.code)
-                code = "account_not_allowed" if exc.code == "ACCOUNT_NOT_ALLOWED" else "github_failed"
-                self._send_redirect(f"/?auth_error={code}", [clear_state])
+                self._send_redirect("/?auth_error=github_failed", [clear_state])
                 return
 
             self._send_redirect(
@@ -495,7 +475,7 @@ def make_handler(
                 headers,
             )
 
-        def _route_post(self, path):
+        def _route_post(self, path, account_id=None):
             payload = self._read_json_body()
             if path == "/api/v1/hub/link":
                 result = link_project(
@@ -503,45 +483,78 @@ def make_handler(
                     project_name=payload.get("project_name"),
                     repo=payload.get("repo", {}),
                     workspace_id=payload.get("workspace", {}).get("workspace_id"),
+                    account_id=account_id,
                 )
                 self._send_json(200, _json_success(result))
                 return
 
             if path == "/api/v1/sync-batches":
-                result = store_sync_batch(db_path=db_path, payload=payload)
+                result = store_sync_batch(
+                    db_path=db_path,
+                    payload=payload,
+                    account_id=account_id,
+                )
                 self._send_json(200, _json_success(result))
                 return
 
             raise APIError("OBJECT_NOT_FOUND", f"Endpoint {path} not found.", status=404)
 
-        def _route_get(self, path, query):
+        def _route_get(self, path, query, account_id=None):
             if path == "/api/v1/projects":
-                self._send_json(200, _json_success(list_projects(db_path)))
+                self._send_json(
+                    200,
+                    _json_success(list_projects(db_path, account_id=account_id)),
+                )
                 return
 
             if path.startswith("/api/v1/projects/") and path.endswith("/overview"):
                 project_id = path.split("/")[4]
-                self._send_json(200, _json_success(project_overview(db_path, project_id)))
+                self._send_json(
+                    200,
+                    _json_success(
+                        project_overview(db_path, project_id, account_id=account_id)
+                    ),
+                )
                 return
 
             if path.startswith("/api/v1/projects/") and path.endswith("/handoff"):
                 project_id = path.split("/")[4]
-                self._send_json(200, _json_success(project_handoff(db_path, project_id)))
+                self._send_json(
+                    200,
+                    _json_success(
+                        project_handoff(db_path, project_id, account_id=account_id)
+                    ),
+                )
                 return
 
             if path.startswith("/api/v1/intents/"):
                 remote_object_id = path.split("/")[4]
-                self._send_json(200, _json_success(get_intent_detail(db_path, remote_object_id)))
+                self._send_json(
+                    200,
+                    _json_success(
+                        get_intent_detail(db_path, remote_object_id, account_id=account_id)
+                    ),
+                )
                 return
 
             if path.startswith("/api/v1/decisions/"):
                 remote_object_id = path.split("/")[4]
-                self._send_json(200, _json_success(get_decision_detail(db_path, remote_object_id)))
+                self._send_json(
+                    200,
+                    _json_success(
+                        get_decision_detail(db_path, remote_object_id, account_id=account_id)
+                    ),
+                )
                 return
 
             if path.startswith("/api/v1/snaps/"):
                 remote_object_id = path.split("/")[4]
-                self._send_json(200, _json_success(get_snap_detail(db_path, remote_object_id)))
+                self._send_json(
+                    200,
+                    _json_success(
+                        get_snap_detail(db_path, remote_object_id, account_id=account_id)
+                    ),
+                )
                 return
 
             if path == "/api/v1/search":
@@ -553,7 +566,17 @@ def make_handler(
                         status=400,
                     )
                 search_query = query.get("q", [""])[0]
-                self._send_json(200, _json_success(search_project(db_path, project_id, search_query)))
+                self._send_json(
+                    200,
+                    _json_success(
+                        search_project(
+                            db_path,
+                            project_id,
+                            search_query,
+                            account_id=account_id,
+                        )
+                    ),
+                )
                 return
 
             raise APIError("OBJECT_NOT_FOUND", f"Endpoint {path} not found.", status=404)
@@ -562,20 +585,31 @@ def make_handler(
             parsed = urlparse(self.path)
             try:
                 self._check_origin()
-                if parsed.path == "/api/v1/auth/session":
-                    if not auth_required:
-                        self._send_json(200, _json_success({"authenticated": True}))
-                    else:
-                        self._handle_login()
-                    return
                 if parsed.path == "/api/v1/auth/logout":
                     self._handle_logout()
                     return
+                if parsed.path == "/api/v1/auth/tokens":
+                    self._check_origin()
+                    self._handle_create_account_token()
+                    return
+                if (
+                    parsed.path.startswith("/api/v1/auth/tokens/")
+                    and parsed.path.endswith("/revoke")
+                ):
+                    self._check_origin()
+                    token_id = parsed.path.split("/")[5]
+                    self._handle_revoke_account_token(token_id)
+                    return
+                context = {"account": None}
                 if parsed.path.startswith("/api/"):
-                    # Mutating routes deliberately require a Bearer token. The
-                    # read-only Web session cookie cannot write sync data.
-                    self._require_auth(allow_cookie=False)
-                self._route_post(parsed.path)
+                    # Sync writes require an account PAT. Browser sessions stay
+                    # read-only so a compromised page cannot mutate history.
+                    context = self._require_auth(allow_cookie=False)
+                account = context.get("account")
+                self._route_post(
+                    parsed.path,
+                    account_id=account.get("id") if account else None,
+                )
             except APIError as exc:
                 self._handle_api_error(exc)
             except Exception:  # pragma: no cover - defensive fallback
@@ -613,16 +647,26 @@ def make_handler(
                     self._handle_auth_me()
                     return
 
+                if parsed.path == "/api/v1/auth/tokens":
+                    self._check_origin()
+                    self._handle_list_account_tokens()
+                    return
+
                 if parsed.path.startswith("/api/"):
                     self._check_origin()
-                    self._require_auth(allow_cookie=True)
-                    self._route_get(parsed.path, parse_qs(parsed.query))
+                    context = self._require_auth(allow_cookie=True)
+                    account = context.get("account")
+                    self._route_get(
+                        parsed.path,
+                        parse_qs(parsed.query),
+                        account_id=account.get("id") if account else None,
+                    )
                     return
 
                 if serve_web and self._serve_web(parsed.path):
                     return
 
-                self._route_get(parsed.path, parse_qs(parsed.query))
+                self._route_get(parsed.path, parse_qs(parsed.query), account_id=None)
             except APIError as exc:
                 self._handle_api_error(exc)
             except Exception:  # pragma: no cover - defensive fallback
@@ -668,14 +712,11 @@ def build_server(
     default_project_id=None,
     web_static_dir=None,
     require_auth=False,
-    auth_token=None,
-    auth_token_sha256=None,
     allowed_origins=None,
     max_body_bytes=DEFAULT_MAX_BODY_BYTES,
     secure_cookies=False,
     github_client_id=None,
     github_client_secret=None,
-    github_allowed_user_ids=None,
     oauth_client=None,
     account_session_ttl_seconds=ACCOUNT_SESSION_TTL_SECONDS,
     oauth_state_ttl_seconds=OAUTH_STATE_TTL_SECONDS,
@@ -690,14 +731,11 @@ def build_server(
             default_project_id=default_project_id,
             web_static_dir=web_static_dir,
             require_auth=require_auth,
-            auth_token=auth_token,
-            auth_token_sha256=auth_token_sha256,
             allowed_origins=allowed_origins,
             max_body_bytes=max_body_bytes,
             secure_cookies=secure_cookies,
             github_client_id=github_client_id,
             github_client_secret=github_client_secret,
-            github_allowed_user_ids=github_allowed_user_ids,
             oauth_client=oauth_client,
             account_session_ttl_seconds=account_session_ttl_seconds,
             oauth_state_ttl_seconds=oauth_state_ttl_seconds,
@@ -714,14 +752,11 @@ def run_server(
     default_project_id=None,
     web_static_dir=None,
     require_auth=False,
-    auth_token=None,
-    auth_token_sha256=None,
     allowed_origins=None,
     max_body_bytes=DEFAULT_MAX_BODY_BYTES,
     secure_cookies=False,
     github_client_id=None,
     github_client_secret=None,
-    github_allowed_user_ids=None,
     oauth_client=None,
     account_session_ttl_seconds=ACCOUNT_SESSION_TTL_SECONDS,
     oauth_state_ttl_seconds=OAUTH_STATE_TTL_SECONDS,
@@ -735,14 +770,11 @@ def run_server(
         default_project_id=default_project_id,
         web_static_dir=web_static_dir,
         require_auth=require_auth,
-        auth_token=auth_token,
-        auth_token_sha256=auth_token_sha256,
         allowed_origins=allowed_origins,
         max_body_bytes=max_body_bytes,
         secure_cookies=secure_cookies,
         github_client_id=github_client_id,
         github_client_secret=github_client_secret,
-        github_allowed_user_ids=github_allowed_user_ids,
         oauth_client=oauth_client,
         account_session_ttl_seconds=account_session_ttl_seconds,
         oauth_state_ttl_seconds=oauth_state_ttl_seconds,
@@ -781,9 +813,6 @@ def main():
     parser.add_argument("--web-static-dir", default=os.getenv("INTHUB_WEB_STATIC_DIR"))
     args = parser.parse_args()
 
-    auth_token = _env_or_file("INTHUB_API_TOKEN")
-    auth_token_sha256 = _env_or_file("INTHUB_API_TOKEN_SHA256")
-    auth_configured = bool(auth_token or auth_token_sha256)
     github_client_id = _env_or_file("INTHUB_GITHUB_CLIENT_ID")
     github_client_secret = _env_or_file("INTHUB_GITHUB_CLIENT_SECRET")
     github_configured = bool(github_client_id or github_client_secret)
@@ -796,15 +825,15 @@ def main():
         public_api_base_url=args.public_api_base_url,
         default_project_id=args.default_project_id,
         web_static_dir=args.web_static_dir,
-        require_auth=_env_flag("INTHUB_REQUIRE_AUTH", auth_configured or github_configured),
-        auth_token=auth_token,
-        auth_token_sha256=auth_token_sha256,
+        require_auth=_env_flag(
+            "INTHUB_REQUIRE_AUTH",
+            github_configured,
+        ),
         allowed_origins=allowed_origins,
         max_body_bytes=int(os.getenv("INTHUB_MAX_BODY_BYTES", str(DEFAULT_MAX_BODY_BYTES))),
         secure_cookies=_env_flag("INTHUB_SECURE_COOKIES", False),
         github_client_id=github_client_id,
         github_client_secret=github_client_secret,
-        github_allowed_user_ids=os.getenv("INTHUB_GITHUB_ALLOWED_USER_IDS"),
         account_session_ttl_seconds=int(
             os.getenv("INTHUB_SESSION_TTL_SECONDS", str(ACCOUNT_SESSION_TTL_SECONDS))
         ),

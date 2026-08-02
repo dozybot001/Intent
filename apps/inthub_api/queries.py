@@ -18,11 +18,17 @@ def _payload_from_row(row):
     return payload
 
 
-def _project_row(conn, project_id):
-    project = conn.execute(
-        "SELECT * FROM projects WHERE id = ?",
-        (project_id,),
-    ).fetchone()
+def _project_row(conn, project_id, account_id=None):
+    if account_id:
+        project = conn.execute(
+            "SELECT * FROM projects WHERE id = ? AND account_id = ?",
+            (project_id, account_id),
+        ).fetchone()
+    else:
+        project = conn.execute(
+            "SELECT * FROM projects WHERE id = ?",
+            (project_id,),
+        ).fetchone()
     if project is None:
         raise APIError("OBJECT_NOT_FOUND", f"Project {project_id} not found.", status=404)
     return project
@@ -68,17 +74,30 @@ def _latest_snap_for_intent(intent, snaps):
     return None
 
 
-def _latest_payload_for_workspace(conn, workspace_id):
-    row = conn.execute(
-        """
-        SELECT payload_json
-        FROM sync_batches
-        WHERE workspace_id = ?
-        ORDER BY sequence_id DESC
-        LIMIT 1
-        """,
-        (workspace_id,),
-    ).fetchone()
+def _latest_payload_for_workspace(conn, workspace_id, account_id=None):
+    if account_id:
+        row = conn.execute(
+            """
+            SELECT sb.payload_json
+            FROM sync_batches AS sb
+            JOIN projects AS p ON p.id = sb.project_id
+            WHERE sb.workspace_id = ? AND p.account_id = ?
+            ORDER BY sb.sequence_id DESC
+            LIMIT 1
+            """,
+            (workspace_id, account_id),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            """
+            SELECT payload_json
+            FROM sync_batches
+            WHERE workspace_id = ?
+            ORDER BY sequence_id DESC
+            LIMIT 1
+            """,
+            (workspace_id,),
+        ).fetchone()
     if row is None:
         raise APIError(
             "OBJECT_NOT_FOUND",
@@ -88,9 +107,9 @@ def _latest_payload_for_workspace(conn, workspace_id):
     return _payload_from_row(row)
 
 
-def project_overview(db_path, project_id):
+def project_overview(db_path, project_id, account_id=None):
     with connect(db_path) as conn:
-        project = _project_row(conn, project_id)
+        project = _project_row(conn, project_id, account_id=account_id)
         payloads = _latest_payloads(conn, project_id)
 
     active_intents = []
@@ -181,10 +200,29 @@ def project_overview(db_path, project_id):
     }
 
 
-def list_projects(db_path):
+def list_projects(db_path, account_id=None):
     with connect(db_path) as conn:
-        rows = conn.execute(
-            """
+        if account_id:
+            rows = conn.execute(
+                """
+                SELECT
+                    p.*,
+                    COUNT(DISTINCT w.id) AS workspace_count,
+                    MAX(sb.accepted_at) AS last_synced_at
+                FROM projects AS p
+                LEFT JOIN workspaces AS w
+                    ON w.project_id = p.id
+                LEFT JOIN sync_batches AS sb
+                    ON sb.project_id = p.id
+                WHERE p.account_id = ?
+                GROUP BY p.id
+                ORDER BY COALESCE(MAX(sb.accepted_at), p.created_at) DESC, p.created_at DESC
+                """,
+                (account_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
             SELECT
                 p.*,
                 COUNT(DISTINCT w.id) AS workspace_count,
@@ -196,8 +234,8 @@ def list_projects(db_path):
                 ON sb.project_id = p.id
             GROUP BY p.id
             ORDER BY COALESCE(MAX(sb.accepted_at), p.created_at) DESC, p.created_at DESC
-            """
-        ).fetchall()
+                """
+            ).fetchall()
 
     return {
         "projects": [
@@ -219,9 +257,9 @@ def list_projects(db_path):
     }
 
 
-def project_handoff(db_path, project_id):
+def project_handoff(db_path, project_id, account_id=None):
     with connect(db_path) as conn:
-        project = _project_row(conn, project_id)
+        project = _project_row(conn, project_id, account_id=account_id)
         payloads = _latest_payloads(conn, project_id)
 
     intents_view = []
@@ -283,10 +321,10 @@ def project_handoff(db_path, project_id):
     }
 
 
-def get_intent_detail(db_path, remote_object_id):
+def get_intent_detail(db_path, remote_object_id, account_id=None):
     workspace_id, local_object_id = split_remote_object_id(remote_object_id)
     with connect(db_path) as conn:
-        payload = _latest_payload_for_workspace(conn, workspace_id)
+        payload = _latest_payload_for_workspace(conn, workspace_id, account_id=account_id)
 
     snapshot = payload.get("snapshot", {})
     intents = snapshot.get("intents", [])
@@ -315,10 +353,10 @@ def get_intent_detail(db_path, remote_object_id):
     raise APIError("OBJECT_NOT_FOUND", f"Intent {remote_object_id} not found.", status=404)
 
 
-def get_decision_detail(db_path, remote_object_id):
+def get_decision_detail(db_path, remote_object_id, account_id=None):
     workspace_id, local_object_id = split_remote_object_id(remote_object_id)
     with connect(db_path) as conn:
-        payload = _latest_payload_for_workspace(conn, workspace_id)
+        payload = _latest_payload_for_workspace(conn, workspace_id, account_id=account_id)
 
     snapshot = payload.get("snapshot", {})
     decisions = snapshot.get("decisions", [])
@@ -338,10 +376,10 @@ def get_decision_detail(db_path, remote_object_id):
     raise APIError("OBJECT_NOT_FOUND", f"Decision {remote_object_id} not found.", status=404)
 
 
-def get_snap_detail(db_path, remote_object_id):
+def get_snap_detail(db_path, remote_object_id, account_id=None):
     workspace_id, local_object_id = split_remote_object_id(remote_object_id)
     with connect(db_path) as conn:
-        payload = _latest_payload_for_workspace(conn, workspace_id)
+        payload = _latest_payload_for_workspace(conn, workspace_id, account_id=account_id)
 
     snapshot = payload.get("snapshot", {})
     snaps = snapshot.get("snaps", [])
@@ -368,9 +406,9 @@ def get_snap_detail(db_path, remote_object_id):
     raise APIError("OBJECT_NOT_FOUND", f"Snap {remote_object_id} not found.", status=404)
 
 
-def search_project(db_path, project_id, query):
+def search_project(db_path, project_id, query, account_id=None):
     with connect(db_path) as conn:
-        _project_row(conn, project_id)
+        _project_row(conn, project_id, account_id=account_id)
         payloads = _latest_payloads(conn, project_id)
 
     q = (query or "").strip().lower()

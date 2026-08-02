@@ -6,7 +6,7 @@ from apps.inthub_api.common import APIError, new_id, now_utc, require_repo
 from apps.inthub_api.db import connect
 
 
-def link_project(db_path, project_name, repo, workspace_id):
+def link_project(db_path, project_name, repo, workspace_id, account_id=None):
     require_repo(repo)
     if repo.get("provider") != "github":
         raise APIError(
@@ -16,21 +16,32 @@ def link_project(db_path, project_name, repo, workspace_id):
         )
 
     with connect(db_path) as conn:
-        project = conn.execute(
-            "SELECT * FROM projects WHERE provider = ? AND repo_id = ?",
-            (repo["provider"], repo["repo_id"]),
-        ).fetchone()
+        if account_id:
+            project = conn.execute(
+                """
+                SELECT * FROM projects
+                WHERE provider = ? AND repo_id = ? AND account_id = ?
+                """,
+                (repo["provider"], repo["repo_id"], account_id),
+            ).fetchone()
+        else:
+            project = conn.execute(
+                "SELECT * FROM projects WHERE provider = ? AND repo_id = ?",
+                (repo["provider"], repo["repo_id"]),
+            ).fetchone()
 
         if project is None:
             project_id = new_id("proj")
             conn.execute(
                 """
-                INSERT INTO projects (id, name, provider, repo_id, owner, repo_name, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO projects (
+                    id, account_id, name, provider, repo_id, owner, repo_name, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT DO NOTHING
                 """,
                 (
                     project_id,
+                    account_id,
                     project_name or repo["name"],
                     repo["provider"],
                     repo["repo_id"],
@@ -39,10 +50,25 @@ def link_project(db_path, project_name, repo, workspace_id):
                     now_utc(),
                 ),
             )
-            project = conn.execute(
-                "SELECT * FROM projects WHERE provider = ? AND repo_id = ?",
-                (repo["provider"], repo["repo_id"]),
-            ).fetchone()
+            if account_id:
+                project = conn.execute(
+                    """
+                    SELECT * FROM projects
+                    WHERE provider = ? AND repo_id = ? AND account_id = ?
+                    """,
+                    (repo["provider"], repo["repo_id"], account_id),
+                ).fetchone()
+                if project is None:
+                    raise APIError(
+                        "STATE_CONFLICT",
+                        "The repository could not be linked to this account.",
+                        status=409,
+                    )
+            else:
+                project = conn.execute(
+                    "SELECT * FROM projects WHERE provider = ? AND repo_id = ?",
+                    (repo["provider"], repo["repo_id"]),
+                ).fetchone()
         project_id = project["id"]
 
         if not workspace_id:
@@ -85,7 +111,7 @@ def link_project(db_path, project_name, repo, workspace_id):
         }
 
 
-def store_sync_batch(db_path, payload):
+def store_sync_batch(db_path, payload, account_id=None):
     required = ("sync_batch_id", "project_id", "repo", "workspace", "snapshot")
     missing = [key for key in required if key not in payload]
     if missing:
@@ -105,10 +131,17 @@ def store_sync_batch(db_path, payload):
 
     with connect(db_path) as conn:
         existing = conn.execute(
-            "SELECT accepted_at FROM sync_batches WHERE id = ?",
+            """
+            SELECT sb.accepted_at, p.account_id
+            FROM sync_batches AS sb
+            JOIN projects AS p ON p.id = sb.project_id
+            WHERE sb.id = ?
+            """,
             (payload["sync_batch_id"],),
         ).fetchone()
         if existing is not None:
+            if account_id and existing["account_id"] != account_id:
+                raise APIError("OBJECT_NOT_FOUND", "Sync batch not found.", status=404)
             return {
                 "sync_batch_id": payload["sync_batch_id"],
                 "project_id": payload["project_id"],
@@ -117,10 +150,16 @@ def store_sync_batch(db_path, payload):
                 "duplicate": True,
             }
 
-        project = conn.execute(
-            "SELECT * FROM projects WHERE id = ?",
-            (payload["project_id"],),
-        ).fetchone()
+        if account_id:
+            project = conn.execute(
+                "SELECT * FROM projects WHERE id = ? AND account_id = ?",
+                (payload["project_id"], account_id),
+            ).fetchone()
+        else:
+            project = conn.execute(
+                "SELECT * FROM projects WHERE id = ?",
+                (payload["project_id"],),
+            ).fetchone()
         if project is None:
             raise APIError(
                 "OBJECT_NOT_FOUND",

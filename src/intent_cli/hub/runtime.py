@@ -11,11 +11,7 @@ def load_hub(base):
 
 
 def config_without_auth_token(config):
-    """Return a persistence-safe copy of a Hub config.
-
-    Older releases wrote ``auth_token`` to ``hub.json``.  Keep accepting that
-    field when reading, but never carry it into a newly written config.
-    """
+    """Return a persistence-safe copy; account tokens are never local config."""
     persisted = dict(config)
     persisted.pop("auth_token", None)
     return persisted
@@ -23,8 +19,8 @@ def config_without_auth_token(config):
 
 def sanitize_hub_config(config):
     sanitized = dict(config)
-    token = sanitized.pop("auth_token", None)
-    sanitized["auth_configured"] = bool(token or os.getenv("INTHUB_TOKEN"))
+    sanitized.pop("auth_token", None)
+    sanitized["auth_configured"] = bool(os.getenv("INTHUB_TOKEN"))
     return sanitized
 
 
@@ -41,11 +37,10 @@ def hub_api_base(base, args):
 
 
 def hub_auth_token(base, args):
-    hub = load_hub(base)
     token = getattr(args, "token", None)
     if token:
         return token
     env_token = os.getenv("INTHUB_TOKEN")
     if env_token:
         return env_token
-    return hub.get("auth_token")
+    return None

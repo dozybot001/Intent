@@ -6,6 +6,7 @@ from urllib.parse import parse_qs, urlparse
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from apps.inthub_api.auth import create_account_access_token, upsert_github_account
 from apps.inthub_api.server import make_handler
 
 
@@ -122,14 +123,18 @@ def test_api_server_can_serve_web_shell(tmp_path):
         server.server_close()
 
 
-def test_private_api_uses_bearer_for_writes_and_http_only_cookie_for_web_reads(tmp_path):
-    token = "correct-horse-battery-staple"
+def test_account_pat_authenticates_cli_reads_and_writes(tmp_path):
+    db_path = str(tmp_path / "inthub.db")
+    account = upsert_github_account(db_path, {"id": 101, "login": "pat-user"})
+    token = create_account_access_token(db_path, account["id"], ttl_seconds=3600)["token"]
     server = ThreadingHTTPServer(
         ("127.0.0.1", 0),
         make_handler(
-            str(tmp_path / "inthub.db"),
+            db_path,
             serve_web=True,
-            auth_token=token,
+            github_client_id="github-client-id",
+            github_client_secret="github-client-secret",
+            oauth_client=FakeGitHubOAuthClient(),
         ),
     )
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -145,27 +150,8 @@ def test_private_api_uses_bearer_for_writes_and_http_only_cookie_for_web_reads(t
         assert headers["WWW-Authenticate"] == "Bearer"
 
         status, _, body = _request_json(
-            f"{base}/api/v1/auth/session",
-            method="POST",
-            payload={"token": "wrong"},
-        )
-        assert status == 401
-        assert body["error"]["code"] == "AUTH_INVALID"
-
-        status, headers, body = _request_json(
-            f"{base}/api/v1/auth/session",
-            method="POST",
-            payload={"token": token},
-        )
-        assert status == 200
-        assert body["result"]["authenticated"] is True
-        cookie = headers["Set-Cookie"].split(";", 1)[0]
-        assert "HttpOnly" in headers["Set-Cookie"]
-        assert "SameSite=Strict" in headers["Set-Cookie"]
-
-        status, _, body = _request_json(
             f"{base}/api/v1/projects",
-            headers={"Cookie": cookie},
+            headers={"Authorization": f"Bearer {token}"},
         )
         assert status == 200
         assert body["result"]["projects"] == []
@@ -180,15 +166,6 @@ def test_private_api_uses_bearer_for_writes_and_http_only_cookie_for_web_reads(t
             },
             "workspace": {"workspace_id": "wks_demo"},
         }
-        status, _, body = _request_json(
-            f"{base}/api/v1/hub/link",
-            method="POST",
-            payload=link_payload,
-            headers={"Cookie": cookie},
-        )
-        assert status == 401
-        assert body["error"]["code"] == "AUTH_REQUIRED"
-
         status, _, body = _request_json(
             f"{base}/api/v1/hub/link",
             method="POST",
@@ -211,10 +188,8 @@ def test_github_account_login_uses_pkce_database_session_and_logout(tmp_path):
             str(tmp_path / "inthub.db"),
             serve_web=True,
             public_api_base_url="https://inthub.example",
-            auth_token="cli-write-token",
             github_client_id="github-client-id",
             github_client_secret="github-client-secret",
-            github_allowed_user_ids="4242",
             oauth_client=oauth,
             secure_cookies=True,
         ),
@@ -264,7 +239,7 @@ def test_github_account_login_uses_pkce_database_session_and_logout(tmp_path):
         )
         assert status == 200
         assert body["result"]["account"]["login"] == "dozy"
-        assert body["result"]["account"]["role"] == "owner"
+        assert body["result"]["account"]["role"] == "member"
 
         status, _, body = _request_json(
             f"{base}/api/v1/projects",
@@ -290,6 +265,56 @@ def test_github_account_login_uses_pkce_database_session_and_logout(tmp_path):
         )
         assert status == 401
         assert body["error"]["code"] == "AUTH_REQUIRED"
+
+        status, _, body = _request_json(
+            f"{base}/api/v1/auth/tokens",
+            method="POST",
+            payload={"name": "Laptop", "ttl_seconds": 3600},
+            headers={"Cookie": session_cookie},
+        )
+        assert status == 201
+        account_token = body["result"]["token"]
+        account_token_id = body["result"]["id"]
+        assert account_token.startswith("ith_pat_")
+
+        status, _, body = _request_json(
+            f"{base}/api/v1/auth/tokens",
+            headers={"Cookie": session_cookie},
+        )
+        assert status == 200
+        assert body["result"]["tokens"][0]["id"] == account_token_id
+        assert "token" not in body["result"]["tokens"][0]
+
+        status, _, body = _request_json(
+            f"{base}/api/v1/hub/link",
+            method="POST",
+            payload={
+                "project_name": "Account-owned project",
+                "repo": {
+                    "provider": "github",
+                    "repo_id": "example/account-owned",
+                    "owner": "example",
+                    "name": "account-owned",
+                },
+                "workspace": {"workspace_id": "wks_account_owned"},
+            },
+            headers={"Authorization": f"Bearer {account_token}"},
+        )
+        assert status == 200
+        assert body["result"]["project_id"].startswith("proj_")
+
+        status, _, body = _request_json(
+            f"{base}/api/v1/auth/tokens/{account_token_id}/revoke",
+            method="POST",
+            headers={"Cookie": session_cookie},
+        )
+        assert status == 200
+        assert body["result"]["revoked"] is True
+        status, _, body = _request_json(
+            f"{base}/api/v1/projects",
+            headers={"Authorization": f"Bearer {account_token}"},
+        )
+        assert status == 401
 
         status, _, _ = _request_json(
             f"{base}/api/v1/auth/logout",

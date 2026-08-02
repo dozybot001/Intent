@@ -119,7 +119,7 @@ cd your-project
 itt init
 ```
 
-`itt init` creates `.intent/` and adds it to this clone's Git-local `.git/info/exclude`; it does **not** edit the shared `.gitignore`. The command returns a warning if the local exclude cannot be updated. Review the files before intentionally sharing them, and add `.intent/` to `.gitignore` separately if the whole team should inherit that rule. The current CLI does not persist `--token`, but `hub.json` written by an older release may still contain one; remove any legacy token before committing or sharing the directory.
+`itt init` creates `.intent/` and adds it to this clone's Git-local `.git/info/exclude`; it does **not** edit the shared `.gitignore`. The command returns a warning if the local exclude cannot be updated. Review the files before intentionally sharing them, and add `.intent/` to `.gitignore` separately if the whole team should inherit that rule. The CLI accepts an account-scoped `--token` or `INTHUB_TOKEN` but never persists it to `hub.json`.
 
 To browse semantic history in a browser, start **IntHub Local** (works from any directory):
 
@@ -136,7 +136,7 @@ itt hub sync
 
 IntHub Local binds to `127.0.0.1` by default. Its current local API does not enforce bearer-token authentication and returns permissive CORS headers, so use it only on a trusted machine and do not expose it through a public interface or reverse proxy.
 
-Private Internet deployments use the authenticated production profile: GitHub account sign-in with database-backed Web sessions, PostgreSQL, Bearer-protected CLI writes, a loopback app port, and Caddy TLS. See [IntHub Production Deployment](docs/EN/inthub-production.md).
+Internet deployments use one account path: GitHub sign-up or sign-in, database-backed Web sessions, account-scoped CLI access tokens, account-isolated projects, PostgreSQL, a loopback app port, and Caddy TLS. See [IntHub Production Deployment](docs/EN/inthub-production.md).
 
 > **Tips:** Be explicit: “Use Intent to record this work in `.intent/`” enters recording mode; “Resume this project through Intent” enters recovery mode. Ordinary summaries and status reports remain read-only.
 

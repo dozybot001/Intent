@@ -1,6 +1,9 @@
-from apps.inthub_api.common import make_remote_object_id
+import pytest
+
+from apps.inthub_api.auth import upsert_github_account
+from apps.inthub_api.common import APIError, make_remote_object_id
 from apps.inthub_api.ingest import link_project, store_sync_batch
-from apps.inthub_api.queries import get_intent_detail, project_handoff
+from apps.inthub_api.queries import get_intent_detail, list_projects, project_handoff
 
 
 def test_handoff_and_intent_detail_include_decision_semantics(tmp_path):
@@ -85,3 +88,45 @@ def test_handoff_and_intent_detail_include_decision_semantics(tmp_path):
     assert detail["snaps"] == [snap]
     assert detail["decisions"] == [decision]
     assert detail["git"]["head_commit"] == "abc123"
+
+
+def test_accounts_can_link_the_same_repo_without_seeing_each_others_projects(tmp_path):
+    db_path = str(tmp_path / "inthub.db")
+    first = upsert_github_account(db_path, {"id": 1, "login": "first"})
+    second = upsert_github_account(db_path, {"id": 2, "login": "second"})
+    repo = {
+        "provider": "github",
+        "repo_id": "example/shared-name",
+        "owner": "example",
+        "name": "shared-name",
+    }
+
+    first_project = link_project(
+        db_path,
+        "First copy",
+        repo,
+        "wks_first",
+        account_id=first["id"],
+    )
+    second_project = link_project(
+        db_path,
+        "Second copy",
+        repo,
+        "wks_second",
+        account_id=second["id"],
+    )
+
+    assert first_project["project_id"] != second_project["project_id"]
+    assert [item["id"] for item in list_projects(db_path, first["id"])["projects"]] == [
+        first_project["project_id"]
+    ]
+    assert [item["id"] for item in list_projects(db_path, second["id"])["projects"]] == [
+        second_project["project_id"]
+    ]
+    with pytest.raises(APIError) as exc_info:
+        project_handoff(
+            db_path,
+            first_project["project_id"],
+            account_id=second["id"],
+        )
+    assert exc_info.value.code == "OBJECT_NOT_FOUND"

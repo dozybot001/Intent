@@ -101,12 +101,6 @@ def consume_login_attempt(db_target, state):
     }
 
 
-def github_user_allowed(user, allowed_user_ids=None):
-    allowed_ids = {str(item).strip() for item in (allowed_user_ids or ()) if str(item).strip()}
-    user_id = str(user.get("id", "")).strip()
-    return bool(user_id and user_id in allowed_ids)
-
-
 def upsert_github_account(db_target, user):
     provider_user_id = str(user.get("id", "")).strip()
     login = str(user.get("login", "")).strip()
@@ -120,8 +114,7 @@ def upsert_github_account(db_target, user):
             ("github", provider_user_id),
         ).fetchone()
         account_id = existing["id"] if existing else new_id("acct")
-        account_count = conn.execute("SELECT COUNT(*) AS count FROM accounts").fetchone()["count"]
-        role = existing["role"] if existing else ("owner" if account_count == 0 else "member")
+        role = existing["role"] if existing else "member"
         created_at = existing["created_at"] if existing else timestamp
         conn.execute(
             """
@@ -202,6 +195,123 @@ def delete_web_session(db_target, token):
         return
     with connect(db_target) as conn:
         conn.execute("DELETE FROM web_sessions WHERE token_hash = ?", (_sha256(token),))
+
+
+def create_account_access_token(
+    db_target,
+    account_id,
+    name="CLI",
+    ttl_seconds=90 * 24 * 60 * 60,
+):
+    """Create an account-scoped token and return its plaintext exactly once."""
+    if not isinstance(account_id, str) or not account_id:
+        raise APIError("INVALID_INPUT", "An account is required.", 400)
+    label = str(name or "CLI").strip()[:100] or "CLI"
+    ttl_seconds = int(ttl_seconds)
+    if ttl_seconds < 60 or ttl_seconds > 366 * 24 * 60 * 60:
+        raise APIError(
+            "INVALID_INPUT",
+            "Access token lifetime must be between 60 seconds and 366 days.",
+            400,
+        )
+    token = f"ith_pat_{secrets.token_urlsafe(32)}"
+    created_at = now_utc()
+    expires_at = _expires_at(ttl_seconds)
+    token_id = new_id("pat")
+    with connect(db_target) as conn:
+        account = conn.execute("SELECT id FROM accounts WHERE id = ?", (account_id,)).fetchone()
+        if account is None:
+            raise APIError("OBJECT_NOT_FOUND", "Account not found.", 404)
+        conn.execute(
+            """
+            INSERT INTO account_access_tokens (
+                id, token_hash, account_id, name, created_at,
+                expires_at, last_used_at, revoked_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                token_id,
+                _sha256(token),
+                account_id,
+                label,
+                created_at,
+                expires_at,
+                None,
+                None,
+            ),
+        )
+    return {
+        "id": token_id,
+        "token": token,
+        "name": label,
+        "created_at": created_at,
+        "expires_at": expires_at,
+    }
+
+
+def account_for_access_token(db_target, token):
+    if not isinstance(token, str) or not token.startswith("ith_pat_"):
+        return None
+    token_hash = _sha256(token)
+    with connect(db_target) as conn:
+        row = conn.execute(
+            """
+            SELECT
+                a.id, a.provider, a.provider_user_id, a.login,
+                a.display_name, a.avatar_url, a.role,
+                a.created_at, a.updated_at, a.last_login_at,
+                t.expires_at, t.revoked_at
+            FROM account_access_tokens AS t
+            JOIN accounts AS a ON a.id = t.account_id
+            WHERE t.token_hash = ?
+            """,
+            (token_hash,),
+        ).fetchone()
+        if row is None or row["revoked_at"] is not None or _is_expired(row["expires_at"]):
+            return None
+        conn.execute(
+            "UPDATE account_access_tokens SET last_used_at = ? WHERE token_hash = ?",
+            (now_utc(), token_hash),
+        )
+    return public_account(row)
+
+
+def revoke_account_access_token(db_target, account_id, token_id):
+    with connect(db_target) as conn:
+        result = conn.execute(
+            """
+            UPDATE account_access_tokens
+            SET revoked_at = ?
+            WHERE id = ? AND account_id = ? AND revoked_at IS NULL
+            """,
+            (now_utc(), token_id, account_id),
+        )
+    if result.rowcount == 0:
+        raise APIError("OBJECT_NOT_FOUND", f"Access token {token_id} not found.", 404)
+
+
+def list_account_access_tokens(db_target, account_id):
+    with connect(db_target) as conn:
+        rows = conn.execute(
+            """
+            SELECT id, name, created_at, expires_at, last_used_at, revoked_at
+            FROM account_access_tokens
+            WHERE account_id = ?
+            ORDER BY created_at DESC
+            """,
+            (account_id,),
+        ).fetchall()
+    return [
+        {
+            "id": row["id"],
+            "name": row["name"],
+            "created_at": row["created_at"],
+            "expires_at": row["expires_at"],
+            "last_used_at": row["last_used_at"],
+            "revoked_at": row["revoked_at"],
+        }
+        for row in rows
+    ]
 
 
 def public_account(row):

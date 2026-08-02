@@ -119,7 +119,7 @@ cd your-project
 itt init
 ```
 
-`itt init` 会创建 `.intent/`，并将它加入当前克隆的 Git 本地 `.git/info/exclude`；它**不会**修改团队共享的 `.gitignore`。本地忽略规则写入失败时，命令会返回 warning。有意共享前应先审查其中内容；如果整个团队都应继承该规则，再单独将 `.intent/` 加入 `.gitignore`。当前 CLI 不会持久化 `--token`，但旧版本写入的 `hub.json` 仍可能含有 token；提交或共享该目录前应先清除旧 token。
+`itt init` 会创建 `.intent/`，并将它加入当前克隆的 Git 本地 `.git/info/exclude`；它**不会**修改团队共享的 `.gitignore`。本地忽略规则写入失败时，命令会返回 warning。有意共享前应先审查其中内容；如果整个团队都应继承该规则，再单独将 `.intent/` 加入 `.gitignore`。CLI 接受账户级 `--token` 或 `INTHUB_TOKEN`，但绝不会将 token 持久化到 `hub.json`。
 
 想在浏览器中查看语义历史，启动 **IntHub Local**（任意目录可用）：
 
@@ -136,7 +136,7 @@ itt hub sync
 
 IntHub Local 默认只绑定 `127.0.0.1`。当前本地 API 不强制校验 Bearer Token，并返回宽松的 CORS 响应头；因此只应在可信本机使用，不要将它绑定到对外网卡，也不要通过公网接口或反向代理暴露。
 
-公网私有部署使用受认证的生产配置：GitHub 账户登录与数据库 Web 会话、PostgreSQL、Bearer 保护的 CLI 写入、回环应用端口和 Caddy TLS。参见 [IntHub 生产部署](docs/CN/inthub-production.md)。
+公网部署使用统一账户路径：GitHub 登录或注册、数据库 Web 会话、账户级 CLI access token、账户隔离的项目、PostgreSQL、回环应用端口和 Caddy TLS。参见 [IntHub 生产部署](docs/CN/inthub-production.md)。
 
 > **Tips：** 请明确表达：“用 Intent 把这轮工作写入 `.intent/`”进入记录模式；“通过 Intent 恢复这个项目”进入接续模式。普通总结和状态汇报保持只读。
 
