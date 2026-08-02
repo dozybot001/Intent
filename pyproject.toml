@@ -35,7 +35,8 @@ itt = "intent_cli.cli:main"
 
 [project.optional-dependencies]
 server = [
-    "psycopg[binary]>=3.2,<4",
+    "psycopg==3.3.4",
+    "psycopg-binary==3.3.4; implementation_name != 'pypy'",
 ]
 
 [tool.setuptools.packages.find]
