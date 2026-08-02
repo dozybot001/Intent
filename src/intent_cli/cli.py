@@ -8,7 +8,11 @@ from intent_cli.store import (
     InvalidObjectIdError,
     StorageSecurityError,
     StoredObjectIntegrityError,
+    StoredObjectParseError,
+    StoredObjectSchemaError,
+    StoredObjectWriteConflictError,
     UnsafeStoragePathError,
+    WorkspaceBusyError,
 )
 from intent_cli.commands.core import (
     cmd_decision_create,
@@ -43,11 +47,41 @@ def _invoke(command, args):
             str(exc),
             details={"path": str(exc.path)},
         )
+    except StoredObjectParseError as exc:
+        error(
+            "STORAGE_PARSE_ERROR",
+            str(exc),
+            details={"path": str(exc.path)},
+        )
+    except StoredObjectSchemaError as exc:
+        details = {"path": str(exc.path)}
+        if exc.field is not None:
+            details["field"] = exc.field
+        error(
+            "STORAGE_SCHEMA_ERROR",
+            str(exc),
+            details=details,
+        )
     except StoredObjectIntegrityError as exc:
         error(
             "STORAGE_INTEGRITY_ERROR",
             str(exc),
             details={"path": str(exc.path)},
+        )
+    except StoredObjectWriteConflictError as exc:
+        error(
+            "STORAGE_WRITE_CONFLICT",
+            str(exc),
+            details={
+                "path": str(exc.path),
+                "conflicts": exc.conflicts,
+            },
+        )
+    except WorkspaceBusyError:
+        error(
+            "WORKSPACE_BUSY",
+            "Another Intent command is writing to this workspace.",
+            suggested_fix="Wait for that command to finish, then retry.",
         )
     except StorageSecurityError as exc:
         error(
@@ -69,9 +103,20 @@ def _ensure_utf8_stdio():
             ))
 
 
+class JsonArgumentParser(argparse.ArgumentParser):
+    """Argument parser that preserves the CLI's stdout JSON error contract."""
+
+    def error(self, message):
+        error(
+            "INVALID_INPUT",
+            message,
+            details={"usage": self.format_usage().strip()},
+        )
+
+
 def main():
     _ensure_utf8_stdio()
-    parser = argparse.ArgumentParser(prog="itt", description="Intent CLI")
+    parser = JsonArgumentParser(prog="itt", description="Intent CLI")
     sub = parser.add_subparsers(dest="command")
 
     # version / init / inspect / doctor
@@ -148,8 +193,11 @@ def main():
     args = parser.parse_args()
 
     if args.command is None:
-        parser.print_help()
-        sys.exit(1)
+        error(
+            "INVALID_INPUT",
+            "A command is required.",
+            details={"usage": parser.format_usage().strip()},
+        )
 
     dispatch_global = {
         "version": cmd_version,
@@ -162,13 +210,17 @@ def main():
         return
 
     if not getattr(args, "sub", None):
-        {
+        command_parser = {
             "hub": p_hub,
             "intent": p_intent,
             "snap": p_snap,
             "decision": p_decision,
-        }[args.command].print_help()
-        sys.exit(1)
+        }[args.command]
+        error(
+            "INVALID_INPUT",
+            f"A subcommand is required for {args.command!r}.",
+            details={"usage": command_parser.format_usage().strip()},
+        )
 
     dispatch = {
         ("hub", "start"):              cmd_hub_start,

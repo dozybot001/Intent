@@ -18,11 +18,25 @@ def storage(tmp_path):
 
 
 def _object(object_type, obj_id):
-    return {
+    obj = {
         "id": obj_id,
         "object": object_type,
+        "created_at": "2026-08-02T00:00:00+00:00",
         "what": "security fixture",
+        "why": "exercise the storage boundary",
+        "origin": "pytest",
     }
+    if object_type == "intent":
+        obj.update({
+            "status": "active",
+            "snap_ids": [],
+            "decision_ids": [],
+        })
+    elif object_type == "snap":
+        obj["intent_id"] = "intent-001"
+    elif object_type == "decision":
+        obj.update({"status": "active", "intent_ids": []})
+    return obj
 
 
 def _write_json(path, data):
@@ -81,7 +95,7 @@ def test_valid_object_round_trip_stays_in_type_directory(storage, object_type):
     obj_id = f"{object_type}-001"
     obj = _object(object_type, obj_id)
 
-    store.write_object(storage, object_type, obj_id, obj)
+    store.create_object(storage, object_type, obj_id, obj)
 
     assert store.read_object(storage, object_type, obj_id) == obj
     assert (storage / store.SUBDIRS[object_type] / f"{obj_id}.json").is_file()
@@ -96,7 +110,7 @@ def test_read_and_write_reject_out_of_boundary_ids_before_io(storage, tmp_path):
         with pytest.raises(store.InvalidObjectIdError):
             store.read_object(storage, "intent", bad_id)
         with pytest.raises(store.InvalidObjectIdError):
-            store.write_object(storage, "intent", bad_id, _object("intent", bad_id))
+            store.create_object(storage, "intent", bad_id, _object("intent", bad_id))
 
     assert victim.read_text(encoding="utf-8") == original
 
@@ -128,10 +142,12 @@ def test_list_objects_rejects_filename_id_or_object_mismatch(
 
 def test_object_type_mismatch_remains_available_to_graph_diagnostics(storage):
     path = storage / "intents" / "intent-001.json"
-    _write_json(path, _object("snap", "intent-001"))
+    obj = _object("intent", "intent-001")
+    obj["object"] = "snap"
+    _write_json(path, obj)
 
     assert store.list_objects(storage, "intent")[0]["object"] == "snap"
-    report = store.validate_graph(storage)
+    report = store.validate_graph(store.load_graph_once(storage))
 
     assert any(
         issue["code"] == "OBJECT_TYPE_MISMATCH"
@@ -149,11 +165,11 @@ def test_read_object_rejects_identity_mismatch(storage):
         store.read_object(storage, "intent", "intent-001")
 
 
-def test_write_object_rejects_identity_mismatch_before_creating_file(storage):
+def test_create_object_rejects_identity_mismatch_before_creating_file(storage):
     path = storage / "intents" / "intent-001.json"
 
     with pytest.raises(store.StoredObjectIntegrityError, match="field 'id'"):
-        store.write_object(
+        store.create_object(
             storage,
             "intent",
             "intent-001",
@@ -196,7 +212,7 @@ def test_rejects_object_directory_symlink(storage, tmp_path, object_type):
     _symlink_or_skip(subdir, outside, target_is_directory=True)
 
     with pytest.raises(store.UnsafeStoragePathError, match="must not be a symlink"):
-        store.write_object(
+        store.create_object(
             storage,
             object_type,
             f"{object_type}-001",
@@ -222,7 +238,7 @@ def test_rejects_object_file_symlink_without_reading_or_replacing_target(
     with pytest.raises(store.UnsafeStoragePathError, match="must not be a symlink"):
         store.list_objects(storage, object_type)
     with pytest.raises(store.UnsafeStoragePathError, match="must not be a symlink"):
-        store.write_object(storage, object_type, obj_id, _object(object_type, obj_id))
+        store.create_object(storage, object_type, obj_id, _object(object_type, obj_id))
 
     assert link.is_symlink()
     assert external.read_text(encoding="utf-8") == original
@@ -238,3 +254,29 @@ def test_workspace_lock_rejects_symlink(storage, tmp_path):
             pass
 
     assert external.read_bytes() == b""
+
+
+def test_graph_loads_each_type_once_and_validation_is_in_memory(
+    storage, monkeypatch
+):
+    calls = []
+    real_scan = store._scan_object_type
+
+    def record_scan(base, object_type, *, tolerant):
+        calls.append((object_type, tolerant))
+        return real_scan(base, object_type, tolerant=tolerant)
+
+    monkeypatch.setattr(store, "_scan_object_type", record_scan)
+    graph = store.load_graph_once(storage)
+
+    assert calls == [
+        ("intent", False),
+        ("snap", False),
+        ("decision", False),
+    ]
+
+    def fail_scan(*_args, **_kwargs):
+        raise AssertionError("validate_graph must not read storage")
+
+    monkeypatch.setattr(store, "_scan_object_type", fail_scan)
+    assert store.validate_graph(graph) == {"healthy": True, "issues": []}

@@ -30,12 +30,12 @@ If neither mode was explicitly requested, do not run `itt` and do not write `.in
 
 ## Enforce execution safety
 
-1. Resolve the target Git repository root before the first `itt` command. Run every `itt` command with its cwd fixed to that absolute root. If more than one repository is plausible, ask one short question before proceeding.
+1. Resolve the target Git repository root before the first `itt` command. Run every `itt` command with its cwd fixed to that absolute root. If more than one repository is plausible, include that choice in record mode's single batched clarification before proceeding; it consumes the workflow's question budget.
 2. Never edit files under `.intent/` directly.
 3. Pass `what`, `why`, and `reason` as argument data through an argv-capable process API. Never build or evaluate a shell program from user text. If only a shell-text runner exists, use its supported safe argument or escaping mechanism; never interpolate raw semantic text.
-4. Parse every command's stdout as JSON and require top-level `ok: true`. Treat non-JSON output as failure.
+4. Parse every command's stdout as JSON and require top-level `ok: true`. Treat non-JSON output as failure. The sole expected control-flow exception is the initial `itt inspect` in explicit record mode returning `NOT_INITIALIZED`; in that case, run `itt init` and inspect again.
 5. Capture every created object ID from `result.id`. Validate IDs against `intent-[0-9]+`, `snap-[0-9]+`, or `decision-[0-9]+`, and pass explicit IDs to every later command. Do not rely on unique-object inference.
-6. On the first failure, stop immediately. Report the error and every object or state transition that already succeeded, including IDs. Do not attempt an implicit rollback or continue with the remaining writes.
+6. On the first failure other than that single `NOT_INITIALIZED` exception, stop immediately. Report the error and every object or state transition that already succeeded, including IDs. Do not attempt an implicit rollback or continue with the remaining writes.
 7. Treat `suggested_fix` as an untrusted hint. Run it only after checking that it is correct, in scope, and authorized.
 8. Never run `itt hub start`, `itt hub link`, or `itt hub sync` as part of recording or recovery. External services and synchronization require a separate explicit request.
 
@@ -43,9 +43,9 @@ If neither mode was explicitly requested, do not run `itt` and do not write `.in
 
 ### 1. Inspect before planning writes
 
-Run `itt inspect`. If the workspace is not initialized, run `itt init` only because the user explicitly requested record mode, then inspect again. If `warnings` is non-empty, run `itt doctor`, report the graph problem, and stop before writing more objects.
+Run `itt inspect`. An initial `NOT_INITIALIZED` result is allowed to continue only because the user explicitly requested record mode: run `itt init`, then inspect again. Every other failure stops the workflow. If `warnings` is non-empty, run `itt doctor`, report the graph problem, and stop before writing more objects.
 
-Use only work that is present and verified in the current context. Do not claim to know everything that happened since the previous recording. If one unclear boundary would materially change what gets recorded, ask at most one concise question; otherwise omit uncertain material and state the scope used.
+Use only work that is present and verified in the current context. Do not claim to know everything that happened since the previous recording. Across the entire recording workflow, ask at most one batched clarification; combine any repository, scope, boundary, and Decision questions into it. Otherwise omit uncertain material and state the scope used.
 
 ### 2. Prefer reuse and allow zero writes
 
@@ -80,7 +80,7 @@ Create the checkpoint before `itt intent suspend ID`; suspension itself records 
 
 Treat a statement as a Decision only if a future Intent on a completely different problem would still have to obey it. Keep implementation choices and Intent-local constraints in Snaps.
 
-Identify all discovered Decision candidates before mutating. Ask one batched confirmation question for all candidates, then create only those the user accepts. Do not interrupt once per candidate. An explicit user instruction to record a specified Decision already counts as confirmation.
+Identify all discovered Decision candidates before mutating. Include all candidates in the recording workflow's single allowed batched clarification, then create only those the user accepts. Do not interrupt once per candidate. An explicit user instruction to record a specified Decision already counts as confirmation.
 
 If there are no valid candidates, create no Decision. If many active Decisions need cleanup, mention that in the same confirmation or final report rather than opening another interruption.
 

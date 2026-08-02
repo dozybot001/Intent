@@ -22,6 +22,32 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_PATHS = [str(REPO_ROOT), str(REPO_ROOT / "src")]
 
 
+def _stored_intent(obj_id="intent-001"):
+    return {
+        "id": obj_id,
+        "object": "intent",
+        "created_at": "2026-08-02T00:00:00+00:00",
+        "what": "Atomic fixture",
+        "why": "Verify write semantics",
+        "origin": "pytest",
+        "status": "active",
+        "decision_ids": [],
+        "snap_ids": [],
+    }
+
+
+def _stored_snap(obj_id="snap-001", intent_id="intent-001"):
+    return {
+        "id": obj_id,
+        "object": "snap",
+        "created_at": "2026-08-02T00:01:00+00:00",
+        "what": "Consistent checkpoint",
+        "why": "Reader must see both sides of the relation",
+        "origin": "pytest",
+        "intent_id": intent_id,
+    }
+
+
 @pytest.fixture
 def workspace(tmp_path):
     """Create a git repo with .intent/ initialized."""
@@ -180,6 +206,89 @@ class TestGlobal:
         assert r["ok"] is True
         assert r["result"]["healthy"] is True
         assert r["result"]["issues"] == []
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            (),
+            ("intent",),
+            ("unknown-command",),
+            ("inspect", "--history", "nope"),
+        ],
+    )
+    def test_argument_errors_use_json_contract(self, workspace, args):
+        r = _run(workspace, *args)
+
+        assert r["ok"] is False
+        assert r["error"]["code"] == "INVALID_INPUT"
+        assert r["error"]["details"]["usage"].startswith("usage: itt")
+
+    def test_inspect_reports_truncated_json_without_traceback(self, workspace):
+        _run(workspace, "intent", "create", "Goal")
+        path = workspace / ".intent" / "intents" / "intent-001.json"
+        path.write_text('{"id": "intent-001",', encoding="utf-8")
+
+        r = _run(workspace, "inspect")
+
+        assert r["ok"] is False
+        assert r["error"]["code"] == "STORAGE_PARSE_ERROR"
+        assert r["error"]["details"]["path"] == str(path)
+
+    def test_inspect_reports_schema_error_without_traceback(self, workspace):
+        _run(workspace, "intent", "create", "Goal")
+        path = workspace / ".intent" / "intents" / "intent-001.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        del payload["what"]
+        path.write_text(json.dumps(payload), encoding="utf-8")
+
+        r = _run(workspace, "inspect")
+
+        assert r["ok"] is False
+        assert r["error"]["code"] == "STORAGE_SCHEMA_ERROR"
+        assert r["error"]["details"]["field"] == "what"
+
+    def test_relationship_fields_must_be_lists_of_valid_ids(self, workspace):
+        _run(workspace, "intent", "create", "Goal")
+        path = workspace / ".intent" / "intents" / "intent-001.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["snap_ids"] = "snap-001"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+
+        r = _run(workspace, "inspect")
+
+        assert r["error"]["code"] == "STORAGE_SCHEMA_ERROR"
+        assert r["error"]["details"]["field"] == "snap_ids"
+
+    def test_doctor_aggregates_all_parse_and_schema_damage(self, workspace):
+        _run(workspace, "intent", "create", "Goal")
+        _run(workspace, "snap", "create", "Checkpoint", "--intent", "intent-001")
+        _run(workspace, "decision", "create", "Rule")
+        base = workspace / ".intent"
+
+        (base / "intents" / "intent-001.json").write_text(
+            '{"id": "intent-001",', encoding="utf-8",
+        )
+        snap_path = base / "snaps" / "snap-001.json"
+        snap = json.loads(snap_path.read_text(encoding="utf-8"))
+        del snap["what"]
+        snap_path.write_text(json.dumps(snap), encoding="utf-8")
+        decision_path = base / "decisions" / "decision-001.json"
+        decision = json.loads(decision_path.read_text(encoding="utf-8"))
+        decision["intent_ids"] = "intent-001"
+        decision_path.write_text(json.dumps(decision), encoding="utf-8")
+
+        r = _run(workspace, "doctor")
+
+        assert r["ok"] is True
+        assert r["result"]["healthy"] is False
+        assert [issue["code"] for issue in r["result"]["issues"]] == [
+            "OBJECT_PARSE_ERROR",
+            "OBJECT_SCHEMA_ERROR",
+            "OBJECT_SCHEMA_ERROR",
+        ]
+        assert {issue["object"] for issue in r["result"]["issues"]} == {
+            "intent", "snap", "decision",
+        }
 
 
 class TestHub:
@@ -845,9 +954,36 @@ class TestCliStorageSecurity:
 
 
 class TestAtomicWrites:
-    def test_write_object_replaces_from_same_directory(self, workspace, monkeypatch):
+    def test_create_object_links_complete_temp_without_replacing(
+        self, workspace, monkeypatch
+    ):
         base = workspace / ".intent"
         destination = base / "intents" / "intent-001.json"
+        payload = _stored_intent()
+        calls = []
+        real_link = intent_store.os.link
+
+        def record_link(source, target):
+            source_path = Path(source)
+            target_path = Path(target)
+            calls.append((source_path, target_path))
+            assert source_path.parent == target_path.parent
+            assert json.loads(source_path.read_text()) == payload
+            real_link(source, target)
+
+        monkeypatch.setattr(intent_store.os, "link", record_link)
+        intent_store.create_object(base, "intent", "intent-001", payload)
+
+        assert calls and calls[0][1] == destination
+        assert json.loads(destination.read_text()) == payload
+        assert list(destination.parent.glob(f".{destination.name}.*.tmp")) == []
+
+    def test_update_object_replaces_from_same_directory(self, workspace, monkeypatch):
+        base = workspace / ".intent"
+        destination = base / "intents" / "intent-001.json"
+        original = _stored_intent()
+        intent_store.create_object(base, "intent", "intent-001", original)
+        updated = dict(original, status="suspend")
         calls = []
         real_replace = intent_store.os.replace
 
@@ -856,26 +992,60 @@ class TestAtomicWrites:
             target_path = Path(target)
             calls.append((source_path, target_path))
             assert source_path.parent == target_path.parent
-            assert json.loads(source_path.read_text()) == {"id": "intent-001"}
+            assert json.loads(source_path.read_text()) == updated
             real_replace(source, target)
 
         monkeypatch.setattr(intent_store.os, "replace", record_replace)
-        intent_store.write_object(base, "intent", "intent-001", {"id": "intent-001"})
+        intent_store.update_object(base, "intent", "intent-001", updated)
 
         assert calls and calls[0][1] == destination
-        assert json.loads(destination.read_text()) == {"id": "intent-001"}
+        assert json.loads(destination.read_text()) == updated
         assert list(destination.parent.glob(f".{destination.name}.*.tmp")) == []
 
-    def test_write_object_cleans_temp_file_when_replace_fails(self, workspace, monkeypatch):
+    def test_update_object_cleans_temp_and_preserves_old_file_when_replace_fails(
+        self, workspace, monkeypatch
+    ):
         base = workspace / ".intent"
         destination = base / "intents" / "intent-001.json"
+        original = _stored_intent()
+        intent_store.create_object(base, "intent", "intent-001", original)
+        updated = dict(original, status="suspend")
 
         def fail_replace(_source, _target):
             raise OSError("replace failed")
 
         monkeypatch.setattr(intent_store.os, "replace", fail_replace)
         with pytest.raises(OSError, match="replace failed"):
-            intent_store.write_object(base, "intent", "intent-001", {"id": "intent-001"})
+            intent_store.update_object(base, "intent", "intent-001", updated)
+
+        assert json.loads(destination.read_text()) == original
+        assert list(destination.parent.glob(f".{destination.name}.*.tmp")) == []
+
+    def test_update_object_never_creates_a_missing_destination(self, workspace):
+        base = workspace / ".intent"
+        destination = base / "intents" / "intent-001.json"
+
+        with pytest.raises(intent_store.StoredObjectWriteConflictError):
+            intent_store.update_object(
+                base, "intent", "intent-001", _stored_intent(),
+            )
+
+        assert not destination.exists()
+
+    def test_create_cleans_temp_when_destination_appears_during_commit(
+        self, workspace, monkeypatch
+    ):
+        base = workspace / ".intent"
+        destination = base / "intents" / "intent-001.json"
+
+        def destination_appeared(_source, _target):
+            raise FileExistsError("racing creator won")
+
+        monkeypatch.setattr(intent_store.os, "link", destination_appeared)
+        with pytest.raises(intent_store.StoredObjectWriteConflictError):
+            intent_store.create_object(
+                base, "intent", "intent-001", _stored_intent(),
+            )
 
         assert not destination.exists()
         assert list(destination.parent.glob(f".{destination.name}.*.tmp")) == []
@@ -899,12 +1069,85 @@ class TestAtomicWrites:
             "api_base_url": "http://127.0.0.1"
         }
 
+    def test_casefold_occupied_id_is_counted_and_never_overwritten(self, workspace):
+        base = workspace / ".intent"
+        occupied = base / "intents" / "intent-001.JSON"
+        original = json.dumps(_stored_intent(), indent=2)
+        occupied.write_text(original, encoding="utf-8")
+
+        result = _run(workspace, "intent", "create", "New goal")
+
+        assert result["ok"] is True
+        assert result["result"]["id"] == "intent-002"
+        assert occupied.read_text(encoding="utf-8") == original
+        assert (base / "intents" / "intent-002.json").is_file()
+
+    def test_create_rejects_casefold_destination_conflict_without_overwrite(
+        self, workspace
+    ):
+        base = workspace / ".intent"
+        occupied = base / "intents" / "intent-001.JSON"
+        original = json.dumps(_stored_intent(), indent=2)
+        occupied.write_text(original, encoding="utf-8")
+
+        with pytest.raises(intent_store.StoredObjectWriteConflictError):
+            intent_store.create_object(
+                base, "intent", "intent-001", _stored_intent(),
+            )
+
+        assert occupied.read_text(encoding="utf-8") == original
+
+    def test_update_rejects_noncanonical_casefold_destination(self, workspace):
+        base = workspace / ".intent"
+        occupied = base / "intents" / "intent-001.JSON"
+        original = json.dumps(_stored_intent(), indent=2)
+        occupied.write_text(original, encoding="utf-8")
+
+        with pytest.raises(intent_store.StoredObjectWriteConflictError):
+            intent_store.update_object(
+                base,
+                "intent",
+                "intent-001",
+                dict(_stored_intent(), status="suspend"),
+            )
+
+        assert occupied.read_text(encoding="utf-8") == original
+
     def test_workspace_write_lock_times_out_for_second_writer(self, workspace):
         base = workspace / ".intent"
         with intent_store.workspace_write_lock(base):
             with pytest.raises(intent_store.WorkspaceBusyError):
                 with intent_store.workspace_write_lock(base, timeout=0.01):
                     pass
+
+    def test_inspect_waits_for_complete_multi_file_snapshot(self, workspace):
+        base = workspace / ".intent"
+        intent_store.create_object(
+            base, "intent", "intent-001", _stored_intent(),
+        )
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            with intent_store.workspace_write_lock(base):
+                intent_store.create_object(
+                    base, "snap", "snap-001", _stored_snap(),
+                )
+                reader = pool.submit(_run, workspace, "inspect")
+                threading.Event().wait(0.3)
+                assert reader.done() is False
+
+                intent = intent_store.read_object(
+                    base, "intent", "intent-001",
+                )
+                intent["snap_ids"].append("snap-001")
+                intent_store.update_object(
+                    base, "intent", "intent-001", intent,
+                )
+
+            result = reader.result(timeout=5)
+
+        assert result["ok"] is True
+        assert result["active_intents"][0]["latest_snap"]["id"] == "snap-001"
+        assert result["warnings"] == []
 
     def test_concurrent_cli_writers_receive_unique_ids(self, workspace):
         def create(index):

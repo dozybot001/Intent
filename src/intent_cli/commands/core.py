@@ -8,15 +8,18 @@ from intent_cli.output import error, success
 from intent_cli.origin import detect_origin
 from intent_cli.store import (
     VALID_STATUSES,
+    create_object,
     ensure_local_git_exclude,
     git_root,
     init_workspace,
     list_objects,
+    load_graph_once,
     next_id,
     read_object,
+    update_object,
     validate_object_id,
     validate_graph,
-    write_object,
+    workspace_write_lock,
 )
 
 
@@ -67,10 +70,11 @@ def cmd_inspect(args):
     if args.intent is not None:
         validate_object_id("intent", args.intent)
 
-    all_snaps = list_objects(base, "snap")
-    snap_by_id = {snap["id"]: snap for snap in all_snaps}
+    with workspace_write_lock(base):
+        graph = load_graph_once(base)
 
-    intents = list_objects(base, "intent")
+    snap_by_id = graph["snap"]
+    intents = list(graph["intent"].values())
     if args.intent is not None:
         selected = next((obj for obj in intents if obj["id"] == args.intent), None)
         if selected is None:
@@ -112,14 +116,16 @@ def cmd_inspect(args):
             suspended.append(entry)
 
     active_decisions = []
-    for obj in list_objects(base, "decision", status="active"):
+    for obj in graph["decision"].values():
+        if obj.get("status") != "active":
+            continue
         active_decisions.append({
             "id": obj["id"],
             "what": obj["what"],
             "why": obj.get("why", ""),
         })
 
-    warnings = validate_graph(base)["issues"]
+    warnings = validate_graph(graph)["issues"]
 
     print(json.dumps({
         "ok": True,
@@ -132,7 +138,9 @@ def cmd_inspect(args):
 
 def cmd_doctor(_args):
     base = require_init()
-    success("doctor", validate_graph(base))
+    with workspace_write_lock(base):
+        graph = load_graph_once(base, tolerant=True)
+    success("doctor", validate_graph(graph))
 
 
 def _intent_result_for_json(intent):
@@ -202,12 +210,12 @@ def cmd_intent_create(args):
         "decision_ids": decision_ids,
         "snap_ids": [],
     }
-    write_object(base, "intent", obj_id, intent)
+    create_object(base, "intent", obj_id, intent)
 
     for decision in active_decisions:
         if obj_id not in decision.get("intent_ids", []):
             decision.setdefault("intent_ids", []).append(obj_id)
-            write_object(base, "decision", decision["id"], decision)
+            update_object(base, "decision", decision["id"], decision)
 
     success("intent.create", _intent_result_for_json(intent), warnings)
 
@@ -243,9 +251,9 @@ def cmd_intent_activate(args):
             obj["decision_ids"].append(decision["id"])
         if intent_id not in decision.get("intent_ids", []):
             decision.setdefault("intent_ids", []).append(intent_id)
-            write_object(base, "decision", decision["id"], decision)
+            update_object(base, "decision", decision["id"], decision)
 
-    write_object(base, "intent", intent_id, obj)
+    update_object(base, "intent", intent_id, obj)
     warnings = []
     if inferred:
         warnings.append(f"Inferred intent {intent_id} (only suspended intent).")
@@ -277,7 +285,7 @@ def cmd_intent_suspend(args):
         )
 
     obj["status"] = "suspend"
-    write_object(base, "intent", intent_id, obj)
+    update_object(base, "intent", intent_id, obj)
     warnings = []
     if inferred:
         warnings.append(f"Inferred intent {intent_id} (only active intent).")
@@ -309,7 +317,7 @@ def cmd_intent_done(args):
         )
 
     obj["status"] = "done"
-    write_object(base, "intent", intent_id, obj)
+    update_object(base, "intent", intent_id, obj)
     warnings = []
     if inferred:
         warnings.append(f"Inferred intent {intent_id} (only active intent).")
@@ -361,7 +369,7 @@ def cmd_intent_cancel(args):
     reason = getattr(args, "reason", "") or ""
     if reason:
         obj["reason"] = reason
-    write_object(base, "intent", intent_id, obj)
+    update_object(base, "intent", intent_id, obj)
     warnings = []
     if inferred:
         warnings.append(f"Inferred intent {intent_id} (only open intent).")
@@ -421,10 +429,10 @@ def cmd_snap_create(args):
         "intent_id": intent_id,
         "origin": origin,
     }
-    write_object(base, "snap", obj_id, snap)
+    create_object(base, "snap", obj_id, snap)
 
     intent.setdefault("snap_ids", []).append(obj_id)
-    write_object(base, "intent", intent_id, intent)
+    update_object(base, "intent", intent_id, intent)
 
     warnings = []
     if inferred:
@@ -459,12 +467,12 @@ def cmd_decision_create(args):
         "origin": origin,
         "intent_ids": intent_ids,
     }
-    write_object(base, "decision", obj_id, decision)
+    create_object(base, "decision", obj_id, decision)
 
     for intent in active_intents:
         if obj_id not in intent.get("decision_ids", []):
             intent.setdefault("decision_ids", []).append(obj_id)
-            write_object(base, "intent", intent["id"], intent)
+            update_object(base, "intent", intent["id"], intent)
 
     success("decision.create", decision, warnings)
 
@@ -486,5 +494,5 @@ def cmd_decision_deprecate(args):
     reason = getattr(args, "reason", "") or ""
     if reason:
         obj["reason"] = reason
-    write_object(base, "decision", args.id, obj)
+    update_object(base, "decision", args.id, obj)
     success("decision.deprecate", obj)

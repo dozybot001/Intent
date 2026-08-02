@@ -231,7 +231,7 @@ stateDiagram-v2
 
 ### `doctor`
 
-`doctor` 运行与 `inspect.warnings` 相同的校验，并用显式健康标记包装结果：
+`doctor` 运行与 `inspect.warnings` 相同的校验，并用显式健康标记包装结果。与其他命令的严格读取不同，它会在记录结构化解析、schema 或完整性问题后跳过当前坏对象并继续扫描，因此第一处损坏不会遮住后续问题：
 
 ```json
 {
@@ -271,7 +271,10 @@ stateDiagram-v2
 | `INVALID_INPUT` | 参数非法或缺少必填输入 |
 | `INVALID_OBJECT_ID` | 显式对象 ID 不是与类型匹配的本地 ID，例如 `intent-001` |
 | `UNSAFE_STORAGE` | `.intent/`、对象目录、锁或对象文件通过符号链接重定向，或越出存储边界 |
+| `STORAGE_PARSE_ERROR` | 存储对象不是合法 UTF-8 JSON；`doctor` 会列出扫描到的全部解析失败 |
+| `STORAGE_SCHEMA_ERROR` | 存储对象缺少必需字段，或字段类型不合法 |
 | `STORAGE_INTEGRITY_ERROR` | 对象文件名与 JSON `id` 不一致；重试前需人工检查并修复报告的本地文件 |
+| `STORAGE_WRITE_CONFLICT` | 创建目标已存在，或更新目标缺失、文件名不规范；不会覆盖已有对象 |
 | `STORAGE_SECURITY_ERROR` | 其他存储安全不变量校验失败 |
 | `NO_ACTIVE_INTENT` | `snap create`、`intent suspend` 或 `intent done` 在省略目标时，没有 `active` intent |
 | `MULTIPLE_ACTIVE_INTENTS` | `snap create`、`intent suspend` 或 `intent done` 在省略目标时，存在多个 `active` intent |

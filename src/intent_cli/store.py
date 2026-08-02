@@ -55,6 +55,32 @@ class StoredObjectIntegrityError(StorageSecurityError):
         super().__init__(f"Invalid stored object at {self.path}: {message}")
 
 
+class StoredObjectParseError(StorageSecurityError):
+    """Raised when a stored object is not valid UTF-8 JSON."""
+
+    def __init__(self, path, message):
+        self.path = Path(path)
+        super().__init__(f"Could not parse stored object at {self.path}: {message}")
+
+
+class StoredObjectSchemaError(StorageSecurityError):
+    """Raised when a stored object does not satisfy its required schema."""
+
+    def __init__(self, path, message, *, field=None):
+        self.path = Path(path)
+        self.field = field
+        super().__init__(f"Invalid stored object schema at {self.path}: {message}")
+
+
+class StoredObjectWriteConflictError(StorageSecurityError):
+    """Raised when an object create or update cannot preserve write semantics."""
+
+    def __init__(self, path, message, *, conflicts=None):
+        self.path = Path(path)
+        self.conflicts = [str(conflict) for conflict in (conflicts or [])]
+        super().__init__(f"Object write conflict at {self.path}: {message}")
+
+
 class WorkspaceBusyError(RuntimeError):
     """Raised when another Intent writer holds the workspace lock."""
 
@@ -135,19 +161,124 @@ def _safe_object_path(base, object_type, obj_id):
 def _validate_stored_object_id(obj, path, expected_id):
     """Verify that object data agrees with its storage filename."""
     if not isinstance(obj, dict):
-        raise StoredObjectIntegrityError(path, "top-level JSON must be an object")
-    if obj.get("id") != expected_id:
+        raise StoredObjectSchemaError(path, "top-level JSON must be an object")
+    if "id" not in obj:
+        raise StoredObjectSchemaError(
+            path, "missing required field 'id'", field="id",
+        )
+    if not isinstance(obj["id"], str):
+        raise StoredObjectSchemaError(
+            path,
+            f"field 'id' must be a string, got {type(obj['id']).__name__}",
+            field="id",
+        )
+    if obj["id"] != expected_id:
         raise StoredObjectIntegrityError(
             path,
-            f"field 'id' is {obj.get('id')!r}, expected {expected_id!r}",
+            f"field 'id' is {obj['id']!r}, expected {expected_id!r}",
         )
     return obj
 
 
-def _load_and_validate_object_id(path, expected_id):
-    """Load JSON and verify that its ID agrees with its storage filename."""
-    obj = json.loads(path.read_text(encoding="utf-8"))
-    return _validate_stored_object_id(obj, path, expected_id)
+REQUIRED_STRING_FIELDS = {
+    "intent": ("id", "object", "created_at", "what", "why", "origin", "status"),
+    "snap": ("id", "object", "created_at", "what", "why", "origin", "intent_id"),
+    "decision": (
+        "id", "object", "created_at", "what", "why", "origin", "status",
+    ),
+}
+RELATION_FIELDS = {
+    "intent": {"snap_ids": "snap", "decision_ids": "decision"},
+    "snap": {},
+    "decision": {"intent_ids": "intent"},
+}
+
+
+def _validate_object_schema(
+    obj,
+    path,
+    object_type,
+    expected_id,
+    *,
+    require_object_type=False,
+):
+    """Validate required object fields and relationship field types."""
+    _validate_stored_object_id(obj, path, expected_id)
+
+    for field in REQUIRED_STRING_FIELDS[object_type]:
+        if field not in obj:
+            raise StoredObjectSchemaError(
+                path, f"missing required field {field!r}", field=field,
+            )
+        if not isinstance(obj[field], str):
+            raise StoredObjectSchemaError(
+                path,
+                f"field {field!r} must be a string, got {type(obj[field]).__name__}",
+                field=field,
+            )
+
+    if require_object_type and obj["object"] != object_type:
+        raise StoredObjectSchemaError(
+            path,
+            f"field 'object' must be {object_type!r}, got {obj['object']!r}",
+            field="object",
+        )
+
+    if "reason" in obj and not isinstance(obj["reason"], str):
+        raise StoredObjectSchemaError(
+            path,
+            f"field 'reason' must be a string, got {type(obj['reason']).__name__}",
+            field="reason",
+        )
+
+    for field, target_type in RELATION_FIELDS[object_type].items():
+        if field not in obj:
+            raise StoredObjectSchemaError(
+                path, f"missing required field {field!r}", field=field,
+            )
+        values = obj[field]
+        if not isinstance(values, list):
+            raise StoredObjectSchemaError(
+                path,
+                f"field {field!r} must be a list of {target_type} IDs",
+                field=field,
+            )
+        for index, value in enumerate(values):
+            try:
+                validate_object_id(target_type, value)
+            except InvalidObjectIdError as exc:
+                raise StoredObjectSchemaError(
+                    path,
+                    f"field {field!r} item {index} is not a valid {target_type} ID",
+                    field=field,
+                ) from exc
+
+    if object_type == "snap":
+        try:
+            validate_object_id("intent", obj["intent_id"])
+        except InvalidObjectIdError as exc:
+            raise StoredObjectSchemaError(
+                path,
+                "field 'intent_id' is not a valid intent ID",
+                field="intent_id",
+            ) from exc
+
+    return obj
+
+
+def _load_and_validate_object(path, object_type, expected_id):
+    """Load one object and validate its identity and required schema."""
+    try:
+        raw = path.read_text(encoding="utf-8")
+        obj = json.loads(raw)
+    except UnicodeDecodeError as exc:
+        raise StoredObjectParseError(path, "file is not valid UTF-8") from exc
+    except json.JSONDecodeError as exc:
+        raise StoredObjectParseError(
+            path,
+            f"invalid JSON at line {exc.lineno}, column {exc.colno}",
+        ) from exc
+    return _validate_object_schema(obj, path, object_type, expected_id)
 
 
 def git_root():
@@ -282,19 +413,80 @@ def make_runtime_id(prefix):
     return f"{prefix}_{uuid.uuid4().hex[:12]}"
 
 
+def _object_entry_groups(base, object_type):
+    """Enumerate object-looking entries grouped by case-insensitive filename."""
+    subdir, resolved_subdir = _safe_object_dir(base, object_type)
+    prefix = f"{object_type}-"
+    groups = {}
+    entries = sorted(
+        subdir.iterdir(),
+        key=lambda item: (item.name.casefold(), item.name),
+    )
+    for entry in entries:
+        folded = entry.name.casefold()
+        if folded.startswith(prefix) and folded.endswith(".json"):
+            groups.setdefault(folded, []).append(entry)
+    return subdir, resolved_subdir, groups
+
+
+def _object_entry_identity(entry, object_type):
+    """Return the canonical ID encoded by an object-looking filename."""
+    match = re.fullmatch(
+        rf"({object_type}-[0-9]+)\.json",
+        entry.name.casefold(),
+        re.ASCII,
+    )
+    if match is None:
+        raise StoredObjectIntegrityError(
+            entry, "filename is not a valid object ID",
+        )
+    obj_id = match.group(1)
+    validate_object_id(object_type, obj_id)
+    return obj_id, f"{obj_id}.json"
+
+
+def _validate_discovered_object_path(entry, resolved_subdir):
+    """Reject symlinked, non-file, or redirected directory entries."""
+    if entry.is_symlink():
+        raise UnsafeStoragePathError(entry, "Object file must not be a symlink")
+    if not entry.is_file():
+        raise StoredObjectIntegrityError(entry, "object path is not a regular file")
+    try:
+        resolved_entry = entry.resolve(strict=True)
+    except OSError as exc:
+        raise UnsafeStoragePathError(entry, "Could not resolve object file") from exc
+    if resolved_entry.parent != resolved_subdir:
+        raise UnsafeStoragePathError(
+            entry, "Object file escapes its storage directory",
+        )
+
+
+def _casefold_name_conflicts(directory, target_name):
+    """Return every directory entry colliding with target_name by casefold."""
+    folded_target = target_name.casefold()
+    return sorted(
+        (
+            entry
+            for entry in directory.iterdir()
+            if entry.name.casefold() == folded_target
+        ),
+        key=lambda entry: entry.name,
+    )
+
+
 def next_id(base, object_type):
     """Generate next zero-padded ID for a given object type."""
-    subdir, _resolved_subdir = _safe_object_dir(base, object_type)
+    _subdir, _resolved_subdir, groups = _object_entry_groups(base, object_type)
     max_num = 0
-    for f in subdir.glob(f"{object_type}-*.json"):
-        try:
-            validate_object_id(object_type, f.stem)
-        except InvalidObjectIdError as exc:
+    for entries in groups.values():
+        if len(entries) > 1:
             raise StoredObjectIntegrityError(
-                f, "filename is not a valid object ID"
-            ) from exc
-        _safe_object_path(base, object_type, f.stem)
-        num = int(f.stem.split("-", 1)[1])
+                entries[0],
+                "multiple directory entries have the same case-insensitive name: "
+                + ", ".join(entry.name for entry in entries),
+            )
+        obj_id, _canonical_name = _object_entry_identity(entries[0], object_type)
+        num = int(obj_id.split("-", 1)[1])
         max_num = max(max_num, num)
     return f"{object_type}-{max_num + 1:03d}"
 
@@ -302,13 +494,20 @@ def next_id(base, object_type):
 def read_object(base, object_type, obj_id):
     """Read object JSON by ID. Returns dict or None."""
     path = _safe_object_path(base, object_type, obj_id)
-    if not path.is_file():
+    conflicts = _casefold_name_conflicts(path.parent, path.name)
+    if not conflicts:
         return None
-    return _load_and_validate_object_id(path, obj_id)
+    if len(conflicts) != 1 or conflicts[0].name != path.name:
+        raise StoredObjectIntegrityError(
+            conflicts[0],
+            f"non-canonical or conflicting filename for {path.name!r}",
+        )
+    _validate_discovered_object_path(path, path.parent.resolve(strict=True))
+    return _load_and_validate_object(path, object_type, obj_id)
 
 
-def _write_json_atomic(path, data):
-    """Write JSON through a same-directory temporary file and atomic replace."""
+def _write_json_temp(path, data):
+    """Write and fsync a complete JSON temporary file beside its destination."""
     temp_path = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -323,39 +522,160 @@ def _write_json_atomic(path, data):
             temp_file.write(json.dumps(data, indent=2, ensure_ascii=False))
             temp_file.flush()
             os.fsync(temp_file.fileno())
+        return temp_path
+    except BaseException:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+        raise
+
+
+def _write_json_atomic(path, data):
+    """Write JSON through a same-directory temporary file and atomic replace."""
+    temp_path = _write_json_temp(path, data)
+    try:
         os.replace(str(temp_path), str(path))
     finally:
-        if temp_path is not None:
-            try:
-                temp_path.unlink()
-            except FileNotFoundError:
-                pass
+        temp_path.unlink(missing_ok=True)
 
 
-def write_object(base, object_type, obj_id, data):
-    """Atomically write an object dict to its JSON file."""
+def _create_json_atomic(path, data):
+    """Atomically install complete JSON only when the destination is absent."""
+    temp_path = _write_json_temp(path, data)
+    try:
+        try:
+            os.link(str(temp_path), str(path))
+        except FileExistsError as exc:
+            raise StoredObjectWriteConflictError(
+                path, "destination already exists",
+            ) from exc
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+
+def create_object(base, object_type, obj_id, data):
+    """Atomically create an object without replacing any existing entry."""
     path = _safe_object_path(base, object_type, obj_id)
-    _validate_stored_object_id(data, path, obj_id)
+    _validate_object_schema(
+        data, path, object_type, obj_id, require_object_type=True,
+    )
+    conflicts = _casefold_name_conflicts(path.parent, path.name)
+    if conflicts:
+        raise StoredObjectWriteConflictError(
+            path,
+            "a case-insensitive destination name is already occupied",
+            conflicts=conflicts,
+        )
+    _create_json_atomic(path, data)
+
+
+def update_object(base, object_type, obj_id, data):
+    """Atomically replace an existing canonical object, never create one."""
+    path = _safe_object_path(base, object_type, obj_id)
+    _validate_object_schema(
+        data, path, object_type, obj_id, require_object_type=True,
+    )
+    conflicts = _casefold_name_conflicts(path.parent, path.name)
+    if len(conflicts) != 1 or conflicts[0].name != path.name:
+        message = (
+            "destination does not exist"
+            if not conflicts
+            else "only a non-canonical or conflicting destination exists"
+        )
+        raise StoredObjectWriteConflictError(
+            path, message, conflicts=conflicts,
+        )
+    _validate_discovered_object_path(path, path.parent.resolve(strict=True))
     _write_json_atomic(path, data)
 
 
-def list_objects(base, object_type, status=None):
-    """List all objects of a type, optionally filtered by status."""
-    subdir, _resolved_subdir = _safe_object_dir(base, object_type)
-    result = []
-    for f in sorted(subdir.glob(f"{object_type}-*.json")):
-        try:
-            validate_object_id(object_type, f.stem)
-        except InvalidObjectIdError as exc:
-            raise StoredObjectIntegrityError(
-                f, "filename is not a valid object ID"
-            ) from exc
-        path = _safe_object_path(base, object_type, f.stem)
-        obj = _load_and_validate_object_id(path, f.stem)
-        if status is None or obj.get("status") == status:
-            result.append(obj)
-    return result
+def _stored_object_issue(exc, object_type, obj_id=None):
+    """Convert one recoverable stored-object failure into a doctor issue."""
+    if isinstance(exc, StoredObjectParseError):
+        code = "OBJECT_PARSE_ERROR"
+    elif isinstance(exc, StoredObjectSchemaError):
+        code = "OBJECT_SCHEMA_ERROR"
+    elif isinstance(exc, UnsafeStoragePathError):
+        code = "UNSAFE_STORAGE"
+    else:
+        code = "OBJECT_INTEGRITY_ERROR"
+    issue = {
+        "code": code,
+        "object": object_type,
+        "id": obj_id,
+        "message": str(exc),
+        "path": str(exc.path),
+    }
+    if isinstance(exc, StoredObjectSchemaError) and exc.field is not None:
+        issue["field"] = exc.field
+    return issue
 
+
+def _scan_object_type(base, object_type, *, tolerant):
+    """Load one object directory strictly or aggregate recoverable damage."""
+    _subdir, resolved_subdir, groups = _object_entry_groups(base, object_type)
+    objects = []
+    issues = []
+
+    for entries in groups.values():
+        if len(entries) > 1:
+            for entry in entries:
+                exc = StoredObjectIntegrityError(
+                    entry,
+                    "multiple directory entries have the same case-insensitive name: "
+                    + ", ".join(item.name for item in entries),
+                )
+                if not tolerant:
+                    raise exc
+                issues.append(_stored_object_issue(exc, object_type))
+            continue
+
+        entry = entries[0]
+        obj_id = None
+        try:
+            obj_id, canonical_name = _object_entry_identity(entry, object_type)
+            if entry.name != canonical_name:
+                raise StoredObjectIntegrityError(
+                    entry,
+                    f"filename must use canonical spelling {canonical_name!r}",
+                )
+            _validate_discovered_object_path(entry, resolved_subdir)
+            objects.append(_load_and_validate_object(entry, object_type, obj_id))
+        except (
+            StoredObjectIntegrityError,
+            StoredObjectParseError,
+            StoredObjectSchemaError,
+            UnsafeStoragePathError,
+        ) as exc:
+            if not tolerant:
+                raise
+            issues.append(_stored_object_issue(exc, object_type, obj_id))
+
+    return objects, issues
+
+
+def list_objects(base, object_type, status=None):
+    """List all valid objects of a type, optionally filtered by status."""
+    objects, _issues = _scan_object_type(base, object_type, tolerant=False)
+    if status is None:
+        return objects
+    return [obj for obj in objects if obj.get("status") == status]
+
+
+def load_graph_once(base, *, tolerant=False):
+    """Load every local object exactly once into one consistent in-memory graph."""
+    graph = {
+        "intent": {},
+        "snap": {},
+        "decision": {},
+        "load_issues": [],
+    }
+    for object_type in SUBDIRS:
+        objects, issues = _scan_object_type(
+            base, object_type, tolerant=tolerant,
+        )
+        graph[object_type] = {obj["id"]: obj for obj in objects}
+        graph["load_issues"].extend(issues)
+    return graph
 
 
 def read_hub_config(base):
@@ -447,12 +767,12 @@ def parse_github_remote(remote_url):
     }
 
 
-def validate_graph(base):
-    """Validate the object graph and return a structured report."""
-    intents = {obj["id"]: obj for obj in list_objects(base, "intent")}
-    snaps = {obj["id"]: obj for obj in list_objects(base, "snap")}
-    decisions = {obj["id"]: obj for obj in list_objects(base, "decision")}
-    issues = []
+def validate_graph(graph):
+    """Validate one in-memory graph without reading storage again."""
+    intents = graph["intent"]
+    snaps = graph["snap"]
+    decisions = graph["decision"]
+    issues = list(graph.get("load_issues", []))
 
     def add_issue(code, object_type, obj_id, message):
         issues.append({

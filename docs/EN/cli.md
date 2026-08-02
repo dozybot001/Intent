@@ -231,7 +231,7 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 
 ### `doctor`
 
-`doctor` runs the same validation used by `inspect.warnings` and wraps the result with an explicit health flag:
+`doctor` runs the same validation used by `inspect.warnings` and wraps the result with an explicit health flag. Unlike strict command reads, it skips each malformed object after recording a structured parse, schema, or integrity issue, so one damaged file does not hide later damage:
 
 ```json
 {
@@ -271,7 +271,10 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 | `INVALID_INPUT` | Invalid arguments or missing required input |
 | `INVALID_OBJECT_ID` | An explicit object ID is not a type-matching local ID such as `intent-001` |
 | `UNSAFE_STORAGE` | `.intent/`, an object directory, lock, or object file redirects through a symlink or escapes its storage boundary |
+| `STORAGE_PARSE_ERROR` | A stored object is not valid UTF-8 JSON; `doctor` reports every parse failure it can scan |
+| `STORAGE_SCHEMA_ERROR` | A stored object is missing a required field or has an invalid field type |
 | `STORAGE_INTEGRITY_ERROR` | A stored filename and its JSON `id` disagree; inspect and repair the reported local file before retrying |
+| `STORAGE_WRITE_CONFLICT` | A create target already exists, or an update target is missing or non-canonical; no existing object is overwritten |
 | `STORAGE_SECURITY_ERROR` | Another storage-safety invariant failed |
 | `NO_ACTIVE_INTENT` | `snap create`, `intent suspend`, or `intent done` omitted the target intent and none is `active` |
 | `MULTIPLE_ACTIVE_INTENTS` | `snap create`, `intent suspend`, or `intent done` omitted the target intent and several are `active` |
