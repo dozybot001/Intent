@@ -1,7 +1,5 @@
 FROM python:3.13-slim
 
-ARG INTHUB_VERSION=0.0.0
-
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
@@ -24,6 +22,7 @@ COPY --chown=inthub:inthub . /app
 
 # Keep revision-specific metadata after the dependency layer so a new release
 # can reuse the already downloaded PostgreSQL driver.
+ARG INTHUB_VERSION=0.0.0
 LABEL org.opencontainers.image.title="IntHub" \
     org.opencontainers.image.source="https://github.com/dozybot001/Intent" \
     org.opencontainers.image.version="${INTHUB_VERSION}"
