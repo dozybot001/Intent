@@ -12,13 +12,15 @@ RUN groupadd --gid 10001 inthub \
     && mkdir -p /data \
     && chown inthub:inthub /data
 
-COPY --chown=inthub:inthub . /app
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends libpq5 \
+    && rm -rf /var/lib/apt/lists/*
 
-# The source tree runs directly from /app. Installing only the runtime driver
-# avoids an unnecessary PEP 517 build-isolation round trip in production.
-RUN python -m pip install --no-cache-dir \
-    "psycopg==3.3.4" \
-    "psycopg-binary==3.3.4"
+# The pure-Python package uses Debian's libpq. Keeping runtime dependencies
+# before COPY makes this layer reusable for every application-only release.
+RUN python -m pip install --no-cache-dir "psycopg==3.3.4"
+
+COPY --chown=inthub:inthub . /app
 
 # Keep revision-specific metadata after the dependency layer so a new release
 # can reuse the already downloaded PostgreSQL driver.
