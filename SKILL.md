@@ -64,11 +64,15 @@ Conversely, do not fragment one coherent objective by file, commit, tool, comman
 
 When zero writes are appropriate, say so plainly and finish without manufacturing an object.
 
-### 3. Write meaningful Snaps
+### 3. Position and partition meaningful Snaps
 
-Record a Snap only when removing it would leave a meaningful gap in the Intent's story. Prefer verified conclusions, non-obvious trade-offs, significant milestones, and current continuation state. Skip command logs, file-by-file narration, formatting, and routine mechanical edits.
+A Snap is an append-only semantic state change within exactly one Intent, not a task log or generic session summary. Assign every fact to its Intent before deciding the Snap count. If material crosses Intent boundaries, write separate Snaps to the corresponding Intents; never use one Snap to carry unrelated objectives.
 
-For every Intent that will remain active or be suspended, ensure its final Snap can stand alone as a continuation checkpoint. It must answer:
+Within one Intent, one Snap captures one semantically atomic milestone, verified conclusion, correction, or current checkpoint whose facts share evidence and reasoning. Split Snaps when conclusions can be verified, invalidated, or superseded independently; mark distinct phases; or imply different constraints, next actions, or blockers. Combine details when they jointly support the same conclusion.
+
+There is no per-recording Snap quota. Do not split merely by file, commit, tool, command, test, implementation layer, or substep. Record a Snap only when removing it would leave a meaningful gap in the Intent's story. Prefer verified conclusions, non-obvious trade-offs, significant milestones, corrections, and current continuation state. Skip command logs, file-by-file narration, formatting, and routine mechanical edits.
+
+Distinguish a milestone Snap from the latest continuation checkpoint. A milestone preserves durable progress; for every Intent that will remain active or be suspended, the final Snap must additionally stand alone as the current checkpoint and answer:
 
 - **Verified:** What state has actually been verified?
 - **Boundary:** What is the current work boundary, including what is not done?
@@ -76,7 +80,11 @@ For every Intent that will remain active or be suspended, ensure its final Snap 
 - **Blocker:** What blocks progress, or explicitly `none`?
 - **Constraints:** What Intent-local constraints must the next agent preserve?
 
-Encode this compactly in the existing `what` and `why` fields. Repeat an earlier fact when it is still necessary for the latest checkpoint to be self-contained. If the existing latest Snap already contains an accurate checkpoint and nothing material changed, do not append another Snap.
+Encode this compactly in the existing `what` and `why` fields. Repeat an earlier fact when it is still necessary for the latest checkpoint to be self-contained, but summarize prerequisite results from other Intents instead of duplicating their histories. If the existing latest Snap already contains an accurate checkpoint and nothing material changed, do not append another Snap.
+
+Before marking an Intent done, ensure its latest history already preserves the verified completion and any deliberately deferred boundary. Append a completion milestone only when that evidence is otherwise missing.
+
+Correct inaccurate history by appending a correction Snap that states what it supersedes. Never rewrite an earlier Snap.
 
 Create the checkpoint before `itt intent suspend ID`; suspension itself records no reason or next step.
 
