@@ -47,16 +47,20 @@ Run `itt inspect`. An initial `NOT_INITIALIZED` result is allowed to continue on
 
 Use only work that is present and verified in the current context. Do not claim to know everything that happened since the previous recording. Across the entire recording workflow, ask at most one batched clarification; combine any repository, scope, boundary, and Decision questions into it. Otherwise omit uncertain material and state the scope used.
 
-### 2. Prefer reuse and allow zero writes
+### 2. Partition by Intent boundary, prefer reuse, and allow zero writes
 
-Choose in this order:
+Before choosing an object count, partition the verified semantics into clear Intent boundaries. One Intent represents one coherent objective that can be reasoned about, paused, resumed, completed, or cancelled independently. Different desired outcomes, motivations, lifecycles, next actions, or blockers are evidence of separate boundaries.
+
+For each boundary, choose in this order:
 
 1. Reuse a semantically matching active Intent.
 2. Activate a semantically matching suspended Intent by explicit ID when new Snaps must be added.
-3. Create an Intent only for a genuinely new, independent objective.
-4. Write nothing when no verified, continuation-critical semantic change exists.
+3. Create one Intent for a genuinely new, independent objective.
+4. Write nothing for that boundary when no verified, continuation-critical semantic change exists.
 
-Do not create a new Intent merely because this is a new session or a new recording request. A typical non-empty recording creates `0–1` new Intent, `1–3` Snaps, and `0` Decisions; these are expectations, not quotas. Create more only when distinct objectives truly need independent lifecycles.
+There is no per-recording Intent quota. One recording request or session may legitimately update or create several Intents when the work crosses independent objective boundaries. Never merge unrelated objectives merely to force a smaller count.
+
+Conversely, do not fragment one coherent objective by file, commit, tool, command, implementation layer, or substep when those pieces share the same outcome and lifecycle. Do not create a new Intent merely because this is a new session or recording request.
 
 When zero writes are appropriate, say so plainly and finish without manufacturing an object.
 
