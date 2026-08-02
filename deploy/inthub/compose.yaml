@@ -19,7 +19,7 @@ services:
       start_period: 10s
     shm_size: 128mb
     networks:
-      - internal
+      - private
     logging:
       driver: json-file
       options:
@@ -58,7 +58,7 @@ services:
     security_opt:
       - no-new-privileges:true
     networks:
-      - internal
+      - private
     healthcheck:
       test:
         - CMD
@@ -77,9 +77,8 @@ services:
         max-file: "3"
 
 networks:
-  internal:
-    name: inthub-internal
-    internal: true
+  private:
+    name: inthub-private
 
 volumes:
   inthub-postgres-data:
