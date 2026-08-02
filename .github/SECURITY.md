@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 5.x     | :white_check_mark: |
-| < 5.0   | :x: |
+| 6.x     | :white_check_mark: |
+| < 6.0   | :x: |
 
 ## Reporting a Vulnerability
 
@@ -25,3 +25,5 @@ We will acknowledge reports within 7 days and provide an update on the fix timel
 The bundled IntHub Local service is a single-user browser and read model for a trusted machine. The current server does not enforce bearer-token authentication and sends `Access-Control-Allow-Origin: *`. It does not provide multi-user authorization, tenant isolation, transport security, or encryption at rest.
 
 Do not bind IntHub Local to a LAN or public interface, publish it through a reverse proxy, or treat a configured client token as server-side access control. If remote or multi-user deployment is required, place an independently reviewed authentication and TLS boundary in front of it and assess the API and stored data for that environment.
+
+The repository also contains an authenticated production profile. It requires a server-side token digest, limits browser cookies to read access, restricts CORS, binds the app to loopback behind TLS, and uses an isolated PostgreSQL database. This is a single-deployment access boundary, not tenant isolation or multi-account authorization. Follow the [production deployment guide](../docs/EN/inthub-production.md) and rotate the access token after suspected disclosure.

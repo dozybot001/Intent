@@ -27,6 +27,7 @@ def link_project(db_path, project_name, repo, workspace_id):
                 """
                 INSERT INTO projects (id, name, provider, repo_id, owner, repo_name, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT DO NOTHING
                 """,
                 (
                     project_id,
@@ -38,8 +39,11 @@ def link_project(db_path, project_name, repo, workspace_id):
                     now_utc(),
                 ),
             )
-        else:
-            project_id = project["id"]
+            project = conn.execute(
+                "SELECT * FROM projects WHERE provider = ? AND repo_id = ?",
+                (repo["provider"], repo["repo_id"]),
+            ).fetchone()
+        project_id = project["id"]
 
         if not workspace_id:
             workspace_id = new_id("wks")
@@ -53,16 +57,20 @@ def link_project(db_path, project_name, repo, workspace_id):
                 """
                 INSERT INTO workspaces (id, project_id, provider, repo_id, created_at)
                 VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT DO NOTHING
                 """,
                 (workspace_id, project_id, repo["provider"], repo["repo_id"], now_utc()),
             )
-        else:
-            if workspace["project_id"] != project_id or workspace["repo_id"] != repo["repo_id"]:
-                raise APIError(
-                    "STATE_CONFLICT",
-                    f"Workspace {workspace_id} is already linked to another project or repo.",
-                    status=409,
-                )
+            workspace = conn.execute(
+                "SELECT * FROM workspaces WHERE id = ?",
+                (workspace_id,),
+            ).fetchone()
+        if workspace["project_id"] != project_id or workspace["repo_id"] != repo["repo_id"]:
+            raise APIError(
+                "STATE_CONFLICT",
+                f"Workspace {workspace_id} is already linked to another project or repo.",
+                status=409,
+            )
 
         conn.commit()
         return {
@@ -138,10 +146,11 @@ def store_sync_batch(db_path, payload):
             )
 
         accepted_at = now_utc()
-        conn.execute(
+        inserted = conn.execute(
             """
             INSERT INTO sync_batches (id, project_id, workspace_id, generated_at, accepted_at, payload_json)
             VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT DO NOTHING
             """,
             (
                 payload["sync_batch_id"],
@@ -152,6 +161,18 @@ def store_sync_batch(db_path, payload):
                 json.dumps(payload, ensure_ascii=False),
             ),
         )
+        if inserted.rowcount == 0:
+            existing = conn.execute(
+                "SELECT accepted_at FROM sync_batches WHERE id = ?",
+                (payload["sync_batch_id"],),
+            ).fetchone()
+            return {
+                "sync_batch_id": payload["sync_batch_id"],
+                "project_id": payload["project_id"],
+                "workspace_id": workspace_id,
+                "accepted_at": existing["accepted_at"],
+                "duplicate": True,
+            }
         conn.commit()
         return {
             "sync_batch_id": payload["sync_batch_id"],

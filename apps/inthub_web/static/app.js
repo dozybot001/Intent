@@ -10,6 +10,7 @@ const state = {
   selectedDetail: null,
   searchQuery: "",
   overview: null,
+  authenticated: false,
 };
 
 const el = {
@@ -34,6 +35,12 @@ const el = {
   drawerOverlay: document.getElementById("drawer-overlay"),
   drawerClose: document.getElementById("drawer-close"),
   drawerContent: document.getElementById("drawer-content"),
+  logoutBtn: document.getElementById("logout-btn"),
+  authGate: document.getElementById("auth-gate"),
+  authForm: document.getElementById("auth-form"),
+  authToken: document.getElementById("auth-token"),
+  authSubmit: document.getElementById("auth-submit"),
+  authError: document.getElementById("auth-error"),
 };
 
 /* ---- Helpers ---- */
@@ -107,13 +114,71 @@ function apiUrl(path) {
   return `${state.config.apiBaseUrl}${path}`;
 }
 
-async function fetchJson(url) {
-  const r = await fetch(url);
-  const p = await r.json();
+class ApiRequestError extends Error {
+  constructor(message, status, code) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
+}
+
+async function fetchJson(url, options = {}) {
+  const r = await fetch(url, { credentials: "same-origin", ...options });
+  let p;
+  try {
+    p = await r.json();
+  } catch {
+    throw new ApiRequestError("IntHub returned an invalid response.", r.status, "INVALID_RESPONSE");
+  }
   if (!r.ok || p.ok === false) {
-    throw new Error(p?.error?.message || "Request failed");
+    const error = new ApiRequestError(
+      p?.error?.message || "Request failed",
+      r.status,
+      p?.error?.code,
+    );
+    if (r.status === 401 && state.config?.authRequired) showAuthGate();
+    throw error;
   }
   return p.result;
+}
+
+function showAuthGate(message = "") {
+  state.authenticated = false;
+  el.shell.classList.add("is-locked");
+  el.authGate.classList.remove("is-hidden");
+  el.logoutBtn.classList.add("is-hidden");
+  el.authError.textContent = message;
+  el.authError.classList.toggle("is-hidden", !message);
+  window.setTimeout(() => el.authToken.focus(), 0);
+}
+
+function hideAuthGate() {
+  state.authenticated = true;
+  el.shell.classList.remove("is-locked");
+  el.authGate.classList.add("is-hidden");
+  el.logoutBtn.classList.toggle("is-hidden", !state.config?.authRequired);
+  el.authError.textContent = "";
+  el.authError.classList.add("is-hidden");
+  el.authToken.value = "";
+}
+
+async function unlock(token) {
+  const response = await fetch(apiUrl("/api/v1/auth/session"), {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new ApiRequestError(
+      payload?.error?.message || "Could not unlock IntHub.",
+      response.status,
+      payload?.error?.code,
+    );
+  }
+  hideAuthGate();
+  await loadProjects();
 }
 
 /* ---- URL state ---- */
@@ -742,6 +807,9 @@ function renderSnapDetailTo(target, payload) {
 
 function renderSetupGuide(mode) {
   const linkCmd = `itt hub link --api-base-url ${state.config.apiBaseUrl}`;
+  const authPrefix = state.config.authRequired
+    ? ["export INTHUB_TOKEN='<access token>'"]
+    : [];
   let steps = [];
 
   if (mode === "unlinked") {
@@ -750,7 +818,7 @@ function renderSetupGuide(mode) {
       {
         title: "2. Link & Sync",
         desc: "Point CLI here, create binding, push snapshot.",
-        cmd: [linkCmd, "itt hub sync"],
+        cmd: [...authPrefix, linkCmd, "itt hub sync"],
       },
     ];
   } else {
@@ -758,7 +826,7 @@ function renderSetupGuide(mode) {
       {
         title: "1. Link & Sync",
         desc: "Ensure CLI points here, then push the next snapshot.",
-        cmd: [linkCmd, "itt hub sync"],
+        cmd: [...authPrefix, linkCmd, "itt hub sync"],
       },
       {
         title: "2. Sync Again Later",
@@ -894,6 +962,30 @@ async function loadProjects() {
 /* ---- Events ---- */
 
 function bindEvents() {
+  el.authForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    el.authSubmit.disabled = true;
+    el.authSubmit.textContent = "Unlocking…";
+    try {
+      await unlock(el.authToken.value);
+    } catch (err) {
+      showAuthGate(err.message);
+      el.authToken.select();
+    } finally {
+      el.authSubmit.disabled = false;
+      el.authSubmit.textContent = "Unlock IntHub";
+    }
+  });
+
+  el.logoutBtn.addEventListener("click", async () => {
+    try {
+      await fetchJson(apiUrl("/api/v1/auth/logout"), { method: "POST" });
+    } catch {}
+    state.projects = [];
+    state.overview = null;
+    showAuthGate();
+  });
+
   el.projectPickerTrigger.addEventListener("click", () => {
     toggleProjectPicker();
   });
@@ -985,7 +1077,12 @@ async function init() {
 
     bindEvents();
     await loadProjects();
+    hideAuthGate();
   } catch (err) {
+    if (err.status === 401 && state.config?.authRequired) {
+      showAuthGate();
+      return;
+    }
     setStatus(err.message, true);
     el.detailContent.innerHTML =
       '<div class="empty-state">Failed to initialize.</div>';

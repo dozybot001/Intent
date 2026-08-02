@@ -1,0 +1,86 @@
+services:
+  database:
+    image: postgres:18.4-bookworm
+    container_name: inthub-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${INTHUB_POSTGRES_DB:-inthub}
+      POSTGRES_USER: ${INTHUB_POSTGRES_USER:-inthub}
+      POSTGRES_PASSWORD: ${INTHUB_POSTGRES_PASSWORD:?set INTHUB_POSTGRES_PASSWORD}
+    volumes:
+      - inthub-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    shm_size: 128mb
+    networks:
+      - internal
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  app:
+    image: inthub:${INTHUB_RELEASE:?set INTHUB_RELEASE}
+    container_name: inthub-app
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+        INTHUB_VERSION: ${INTHUB_PACKAGE_VERSION:-0.0.0}
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:${INTHUB_BIND_PORT:-7250}:8000
+    environment:
+      INTHUB_DATABASE_URL: postgresql://${INTHUB_POSTGRES_USER:-inthub}:${INTHUB_POSTGRES_PASSWORD}@database:5432/${INTHUB_POSTGRES_DB:-inthub}
+      INTHUB_API_BASE_URL: https://${INTHUB_DOMAIN:?set INTHUB_DOMAIN}
+      INTHUB_ALLOWED_ORIGINS: https://${INTHUB_DOMAIN}
+      INTHUB_API_TOKEN_SHA256: ${INTHUB_API_TOKEN_SHA256:?set INTHUB_API_TOKEN_SHA256}
+      INTHUB_REQUIRE_AUTH: "1"
+      INTHUB_SECURE_COOKIES: "1"
+      INTHUB_SERVE_WEB: "1"
+      INTHUB_MAX_BODY_BYTES: ${INTHUB_MAX_BODY_BYTES:-16777216}
+      INTHUB_LOG_LEVEL: ${INTHUB_LOG_LEVEL:-INFO}
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - internal
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=3).read()
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
+    stop_grace_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  internal:
+    name: inthub-internal
+    internal: true
+
+volumes:
+  inthub-postgres-data:
+    name: inthub-postgres-data

@@ -294,6 +294,7 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 - `itt init` adds `.intent/` to the current clone's `.git/info/exclude` without editing the shared `.gitignore`; it returns a warning if the local exclude cannot be updated
 - The current CLI accepts `--token` or `INTHUB_TOKEN` without persisting it; older `hub.json` files may still contain a plaintext `auth_token`, which should be removed before committing or sharing the directory
 - IntHub Local binds to `127.0.0.1` by default, but its current API does not enforce bearer-token authentication and uses permissive CORS; do not expose it to a LAN or the public internet
+- The IntHub production profile requires a Bearer token, exchanges browser tokens for bounded read-only HttpOnly sessions, and uses PostgreSQL; see [IntHub Production Deployment](inthub-production.md)
 - Object and Hub-config replacements are atomic, and mutating object commands use a workspace-level cross-process lock; this serializes Intent CLI writers but does not turn `.intent/` into a multi-user database
 - Object IDs are validated before path I/O, object paths must remain under their type directory, and `.intent/` object storage refuses symlink redirection
 - Descriptive fields are write-once; status and auto-maintained relationship fields evolve through later commands

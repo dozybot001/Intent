@@ -136,6 +136,8 @@ itt hub sync
 
 IntHub Local binds to `127.0.0.1` by default. Its current local API does not enforce bearer-token authentication and returns permissive CORS headers, so use it only on a trusted machine and do not expose it through a public interface or reverse proxy.
 
+Private Internet deployments use the authenticated production profile: PostgreSQL, read-only Web sessions, Bearer-protected writes, a loopback app port, and Caddy TLS. See [IntHub Production Deployment](docs/EN/inthub-production.md).
+
 > **Tips:** Be explicit: “Use Intent to record this work in `.intent/`” enters recording mode; “Resume this project through Intent” enters recovery mode. Ordinary summaries and status reports remain read-only.
 
 ## Showcase
@@ -152,6 +154,7 @@ Or run `itt hub start` locally.
 - [Continuation Case](docs/EN/continuation-case.md) — a reproducible interruption-to-resumption walkthrough
 - [Dogfooding Protocol](docs/EN/dogfooding.md) — source-labelled validation on natural continuations
 - [CLI Design](docs/EN/cli.md) — object model, commands, JSON contract
+- [IntHub Production Deployment](docs/EN/inthub-production.md) — PostgreSQL, authentication, TLS, backup, and rollback
 
 ## Community
 

@@ -136,6 +136,8 @@ itt hub sync
 
 IntHub Local 默认只绑定 `127.0.0.1`。当前本地 API 不强制校验 Bearer Token，并返回宽松的 CORS 响应头；因此只应在可信本机使用，不要将它绑定到对外网卡，也不要通过公网接口或反向代理暴露。
 
+公网私有部署使用受认证的生产配置：PostgreSQL、只读 Web 会话、Bearer 写入、回环应用端口和 Caddy TLS。参见 [IntHub 生产部署](docs/CN/inthub-production.md)。
+
 > **Tips：** 请明确表达：“用 Intent 把这轮工作写入 `.intent/`”进入记录模式；“通过 Intent 恢复这个项目”进入接续模式。普通总结和状态汇报保持只读。
 
 ## Showcase
@@ -152,6 +154,7 @@ IntHub Local 默认只绑定 `127.0.0.1`。当前本地 API 不强制校验 Bear
 - [接续案例](docs/CN/continuation-case.md) — 一个可复现的中断到恢复流程
 - [自用验证协议](docs/CN/dogfooding.md) — 对自然接续进行信息来源标注验证
 - [CLI 设计文档](docs/CN/cli.md) — 对象模型、命令、JSON 契约
+- [IntHub 生产部署](docs/CN/inthub-production.md) — PostgreSQL、认证、TLS、备份与回滚
 
 ## 社区
 

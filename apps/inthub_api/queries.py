@@ -11,6 +11,13 @@ def _f(obj, key):
     return obj.get(key, "")
 
 
+def _payload_from_row(row):
+    payload = row["payload_json"]
+    if isinstance(payload, str):
+        return json.loads(payload)
+    return payload
+
+
 def _project_row(conn, project_id):
     project = conn.execute(
         "SELECT * FROM projects WHERE id = ?",
@@ -27,17 +34,17 @@ def _latest_payloads(conn, project_id):
         SELECT sb.payload_json
         FROM sync_batches AS sb
         JOIN (
-            SELECT workspace_id, MAX(rowid) AS max_rowid
+            SELECT workspace_id, MAX(sequence_id) AS max_sequence_id
             FROM sync_batches
             WHERE project_id = ?
             GROUP BY workspace_id
         ) latest
-        ON sb.rowid = latest.max_rowid
-        ORDER BY sb.accepted_at DESC
+        ON sb.sequence_id = latest.max_sequence_id
+        ORDER BY sb.sequence_id DESC
         """,
         (project_id,),
     ).fetchall()
-    return [json.loads(row["payload_json"]) for row in rows]
+    return [_payload_from_row(row) for row in rows]
 
 
 def _workspace_state(payload):
@@ -67,7 +74,7 @@ def _latest_payload_for_workspace(conn, workspace_id):
         SELECT payload_json
         FROM sync_batches
         WHERE workspace_id = ?
-        ORDER BY rowid DESC
+        ORDER BY sequence_id DESC
         LIMIT 1
         """,
         (workspace_id,),
@@ -78,7 +85,7 @@ def _latest_payload_for_workspace(conn, workspace_id):
             f"No sync batch found for workspace {workspace_id}.",
             status=404,
         )
-    return json.loads(row["payload_json"])
+    return _payload_from_row(row)
 
 
 def project_overview(db_path, project_id):

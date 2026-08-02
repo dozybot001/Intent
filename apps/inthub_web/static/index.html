@@ -4,9 +4,6 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>IntHub</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Serif+SC:wght@400;500;600&display=swap">
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
@@ -23,6 +20,7 @@
           </div>
         </div>
         <div class="header-right">
+          <button id="logout-btn" class="logout-btn is-hidden" type="button">Lock</button>
           <button id="refresh-btn" type="button">Refresh</button>
           <div class="header-meta">
             <span class="header-meta-text" id="sync-chip"></span>
@@ -60,6 +58,19 @@
       <footer class="footer">
         <span id="status-line" class="muted">Loading&hellip;</span>
       </footer>
+    </div>
+
+    <div class="auth-gate is-hidden" id="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+      <form class="auth-card" id="auth-form">
+        <span class="auth-mark">IntHub / private</span>
+        <h1 id="auth-title">Unlock semantic history</h1>
+        <p>This deployment is private. Enter its access token to create a temporary, read-only browser session.</p>
+        <label for="auth-token">Access token</label>
+        <input id="auth-token" name="token" type="password" autocomplete="current-password" required>
+        <p class="auth-error is-hidden" id="auth-error" role="alert"></p>
+        <button id="auth-submit" type="submit">Unlock IntHub</button>
+        <small>The token is exchanged for an HttpOnly session cookie and is not stored in this page.</small>
+      </form>
     </div>
     <script src="/app.js" defer></script>
   </body>

@@ -1,14 +1,20 @@
-"""HTTP server for the IntHub V1 API."""
+"""HTTP server for the IntHub V1 API and optional Web shell."""
 
 import argparse
+import hashlib
+import hmac
 import json
+import logging
 import mimetypes
 import os
+import time
+from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from apps.inthub_api.common import APIError
+from apps.inthub_api.db import check_database, describe_database
 from apps.inthub_api.ingest import link_project, store_sync_batch
 from apps.inthub_api.queries import (
     get_decision_detail,
@@ -21,6 +27,10 @@ from apps.inthub_api.queries import (
 )
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "inthub_web" / "static"
+DEFAULT_MAX_BODY_BYTES = 16 * 1024 * 1024
+SESSION_COOKIE = "inthub_session"
+SESSION_TTL_SECONDS = 12 * 60 * 60
+LOGGER = logging.getLogger("inthub.api")
 
 
 def _json_success(result):
@@ -45,37 +55,111 @@ def _env_flag(name, default=False):
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _env_or_file(name, default=None):
+    value = os.getenv(name)
+    if value is not None:
+        return value
+    file_path = os.getenv(f"{name}_FILE")
+    if file_path:
+        return Path(file_path).read_text(encoding="utf-8").strip()
+    return default
+
+
+def _normalize_token_digest(auth_token=None, auth_token_sha256=None):
+    if auth_token_sha256:
+        digest = auth_token_sha256.strip().lower()
+        if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+            raise ValueError("INTHUB_API_TOKEN_SHA256 must be a 64-character hex digest.")
+        return digest
+    if auth_token:
+        return hashlib.sha256(auth_token.encode("utf-8")).hexdigest()
+    return None
+
+
+def _session_signature(token_digest, issued_at):
+    key = bytes.fromhex(token_digest)
+    message = f"inthub-web-session-v1:{issued_at}".encode("ascii")
+    return hmac.new(key, message, hashlib.sha256).hexdigest()
+
+
+def _normalize_origins(allowed_origins):
+    if allowed_origins is None:
+        return None
+    if isinstance(allowed_origins, str):
+        allowed_origins = allowed_origins.split(",")
+    return {origin.strip().rstrip("/") for origin in allowed_origins if origin.strip()}
+
+
 def make_handler(
     db_path,
     serve_web=False,
     public_api_base_url=None,
     default_project_id=None,
     web_static_dir=None,
+    require_auth=False,
+    auth_token=None,
+    auth_token_sha256=None,
+    allowed_origins=None,
+    max_body_bytes=DEFAULT_MAX_BODY_BYTES,
+    secure_cookies=False,
 ):
     root = Path(web_static_dir or STATIC_DIR).resolve()
+    token_digest = _normalize_token_digest(auth_token, auth_token_sha256)
+    auth_required = bool(require_auth or token_digest)
+    if auth_required and token_digest is None:
+        raise ValueError("Authentication is required but no IntHub API token is configured.")
+    origin_allowlist = _normalize_origins(allowed_origins)
 
     class IntHubHandler(BaseHTTPRequestHandler):
-        server_version = "IntHubAPI/0.1"
+        server_version = "IntHubAPI/0.2"
 
-        def _send_json(self, status, payload):
+        def _send_json(self, status, payload, extra_headers=None):
             body = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
-            self._send_bytes(status, body, "application/json; charset=utf-8")
+            self._send_bytes(
+                status,
+                body,
+                "application/json; charset=utf-8",
+                extra_headers=extra_headers,
+                cache_control="no-store",
+            )
 
-        def _send_bytes(self, status, body, content_type):
+        def _send_bytes(
+            self,
+            status,
+            body,
+            content_type,
+            extra_headers=None,
+            cache_control="no-cache",
+        ):
             self.send_response(status)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+            self.send_header("Cache-Control", cache_control)
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header(
+                "Permissions-Policy",
+                "camera=(), microphone=(), geolocation=(), payment=()",
+            )
+            request_origin = self.headers.get("Origin")
+            if request_origin:
+                if origin_allowlist is None:
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                elif request_origin.rstrip("/") in origin_allowlist:
+                    self.send_header("Access-Control-Allow-Origin", request_origin)
+                    self.send_header("Vary", "Origin")
+            for name, value in (extra_headers or {}).items():
+                self.send_header(name, value)
             self.end_headers()
-            self.wfile.write(body)
+            if self.command != "HEAD":
+                self.wfile.write(body)
 
         def _request_base_url(self):
             if public_api_base_url:
                 return public_api_base_url.rstrip("/")
             proto = self.headers.get("X-Forwarded-Proto", "http")
-            host = self.headers.get("Host")
+            host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host")
             if not host:
                 host = f"{self.server.server_address[0]}:{self.server.server_address[1]}"
             return f"{proto}://{host}"
@@ -88,7 +172,8 @@ def make_handler(
                 "application/json",
             }:
                 content_type = f"{content_type}; charset=utf-8"
-            self._send_bytes(200, body, content_type)
+            cache_control = "no-cache" if path.name == "index.html" else "public, max-age=3600"
+            self._send_bytes(200, body, content_type, cache_control=cache_control)
 
         def _serve_index(self):
             self._send_file(root / "index.html")
@@ -100,6 +185,7 @@ def make_handler(
                     {
                         "apiBaseUrl": self._request_base_url(),
                         "defaultProjectId": default_project_id,
+                        "authRequired": auth_required,
                     },
                 )
                 return True
@@ -118,21 +204,131 @@ def make_handler(
                 return True
             return False
 
+        def _check_origin(self):
+            origin = self.headers.get("Origin")
+            if (
+                origin
+                and origin_allowlist is not None
+                and origin.rstrip("/") not in origin_allowlist
+            ):
+                raise APIError(
+                    "ORIGIN_DENIED",
+                    "The request origin is not allowed.",
+                    status=403,
+                )
+
         def _read_json_body(self):
-            length = int(self.headers.get("Content-Length", "0"))
-            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            raw_length = self.headers.get("Content-Length", "0")
             try:
-                return json.loads(raw or "{}")
-            except json.JSONDecodeError as exc:
+                length = int(raw_length)
+            except (TypeError, ValueError) as exc:
                 raise APIError(
                     "INVALID_INPUT",
-                    "Request body must be valid JSON.",
+                    "Content-Length must be a valid integer.",
                     status=400,
-                    details={"error": str(exc)},
                 ) from exc
+            if length < 0:
+                raise APIError("INVALID_INPUT", "Content-Length cannot be negative.", status=400)
+            if length > max_body_bytes:
+                raise APIError(
+                    "PAYLOAD_TOO_LARGE",
+                    f"Request body exceeds the {max_body_bytes}-byte limit.",
+                    status=413,
+                )
+            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            try:
+                payload = json.loads(raw or "{}")
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise APIError(
+                    "INVALID_INPUT",
+                    "Request body must be valid UTF-8 JSON.",
+                    status=400,
+                ) from exc
+            if not isinstance(payload, dict):
+                raise APIError("INVALID_INPUT", "Request body must be a JSON object.", status=400)
+            return payload
+
+        def _valid_token(self, presented):
+            if not token_digest or not isinstance(presented, str) or not presented:
+                return False
+            presented_digest = hashlib.sha256(presented.encode("utf-8")).hexdigest()
+            return hmac.compare_digest(token_digest, presented_digest)
+
+        def _bearer_authorized(self):
+            header = self.headers.get("Authorization", "")
+            scheme, separator, token = header.partition(" ")
+            return bool(separator and scheme.lower() == "bearer" and self._valid_token(token))
+
+        def _cookie_authorized(self):
+            if not token_digest:
+                return False
+            cookie = SimpleCookie()
+            try:
+                cookie.load(self.headers.get("Cookie", ""))
+            except Exception:
+                return False
+            morsel = cookie.get(SESSION_COOKIE)
+            if not morsel:
+                return False
+            issued_raw, separator, signature = morsel.value.partition(".")
+            if not separator:
+                return False
+            try:
+                issued_at = int(issued_raw)
+            except ValueError:
+                return False
+            now = int(time.time())
+            if issued_at > now + 60 or now - issued_at > SESSION_TTL_SECONDS:
+                return False
+            expected = _session_signature(token_digest, issued_at)
+            return hmac.compare_digest(expected, signature)
+
+        def _require_auth(self, allow_cookie=False):
+            if not auth_required:
+                return
+            if self._bearer_authorized() or (allow_cookie and self._cookie_authorized()):
+                return
+            raise APIError(
+                "AUTH_REQUIRED",
+                "A valid IntHub access token is required.",
+                status=401,
+            )
+
+        def _session_cookie(self, value, max_age):
+            cookie = (
+                f"{SESSION_COOKIE}={value}; Path=/; HttpOnly; SameSite=Strict; "
+                f"Max-Age={max_age}"
+            )
+            if secure_cookies:
+                cookie += "; Secure"
+            return cookie
+
+        def _handle_login(self):
+            payload = self._read_json_body()
+            if not self._valid_token(payload.get("token")):
+                raise APIError("AUTH_INVALID", "The IntHub access token is invalid.", status=401)
+            issued_at = int(time.time())
+            session = f"{issued_at}.{_session_signature(token_digest, issued_at)}"
+            self._send_json(
+                200,
+                _json_success({"authenticated": True}),
+                {"Set-Cookie": self._session_cookie(session, SESSION_TTL_SECONDS)},
+            )
+
+        def _handle_logout(self):
+            self._send_json(
+                200,
+                _json_success({"authenticated": False}),
+                {"Set-Cookie": self._session_cookie("", 0)},
+            )
 
         def _handle_api_error(self, exc):
-            self._send_json(exc.status, _json_error(exc.code, exc.message, exc.details))
+            headers = {"WWW-Authenticate": "Bearer"} if exc.status == 401 else None
+            self._send_json(
+                exc.status,
+                _json_error(exc.code, exc.message, exc.details),
+                headers,
+            )
 
         def _route_post(self, path):
             payload = self._read_json_body()
@@ -200,31 +396,48 @@ def make_handler(
         def do_POST(self):
             parsed = urlparse(self.path)
             try:
+                self._check_origin()
+                if parsed.path == "/api/v1/auth/session":
+                    if not auth_required:
+                        self._send_json(200, _json_success({"authenticated": True}))
+                    else:
+                        self._handle_login()
+                    return
+                if parsed.path == "/api/v1/auth/logout":
+                    self._handle_logout()
+                    return
+                if parsed.path.startswith("/api/"):
+                    # Mutating routes deliberately require a Bearer token. The
+                    # read-only Web session cookie cannot write sync data.
+                    self._require_auth(allow_cookie=False)
                 self._route_post(parsed.path)
             except APIError as exc:
                 self._handle_api_error(exc)
-            except Exception as exc:  # pragma: no cover - defensive fallback
-                self._send_json(
-                    500,
-                    _json_error("INTERNAL_ERROR", "Unhandled server error.", {"error": str(exc)}),
-                )
+            except Exception:  # pragma: no cover - defensive fallback
+                LOGGER.exception("Unhandled IntHub POST error")
+                self._send_json(500, _json_error("INTERNAL_ERROR", "Unhandled server error."))
 
         def do_GET(self):
             parsed = urlparse(self.path)
             try:
-                if parsed.path == "/healthz":
+                if parsed.path in {"/health", "/healthz"}:
                     self._send_json(
                         200,
-                        _json_success(
-                            {
-                                "service": "inthub-api",
-                                "serve_web": serve_web,
-                            }
-                        ),
+                        _json_success({"service": "inthub-api", "status": "alive"}),
+                    )
+                    return
+
+                if parsed.path == "/readyz":
+                    check_database(db_path)
+                    self._send_json(
+                        200,
+                        _json_success({"service": "inthub-api", "status": "ready"}),
                     )
                     return
 
                 if parsed.path.startswith("/api/"):
+                    self._check_origin()
+                    self._require_auth(allow_cookie=True)
                     self._route_get(parsed.path, parse_qs(parsed.query))
                     return
 
@@ -234,18 +447,33 @@ def make_handler(
                 self._route_get(parsed.path, parse_qs(parsed.query))
             except APIError as exc:
                 self._handle_api_error(exc)
-            except Exception as exc:  # pragma: no cover - defensive fallback
-                self._send_json(
-                    500,
-                    _json_error("INTERNAL_ERROR", "Unhandled server error.", {"error": str(exc)}),
-                )
+            except Exception:  # pragma: no cover - defensive fallback
+                LOGGER.exception("Unhandled IntHub GET error")
+                self._send_json(500, _json_error("INTERNAL_ERROR", "Unhandled server error."))
+
+        def do_HEAD(self):
+            self.do_GET()
 
         def do_OPTIONS(self):
-            self.send_response(204)
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-            self.end_headers()
+            try:
+                self._check_origin()
+                self.send_response(204)
+                request_origin = self.headers.get("Origin")
+                if request_origin:
+                    if origin_allowlist is None:
+                        self.send_header("Access-Control-Allow-Origin", "*")
+                    else:
+                        self.send_header("Access-Control-Allow-Origin", request_origin)
+                        self.send_header("Vary", "Origin")
+                self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+                self.send_header("Access-Control-Max-Age", "600")
+                self.end_headers()
+            except APIError as exc:
+                self._handle_api_error(exc)
+
+        def do_TRACE(self):
+            self._send_json(405, _json_error("METHOD_NOT_ALLOWED", "TRACE is not allowed."))
 
         def log_message(self, _format, *_args):
             return
@@ -261,7 +489,14 @@ def build_server(
     public_api_base_url=None,
     default_project_id=None,
     web_static_dir=None,
+    require_auth=False,
+    auth_token=None,
+    auth_token_sha256=None,
+    allowed_origins=None,
+    max_body_bytes=DEFAULT_MAX_BODY_BYTES,
+    secure_cookies=False,
 ):
+    check_database(db_path)
     return ThreadingHTTPServer(
         (host, port),
         make_handler(
@@ -270,6 +505,12 @@ def build_server(
             public_api_base_url=public_api_base_url,
             default_project_id=default_project_id,
             web_static_dir=web_static_dir,
+            require_auth=require_auth,
+            auth_token=auth_token,
+            auth_token_sha256=auth_token_sha256,
+            allowed_origins=allowed_origins,
+            max_body_bytes=max_body_bytes,
+            secure_cookies=secure_cookies,
         ),
     )
 
@@ -282,6 +523,12 @@ def run_server(
     public_api_base_url=None,
     default_project_id=None,
     web_static_dir=None,
+    require_auth=False,
+    auth_token=None,
+    auth_token_sha256=None,
+    allowed_origins=None,
+    max_body_bytes=DEFAULT_MAX_BODY_BYTES,
+    secure_cookies=False,
 ):
     server = build_server(
         host,
@@ -291,13 +538,28 @@ def run_server(
         public_api_base_url=public_api_base_url,
         default_project_id=default_project_id,
         web_static_dir=web_static_dir,
+        require_auth=require_auth,
+        auth_token=auth_token,
+        auth_token_sha256=auth_token_sha256,
+        allowed_origins=allowed_origins,
+        max_body_bytes=max_body_bytes,
+        secure_cookies=secure_cookies,
     )
     web_status = " + Web" if serve_web else ""
-    print(f"IntHub API{web_status} listening on http://{host}:{server.server_port} using {db_path}")
-    server.serve_forever()
+    print(
+        f"IntHub API{web_status} listening on http://{host}:{server.server_port} "
+        f"using {describe_database(db_path)}"
+    )
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
 
 
 def main():
+    logging.basicConfig(level=os.getenv("INTHUB_LOG_LEVEL", "INFO"))
     parser = argparse.ArgumentParser(description="Run the IntHub V1 API server.")
     parser.add_argument("--host", default=os.getenv("INTHUB_HOST", "127.0.0.1"))
     parser.add_argument(
@@ -306,6 +568,7 @@ def main():
         default=int(os.getenv("PORT", os.getenv("INTHUB_PORT", "8000"))),
     )
     parser.add_argument("--db-path", default=os.getenv("INTHUB_DB_PATH", ".inthub/inthub.db"))
+    parser.add_argument("--database-url", default=_env_or_file("INTHUB_DATABASE_URL"))
     parser.add_argument(
         "--serve-web",
         action="store_true",
@@ -315,14 +578,25 @@ def main():
     parser.add_argument("--default-project-id", default=os.getenv("INTHUB_DEFAULT_PROJECT_ID"))
     parser.add_argument("--web-static-dir", default=os.getenv("INTHUB_WEB_STATIC_DIR"))
     args = parser.parse_args()
+
+    auth_token = _env_or_file("INTHUB_API_TOKEN")
+    auth_token_sha256 = _env_or_file("INTHUB_API_TOKEN_SHA256")
+    auth_configured = bool(auth_token or auth_token_sha256)
+    allowed_origins = os.getenv("INTHUB_ALLOWED_ORIGINS")
     run_server(
         args.host,
         args.port,
-        args.db_path,
+        args.database_url or args.db_path,
         serve_web=args.serve_web,
         public_api_base_url=args.public_api_base_url,
         default_project_id=args.default_project_id,
         web_static_dir=args.web_static_dir,
+        require_auth=_env_flag("INTHUB_REQUIRE_AUTH", auth_configured),
+        auth_token=auth_token,
+        auth_token_sha256=auth_token_sha256,
+        allowed_origins=allowed_origins,
+        max_body_bytes=int(os.getenv("INTHUB_MAX_BODY_BYTES", str(DEFAULT_MAX_BODY_BYTES))),
+        secure_cookies=_env_flag("INTHUB_SECURE_COOKIES", False),
     )
 
 
