@@ -103,4 +103,4 @@ If the goal is completed, close it with `itt intent done intent-001`.
 
 ## IntHub's role
 
-Intent remains sufficient for local recording and terminal recovery. After a GitHub-backed workspace is linked, `itt hub sync` projects the same graph into IntHub for browsing and handoff. This is the intended boundary: Intent owns portable semantic history; IntHub amplifies it as an organization and collaboration surface.
+Intent remains sufficient for local recording and terminal recovery. After a GitHub-backed workspace is linked, `itt push` (or the compatible `itt hub sync`) projects the same graph into IntHub for browsing and handoff. This is the intended boundary: Intent owns portable semantic history; IntHub amplifies it as an organization and collaboration surface.

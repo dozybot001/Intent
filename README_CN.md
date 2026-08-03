@@ -119,7 +119,18 @@ cd your-project
 itt init
 ```
 
-`itt init` 会创建 `.intent/`，并将它加入当前克隆的 Git 本地 `.git/info/exclude`；它**不会**修改团队共享的 `.gitignore`。本地忽略规则写入失败时，命令会返回 warning。有意共享前应先审查其中内容；如果整个团队都应继承该规则，再单独将 `.intent/` 加入 `.gitignore`。CLI 接受账户级 `--token` 或 `INTHUB_TOKEN`，但绝不会将 token 持久化到 `hub.json`。
+`itt init` 会创建 `.intent/`，并将它加入当前克隆的 Git 本地 `.git/info/exclude`；它**不会**修改团队共享的 `.gitignore`。本地忽略规则写入失败时，命令会返回 warning。有意共享前应先审查其中内容；如果整个团队都应继承该规则，再单独将 `.intent/` 加入 `.gitignore`。
+
+先为官方 IntHub 服务全局登录一次，再分别绑定和推送每个仓库：
+
+```bash
+itt auth login
+cd your-project
+itt hub link
+itt push
+```
+
+`itt auth login` 默认使用 `https://inthub.tenon.asia`。非敏感服务地址保存在用户级配置中，账户 token 则交给 Git 已配置的 credential helper，例如 macOS Keychain、Git Credential Manager 或 libsecret。同一账户凭据可跨仓库复用；每个仓库仍在自己的 `.intent/hub.json` 中保存非敏感的 `project_id`、`workspace_id` 和 `repo_binding`。`--token` 与 `INTHUB_TOKEN` 继续作为单次命令或环境覆盖，绝不会写入仓库配置。`itt hub sync` 保留为 `itt push` 的兼容别名。
 
 想在浏览器中查看语义历史，启动 **IntHub Local**（任意目录可用）：
 
@@ -131,7 +142,7 @@ itt hub start
 
 ```bash
 itt hub link --api-base-url http://127.0.0.1:7210
-itt hub sync
+itt push
 ```
 
 IntHub Local 默认只绑定 `127.0.0.1`。当前本地 API 不强制校验 Bearer Token，并返回宽松的 CORS 响应头；因此只应在可信本机使用，不要将它绑定到对外网卡，也不要通过公网接口或反向代理暴露。

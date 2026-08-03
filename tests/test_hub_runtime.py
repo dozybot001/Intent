@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 from intent_cli.commands import common as command_common
 from intent_cli.commands import hub as hub_commands
-from intent_cli.hub.runtime import hub_auth_token
+from intent_cli.hub import runtime as hub_runtime
 
 
 def _write_hub_config(base, config):
@@ -11,17 +11,19 @@ def _write_hub_config(base, config):
     (base / "hub.json").write_text(json.dumps(config), encoding="utf-8")
 
 
-def test_hub_auth_token_uses_only_cli_or_environment(monkeypatch, tmp_path):
+def test_hub_auth_token_precedence_is_cli_environment_then_global(monkeypatch, tmp_path):
     base = tmp_path / ".intent"
     _write_hub_config(base, {})
+    monkeypatch.setattr(hub_runtime, "load_access_token", lambda _url: "stored-token")
     monkeypatch.setenv("INTHUB_TOKEN", "env-token")
 
-    assert hub_auth_token(base, SimpleNamespace(token="cli-token")) == "cli-token"
-    assert hub_auth_token(base, SimpleNamespace(token=None)) == "env-token"
-    assert hub_auth_token(base, SimpleNamespace(token=None)) == "env-token"
+    args = SimpleNamespace(token="cli-token", api_base_url="https://inthub.example")
+    assert hub_runtime.hub_auth_token(base, args) == "cli-token"
+    args.token = None
+    assert hub_runtime.hub_auth_token(base, args) == "env-token"
 
     monkeypatch.delenv("INTHUB_TOKEN")
-    assert hub_auth_token(base, SimpleNamespace(token=None)) is None
+    assert hub_runtime.hub_auth_token(base, args) == "stored-token"
 
 
 def test_hub_link_uses_cli_token_without_persisting_it(monkeypatch, tmp_path, capsys):

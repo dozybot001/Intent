@@ -6,6 +6,7 @@ from intent_cli.hub.payload import build_sync_payload, current_github_repo
 from intent_cli.hub.runtime import (
     config_without_auth_token,
     hub_api_base,
+    hub_auth_configured,
     hub_auth_token,
     load_hub,
     sanitize_hub_config,
@@ -37,18 +38,8 @@ def cmd_hub_link(args):
     base = require_init()
     hub = load_hub(base)
     repo = current_github_repo()
-
-    if args.api_base_url:
-        hub["api_base_url"] = args.api_base_url.rstrip("/")
-    api_base_url = hub.get("api_base_url")
-    if not api_base_url:
-        error(
-            "HUB_NOT_CONFIGURED",
-            "IntHub API base URL is not configured.",
-            suggested_fix="Run: itt hub link --api-base-url http://127.0.0.1:8000",
-        )
-
-    token = hub_auth_token(base, args)
+    api_base_url = hub_api_base(base, args)
+    token = hub_auth_token(base, args, api_base_url)
 
     workspace_id = hub.get("workspace_id") or make_runtime_id("wks")
     payload = {
@@ -75,11 +66,16 @@ def cmd_hub_link(args):
     }
     persisted = config_without_auth_token(updated)
     write_hub_config(base, persisted)
-    success("hub.link", sanitize_hub_config(persisted))
+    success(
+        "hub.link",
+        sanitize_hub_config(
+            persisted,
+            auth_configured=hub_auth_configured(api_base_url),
+        ),
+    )
 
 
-@workspace_mutation
-def cmd_hub_sync(args):
+def _sync(args, action):
     base = require_init()
     hub = load_hub(base)
 
@@ -92,7 +88,7 @@ def cmd_hub_sync(args):
         )
 
     api_base_url = hub_api_base(base, args)
-    token = hub_auth_token(base, args)
+    token = hub_auth_token(base, args, api_base_url)
     persisted = config_without_auth_token(hub)
 
     sync_hub = dict(persisted)
@@ -100,7 +96,7 @@ def cmd_hub_sync(args):
     payload = build_sync_payload(base, sync_hub)
 
     if args.dry_run:
-        success("hub.sync", {"dry_run": True, "payload": payload})
+        success(action, {"dry_run": True, "payload": payload})
         return
 
     result = http_json("POST", f"{api_base_url}/api/v1/sync-batches", payload, token)
@@ -109,9 +105,22 @@ def cmd_hub_sync(args):
     persisted["last_synced_at"] = result.get("accepted_at", payload["generated_at"])
     write_hub_config(base, persisted)
     success(
-        "hub.sync",
+        action,
         {
             "batch": result,
-            "hub": sanitize_hub_config(persisted),
+            "hub": sanitize_hub_config(
+                persisted,
+                auth_configured=hub_auth_configured(api_base_url),
+            ),
         },
     )
+
+
+@workspace_mutation
+def cmd_hub_sync(args):
+    _sync(args, "hub.sync")
+
+
+@workspace_mutation
+def cmd_push(args):
+    _sync(args, "push")

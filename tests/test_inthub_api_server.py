@@ -116,7 +116,7 @@ def test_api_server_can_serve_web_shell(tmp_path):
         deep_link = urlopen(f"{base}/projects/demo").read().decode("utf-8")
         assert "IntHub" in deep_link
         js = urlopen(f"{base}/app.js").read().decode("utf-8")
-        assert "itt hub sync" in js
+        assert "itt push" in js
     finally:
         server.shutdown()
         thread.join()

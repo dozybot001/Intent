@@ -143,6 +143,28 @@ def _get_json(url):
         return json.loads(resp.read().decode("utf-8"))
 
 
+def _global_auth_env(tmp_path):
+    git_config = tmp_path / "auth-gitconfig"
+    credential_file = tmp_path / "auth-credentials"
+    subprocess.run(
+        [
+            "git",
+            "config",
+            "--file",
+            str(git_config),
+            "credential.helper",
+            f"store --file={credential_file}",
+        ],
+        capture_output=True,
+        check=True,
+    )
+    return {
+        "GIT_CONFIG_GLOBAL": str(git_config),
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "INTENT_CONFIG_HOME": str(tmp_path / "global-intent-config"),
+    }
+
+
 def _expected_cli_version():
     from importlib.metadata import version
     try:
@@ -292,6 +314,64 @@ class TestGlobal:
 
 
 class TestHub:
+    def test_global_auth_reused_by_two_projects_and_push_alias(
+        self, workspace, inthub_server,
+    ):
+        auth_env = _global_auth_env(workspace)
+        token = "ith_pat_test-global"
+        login = _run(
+            workspace,
+            "auth",
+            "login",
+            "--api-base-url",
+            inthub_server,
+            "--token",
+            token,
+            extra_env=auth_env,
+        )
+        assert login["ok"] is True
+        assert login["result"]["credential_store"] == "git-credential-helper"
+
+        _add_github_remote(workspace)
+        first_link = _run(workspace, "hub", "link", extra_env=auth_env)
+        _run(workspace, "intent", "create", "First goal", extra_env=auth_env)
+        first_push = _run(workspace, "push", extra_env=auth_env)
+        assert first_push["ok"] is True
+        assert first_push["action"] == "push"
+
+        second = workspace / "second-project"
+        second.mkdir()
+        _init_git_repo(second)
+        _add_github_remote(second, "https://github.com/example/second.git")
+        assert _run(second, "init", extra_env=auth_env)["ok"] is True
+        second_link = _run(second, "hub", "link", extra_env=auth_env)
+        _run(second, "intent", "create", "Second goal", extra_env=auth_env)
+        second_push = _run(second, "push", "--dry-run", extra_env=auth_env)
+
+        assert first_link["result"]["api_base_url"] == inthub_server
+        assert second_link["result"]["api_base_url"] == inthub_server
+        assert first_link["result"]["project_id"] != second_link["result"]["project_id"]
+        assert second_push["ok"] is True
+        assert second_push["action"] == "push"
+        assert second_push["result"]["dry_run"] is True
+
+        first_hub = json.loads((workspace / ".intent" / "hub.json").read_text())
+        global_config = json.loads(
+            (workspace / "global-intent-config" / "config.json").read_text()
+        )
+        assert "auth_token" not in first_hub
+        assert token not in json.dumps(first_hub)
+        assert token not in json.dumps(global_config)
+
+        status = _run(workspace, "auth", "status", extra_env=auth_env)
+        assert status["result"]["authenticated"] is True
+        assert status["result"]["token_source"] == "credential-helper"
+
+        logout = _run(workspace, "auth", "logout", extra_env=auth_env)
+        assert logout["result"]["credential_removed"] is True
+        status = _run(workspace, "auth", "status", extra_env=auth_env)
+        assert status["result"]["authenticated"] is False
+
     def test_link_configures_and_binds(self, workspace, inthub_server):
         _add_github_remote(workspace)
         r = _run(workspace, "hub", "link", "--api-base-url", inthub_server,
@@ -375,7 +455,7 @@ class TestHub:
         assert "Raw JSON" in js
         assert "Linked Decisions" in js
         assert "card-cancelled" in js
-        assert "itt hub sync" in js
+        assert "itt push" in js
         css = urlopen(f"{inthub_web_server}/styles.css").read().decode("utf-8")
         assert ".badge.status-cancelled" in css
 

@@ -15,7 +15,7 @@ The GitHub App and IntHub accounts are separate boundaries:
 - Browser: GitHub OAuth with PKCE and one-time state. The GitHub access token is used only for the identity request and is never persisted.
 - Web session: random HttpOnly, SameSite=Strict cookie; only its hash is stored.
 - CLI: an account issues an `ith_pat_...` token. Only its hash, label, expiry, last-used time, and revocation state are stored.
-- Writes: `itt hub link` and `itt hub sync` accept only account tokens. Browser sessions remain read-only except for managing the current account's tokens.
+- Writes: `itt hub link`, `itt push`, and its `itt hub sync` compatibility alias accept only account tokens. Browser sessions remain read-only except for managing the current account's tokens.
 - Data: every production project has an `account_id`; lists, details, search, and sync writes apply the same account boundary. Different IntHub accounts may link their own copy of the same GitHub repository.
 
 Production uses PostgreSQL. Local `itt hub start` remains an unauthenticated SQLite process bound only to loopback. PostgreSQL supplies a durable boundary for concurrent writes, backup and recovery, and future team collaboration, but it does not replace application authorization.
@@ -73,13 +73,14 @@ After startup, the homepage exposes only normal `Continue with GitHub`. Any GitH
 After signing in, select `CLI token` in the account area. IntHub creates a 90-day account token and shows it once:
 
 ```bash
-export INTHUB_TOKEN='<ith_pat_...>'
-itt hub link --api-base-url https://inthub.example.com
-itt hub sync --dry-run
-itt hub sync
+itt auth login --api-base-url https://inthub.example.com
+cd your-project
+itt hub link
+itt push --dry-run
+itt push
 ```
 
-`--token` can supply a token to one CLI command. The CLI never persists it to `.intent/hub.json`. HTTP sends it as `Authorization: Bearer <token>`; Bearer is the transport scheme, while the authorization principal remains the specific IntHub account.
+`itt auth login` prompts without echo when `--token` and `INTHUB_TOKEN` are absent. It saves only the endpoint in the user config and delegates the token to Git's configured credential helper. Use a secure OS-backed helper; Git's `store` helper is plaintext. `--token` can still supply a token to one CLI command. The CLI never persists a token to `.intent/hub.json`. HTTP sends it as `Authorization: Bearer <token>`; Bearer is the transport scheme, while the authorization principal remains the specific IntHub account. `itt auth logout` removes the local credential but does not revoke it on the server; revoke it in the Web UI when compromise or permanent removal is intended.
 
 ## Verification
 

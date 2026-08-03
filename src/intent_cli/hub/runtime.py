@@ -2,7 +2,7 @@
 
 import os
 
-from intent_cli.output import error
+from intent_cli.hub.credentials import global_api_base_url, load_access_token, normalize_api_base_url
 from intent_cli.store import read_hub_config
 
 
@@ -17,30 +17,38 @@ def config_without_auth_token(config):
     return persisted
 
 
-def sanitize_hub_config(config):
+def sanitize_hub_config(config, auth_configured=None):
     sanitized = dict(config)
     sanitized.pop("auth_token", None)
-    sanitized["auth_configured"] = bool(os.getenv("INTHUB_TOKEN"))
+    sanitized["auth_configured"] = (
+        bool(os.getenv("INTHUB_TOKEN"))
+        if auth_configured is None
+        else bool(auth_configured)
+    )
     return sanitized
 
 
 def hub_api_base(base, args):
     hub = load_hub(base)
-    api_base_url = getattr(args, "api_base_url", None) or hub.get("api_base_url")
-    if not api_base_url:
-        error(
-            "HUB_NOT_CONFIGURED",
-            "IntHub API base URL is not configured.",
-            suggested_fix="Run: itt hub link --api-base-url http://127.0.0.1:8000",
-        )
-    return api_base_url.rstrip("/")
+    api_base_url = (
+        getattr(args, "api_base_url", None)
+        or hub.get("api_base_url")
+        or global_api_base_url()
+    )
+    return normalize_api_base_url(api_base_url)
 
 
-def hub_auth_token(base, args):
+def hub_auth_token(base, args, api_base_url=None):
     token = getattr(args, "token", None)
     if token:
         return token
     env_token = os.getenv("INTHUB_TOKEN")
     if env_token:
         return env_token
-    return None
+    api_base_url = api_base_url or hub_api_base(base, args)
+    return load_access_token(api_base_url)
+
+
+def hub_auth_configured(api_base_url):
+    """Report whether reusable account authentication is available."""
+    return bool(os.getenv("INTHUB_TOKEN") or load_access_token(api_base_url))

@@ -14,6 +14,8 @@ from intent_cli.store import (
     UnsafeStoragePathError,
     WorkspaceBusyError,
 )
+from intent_cli.hub.credentials import CredentialStoreError, GlobalHubConfigError
+from intent_cli.commands.auth import cmd_auth_login, cmd_auth_logout, cmd_auth_status
 from intent_cli.commands.core import (
     cmd_decision_create,
     cmd_decision_deprecate,
@@ -28,7 +30,7 @@ from intent_cli.commands.core import (
     cmd_snap_create,
     cmd_version,
 )
-from intent_cli.commands.hub import cmd_hub_link, cmd_hub_start, cmd_hub_sync
+from intent_cli.commands.hub import cmd_hub_link, cmd_hub_start, cmd_hub_sync, cmd_push
 
 
 def _invoke(command, args):
@@ -88,6 +90,20 @@ def _invoke(command, args):
             "STORAGE_SECURITY_ERROR",
             str(exc),
         )
+    except GlobalHubConfigError as exc:
+        error(
+            "GLOBAL_CONFIG_ERROR",
+            str(exc),
+        )
+    except CredentialStoreError as exc:
+        error(
+            "CREDENTIAL_STORE_ERROR",
+            str(exc),
+            suggested_fix=(
+                "Configure a Git credential helper (for example osxkeychain, "
+                "manager, or libsecret) and retry."
+            ),
+        )
 
 
 def _ensure_utf8_stdio():
@@ -126,6 +142,26 @@ def main():
     p.add_argument("--intent", default=None, metavar="ID")
     p.add_argument("--history", type=int, default=None, metavar="N")
     sub.add_parser("doctor")
+
+    # --- account auth / Git-style push ---
+    p_auth = sub.add_parser("auth")
+    s_auth = p_auth.add_subparsers(dest="sub")
+
+    p = s_auth.add_parser("login")
+    p.add_argument("--api-base-url", default=None)
+    p.add_argument("--token", default=None)
+
+    p = s_auth.add_parser("status")
+    p.add_argument("--api-base-url", default=None)
+    p.add_argument("--token", default=None)
+
+    p = s_auth.add_parser("logout")
+    p.add_argument("--api-base-url", default=None)
+
+    p = sub.add_parser("push")
+    p.add_argument("--api-base-url", default=None)
+    p.add_argument("--token", default=None)
+    p.add_argument("--dry-run", action="store_true")
 
     # --- hub ---
     p_hub = sub.add_parser("hub")
@@ -204,6 +240,7 @@ def main():
         "init": cmd_init,
         "inspect": cmd_inspect,
         "doctor": cmd_doctor,
+        "push": cmd_push,
     }
     if args.command in dispatch_global:
         _invoke(dispatch_global[args.command], args)
@@ -212,6 +249,7 @@ def main():
     if not getattr(args, "sub", None):
         command_parser = {
             "hub": p_hub,
+            "auth": p_auth,
             "intent": p_intent,
             "snap": p_snap,
             "decision": p_decision,
@@ -226,6 +264,9 @@ def main():
         ("hub", "start"):              cmd_hub_start,
         ("hub", "link"):               cmd_hub_link,
         ("hub", "sync"):               cmd_hub_sync,
+        ("auth", "login"):             cmd_auth_login,
+        ("auth", "status"):            cmd_auth_status,
+        ("auth", "logout"):            cmd_auth_logout,
         ("intent", "create"):          cmd_intent_create,
         ("intent", "activate"):        cmd_intent_activate,
         ("intent", "suspend"):         cmd_intent_suspend,

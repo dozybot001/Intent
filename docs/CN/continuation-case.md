@@ -103,4 +103,4 @@ itt intent cancel intent-001 \
 
 ## IntHub 的角色
 
-Intent 本身足以完成本地记录和终端恢复。绑定一个 GitHub 仓库后，`itt hub sync` 会把同一对象图投影到 IntHub，供浏览和交接使用。边界由此保持清晰：Intent 负责可迁移的语义历史，IntHub 作为组织与协作界面放大它的价值。
+Intent 本身足以完成本地记录和终端恢复。绑定一个 GitHub 仓库后，`itt push`（或兼容命令 `itt hub sync`）会把同一对象图投影到 IntHub，供浏览和交接使用。边界由此保持清晰：Intent 负责可迁移的语义历史，IntHub 作为组织与协作界面放大它的价值。

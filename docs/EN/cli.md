@@ -52,9 +52,15 @@ The CLI is intentionally small:
 
 | Command | What it does |
 |---|---|
+| `itt auth login [--api-base-url URL] [--token TOKEN]` | Validate an account token, save the global endpoint, and delegate the token to Git's credential helper. Defaults to the official IntHub service. |
+| `itt auth status [--api-base-url URL] [--token TOKEN]` | Check whether the selected global account credential is valid. Never prints the token. |
+| `itt auth logout [--api-base-url URL]` | Remove the local credential-helper entry. Does not revoke the server-side token. |
+| `itt push [--api-base-url URL] [--token TOKEN] [--dry-run]` | Push the current repository's complete Intent snapshot. Primary Git-style command. |
 | `itt hub start [--port PORT] [--no-open]` | Launch IntHub Local |
-| `itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]` | Link workspace to IntHub. Writes `.intent/hub.json` without persisting the token. |
-| `itt hub sync [--api-base-url URL] [--token TOKEN] [--dry-run]` | Push snapshot to IntHub. Full snapshot, not incremental. |
+| `itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]` | Link this repository to IntHub. Uses the global endpoint and account credential by default; writes only non-secret binding data to `.intent/hub.json`. |
+| `itt hub sync [--api-base-url URL] [--token TOKEN] [--dry-run]` | Compatibility alias for `itt push`. |
+
+Authentication follows Git's split between global credentials and repository-local remotes. `itt auth login` stores the endpoint in the user-level Intent config and asks Git's configured credential helper to store the account token. A secure helper such as macOS Keychain, Git Credential Manager, or libsecret is recommended; Git's `store` helper keeps credentials in plaintext. Each repository must still run `itt hub link` once because its project and workspace binding is repository-specific. The CLI precedence is explicit `--token`, `INTHUB_TOKEN`, then the credential helper selected for the effective API base URL.
 
 ## Object Model
 
@@ -283,6 +289,8 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 | `NO_OPEN_INTENT` | `intent cancel` omitted the target and no intent is `active` or `suspend` |
 | `MULTIPLE_OPEN_INTENTS` | `intent cancel` omitted the target and several intents are `active` or `suspend` |
 | `WORKSPACE_BUSY` | Another Intent command still holds the workspace write lock |
+| `GLOBAL_CONFIG_ERROR` | The user-level IntHub endpoint config is invalid or cannot be written |
+| `CREDENTIAL_STORE_ERROR` | Git's configured credential helper could not persist or remove the account token |
 | `HUB_NOT_CONFIGURED` | IntHub API base URL is missing |
 | `NOT_LINKED` | Current workspace has not been linked to IntHub |
 | `PROVIDER_UNSUPPORTED` | Current Git remote is not supported |
@@ -292,7 +300,8 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 ## Operational Notes
 
 - `itt init` adds `.intent/` to the current clone's `.git/info/exclude` without editing the shared `.gitignore`; it returns a warning if the local exclude cannot be updated
-- The CLI accepts an account-scoped `--token` or `INTHUB_TOKEN` and never persists it to `hub.json`
+- Account authentication is global: the default endpoint is user-level, the token is delegated to Git's credential helper, and repository-local `hub.json` contains only non-secret project/workspace binding data
+- Explicit `--token` and `INTHUB_TOKEN` override the stored credential and are never persisted to `hub.json`
 - IntHub Local binds to `127.0.0.1` by default, but its current API does not enforce bearer-token authentication and uses permissive CORS; do not expose it to a LAN or the public internet
 - The IntHub production profile uses GitHub sign-up or sign-in and bounded read-only HttpOnly Web sessions; CLI writes use an access token issued by the current account (sent as HTTP `Bearer`), all project reads and writes are account-scoped, and production uses PostgreSQL; see [IntHub Production Deployment](inthub-production.md)
 - Object and Hub-config replacements are atomic, and mutating object commands use a workspace-level cross-process lock; this serializes Intent CLI writers but does not turn `.intent/` into a multi-user database

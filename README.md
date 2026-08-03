@@ -119,7 +119,18 @@ cd your-project
 itt init
 ```
 
-`itt init` creates `.intent/` and adds it to this clone's Git-local `.git/info/exclude`; it does **not** edit the shared `.gitignore`. The command returns a warning if the local exclude cannot be updated. Review the files before intentionally sharing them, and add `.intent/` to `.gitignore` separately if the whole team should inherit that rule. The CLI accepts an account-scoped `--token` or `INTHUB_TOKEN` but never persists it to `hub.json`.
+`itt init` creates `.intent/` and adds it to this clone's Git-local `.git/info/exclude`; it does **not** edit the shared `.gitignore`. The command returns a warning if the local exclude cannot be updated. Review the files before intentionally sharing them, and add `.intent/` to `.gitignore` separately if the whole team should inherit that rule.
+
+Sign in once for the official IntHub service, then link and push each repository:
+
+```bash
+itt auth login
+cd your-project
+itt hub link
+itt push
+```
+
+`itt auth login` uses `https://inthub.tenon.asia` by default. It stores the non-secret endpoint in the user config and delegates the account token to Git's configured credential helper, such as macOS Keychain, Git Credential Manager, or libsecret. The same account credential is reused across repositories; each repository keeps its own non-secret `project_id`, `workspace_id`, and `repo_binding` in `.intent/hub.json`. `--token` and `INTHUB_TOKEN` remain one-command or environment overrides and are never written to repository config. `itt hub sync` remains a compatible alias for `itt push`.
 
 To browse semantic history in a browser, start **IntHub Local** (works from any directory):
 
@@ -131,7 +142,7 @@ Then, in your project repo:
 
 ```bash
 itt hub link --api-base-url http://127.0.0.1:7210
-itt hub sync
+itt push
 ```
 
 IntHub Local binds to `127.0.0.1` by default. Its current local API does not enforce bearer-token authentication and returns permissive CORS headers, so use it only on a trusted machine and do not expose it through a public interface or reverse proxy.

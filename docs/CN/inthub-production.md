@@ -15,7 +15,7 @@ GitHub App 与 IntHub 账户是两个不同边界：
 - 浏览器：GitHub OAuth + PKCE + 一次性 state；GitHub access token 只用于读取当次身份，不持久化。
 - Web 会话：随机 HttpOnly、SameSite=Strict Cookie；数据库只保存会话哈希。
 - CLI：账户自行签发 `ith_pat_...` token；数据库只保存 token 哈希、名称、有效期、最后使用时间和撤销状态。
-- 写入：`itt hub link` 与 `itt hub sync` 只接受账户 token；浏览器会话保持只读，仅允许管理本账户 token。
+- 写入：`itt hub link`、`itt push` 及其兼容别名 `itt hub sync` 只接受账户 token；浏览器会话保持只读，仅允许管理本账户 token。
 - 数据：每个项目都有 `account_id`；列表、详情、搜索与同步写入都使用同一账户边界。同一 GitHub 仓库可以分别存在于不同 IntHub 账户下。
 
 生产使用 PostgreSQL；本地 `itt hub start` 继续使用仅绑定回环地址的 SQLite 无认证模式。PostgreSQL 提供并发写入、备份恢复和未来扩展团队协作所需的长期边界，但数据库本身不替代授权模型。
@@ -73,13 +73,14 @@ sudo docker compose \
 登录后点击账户区的 `CLI token`。IntHub 创建一个默认有效期 90 天的账户 token，并且只展示一次：
 
 ```bash
-export INTHUB_TOKEN='<ith_pat_...>'
-itt hub link --api-base-url https://inthub.example.com
-itt hub sync --dry-run
-itt hub sync
+itt auth login --api-base-url https://inthub.example.com
+cd your-project
+itt hub link
+itt push --dry-run
+itt push
 ```
 
-也可以用 `--token` 仅传给单次 CLI 命令。CLI 不会将 token 写入 `.intent/hub.json`。HTTP 中使用标准 `Authorization: Bearer <token>`，这里的 Bearer 是传输方式，权限主体仍是具体 IntHub 账户。
+若未提供 `--token` 或 `INTHUB_TOKEN`，`itt auth login` 会无回显地提示输入。它只把服务地址写入用户配置，token 则交给 Git 已配置的 credential helper。应使用操作系统安全存储支持的 helper；Git 的 `store` helper 会明文保存。也可以继续用 `--token` 仅传给单次 CLI 命令。CLI 不会将 token 写入 `.intent/hub.json`。HTTP 中使用标准 `Authorization: Bearer <token>`，这里的 Bearer 是传输方式，权限主体仍是具体 IntHub 账户。`itt auth logout` 只删除本机凭据，不撤销服务端 token；若凭据泄露或要永久移除，应在 Web UI 中撤销。
 
 ## 验证
 
@@ -113,7 +114,7 @@ sudo systemctl reload caddy
 - PostgreSQL 自包含 `pg_dump --format=custom`；
 - `/opt/inthub/shared/inthub.env`，保持 `0600`。
 
-账户模型是唯一受支持的数据模型，不提供预览版全站 token 数据库的兼容迁移。升级这类旧部署时先备份旧库，再创建当前空 schema；用户完成 GitHub 注册后用账户 token 重新执行 `itt hub link` 和 `itt hub sync`。
+账户模型是唯一受支持的数据模型，不提供预览版全站 token 数据库的兼容迁移。升级这类旧部署时先备份旧库，再创建当前空 schema；用户完成 GitHub 注册后运行 `itt auth login`，并在各仓库重新执行 `itt hub link` 和 `itt push`。
 
 应用回滚不回滚数据。把 `/opt/inthub/current` 指回保留的 release、更新 release 变量并重新执行 `compose up`。包含不兼容 schema 变化的版本必须配套恢复数据库备份，不能只切换代码。
 

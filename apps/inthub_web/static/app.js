@@ -840,9 +840,11 @@ function renderSnapDetailTo(target, payload) {
 /* ---- Setup guide ---- */
 
 function renderSetupGuide(mode) {
-  const linkCmd = `itt hub link --api-base-url ${state.config.apiBaseUrl}`;
+  const linkCmd = state.config.authRequired
+    ? "itt hub link"
+    : `itt hub link --api-base-url ${state.config.apiBaseUrl}`;
   const authPrefix = state.config.authRequired
-    ? ["export INTHUB_TOKEN='<access token>'"]
+    ? [`itt auth login --api-base-url ${state.config.apiBaseUrl}`]
     : [];
   let steps = [];
 
@@ -852,7 +854,7 @@ function renderSetupGuide(mode) {
       {
         title: "2. Link & Sync",
         desc: "Point CLI here, create binding, push snapshot.",
-        cmd: [...authPrefix, linkCmd, "itt hub sync"],
+        cmd: [...authPrefix, linkCmd, "itt push"],
       },
     ];
   } else {
@@ -860,12 +862,12 @@ function renderSetupGuide(mode) {
       {
         title: "1. Link & Sync",
         desc: "Ensure CLI points here, then push the next snapshot.",
-        cmd: [...authPrefix, linkCmd, "itt hub sync"],
+        cmd: [...authPrefix, linkCmd, "itt push"],
       },
       {
         title: "2. Sync Again Later",
         desc: "Push new semantic history after more work.",
-        cmd: ["itt hub sync"],
+        cmd: ["itt push"],
       },
     ];
   }
