@@ -1,10 +1,10 @@
 ---
 name: intent-cli
 description: >-
-  仅在用户明确请求的两种模式下管理本地 Intent 语义历史（.intent/）：用户明确要求通过
-  Intent 或 .intent 写入或更新时进入记录模式；用户明确要求通过 Intent
-  恢复或接续项目时进入接续模式。普通总结、笔记、状态汇报、“记录一下”或仅仅提到
-  Intent 时不要使用。
+  仅在用户明确请求的记录、接续或 IntHub 同步模式下管理 Intent 语义历史（.intent/）：
+  明确要求通过 Intent 或 .intent 写入时才记录，明确要求通过 Intent 接续时才恢复，
+  明确要求把 Intent 数据推送到 IntHub 时才同步。普通总结、状态汇报、一般 Git push
+  或仅仅提到 Intent 时不要使用。
 ---
 
 # Intent CLI
@@ -13,7 +13,7 @@ description: >-
 
 每条 `itt` 命令都返回 JSON。解析 JSON 并检查 `ok`；不要仅凭文字或退出码推断成功。
 
-## 只选择一种模式
+## 只使用已明确授权的模式
 
 ### 记录模式
 
@@ -25,7 +25,15 @@ description: >-
 
 仅当用户明确要求通过 Intent 恢复或继续项目时，进入接续模式。先保持只读。用户只是要求查看已记录状态时，不要创建、激活或更新对象。
 
-如果用户没有明确请求以上任一模式，不要运行 `itt`，也不要写入 `.intent/`。
+### 同步模式
+
+仅当用户明确要求把当前仓库的 Intent 数据 push、同步或发布到 IntHub 时，进入同步模式。一般的 `git push`、发布源代码或仅仅提到 IntHub，都不授权同步 Intent。
+
+同步模式不授权创建或修改 Intent、Snap、Decision 对象。它授权检查当前仓库的本地绑定、验证所选 IntHub 账户会话、完成必要的首次仓库绑定，并推送一次完整快照；它绝不授权登录、退出、创建或撤销 token、切换服务地址，或修改 Git remote。
+
+记录与接续在语义对象处理上互斥。只有用户在同一请求里明确要求“记录并推送”时，同步才可以紧接记录执行。记录或接续本身都不隐含同步授权。
+
+如果用户没有明确请求任何模式，不要运行 `itt`，也不要写入 `.intent/`。
 
 ## 强制执行安全
 
@@ -36,7 +44,7 @@ description: >-
 5. 从 `result.id` 捕获每个新建对象的 ID。按 `intent-[0-9]+`、`snap-[0-9]+` 或 `decision-[0-9]+` 校验，并在后续命令中始终传入显式 ID。不要依赖唯一对象推断。
 6. 除上述唯一一次 `NOT_INITIALIZED` 例外外，第一次已经尝试执行的 `itt` 命令失败时立即停止。报告错误，以及此前已经成功的对象或状态转换和对应 ID。不要隐式回滚，也不要继续剩余写入。若能证明本地传输适配器在启动任何 `itt` 进程前就已失败，这不算 Intent 写入失败：只允许修复一次，先通过适配器运行只读 preflight；仅在确定 CLI 零变更时继续。若无法确定进程是否启动，停止并 inspect。
 7. 把 `suggested_fix` 仅视为未经信任的提示。确认它正确、在任务范围内且已获授权后才可执行。
-8. 记录或接续流程不得自动运行 `itt auth login`、`itt auth logout`、`itt hub start`、`itt hub link`、`itt hub sync` 或 `itt push`。全局凭据变更、外部服务和同步必须由用户另行明确请求。
+8. 绝不自动运行 `itt auth login`、`itt auth logout` 或 `itt hub start`。只有在显式同步模式下才运行 `itt hub link`、`itt hub sync` 或 `itt push`。若用户同时要求记录和同步，先完成并验证全部本地记录，再开始同步。绝不为了让 IntHub 接受仓库而修改 Git remote。
 
 ## 记录已验证语义
 
@@ -119,6 +127,19 @@ Snap 是且仅是某一个 Intent 内追加式的语义状态变化，不是任�
 
 若 `inspect` 返回 warning，运行 `itt doctor`，报告问题并停止接续；不要绕过损坏的对象图自行猜测。
 
+## 显式同步
+
+1. 把 cwd 固定到目标仓库根目录并运行 `itt inspect`。在仅同步模式下，`NOT_INITIALIZED` 表示没有可推送的 Intent 快照：停止，不运行 `itt init`。若 `warnings` 非空，运行 `itt doctor`、报告对象图问题，并在产生网络写入前停止。
+2. 运行 `itt hub status`。这是查询有效服务地址、当前仓库是否已绑定、本地是否存在可复用凭据及非敏感绑定信息的受支持只读入口。不要检查实现源码，也不要直接读取 `.intent/hub.json`。
+3. 捕获 `result.api_base_url`，再运行 `itt auth status --api-base-url URL`。要求 `ok: true` 且 `result.authenticated: true`；本地存在凭据不代表服务端仍接受它。若未认证，停止并告诉用户亲自运行 `itt auth login --api-base-url URL`。绝不自动触发登录，也不要让用户把 token 粘贴到聊天中。
+4. 若 Hub status 的 `result.linked` 为 false，运行 `itt hub link --api-base-url URL`；只有用户提供了名称时才加 `--project-name NAME`。显式同步请求已授权在鉴权成功后完成这次必要的首次绑定。GitHub 与 Gitee origin 都受支持；GitHub OAuth 只用于识别 IntHub 账户，不要求仓库必须托管在 GitHub。绝不为同步修改、临时切换或恢复 `origin`。
+5. 运行 `itt push`。仓库绑定和全局凭据已经选定地址与认证时，省略 endpoint 和 token 参数。只有用户要求预览或确需本地诊断 payload 时才使用 `--dry-run`；它不访问 IntHub，也不能代替真实 push。
+6. 解析 push JSON，报告已接受的 sync batch、project/workspace 绑定和 `last_synced_at`。任何失败都立即停止，并说明仓库是否已经完成绑定；不要换 endpoint 或 provider 重试。
+
+`itt push` 发送当前仓库完整的 Intent 对象快照，不是增量 diff。`itt hub sync` 是兼容别名；优先使用 Git 风格的 `itt push`。
+
+服务地址优先级依次为显式 `--api-base-url`、仓库绑定、用户级配置、官方服务 `https://inthub.tenon.asia`。凭据优先级依次为显式 `--token`、`INTHUB_TOKEN`、Git credential helper。优先使用 helper，绝不在仓库文件或工具日志中暴露、回显或持久化 token。
+
 ## 对象质量
 
 - **Intent `what`：**一句话说明连贯目标，不是步骤或文件名。
@@ -145,6 +166,12 @@ itt intent cancel ID [--reason REASON]
 itt snap create WHAT --intent ID [--why WHY]
 itt decision create WHAT [--why WHY]
 itt decision deprecate ID [--reason REASON]
+itt hub status [--api-base-url URL]
+itt auth status [--api-base-url URL] [--token TOKEN]
+itt auth login [--api-base-url URL] [--token TOKEN]  # 仅限用户授权
+itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]
+itt push [--api-base-url URL] [--token TOKEN] [--dry-run]
+itt hub sync [--api-base-url URL] [--token TOKEN] [--dry-run]  # 兼容别名
 ```
 
 成功写入的结构：

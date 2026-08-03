@@ -1,4 +1,4 @@
 interface:
   display_name: "Intent CLI"
-  short_description: "Record or resume semantics on explicit request"
-  default_prompt: "Use $intent-cli to record a verified semantic checkpoint or resume this project through Intent."
+  short_description: "Record, resume, or sync Intent semantics"
+  default_prompt: "Use $intent-cli to record, resume, or explicitly sync this project’s verified Intent semantics."

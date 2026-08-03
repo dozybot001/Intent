@@ -36,7 +36,7 @@ def test_hub_link_uses_cli_token_without_persisting_it(monkeypatch, tmp_path, ca
     monkeypatch.setattr(hub_commands, "require_init", lambda: base)
     monkeypatch.setattr(
         hub_commands,
-        "current_github_repo",
+        "current_repository",
         lambda: {
             "provider": "github",
             "repo_id": "example/demo",

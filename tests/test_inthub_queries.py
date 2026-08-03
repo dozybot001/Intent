@@ -130,3 +130,55 @@ def test_accounts_can_link_the_same_repo_without_seeing_each_others_projects(tmp
             account_id=second["id"],
         )
     assert exc_info.value.code == "OBJECT_NOT_FOUND"
+
+
+def test_repo_provider_is_part_of_the_project_identity(tmp_path):
+    db_path = str(tmp_path / "inthub.db")
+    account = upsert_github_account(db_path, {"id": 3, "login": "provider-user"})
+    common = {
+        "repo_id": "example/shared-name",
+        "owner": "example",
+        "name": "shared-name",
+    }
+
+    github_project = link_project(
+        db_path,
+        "GitHub copy",
+        {"provider": "github", **common},
+        "wks_github",
+        account_id=account["id"],
+    )
+    gitee_project = link_project(
+        db_path,
+        "Gitee copy",
+        {"provider": "gitee", **common},
+        "wks_gitee",
+        account_id=account["id"],
+    )
+
+    assert github_project["project_id"] != gitee_project["project_id"]
+    projects = list_projects(db_path, account["id"])["projects"]
+    assert {
+        (item["repo"]["provider"], item["repo"]["repo_id"])
+        for item in projects
+    } == {
+        ("github", "example/shared-name"),
+        ("gitee", "example/shared-name"),
+    }
+
+
+def test_link_rejects_unknown_repo_provider(tmp_path):
+    with pytest.raises(APIError) as exc_info:
+        link_project(
+            str(tmp_path / "inthub.db"),
+            "Unsupported",
+            {
+                "provider": "bitbucket",
+                "repo_id": "example/demo",
+                "owner": "example",
+                "name": "demo",
+            },
+            "wks_unsupported",
+        )
+
+    assert exc_info.value.code == "PROVIDER_UNSUPPORTED"

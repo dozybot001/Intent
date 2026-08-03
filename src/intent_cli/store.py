@@ -9,6 +9,7 @@ import time
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 
 INTENT_DIR = ".intent"
 SUBDIRS = {"intent": "intents", "snap": "snaps", "decision": "decisions"}
@@ -739,28 +740,63 @@ def git_remote_url(name="origin"):
         return None
 
 
-def parse_github_remote(remote_url):
-    """Parse a GitHub remote URL into owner/name metadata."""
-    if not remote_url:
+SUPPORTED_GIT_PROVIDERS = {
+    "github.com": "github",
+    "gitee.com": "gitee",
+}
+
+
+def parse_repository_remote(remote_url):
+    """Parse an exact supported Git host URL into provider/repository metadata."""
+    if not isinstance(remote_url, str) or not remote_url.strip():
         return None
 
     cleaned = remote_url.strip()
-    marker = "github.com"
-    if marker not in cleaned:
+    if any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in cleaned):
         return None
 
-    tail = cleaned.split(marker, 1)[1]
-    tail = tail.lstrip(":/")
-    if tail.endswith(".git"):
-        tail = tail[:-4]
+    host = None
+    path = None
+    if "://" in cleaned:
+        try:
+            parsed = urlsplit(cleaned)
+            _ = parsed.port
+        except ValueError:
+            return None
+        if (
+            parsed.scheme.lower() not in {"http", "https", "ssh", "git"}
+            or not parsed.hostname
+            or parsed.password
+            or parsed.query
+            or parsed.fragment
+        ):
+            return None
+        if parsed.scheme.lower() in {"http", "https", "git"} and parsed.username:
+            return None
+        host = parsed.hostname.casefold()
+        path = parsed.path.lstrip("/")
+    else:
+        match = re.fullmatch(
+            r"(?:(?P<user>[^@/:]+)@)?(?P<host>[^@/:]+):(?P<path>.+)",
+            cleaned,
+        )
+        if match is None:
+            return None
+        host = match.group("host").casefold()
+        path = match.group("path")
 
-    parts = [part for part in tail.split("/") if part]
-    if len(parts) < 2:
+    provider = SUPPORTED_GIT_PROVIDERS.get(host)
+    if provider is None:
+        return None
+    if path.endswith(".git"):
+        path = path[:-4]
+    parts = path.split("/")
+    if len(parts) != 2 or any(not part or part in {".", ".."} for part in parts):
         return None
 
-    owner, name = parts[0], parts[1]
+    owner, name = parts
     return {
-        "provider": "github",
+        "provider": provider,
         "repo_id": f"{owner}/{name}",
         "owner": owner,
         "name": name,

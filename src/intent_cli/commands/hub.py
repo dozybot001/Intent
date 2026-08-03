@@ -2,7 +2,7 @@
 
 from intent_cli.commands.common import require_init, workspace_mutation
 from intent_cli.hub.client import http_json
-from intent_cli.hub.payload import build_sync_payload, current_github_repo
+from intent_cli.hub.payload import build_sync_payload, current_repository
 from intent_cli.hub.runtime import (
     config_without_auth_token,
     hub_api_base,
@@ -33,12 +33,35 @@ def cmd_hub_start(args):
     launch_main(argv)
 
 
+def cmd_hub_status(args):
+    """Report effective local binding and credential availability without an API call."""
+    base = require_init()
+    hub = load_hub(base)
+    api_base_url = hub_api_base(base, args, hub)
+    required = ("project_id", "workspace_id", "repo_binding")
+    missing = [key for key in required if not hub.get(key)]
+    success(
+        "hub.status",
+        {
+            "linked": not missing,
+            "api_base_url": api_base_url,
+            "credential_available": hub_auth_configured(api_base_url),
+            "project_id": hub.get("project_id"),
+            "workspace_id": hub.get("workspace_id"),
+            "repo_binding": hub.get("repo_binding"),
+            "last_sync_batch_id": hub.get("last_sync_batch_id"),
+            "last_synced_at": hub.get("last_synced_at"),
+            "missing_fields": missing,
+        },
+    )
+
+
 @workspace_mutation
 def cmd_hub_link(args):
     base = require_init()
     hub = load_hub(base)
-    repo = current_github_repo()
-    api_base_url = hub_api_base(base, args)
+    repo = current_repository()
+    api_base_url = hub_api_base(base, args, hub)
     token = hub_auth_token(base, args, api_base_url)
 
     workspace_id = hub.get("workspace_id") or make_runtime_id("wks")
@@ -87,7 +110,7 @@ def _sync(args, action):
             suggested_fix="Run: itt hub link",
         )
 
-    api_base_url = hub_api_base(base, args)
+    api_base_url = hub_api_base(base, args, hub)
     token = hub_auth_token(base, args, api_base_url)
     persisted = config_without_auth_token(hub)
 

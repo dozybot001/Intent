@@ -9,27 +9,56 @@ from intent_cli.store import (
     git_is_dirty,
     git_remote_url,
     list_objects,
-    parse_github_remote,
+    parse_repository_remote,
 )
 
 
-def current_github_repo():
+def current_repository():
     remote = git_remote_url()
     if remote is None:
         error(
             "GIT_STATE_INVALID",
             "Git remote 'origin' is not configured.",
-            suggested_fix="Add a GitHub remote, for example: git remote add origin git@github.com:<owner>/<repo>.git",
+            suggested_fix=(
+                "Add the repository's real GitHub or Gitee origin. "
+                "Do not temporarily rewrite origin for IntHub."
+            ),
         )
-    repo = parse_github_remote(remote)
+    repo = parse_repository_remote(remote)
     if repo is None:
         error(
             "PROVIDER_UNSUPPORTED",
-            f"Remote '{remote}' is not a supported GitHub repository URL.",
-            suggested_fix="Use a GitHub origin remote for IntHub V1.",
+            "Git remote 'origin' is not a supported GitHub or Gitee repository URL.",
+            suggested_fix=(
+                "Use the repository's real github.com or gitee.com origin. "
+                "Do not temporarily rewrite origin for IntHub."
+            ),
         )
-    repo["remote_url"] = remote
     return repo
+
+
+def require_matching_repository(repo_binding):
+    """Reject pushes whose current origin differs from the saved IntHub binding."""
+    current = current_repository()
+    expected = {
+        "provider": repo_binding.get("provider"),
+        "repo_id": repo_binding.get("repo_id"),
+    }
+    actual = {
+        "provider": current["provider"],
+        "repo_id": current["repo_id"],
+    }
+    if actual != expected:
+        error(
+            "REPO_BINDING_MISMATCH",
+            "Git remote 'origin' does not match this workspace's IntHub binding.",
+            details={"expected": expected, "actual": actual},
+            suggested_fix=(
+                "Restore the repository's bound origin before pushing. "
+                "Never temporarily rewrite origin to bypass provider checks."
+            ),
+        )
+    return current
 
 
 def snapshot_payload(base):
@@ -41,6 +70,7 @@ def snapshot_payload(base):
 
 
 def build_sync_payload(base, hub_config):
+    require_matching_repository(hub_config["repo_binding"])
     return {
         "sync_batch_id": hub_config["sync_batch_id"],
         "generated_at": now_utc(),

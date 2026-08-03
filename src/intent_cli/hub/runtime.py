@@ -28,8 +28,8 @@ def sanitize_hub_config(config, auth_configured=None):
     return sanitized
 
 
-def hub_api_base(base, args):
-    hub = load_hub(base)
+def hub_api_base(base, args, hub=None):
+    hub = load_hub(base) if hub is None else hub
     api_base_url = (
         getattr(args, "api_base_url", None)
         or hub.get("api_base_url")

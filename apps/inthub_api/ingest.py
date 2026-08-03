@@ -6,9 +6,12 @@ from apps.inthub_api.common import APIError, new_id, now_utc, require_repo
 from apps.inthub_api.db import connect
 
 
+SUPPORTED_REPO_PROVIDERS = {"github", "gitee"}
+
+
 def link_project(db_path, project_name, repo, workspace_id, account_id=None):
     require_repo(repo)
-    if repo.get("provider") != "github":
+    if repo.get("provider") not in SUPPORTED_REPO_PROVIDERS:
         raise APIError(
             "PROVIDER_UNSUPPORTED",
             f"Unsupported provider '{repo.get('provider')}'.",

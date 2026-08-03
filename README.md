@@ -80,7 +80,7 @@ Intent now uses an **Intent–Session** model: the agent works freely, and you e
 3. The agent inspects existing state, reuses a matching active or suspended Intent, and writes only new high-signal semantics
 4. If the goal remains open, its latest Snap is a self-contained checkpoint: verified state, current boundary, next step, and blockers or local constraints
 
-Zero writes is a valid result when there is no new critical semantic information. A typical recording may contain `0–1` Intent, `1–3` Snaps, and `0` Decisions, but these are expectations rather than quotas. Like `git commit`, recording is user-initiated; generic requests to summarize, take notes, or report status do not authorize writes to `.intent/`.
+Zero writes is a valid result when there is no new critical semantic information. There is no per-recording object quota: split independent objective boundaries into separate Intents and create only the Snaps needed to preserve meaningful semantic changes. Like `git commit`, recording is user-initiated; generic requests to summarize, take notes, or report status do not authorize writes to `.intent/`.
 
 To resume, explicitly ask the agent to recover the project through Intent. It starts with `itt inspect`; if the latest checkpoint is not enough and `has_more` is true, it can narrowly read recent history with `itt inspect --intent ID --history 3`. Merely inspecting or explaining recovery state is read-only.
 
@@ -126,11 +126,12 @@ Sign in once for the official IntHub service, then link and push each repository
 ```bash
 itt auth login
 cd your-project
+itt hub status
 itt hub link
 itt push
 ```
 
-`itt auth login` uses `https://inthub.tenon.asia` by default. It stores the non-secret endpoint in the user config and delegates the account token to Git's configured credential helper, such as macOS Keychain, Git Credential Manager, or libsecret. The same account credential is reused across repositories; each repository keeps its own non-secret `project_id`, `workspace_id`, and `repo_binding` in `.intent/hub.json`. `--token` and `INTHUB_TOKEN` remain one-command or environment overrides and are never written to repository config. `itt hub sync` remains a compatible alias for `itt push`.
+`itt auth login` uses `https://inthub.tenon.asia` by default. It stores the non-secret endpoint in the user config and delegates the account token to Git's configured credential helper, such as macOS Keychain, Git Credential Manager, or libsecret. The same account credential is reused across repositories; each repository keeps its own non-secret `project_id`, `workspace_id`, and `repo_binding` in `.intent/hub.json`. `itt hub status` reports that local state without calling the IntHub API. GitHub and Gitee origins are supported, while GitHub OAuth only identifies the IntHub account. The CLI never needs to rewrite `origin`, and `itt push` rejects an origin that no longer matches the saved binding. `--token` and `INTHUB_TOKEN` remain one-command or environment overrides and are never written to repository config. `itt hub sync` remains a compatible alias for `itt push`.
 
 To browse semantic history in a browser, start **IntHub Local** (works from any directory):
 

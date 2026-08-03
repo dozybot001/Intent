@@ -30,7 +30,13 @@ from intent_cli.commands.core import (
     cmd_snap_create,
     cmd_version,
 )
-from intent_cli.commands.hub import cmd_hub_link, cmd_hub_start, cmd_hub_sync, cmd_push
+from intent_cli.commands.hub import (
+    cmd_hub_link,
+    cmd_hub_start,
+    cmd_hub_status,
+    cmd_hub_sync,
+    cmd_push,
+)
 
 
 def _invoke(command, args):
@@ -171,6 +177,9 @@ def main():
     p.add_argument("--port", type=int, default=None)
     p.add_argument("--no-open", action="store_true")
 
+    p = s_hub.add_parser("status")
+    p.add_argument("--api-base-url", default=None)
+
     p = s_hub.add_parser("link")
     p.add_argument("--project-name", default=None)
     p.add_argument("--api-base-url", default=None)
@@ -262,6 +271,7 @@ def main():
 
     dispatch = {
         ("hub", "start"):              cmd_hub_start,
+        ("hub", "status"):             cmd_hub_status,
         ("hub", "link"):               cmd_hub_link,
         ("hub", "sync"):               cmd_hub_sync,
         ("auth", "login"):             cmd_auth_login,

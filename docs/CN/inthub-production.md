@@ -16,7 +16,7 @@ GitHub App 与 IntHub 账户是两个不同边界：
 - Web 会话：随机 HttpOnly、SameSite=Strict Cookie；数据库只保存会话哈希。
 - CLI：账户自行签发 `ith_pat_...` token；数据库只保存 token 哈希、名称、有效期、最后使用时间和撤销状态。
 - 写入：`itt hub link`、`itt push` 及其兼容别名 `itt hub sync` 只接受账户 token；浏览器会话保持只读，仅允许管理本账户 token。
-- 数据：每个项目都有 `account_id`；列表、详情、搜索与同步写入都使用同一账户边界。同一 GitHub 仓库可以分别存在于不同 IntHub 账户下。
+- 数据：每个项目都有 `account_id`；列表、详情、搜索与同步写入都使用同一账户边界。同一 GitHub 或 Gitee 仓库可以分别存在于不同 IntHub 账户下；GitHub OAuth 身份 provider 与仓库 provider 相互独立。
 
 生产使用 PostgreSQL；本地 `itt hub start` 继续使用仅绑定回环地址的 SQLite 无认证模式。PostgreSQL 提供并发写入、备份恢复和未来扩展团队协作所需的长期边界，但数据库本身不替代授权模型。
 
@@ -75,6 +75,7 @@ sudo docker compose \
 ```bash
 itt auth login --api-base-url https://inthub.example.com
 cd your-project
+itt hub status
 itt hub link
 itt push --dry-run
 itt push

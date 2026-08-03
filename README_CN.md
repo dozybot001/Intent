@@ -80,7 +80,7 @@ Intent 现在采用 **Intent–Session** 模式：agent 自由工作，由你明
 3. Agent 先检查现有状态，复用语义相同的 active 或 suspended Intent，只写入新增的高信号语义
 4. 如果目标仍未结束，最后一个 Snap 必须是自包含检查点：已验证状态、当前边界、下一步，以及 blocker 或局部约束
 
-没有新的关键信息时，零写入也是正确结果。一次典型记录可以是 `0–1` 个 Intent、`1–3` 个 Snap、`0` 个 Decision，但这只是期望，不是配额。和 `git commit` 一样，写入必须由用户明确发起；普通的总结、记笔记或状态汇报不授权修改 `.intent/`。
+没有新的关键信息时，零写入也是正确结果。每次记录没有对象数量配额：不同的独立目标边界应拆成不同 Intent，并且只创建保存关键语义变化所需的 Snap。和 `git commit` 一样，写入必须由用户明确发起；普通的总结、记笔记或状态汇报不授权修改 `.intent/`。
 
 需要接续时，明确要求 agent “通过 Intent 恢复项目”。Agent 先运行 `itt inspect`；如果最新检查点不足且 `has_more` 为 true，再用 `itt inspect --intent ID --history 3` 受限读取最近历史。仅查看或解释恢复状态时保持只读。
 
@@ -126,11 +126,12 @@ itt init
 ```bash
 itt auth login
 cd your-project
+itt hub status
 itt hub link
 itt push
 ```
 
-`itt auth login` 默认使用 `https://inthub.tenon.asia`。非敏感服务地址保存在用户级配置中，账户 token 则交给 Git 已配置的 credential helper，例如 macOS Keychain、Git Credential Manager 或 libsecret。同一账户凭据可跨仓库复用；每个仓库仍在自己的 `.intent/hub.json` 中保存非敏感的 `project_id`、`workspace_id` 和 `repo_binding`。`--token` 与 `INTHUB_TOKEN` 继续作为单次命令或环境覆盖，绝不会写入仓库配置。`itt hub sync` 保留为 `itt push` 的兼容别名。
+`itt auth login` 默认使用 `https://inthub.tenon.asia`。非敏感服务地址保存在用户级配置中，账户 token 则交给 Git 已配置的 credential helper，例如 macOS Keychain、Git Credential Manager 或 libsecret。同一账户凭据可跨仓库复用；每个仓库仍在自己的 `.intent/hub.json` 中保存非敏感的 `project_id`、`workspace_id` 和 `repo_binding`。`itt hub status` 可以在不调用 IntHub API 的情况下报告这些本地状态。GitHub 和 Gitee origin 都受支持，GitHub OAuth 只用于识别 IntHub 账户。CLI 不需要改写 `origin`；如果当前 origin 与保存的绑定不一致，`itt push` 会拒绝执行。`--token` 与 `INTHUB_TOKEN` 继续作为单次命令或环境覆盖，绝不会写入仓库配置。`itt hub sync` 保留为 `itt push` 的兼容别名。
 
 想在浏览器中查看语义历史，启动 **IntHub Local**（任意目录可用）：
 

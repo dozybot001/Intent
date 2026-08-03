@@ -314,6 +314,44 @@ class TestGlobal:
 
 
 class TestHub:
+    def test_supported_remote_parser_requires_exact_github_or_gitee_host(self):
+        cases = {
+            "git@github.com:example/demo.git": ("github", "example/demo"),
+            "https://github.com/example/demo.git": ("github", "example/demo"),
+            "ssh://git@github.com/example/demo.git": ("github", "example/demo"),
+            "git@gitee.com:example/demo.git": ("gitee", "example/demo"),
+            "https://gitee.com/example/demo.git": ("gitee", "example/demo"),
+            "ssh://git@gitee.com/example/demo.git": ("gitee", "example/demo"),
+        }
+        for remote, expected in cases.items():
+            parsed = intent_store.parse_repository_remote(remote)
+            assert (parsed["provider"], parsed["repo_id"]) == expected
+
+        for remote in (
+            "https://evilgithub.com/example/demo.git",
+            "https://gitee.com.evil.example/example/demo.git",
+            "git@example.com:example/demo.git",
+            "https://github.com/example/demo/extra.git",
+            "https://token@github.com/example/demo.git",
+        ):
+            assert intent_store.parse_repository_remote(remote) is None
+
+    def test_hub_status_is_read_only_and_reports_missing_binding(
+        self, workspace,
+    ):
+        auth_env = _global_auth_env(workspace)
+        r = _run(workspace, "hub", "status", extra_env=auth_env)
+
+        assert r["ok"] is True
+        assert r["action"] == "hub.status"
+        assert r["result"]["linked"] is False
+        assert r["result"]["credential_available"] is False
+        assert r["result"]["api_base_url"] == "https://inthub.tenon.asia"
+        assert r["result"]["missing_fields"] == [
+            "project_id", "workspace_id", "repo_binding",
+        ]
+        assert not (workspace / ".intent" / "hub.json").exists()
+
     def test_global_auth_reused_by_two_projects_and_push_alias(
         self, workspace, inthub_server,
     ):
@@ -355,6 +393,12 @@ class TestHub:
         assert second_push["action"] == "push"
         assert second_push["result"]["dry_run"] is True
 
+        hub_status = _run(workspace, "hub", "status", extra_env=auth_env)
+        assert hub_status["result"]["linked"] is True
+        assert hub_status["result"]["credential_available"] is True
+        assert hub_status["result"]["repo_binding"]["provider"] == "github"
+        assert hub_status["result"]["missing_fields"] == []
+
         first_hub = json.loads((workspace / ".intent" / "hub.json").read_text())
         global_config = json.loads(
             (workspace / "global-intent-config" / "config.json").read_text()
@@ -383,11 +427,61 @@ class TestHub:
         assert hub_config["workspace_id"].startswith("wks_")
         assert hub_config["repo_binding"]["repo_id"] == "example/demo"
 
-    def test_link_requires_github_remote(self, workspace, inthub_server):
+    def test_link_requires_supported_remote(self, workspace, inthub_server):
         _add_github_remote(workspace, "git@example.com:foo/bar.git")
         r = _run(workspace, "hub", "link", "--api-base-url", inthub_server)
         assert r["ok"] is False
         assert r["error"]["code"] == "PROVIDER_UNSUPPORTED"
+
+    def test_link_and_push_support_gitee_without_changing_origin(
+        self, workspace, inthub_server,
+    ):
+        remote = "https://gitee.com/dozybot/WeSaid.git"
+        _add_github_remote(workspace, remote)
+
+        linked = _run(workspace, "hub", "link", "--api-base-url", inthub_server)
+        pushed = _run(workspace, "push", "--dry-run")
+
+        assert linked["ok"] is True
+        assert linked["result"]["repo_binding"] == {
+            "provider": "gitee",
+            "repo_id": "dozybot/WeSaid",
+            "owner": "dozybot",
+            "name": "WeSaid",
+        }
+        assert pushed["ok"] is True
+        assert pushed["result"]["payload"]["repo"]["provider"] == "gitee"
+        configured = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        assert configured == remote
+
+    def test_push_rejects_origin_that_differs_from_saved_binding(
+        self, workspace, inthub_server,
+    ):
+        _add_github_remote(workspace)
+        _run(workspace, "hub", "link", "--api-base-url", inthub_server)
+        subprocess.run(
+            ["git", "remote", "set-url", "origin", "git@gitee.com:example/demo.git"],
+            cwd=workspace,
+            capture_output=True,
+            check=True,
+        )
+
+        r = _run(workspace, "push", "--dry-run")
+
+        assert r["ok"] is False
+        assert r["error"]["code"] == "REPO_BINDING_MISMATCH"
+        assert r["error"]["details"]["expected"] == {
+            "provider": "github", "repo_id": "example/demo",
+        }
+        assert r["error"]["details"]["actual"] == {
+            "provider": "gitee", "repo_id": "example/demo",
+        }
 
     def test_sync_requires_link(self, workspace, inthub_server):
         _add_github_remote(workspace)

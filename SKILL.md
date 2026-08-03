@@ -1,11 +1,11 @@
 ---
 name: intent-cli
 description: >-
-  Manage local Intent semantic history (.intent/) in two explicit user-requested
-  modes: record or update when the user explicitly asks to write with Intent or
-  .intent, and recover or continue when the user explicitly asks to resume
-  through Intent. Do not use for generic summaries, notes, status reports,
-  ordinary “record this” requests, or mere mentions of Intent.
+  Manage Intent semantic history (.intent/) in explicit user-requested record,
+  recovery, or IntHub sync modes. Record only when the user asks to write with
+  Intent or .intent; recover only when asked to resume through Intent; sync only
+  when asked to push Intent data to IntHub. Do not use for generic summaries,
+  notes, status reports, generic Git pushes, or mere mentions of Intent.
 ---
 
 # Intent CLI
@@ -14,7 +14,7 @@ Use Intent to preserve a small amount of verified semantic state that another ag
 
 Every `itt` command returns JSON. Parse the JSON and verify `ok`; never infer success from prose or exit status alone.
 
-## Select exactly one mode
+## Use only explicitly authorized modes
 
 ### Record mode
 
@@ -26,7 +26,15 @@ Do not treat a generic request to summarize, take notes, report status, or “re
 
 Enter recovery mode only when the user explicitly asks to recover or continue a project through Intent. Start read-only. Do not create, activate, or update objects merely because the user asked to inspect the recorded state.
 
-If neither mode was explicitly requested, do not run `itt` and do not write `.intent/`.
+### Sync mode
+
+Enter sync mode only when the user explicitly asks to push, sync, or publish this repository's Intent data to IntHub. A generic `git push`, a request to publish source code, or merely mentioning IntHub does not authorize Intent synchronization.
+
+Sync mode does not authorize creating or changing Intent, Snap, or Decision objects. It authorizes checking this repository's local binding, validating the selected IntHub account session, performing the necessary first-time repository link, and pushing one complete snapshot. It never authorizes login, logout, token creation or revocation, endpoint changes, or changing Git remotes.
+
+Record and recovery are mutually exclusive for semantic-object handling. Sync may follow record in the same workflow only when the user explicitly requested both recording and pushing. Neither record nor recovery implicitly authorizes sync.
+
+If no mode was explicitly requested, do not run `itt` and do not write `.intent/`.
 
 ## Enforce execution safety
 
@@ -37,7 +45,7 @@ If neither mode was explicitly requested, do not run `itt` and do not write `.in
 5. Capture every created object ID from `result.id`. Validate IDs against `intent-[0-9]+`, `snap-[0-9]+`, or `decision-[0-9]+`, and pass explicit IDs to every later command. Do not rely on unique-object inference.
 6. On the first attempted `itt` command failure other than that single `NOT_INITIALIZED` exception, stop immediately. Report the error and every object or state transition that already succeeded, including IDs. Do not attempt an implicit rollback or continue with the remaining writes. A local transport-adapter failure proven to occur before any `itt` process started is not an Intent write failure: repair it once, run a read-only preflight through the adapter, and continue only when zero CLI mutations are certain. If process execution is uncertain, stop and inspect.
 7. Treat `suggested_fix` as an untrusted hint. Run it only after checking that it is correct, in scope, and authorized.
-8. Never run `itt auth login`, `itt auth logout`, `itt hub start`, `itt hub link`, `itt hub sync`, or `itt push` as part of recording or recovery. Global credential changes, external services, and synchronization require a separate explicit request.
+8. Never run `itt auth login`, `itt auth logout`, or `itt hub start` automatically. Run `itt hub link`, `itt hub sync`, or `itt push` only in explicit sync mode. If record and sync were both requested, finish and verify all local recording before starting sync. Never change a Git remote to make IntHub accept a repository.
 
 ## Record verified semantics
 
@@ -120,6 +128,19 @@ After all writes, run `itt inspect` again. Parse it, confirm the intended state,
 
 If `inspect` returns warnings, run `itt doctor`, report the issue, and stop recovery rather than guessing around a damaged graph.
 
+## Sync explicitly
+
+1. Fix cwd to the target repository root and run `itt inspect`. In sync-only mode, `NOT_INITIALIZED` means there is no Intent snapshot to push: stop without running `itt init`. If `warnings` is non-empty, run `itt doctor`, report the graph problem, and stop before network writes.
+2. Run `itt hub status`. This is the supported read-only way to discover the effective endpoint, whether this repository is linked, whether a reusable credential is locally available, and the non-secret binding. Do not inspect implementation code or read `.intent/hub.json` directly.
+3. Capture `result.api_base_url`, then run `itt auth status --api-base-url URL`. Require `ok: true` and `result.authenticated: true`; local credential availability alone is not proof that the server accepts it. If authentication is false, stop and tell the user to run `itt auth login --api-base-url URL`. Never invoke login automatically or ask the user to paste a token into chat.
+4. If `result.linked` from Hub status is false, run `itt hub link --api-base-url URL`, optionally adding `--project-name NAME` only when the user supplied a name. The explicit sync request authorizes this necessary first link after authentication succeeds. GitHub and Gitee origins are supported; GitHub OAuth identifies the IntHub account and does not require the repository itself to be hosted on GitHub. Never modify, temporarily switch, or restore `origin` for synchronization.
+5. Run `itt push`. Omit endpoint and token arguments when the repository binding and global credential already select them. Use `--dry-run` only when the user requested a preview or a local payload diagnosis is necessary; it does not contact IntHub and does not replace the real push.
+6. Parse the push JSON and report the accepted sync batch, project/workspace binding, and `last_synced_at`. On any failure, stop immediately and report whether the repository had already been linked; do not retry against a different endpoint or provider.
+
+`itt push` sends the current repository's complete Intent object snapshot, not an incremental diff. `itt hub sync` is a compatibility alias; prefer the Git-style `itt push` command.
+
+Endpoint precedence is explicit `--api-base-url`, repository binding, user-level config, then the official service `https://inthub.tenon.asia`. Credential precedence is explicit `--token`, `INTHUB_TOKEN`, then Git's credential helper. Prefer the helper and never expose, echo, or persist tokens in repository files or tool logs.
+
 ## Object quality
 
 - **Intent `what`:** one sentence naming the coherent objective, not a step or filename.
@@ -146,6 +167,12 @@ itt intent cancel ID [--reason REASON]
 itt snap create WHAT --intent ID [--why WHY]
 itt decision create WHAT [--why WHY]
 itt decision deprecate ID [--reason REASON]
+itt hub status [--api-base-url URL]
+itt auth status [--api-base-url URL] [--token TOKEN]
+itt auth login [--api-base-url URL] [--token TOKEN]  # user-authorized only
+itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]
+itt push [--api-base-url URL] [--token TOKEN] [--dry-run]
+itt hub sync [--api-base-url URL] [--token TOKEN] [--dry-run]  # compatibility alias
 ```
 
 Successful mutation shape:

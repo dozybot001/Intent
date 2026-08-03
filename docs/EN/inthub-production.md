@@ -16,7 +16,7 @@ The GitHub App and IntHub accounts are separate boundaries:
 - Web session: random HttpOnly, SameSite=Strict cookie; only its hash is stored.
 - CLI: an account issues an `ith_pat_...` token. Only its hash, label, expiry, last-used time, and revocation state are stored.
 - Writes: `itt hub link`, `itt push`, and its `itt hub sync` compatibility alias accept only account tokens. Browser sessions remain read-only except for managing the current account's tokens.
-- Data: every production project has an `account_id`; lists, details, search, and sync writes apply the same account boundary. Different IntHub accounts may link their own copy of the same GitHub repository.
+- Data: every production project has an `account_id`; lists, details, search, and sync writes apply the same account boundary. Different IntHub accounts may link their own copy of the same GitHub or Gitee repository. The GitHub OAuth identity provider is independent of the repository provider.
 
 Production uses PostgreSQL. Local `itt hub start` remains an unauthenticated SQLite process bound only to loopback. PostgreSQL supplies a durable boundary for concurrent writes, backup and recovery, and future team collaboration, but it does not replace application authorization.
 
@@ -75,6 +75,7 @@ After signing in, select `CLI token` in the account area. IntHub creates a 90-da
 ```bash
 itt auth login --api-base-url https://inthub.example.com
 cd your-project
+itt hub status
 itt hub link
 itt push --dry-run
 itt push
