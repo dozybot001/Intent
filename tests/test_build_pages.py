@@ -50,3 +50,11 @@ def test_static_intent_detail_contains_linked_decisions(tmp_path, monkeypatch):
     assert detail["intent"] == intent
     assert detail["snaps"] == [snap]
     assert detail["decisions"] == [decision]
+
+    handoff_path = (
+        output_dir / "api" / "v1" / "projects"
+        / "showcase_demo" / "handoff.json"
+    )
+    handoff = json.loads(handoff_path.read_text(encoding="utf-8"))["result"]
+    assert handoff["intents"][0]["latest_snap"] == snap
+    assert handoff["active_decisions"][0]["id"] == "decision-001"

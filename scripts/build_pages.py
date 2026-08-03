@@ -93,6 +93,30 @@ def build_project(project_dir: Path) -> dict:
         wrap(overview),
     )
 
+    # --- Continuation handoff ---
+    def handoff_intent(intent):
+        snap_ids = intent.get("snap_ids", [])
+        latest_snap = snap_map.get(snap_ids[-1]) if snap_ids else None
+        return {
+            **with_remote(intent),
+            "latest_snap": latest_snap,
+            "git": {"branch": "main", "head_commit": None, "dirty": False},
+            "synced_at": overview["workspaces"][0]["last_synced_at"],
+        }
+
+    handoff = {
+        "project": {"id": project_id, "name": name},
+        "active_decisions": [with_remote(d) for d in active_decisions],
+        "intents": [handoff_intent(i) for i in active_intents],
+        "suspended_intents": [
+            handoff_intent(i) for i in other_intents if i.get("status") == "suspend"
+        ],
+    }
+    write_json(
+        OUT_DIR / "api" / "v1" / "projects" / project_id / "handoff.json",
+        wrap(handoff),
+    )
+
     # --- Intent details ---
     for intent in intents:
         rid = f"{workspace_id}__{intent['id']}"
@@ -245,8 +269,8 @@ def build():
 
     # Copy index.html (adjust paths for relative loading)
     html = (WEB_STATIC / "index.html").read_text()
-    html = html.replace('href="/styles.css"', 'href="styles.css"')
-    html = html.replace('src="/app.js"', 'src="app.js"')
+    html = html.replace('href="/styles.css?rev=uiux-p1"', 'href="styles.css?rev=uiux-p1"')
+    html = html.replace('src="/app.js?rev=uiux-p1"', 'src="app.js?rev=uiux-p1"')
     (OUT_DIR / "index.html").write_text(html)
 
     # Copy and patch app.js for static mode
@@ -306,15 +330,11 @@ def _build_static_app_js():
       const q = document.getElementById("search-input").value.trim();''',
     )
 
-    # 4. Hide refresh button and API chip in static mode (add to init)
+    # 4. Hide refresh in static mode (add to init)
     js = js.replace(
-        'el.apiChip.textContent = state.config.apiBaseUrl;',
-        '''if (state.config.static) {
-      el.refreshBtn.style.display = "none";
-      el.apiChip.textContent = "Static Site";
-    } else {
-      el.apiChip.textContent = state.config.apiBaseUrl;
-    }''',
+        'authError = callbackErrorMessage();',
+        '''authError = callbackErrorMessage();
+    if (state.config.static) el.refreshBtn.style.display = "none";''',
     )
 
     (OUT_DIR / "app.js").write_text(js)

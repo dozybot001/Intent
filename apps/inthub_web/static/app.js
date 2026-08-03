@@ -1,15 +1,16 @@
 /* ---- State ---- */
 
-const TABS = ["intents", "decisions", "snaps"];
+const TABS = ["overview", "intents", "snaps", "decisions", "search"];
 
 const state = {
   config: null,
   projects: [],
   currentProjectId: null,
-  activeTab: "intents",
+  activeTab: "overview",
   selectedDetail: null,
   searchQuery: "",
   overview: null,
+  handoff: null,
   authenticated: false,
   account: null,
 };
@@ -21,9 +22,13 @@ const el = {
   projectPickerLabel: document.getElementById("project-picker-label"),
   projectPickerDropdown: document.getElementById("project-picker-dropdown"),
   refreshBtn: document.getElementById("refresh-btn"),
+  searchTrigger: document.getElementById("search-trigger"),
   syncChip: document.getElementById("sync-chip"),
+  syncIndicator: document.getElementById("sync-indicator"),
   apiChip: document.getElementById("api-chip"),
   tabBar: document.querySelector(".tab-bar"),
+  sidebarKicker: document.getElementById("sidebar-kicker"),
+  sidebarTitle: document.getElementById("sidebar-title"),
   sidebarBody: document.getElementById("sidebar-body"),
   detailPane: document.getElementById("detail-pane"),
   detailContent: document.getElementById("detail-content"),
@@ -50,6 +55,7 @@ const el = {
   authFootnote: document.getElementById("auth-footnote"),
   githubLogin: document.getElementById("github-login"),
   githubLoginLabel: document.getElementById("github-login-label"),
+  navHealth: document.getElementById("nav-health"),
 };
 
 /* ---- Helpers ---- */
@@ -66,7 +72,23 @@ function esc(v) {
 function fmtDate(v) {
   if (!v) return "\u2014";
   const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? v : d.toLocaleString();
+  if (Number.isNaN(d.getTime())) return v;
+  const pad = (part) => String(part).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function relativeDate(v) {
+  if (!v) return "Never synced";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return String(v);
+  const seconds = Math.round((d.getTime() - Date.now()) / 1000);
+  const abs = Math.abs(seconds);
+  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  if (abs < 60) return formatter.format(seconds, "second");
+  if (abs < 3600) return formatter.format(Math.round(seconds / 60), "minute");
+  if (abs < 86400) return formatter.format(Math.round(seconds / 3600), "hour");
+  if (abs < 2592000) return formatter.format(Math.round(seconds / 86400), "day");
+  return fmtDate(v);
 }
 
 function shortCommit(v) {
@@ -221,7 +243,7 @@ function readRoute() {
   const p = new URLSearchParams(window.location.search);
   return {
     project: p.get("project"),
-    tab: p.get("tab") || "intents",
+    tab: p.get("tab") || "overview",
     detail: p.get("detail"),
     detailType: p.get("detailType"),
     q: p.get("q") || "",
@@ -231,7 +253,7 @@ function readRoute() {
 function writeRoute() {
   const p = new URLSearchParams();
   if (state.currentProjectId) p.set("project", state.currentProjectId);
-  if (state.activeTab !== "intents") p.set("tab", state.activeTab);
+  if (state.activeTab !== "overview") p.set("tab", state.activeTab);
   if (state.selectedDetail) {
     p.set("detail", state.selectedDetail.remoteId);
     p.set("detailType", state.selectedDetail.type);
@@ -251,19 +273,42 @@ function setStatus(msg, isError = false) {
   el.statusLine.textContent = msg;
   el.statusLine.classList.toggle("muted", !isError);
   el.statusLine.classList.toggle("is-error", isError);
+  el.statusLine.classList.add("is-visible");
+  window.clearTimeout(setStatus._timer);
+  setStatus._timer = window.setTimeout(() => {
+    if (!isError) el.statusLine.classList.remove("is-visible");
+  }, 2600);
 }
 
 /* ---- Tab switching ---- */
 
 async function switchTab(tab) {
+  if (!TABS.includes(tab)) return;
   state.activeTab = tab;
+  el.shell.dataset.activeTab = tab;
+  el.shell.classList.remove("detail-open");
+  closeDrawer();
   for (const btn of el.tabBar.querySelectorAll(".tab")) {
     btn.classList.toggle("is-active", btn.dataset.tab === tab);
   }
   renderSidebar();
   writeRoute();
 
-  // Auto-open first item
+  if (tab === "overview") {
+    state.selectedDetail = null;
+    if (state.overview) renderProjectSummary();
+    else clearDetail("Link a project to build a continuation brief.");
+    return;
+  }
+
+  if (tab === "search") {
+    state.selectedDetail = null;
+    el.detailContent.innerHTML = renderSearchWelcome();
+    window.setTimeout(() => document.getElementById("search-input")?.focus(), 0);
+    return;
+  }
+
+  // Keep list and detail in sync for object views.
   const firstCard = el.sidebarBody.querySelector("[data-detail-type][data-remote-id]");
   if (firstCard) {
     try {
@@ -338,20 +383,69 @@ function renderSidebar() {
     return;
   }
   switch (state.activeTab) {
+    case "overview":
+      el.sidebarKicker.textContent = "Current work";
+      el.sidebarTitle.textContent = "Continuation queue";
+      renderContinuationQueue();
+      break;
     case "intents":
+      el.sidebarKicker.textContent = "Semantic goals";
+      el.sidebarTitle.textContent = "Intents";
       renderIntentsTab();
       break;
     case "decisions":
+      el.sidebarKicker.textContent = "Project constraints";
+      el.sidebarTitle.textContent = "Decisions";
       renderDecisionsTab();
       break;
     case "snaps":
+      el.sidebarKicker.textContent = "Semantic history";
+      el.sidebarTitle.textContent = "Timeline";
       renderSnapsTab();
       break;
     case "search":
+      el.sidebarKicker.textContent = "Find context";
+      el.sidebarTitle.textContent = "Search";
       renderSearchTab();
       break;
   }
   syncSelected();
+}
+
+function queueItem(intent, section) {
+  const snap = intent.latest_snap;
+  const summary = snap?.what || intent.why || "No continuation checkpoint recorded.";
+  return `
+    <button class="queue-item" type="button" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
+      <span class="queue-item-title">${esc(intent.what)}</span>
+      <span class="queue-item-summary">${esc(truncate(summary, 150))}</span>
+      <span class="queue-item-meta">
+        ${statusBadge(intent.status)}
+        <span class="badge">${esc(intent.id)}</span>
+        ${snap ? `<span class="badge">${esc(snap.id)}</span>` : '<span class="badge warn">checkpoint missing</span>'}
+      </span>
+    </button>`;
+}
+
+function renderContinuationQueue() {
+  const active = state.handoff?.intents || [];
+  const suspended = state.handoff?.suspended_intents || [];
+  const activeBody = active.length
+    ? active.map((intent) => queueItem(intent, "active")).join("")
+    : '<div class="queue-empty">No active Intent. The project has no explicit current objective.</div>';
+  const suspendedBody = suspended.length
+    ? suspended.map((intent) => queueItem(intent, "suspended")).join("")
+    : '<div class="queue-empty">No suspended work waiting to resume.</div>';
+
+  el.sidebarBody.innerHTML = `
+    <section class="queue-group">
+      <div class="queue-heading">Active · ${active.length}</div>
+      ${activeBody}
+    </section>
+    <section class="queue-group">
+      <div class="queue-heading">Suspended · ${suspended.length}</div>
+      ${suspendedBody}
+    </section>`;
 }
 
 
@@ -362,15 +456,15 @@ function intentCard(intent) {
       ? " card-cancelled"
       : "";
   return `
-    <article class="card${cls}" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
-      <h4 class="card-title">${esc(intent.what)}</h4>
-      ${intent.why ? `<p class="card-body">${esc(truncate(intent.why, 140))}</p>` : ""}
-      <div class="card-meta">
+    <button type="button" class="card${cls}" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
+      <span class="card-title">${esc(intent.what)}</span>
+      ${intent.why ? `<span class="card-body">${esc(truncate(intent.why, 140))}</span>` : ""}
+      <span class="card-meta">
         <span class="badge">${esc(intent.id)}</span>
         ${statusBadge(intent.status)}
         ${originBadge(intent.origin)}
-      </div>
-    </article>`;
+      </span>
+    </button>`;
 }
 
 const PAGE_SIZE = 30;
@@ -397,7 +491,9 @@ function renderPaged(container, items, renderFn, tabKey) {
 }
 
 function renderIntentsTab() {
-  const all = [...(state.overview.active_intents || []), ...(state.overview.other_intents || [])];
+  const active = state.overview.active_intents || [];
+  const other = [...(state.overview.other_intents || [])].reverse();
+  const all = [...active, ...other];
 
   if (!all.length) {
     el.sidebarBody.innerHTML =
@@ -405,21 +501,21 @@ function renderIntentsTab() {
     return;
   }
 
-  renderPaged(el.sidebarBody, [...all].reverse(), intentCard, "intents");
+  renderPaged(el.sidebarBody, all, intentCard, "intents");
 }
 
 function decisionCard(d) {
   const cls = d.status === "deprecated" ? " card-deprecated" : "";
   return `
-    <article class="card${cls}" data-detail-type="decision" data-remote-id="${esc(d.remote_id)}">
-      <h4 class="card-title">${esc(d.what)}</h4>
-      ${d.why ? `<p class="card-body">${esc(truncate(d.why, 140))}</p>` : ""}
-      <div class="card-meta">
+    <button type="button" class="card${cls}" data-detail-type="decision" data-remote-id="${esc(d.remote_id)}">
+      <span class="card-title">${esc(d.what)}</span>
+      ${d.why ? `<span class="card-body">${esc(truncate(d.why, 140))}</span>` : ""}
+      <span class="card-meta">
         <span class="badge">${esc(d.id)}</span>
         ${statusBadge(d.status)}
         ${originBadge(d.origin)}
-      </div>
-    </article>`;
+      </span>
+    </button>`;
 }
 
 function renderDecisionsTab() {
@@ -442,14 +538,14 @@ function renderDecisionsTab() {
 
 function snapCard(snap) {
   return `
-    <article class="card" data-detail-type="snap" data-remote-id="${esc(snap.remote_id)}">
-      <h4 class="card-title">${esc(snap.what)}</h4>
-      ${snap.why ? `<p class="card-body">${esc(truncate(snap.why, 140))}</p>` : ""}
-      <div class="card-meta">
+    <button type="button" class="card" data-detail-type="snap" data-remote-id="${esc(snap.remote_id)}">
+      <span class="card-title">${esc(snap.what)}</span>
+      ${snap.why ? `<span class="card-body">${esc(truncate(snap.why, 140))}</span>` : ""}
+      <span class="card-meta">
         <span class="badge">${esc(snap.id)}</span>
         ${originBadge(snap.origin)}
-      </div>
-    </article>`;
+      </span>
+    </button>`;
 }
 
 function renderSnapsTab() {
@@ -465,7 +561,7 @@ function renderSnapsTab() {
 function renderSearchTab() {
   el.sidebarBody.innerHTML = `
     <form class="search-bar" id="search-form">
-      <input type="search" id="search-input" placeholder="Search title, summary, rationale\u2026" value="${esc(state.searchQuery)}">
+      <input type="search" id="search-input" aria-label="Search project memory" placeholder="Goal, boundary, decision\u2026" value="${esc(state.searchQuery)}" autocomplete="off">
       <button type="submit">Go</button>
     </form>
     <div id="search-results">
@@ -504,8 +600,19 @@ function renderSearchTab() {
   }
 }
 
+function renderSearchWelcome() {
+  return `
+    <section class="overview-empty">
+      <div>
+        <span class="overview-empty-mark">⌕</span>
+        <h2>Search the reason behind the work.</h2>
+        <p>Find Intent goals, Snap checkpoints and Decisions inside the current project. Use <strong>Cmd/Ctrl+K</strong> from anywhere to return here.</p>
+      </div>
+    </section>`;
+}
+
 function renderSearchResults(result) {
-  const container = el.sidebarBody;
+  const container = document.getElementById("search-results") || el.sidebarBody;
   if (!result.matches?.length) {
     container.innerHTML =
       '<div class="empty-state">No matches found.</div>';
@@ -514,13 +621,13 @@ function renderSearchResults(result) {
   container.innerHTML = result.matches
     .map(
       (m) => `
-    <article class="card" data-detail-type="${esc(m.object_type)}" data-remote-id="${esc(m.remote_id)}">
-      <h4 class="card-title">${esc(m.what || m.title || m.id)}</h4>
-      <p class="card-body">${esc(m.object_type)} \u00b7 ${esc(m.status || "\u2014")}</p>
-      <div class="card-meta">
+    <button type="button" class="card" data-detail-type="${esc(m.object_type)}" data-remote-id="${esc(m.remote_id)}">
+      <span class="card-title">${esc(m.what || m.title || m.id)}</span>
+      <span class="card-body">${esc(m.object_type)} \u00b7 ${esc(m.status || "\u2014")}</span>
+      <span class="card-meta">
         <span class="badge">${esc(m.id)}</span>
-      </div>
-    </article>`,
+      </span>
+    </button>`,
     )
     .join("");
   syncSelected();
@@ -535,55 +642,202 @@ function clearDetail(msg = "Select an object to inspect.") {
   syncSelected();
 }
 
+function checkpointKey(label) {
+  const normalized = String(label || "").trim().toLowerCase();
+  if (/verified|已验证|验证结果|当前状态/.test(normalized)) return "verified";
+  if (/boundary|边界/.test(normalized)) return "boundary";
+  if (/^next|下一步/.test(normalized)) return "next";
+  if (/blocker|阻塞/.test(normalized)) return "blocker";
+  if (/constraint|约束|必须遵守/.test(normalized)) return "constraints";
+  return null;
+}
+
+function parseCheckpoint(snap) {
+  const source = String(snap?.why || "").trim();
+  const fields = {};
+  const marker = /(?:^|[\n\r.。；;])\s*(Verified(?: state)?|Boundary|Current(?: work)? boundary|Next(?: step)?|Blockers?|Constraints?|已验证(?:到)?(?:的?状态)?|验证结果|当前状态|当前(?:真正的)?工作边界|当前边界|工作边界|边界|下一步|阻塞(?:项)?|必须遵守(?:的约束)?|约束)\s*[:：]\s*/giu;
+  const matches = [];
+  let match;
+  while ((match = marker.exec(source)) !== null) {
+    matches.push({
+      key: checkpointKey(match[1]),
+      markerStart: match.index,
+      valueStart: marker.lastIndex,
+    });
+  }
+
+  for (let index = 0; index < matches.length; index += 1) {
+    const current = matches[index];
+    const end = matches[index + 1]?.markerStart ?? source.length;
+    const value = source
+      .slice(current.valueStart, end)
+      .replace(/^[\s.。；;]+|[\s.。；;]+$/g, "")
+      .trim();
+    if (current.key && value && !fields[current.key]) fields[current.key] = value;
+  }
+
+  const context = matches.length
+    ? source.slice(0, matches[0].markerStart).replace(/[\s.。；;]+$/g, "").trim()
+    : source;
+  return {
+    verified: fields.verified || snap?.what || "",
+    boundary: fields.boundary || "",
+    next: fields.next || "",
+    blocker: fields.blocker || "",
+    constraints: fields.constraints || "",
+    context,
+  };
+}
+
+function checkpointCell(key, label, value) {
+  const missing = !value;
+  return `
+    <section class="checkpoint checkpoint-${esc(key)}${missing ? " is-missing" : ""}">
+      <span class="checkpoint-label">${esc(label)}</span>
+      <p class="checkpoint-value">${missing ? "Not explicitly recorded in the latest Snap." : esc(value)}</p>
+    </section>`;
+}
+
+function continuationCard(intent, index) {
+  const snap = intent.latest_snap;
+  const checkpoint = parseCheckpoint(snap);
+  const contextParts = [];
+  if (checkpoint.context && checkpoint.context !== checkpoint.verified) {
+    contextParts.push(checkpoint.context);
+  }
+  if (checkpoint.constraints) {
+    contextParts.push(`Checkpoint constraint: ${checkpoint.constraints}`);
+  }
+  if (!snap) {
+    contextParts.push("This Intent has no latest Snap. Resume semantics are incomplete until a self-contained checkpoint is recorded.");
+  }
+
+  return `
+    <article class="brief-card">
+      <header class="brief-card-head">
+        <div>
+          <span class="brief-index">Intent ${String(index + 1).padStart(2, "0")} · ${esc(intent.status)}</span>
+          <h2>${esc(intent.what)}</h2>
+          ${intent.why ? `<p class="brief-why">${esc(intent.why)}</p>` : ""}
+        </div>
+        <button class="brief-open" type="button" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">Open Intent ↗</button>
+      </header>
+      <div class="checkpoint-grid">
+        ${checkpointCell("next", "Next", checkpoint.next)}
+        ${checkpointCell("blocker", "Blocker", checkpoint.blocker)}
+        ${checkpointCell("boundary", "Boundary", checkpoint.boundary)}
+        ${checkpointCell("verified", "Verified", checkpoint.verified)}
+      </div>
+      ${contextParts.length ? `<div class="brief-context">${esc(contextParts.join(" · "))}</div>` : ""}
+    </article>`;
+}
+
+function decisionRows(decisions) {
+  if (!decisions.length) {
+    return '<div class="queue-empty">N/A — no active Decision constrains future work.</div>';
+  }
+  return decisions
+    .map((decision) => `
+      <button class="decision-row" type="button" data-detail-type="decision" data-remote-id="${esc(decision.remote_id)}">
+        <span>
+          <strong>${esc(decision.what)}</strong>
+          ${decision.why ? `<small>${esc(truncate(decision.why, 120))}</small>` : ""}
+        </span>
+        <span class="badge">${esc(decision.id)}</span>
+      </button>`)
+    .join("");
+}
+
+function workspaceRows(workspaces) {
+  if (!workspaces.length) {
+    return '<div class="queue-empty">No workspace has completed a first sync.</div>';
+  }
+  return workspaces
+    .map((workspace) => `
+      <div class="workspace-row">
+        <span>
+          <strong>${esc(workspace.branch || "Detached workspace")}</strong>
+          <small>${esc(shortCommit(workspace.head_commit))} · ${esc(relativeDate(workspace.last_synced_at))}</small>
+        </span>
+        ${dirtyBadge(workspace.dirty)}
+      </div>`)
+    .join("");
+}
+
 function renderProjectSummary() {
-  const p = state.overview.project;
-  const ws = state.overview.workspaces || [];
+  const project = state.overview.project;
+  const workspaces = state.overview.workspaces || [];
+  const intents = state.handoff?.intents || [];
+  const decisions = state.handoff?.active_decisions || [];
+  const latestSync = workspaces
+    .map((workspace) => workspace.last_synced_at)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  const hasDirtyWorkspace = workspaces.some((workspace) => workspace.dirty);
+
+  const brief = intents.length
+    ? `<div class="brief-stack">${intents.map(continuationCard).join("")}</div>`
+    : `
+      <section class="overview-empty">
+        <div>
+          <span class="overview-empty-mark">I</span>
+          <h2>No active Intent defines the next move.</h2>
+          <p>History is available, but IntHub cannot name the current goal until an active Intent and a self-contained checkpoint are synced.</p>
+        </div>
+      </section>`;
 
   el.detailContent.innerHTML = `
-    <div class="detail-header">
-      <span class="detail-id">Project</span>
-      <h2 class="detail-title">${esc(p.name)}</h2>
-      <div class="detail-meta">
-        <span class="badge">${esc(p.repo.owner)}/${esc(p.repo.name)}</span>
-        <span class="badge">${ws.length} workspace(s)</span>
+    <div class="continuation-page">
+      <header class="continuation-hero">
+        <div>
+          <span class="overview-eyebrow">Continuation brief</span>
+          <h1 class="continuation-title">${esc(project.name)}</h1>
+          <div class="project-repo">
+            <span>${esc(project.repo.provider || "git")}</span>
+            <span>·</span>
+            <span>${esc(project.repo.owner)}/${esc(project.repo.name)}</span>
+            <span>·</span>
+            <span>${workspaces.length} workspace${workspaces.length === 1 ? "" : "s"}</span>
+          </div>
+        </div>
+        <div class="hero-health${hasDirtyWorkspace ? " is-warning" : ""}">
+          <strong>${hasDirtyWorkspace ? "Working tree changes synced" : "Continuity is in sync"}</strong>
+          <span>${latestSync ? `Updated ${relativeDate(latestSync)}` : "Waiting for first sync"}</span>
+        </div>
+      </header>
+
+      ${brief}
+
+      <div class="support-grid">
+        <section class="support-card">
+          <header class="support-card-head">
+            <h3>Active decisions</h3>
+            <span>${decisions.length} constraint${decisions.length === 1 ? "" : "s"}</span>
+          </header>
+          <div class="decision-list">${decisionRows(decisions)}</div>
+        </section>
+        <section class="support-card">
+          <header class="support-card-head">
+            <h3>Workspace health</h3>
+            <span>${workspaces.length} source${workspaces.length === 1 ? "" : "s"}</span>
+          </header>
+          <div class="workspace-list">${workspaceRows(workspaces)}</div>
+        </section>
       </div>
-    </div>
-    ${
-      ws.length
-        ? detailSection(
-            "Workspaces",
-            ws
-              .map(
-                (w) => `
-            <div class="workspace-row">
-              <strong>${esc(w.branch || "\u2014")}</strong>
-              ${dirtyBadge(w.dirty)}
-              <span class="badge">${esc(fmtDate(w.last_synced_at))}</span>
-            </div>`,
-              )
-              .join(""),
-          )
-        : ""
-    }
-    ${detailSection(
-      "Stats",
-      `<div class="detail-kv">
-        ${kvRow("Active Intents", String(state.overview.active_intents?.length || 0))}
-        ${kvRow("Active Decisions", String(state.overview.active_decisions?.length || 0))}
-        ${kvRow("Recent Snaps", String(state.overview.recent_snaps?.length || 0))}
-      </div>`,
-    )}
-    <div class="empty-state">Select an object from the left panel to inspect.</div>`;
+    </div>`;
 }
 
 function openDrawer() {
   el.drawer.classList.add("open");
   el.drawerOverlay.classList.add("open");
+  el.drawer.setAttribute("aria-hidden", "false");
 }
 
 function closeDrawer() {
   el.drawer.classList.remove("open");
   el.drawerOverlay.classList.remove("open");
+  el.drawer.setAttribute("aria-hidden", "true");
   el.drawerContent.innerHTML = "";
 }
 
@@ -804,6 +1058,7 @@ function renderDecisionDetailTo(target, payload) {
 
 function buildSnapDetailHtml(payload) {
   const snap = payload.snap;
+  const checkpoint = parseCheckpoint(snap);
   const parentLink = payload.intent
     ? `<div class="relation-list">${relationItem(
         "intent",
@@ -824,7 +1079,17 @@ function buildSnapDetailHtml(payload) {
         <span class="badge">${esc(fmtDate(snap.created_at))}</span>
       </div>
     </div>
-    ${detailSection("Why", formatText(snap.why) || `<p>No why provided.</p>`)}
+    ${detailSection(
+      "Continuation checkpoint",
+      `<div class="checkpoint-grid detail-checkpoint-grid">
+        ${checkpointCell("verified", "Verified", checkpoint.verified)}
+        ${checkpointCell("boundary", "Boundary", checkpoint.boundary)}
+        ${checkpointCell("next", "Next", checkpoint.next)}
+        ${checkpointCell("blocker", "Blocker", checkpoint.blocker)}
+      </div>
+      ${checkpoint.constraints ? `<p class="checkpoint-note"><strong>Constraints:</strong> ${esc(checkpoint.constraints)}</p>` : ""}
+      ${checkpoint.context ? `<p class="checkpoint-note">${esc(checkpoint.context)}</p>` : ""}`,
+    )}
     ${detailSection("Parent Intent", parentLink)}
     ${rawToggle({ snap, intent: payload.intent })}`;
 }
@@ -906,7 +1171,7 @@ function renderProjectSelector() {
   el.projectPickerDropdown.innerHTML = state.projects
     .map(
       (p) =>
-        `<button class="project-picker-option${p.id === state.currentProjectId ? " is-selected" : ""}" data-id="${esc(p.id)}">
+        `<button type="button" role="option" aria-selected="${p.id === state.currentProjectId ? "true" : "false"}" class="project-picker-option${p.id === state.currentProjectId ? " is-selected" : ""}" data-id="${esc(p.id)}">
           <span class="project-picker-option-name">${esc(p.name)}</span>
           <span class="project-picker-option-repo">${esc(p.repo.owner)}/${esc(p.repo.name)}</span>
         </button>`,
@@ -918,6 +1183,7 @@ function toggleProjectPicker(open) {
   const isOpen = open ?? !el.projectPickerDropdown.classList.contains("is-open");
   el.projectPickerDropdown.classList.toggle("is-open", isOpen);
   el.projectPickerTrigger.classList.toggle("is-open", isOpen);
+  el.projectPickerTrigger.setAttribute("aria-expanded", String(isOpen));
 }
 
 /* ---- Project loading ---- */
@@ -926,8 +1192,23 @@ async function loadProject(projectId) {
   state.currentProjectId = projectId;
   renderProjectSelector();
 
-  const overview = await fetchJson(apiUrl(`/api/v1/projects/${projectId}/overview`));
+  if (!state.overview) {
+    el.sidebarBody.innerHTML = `
+      <div class="skeleton-list" aria-label="Loading project data">
+        <i></i><i></i><i></i>
+      </div>`;
+    el.detailContent.innerHTML = `
+      <div class="overview-skeleton" aria-label="Loading continuation brief">
+        <i></i><i></i><i></i><i></i>
+      </div>`;
+  }
+
+  const [overview, handoff] = await Promise.all([
+    fetchJson(apiUrl(`/api/v1/projects/${projectId}/overview`)),
+    fetchJson(apiUrl(`/api/v1/projects/${projectId}/handoff`)),
+  ]);
   state.overview = overview;
+  state.handoff = handoff;
   if (!state._workspaceProjectMap) state._workspaceProjectMap = {};
   for (const ws of overview.workspaces || []) {
     state._workspaceProjectMap[ws.workspace_id] = projectId;
@@ -937,10 +1218,18 @@ async function loadProject(projectId) {
   el.decisionCount.textContent = (overview.active_decisions?.length || 0) + (overview.deprecated_decisions?.length || 0) || "";
   el.snapCount.textContent = overview.total_snaps ?? overview.recent_snaps?.length ?? "";
 
-  const ws = overview.workspaces?.[0];
+  const ws = [...(overview.workspaces || [])]
+    .sort((left, right) => String(right.last_synced_at || "").localeCompare(String(left.last_synced_at || "")))[0];
   el.syncChip.textContent = ws
-    ? `Synced ${fmtDate(ws.last_synced_at)}`
+    ? `Synced ${relativeDate(ws.last_synced_at)}`
     : "Not synced";
+  el.syncChip.title = ws ? fmtDate(ws.last_synced_at) : "";
+  el.syncIndicator.classList.toggle("is-unsynced", !ws);
+
+  const missingNext = (handoff.intents || []).filter((intent) => !parseCheckpoint(intent.latest_snap).next).length;
+  el.navHealth.textContent = (handoff.intents || []).length
+    ? `${handoff.intents.length} active · ${missingNext} missing next`
+    : "No active objective";
 
   if (!overview.workspaces?.length) {
     renderSetupGuide("unsynced");
@@ -951,10 +1240,16 @@ async function loadProject(projectId) {
 
   renderSidebar();
   setStatus(
-    `${overview.project.name} \u00b7 ${overview.workspaces.length} workspace(s)`,
+    `${overview.project.name} is up to date`,
   );
 
-  if (state.selectedDetail) {
+  if (state.activeTab === "overview") {
+    state.selectedDetail = null;
+    renderProjectSummary();
+  } else if (state.activeTab === "search") {
+    state.selectedDetail = null;
+    el.detailContent.innerHTML = renderSearchWelcome();
+  } else if (state.selectedDetail) {
     try {
       await openDetail(
         state.selectedDetail.type,
@@ -965,7 +1260,12 @@ async function loadProject(projectId) {
       renderProjectSummary();
     }
   } else {
-    renderProjectSummary();
+    const firstCard = el.sidebarBody.querySelector("[data-detail-type][data-remote-id]");
+    if (firstCard) {
+      await openDetail(firstCard.dataset.detailType, firstCard.dataset.remoteId);
+    } else {
+      clearDetail("No object is available in this view.");
+    }
   }
 
   writeRoute();
@@ -985,6 +1285,11 @@ async function loadProjects() {
   renderProjectSelector();
 
   if (!state.currentProjectId) {
+    state.overview = null;
+    state.handoff = null;
+    el.navHealth.textContent = "No project linked";
+    el.syncChip.textContent = "Waiting for first project";
+    el.syncIndicator.classList.add("is-unsynced");
     setStatus("No projects linked yet.");
     renderSetupGuide("unlinked");
     clearDetail("Link a project to get started.");
@@ -998,6 +1303,8 @@ async function loadProjects() {
 /* ---- Events ---- */
 
 function bindEvents() {
+  el.searchTrigger.addEventListener("click", () => switchTab("search"));
+
   el.tokenBtn.addEventListener("click", async () => {
     el.tokenBtn.disabled = true;
     try {
@@ -1036,6 +1343,7 @@ function bindEvents() {
     } catch {}
     state.projects = [];
     state.overview = null;
+    state.handoff = null;
     state.account = null;
     showAuthGate();
   });
@@ -1053,6 +1361,7 @@ function bindEvents() {
     try {
       state.selectedDetail = null;
       state.overview = null;
+      state.handoff = null;
       await loadProject(id);
     } catch (err) {
       setStatus(err.message, true);
@@ -1067,14 +1376,16 @@ function bindEvents() {
 
   el.refreshBtn.addEventListener("click", async () => {
     el.refreshBtn.disabled = true;
-    el.refreshBtn.textContent = "Refreshing…";
+    el.refreshBtn.classList.add("is-spinning");
+    el.refreshBtn.setAttribute("aria-label", "Refreshing project data");
     try {
       await loadProjects();
     } catch (err) {
       setStatus(err.message, true);
     } finally {
       el.refreshBtn.disabled = false;
-      el.refreshBtn.textContent = "Refresh";
+      el.refreshBtn.classList.remove("is-spinning");
+      el.refreshBtn.setAttribute("aria-label", "Refresh project data");
     }
   });
 
@@ -1092,7 +1403,7 @@ function bindEvents() {
     if (!card) return;
     const inDetailPane = card.closest("#detail-content") || card.closest("#drawer-content");
     try {
-      if (inDetailPane) {
+      if (inDetailPane || state.activeTab === "overview") {
         await openInDrawer(card.dataset.detailType, card.dataset.remoteId);
       } else {
         closeDrawer();
@@ -1106,6 +1417,18 @@ function bindEvents() {
   el.drawerClose.addEventListener("click", closeDrawer);
   el.drawerOverlay.addEventListener("click", closeDrawer);
 
+  document.addEventListener("keydown", (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      switchTab("search");
+      return;
+    }
+    if (event.key === "Escape") {
+      if (el.drawer.classList.contains("open")) closeDrawer();
+      else toggleProjectPicker(false);
+    }
+  });
+
 }
 
 /* ---- Init ---- */
@@ -1116,16 +1439,21 @@ async function init() {
     state.config = await fetch("/config.json").then((r) => r.json());
     authError = callbackErrorMessage();
     const route = readRoute();
-    el.apiChip.textContent = state.config.apiBaseUrl;
 
     if (route.tab && TABS.includes(route.tab)) state.activeTab = route.tab;
     if (route.detail && route.detailType) {
+      if (state.activeTab === "overview") {
+        const detailTab = { intent: "intents", snap: "snaps", decision: "decisions" }[route.detailType];
+        if (detailTab) state.activeTab = detailTab;
+      }
       state.selectedDetail = {
         remoteId: route.detail,
         type: route.detailType,
       };
     }
     state.searchQuery = route.q;
+    if (state.searchQuery && state.activeTab === "overview") state.activeTab = "search";
+    el.shell.dataset.activeTab = state.activeTab;
 
     for (const btn of el.tabBar.querySelectorAll(".tab")) {
       btn.classList.toggle("is-active", btn.dataset.tab === state.activeTab);

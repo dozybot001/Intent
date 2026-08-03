@@ -3,95 +3,185 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#171916">
     <title>IntHub</title>
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/styles.css?rev=uiux-p1">
   </head>
   <body>
-    <div class="shell" id="shell">
-      <header class="header">
-        <div class="header-left">
-          <span class="logo">IntHub</span>
+    <a class="skip-link" href="#detail-content">Skip to project content</a>
+
+    <div class="shell" id="shell" data-active-tab="overview">
+      <header class="app-header">
+        <div class="header-context">
+          <a class="brand" href="/" aria-label="IntHub home">
+            <span class="brand-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="brand-wordmark">IntHub</span>
+          </a>
+
+          <span class="header-divider" aria-hidden="true"></span>
+
           <div class="project-picker" id="project-picker">
-            <button class="project-picker-trigger" id="project-picker-trigger" type="button">
-              <span class="project-picker-label" id="project-picker-label">No projects yet</span>
-              <span class="project-picker-arrow">&#9662;</span>
+            <button class="project-picker-trigger" id="project-picker-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span class="project-picker-copy">
+                <span class="project-picker-eyebrow">Project</span>
+                <span class="project-picker-label" id="project-picker-label">No projects yet</span>
+              </span>
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
             </button>
-            <div class="project-picker-dropdown" id="project-picker-dropdown"></div>
+            <div class="project-picker-dropdown" id="project-picker-dropdown" role="listbox"></div>
           </div>
         </div>
-        <div class="header-right">
+
+        <div class="header-actions">
+          <button class="command-trigger" id="search-trigger" type="button" aria-label="Search project">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
+            <span>Search</span>
+            <kbd>⌘K</kbd>
+          </button>
+
+          <div class="sync-indicator" id="sync-indicator">
+            <span class="sync-dot" aria-hidden="true"></span>
+            <span id="sync-chip">Checking sync</span>
+          </div>
+          <span class="is-hidden" id="api-chip"></span>
+
+          <button class="icon-button" id="refresh-btn" type="button" aria-label="Refresh project data" title="Refresh project data">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.2 6.2A7 7 0 1 0 17 11"/><path d="M16.2 2.8v3.8h-3.8"/></svg>
+          </button>
+
           <div id="account-control" class="account-control is-hidden">
             <img id="account-avatar" class="account-avatar is-hidden" alt="">
-            <span id="account-label" class="account-label">Private session</span>
-            <button id="token-btn" class="logout-btn" type="button">CLI token</button>
-            <button id="logout-btn" class="logout-btn" type="button">Sign out</button>
-          </div>
-          <button id="refresh-btn" type="button">Refresh</button>
-          <div class="header-meta">
-            <span class="header-meta-text" id="sync-chip"></span>
-            <span class="header-meta-text" id="api-chip"></span>
+            <span id="account-label" class="account-label">Account</span>
+            <button id="token-btn" class="account-action" type="button">Access token</button>
+            <button id="logout-btn" class="account-action account-action-muted" type="button">Sign out</button>
           </div>
         </div>
       </header>
 
       <div class="main">
-        <nav class="sidebar" id="sidebar">
-          <div class="tab-bar">
-            <button class="tab is-active" data-tab="intents">Intents <span class="tab-count" id="intent-count"></span></button>
-            <button class="tab" data-tab="decisions">Decisions <span class="tab-count" id="decision-count"></span></button>
-            <button class="tab" data-tab="snaps">Snaps <span class="tab-count" id="snap-count"></span></button>
+        <nav class="primary-nav" aria-label="Project navigation">
+          <div class="nav-context">
+            <span class="nav-context-label">Project memory</span>
+            <span class="nav-context-rule" aria-hidden="true"></span>
           </div>
-          <div class="sidebar-body" id="sidebar-body"></div>
+
+          <div class="tab-bar primary-nav-list">
+            <button class="tab is-active" data-tab="overview" type="button">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14v11H3z"/><path d="M6 8h8M6 11h5"/></svg>
+              <span>Overview</span>
+            </button>
+            <button class="tab" data-tab="intents" type="button">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="6.5"/><circle cx="10" cy="10" r="2"/></svg>
+              <span>Intents</span>
+              <span class="tab-count" id="intent-count"></span>
+            </button>
+            <button class="tab" data-tab="snaps" type="button">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4.5h12M4 10h12M4 15.5h12"/><circle cx="7" cy="4.5" r="1.5"/><circle cx="13" cy="10" r="1.5"/><circle cx="9" cy="15.5" r="1.5"/></svg>
+              <span>Timeline</span>
+              <span class="tab-count" id="snap-count"></span>
+            </button>
+            <button class="tab" data-tab="decisions" type="button">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4 10 4 4 8-8"/></svg>
+              <span>Decisions</span>
+              <span class="tab-count" id="decision-count"></span>
+            </button>
+            <button class="tab nav-search" data-tab="search" type="button">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
+              <span>Search</span>
+            </button>
+          </div>
+
+          <div class="nav-foot">
+            <span class="nav-foot-label">Continuity status</span>
+            <span class="nav-foot-value" id="nav-health">Waiting for project</span>
+          </div>
         </nav>
 
-        <section class="detail-pane" id="detail-pane">
-          <button class="back-btn" id="back-btn" type="button">&larr; Back</button>
-          <div class="detail-content" id="detail-content">
-            <div class="empty-state">Select an object to inspect.</div>
+        <aside class="sidebar" id="sidebar" aria-label="Project index">
+          <header class="index-header">
+            <span class="index-kicker" id="sidebar-kicker">Current work</span>
+            <h1 class="index-title" id="sidebar-title">Continuation queue</h1>
+          </header>
+          <div class="sidebar-body" id="sidebar-body">
+            <div class="skeleton-list" aria-label="Loading project data">
+              <i></i><i></i><i></i>
+            </div>
           </div>
-        </section>
+        </aside>
+
+        <main class="detail-pane" id="detail-pane">
+          <button class="back-btn" id="back-btn" type="button">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12.5 4.5-5.5 5.5 5.5 5.5"/></svg>
+            Back to list
+          </button>
+          <div class="detail-content" id="detail-content" tabindex="-1">
+            <div class="overview-skeleton" aria-label="Loading continuation brief">
+              <i></i><i></i><i></i><i></i>
+            </div>
+          </div>
+        </main>
       </div>
 
       <div class="drawer-overlay" id="drawer-overlay"></div>
-      <aside class="drawer" id="drawer">
+      <aside class="drawer" id="drawer" aria-label="Related object detail" aria-hidden="true">
         <div class="drawer-header">
-          <button class="drawer-close" id="drawer-close" type="button">&times;</button>
+          <span>Related context</span>
+          <button class="drawer-close" id="drawer-close" type="button" aria-label="Close related detail">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg>
+          </button>
         </div>
         <div class="drawer-content" id="drawer-content"></div>
       </aside>
 
-      <footer class="footer">
-        <span id="status-line" class="muted">Loading&hellip;</span>
-      </footer>
+      <div class="status-toast muted" id="status-line" role="status" aria-live="polite">Loading…</div>
     </div>
 
     <div class="auth-gate is-hidden" id="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-      <section class="auth-card">
-        <div class="auth-ledger" aria-hidden="true">
-          <span>01</span>
-          <i></i>
-          <span>INT</span>
-        </div>
-        <div class="auth-content">
-          <span class="auth-mark">IntHub / private archive</span>
-          <h1 id="auth-title">Return to the work,<br>not the setup.</h1>
-          <p id="auth-description">Sign in with your GitHub identity to open this private semantic history.</p>
-          <a class="github-login is-hidden" id="github-login" href="/api/v1/auth/github/start">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56v-2.24c-3.22.7-3.9-1.37-3.9-1.37-.52-1.34-1.28-1.69-1.28-1.69-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.57-.29-5.27-1.28-5.27-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.47.11-3.05 0 0 .97-.31 3.16 1.18A10.9 10.9 0 0 1 12 6.11c.98 0 1.94.13 2.85.38 2.2-1.49 3.16-1.18 3.16-1.18.63 1.58.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.71 5.38-5.29 5.67.42.36.78 1.07.78 2.16v3.27c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .7Z"/></svg>
-            <span id="github-login-label">Continue with GitHub</span>
-            <span class="github-login-arrow" aria-hidden="true">↗</span>
+      <section class="auth-stage">
+        <div class="auth-story">
+          <a class="brand brand-on-dark" href="/" aria-label="IntHub home">
+            <span class="brand-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="brand-wordmark">IntHub</span>
           </a>
-          <p class="auth-error is-hidden" id="auth-error" role="alert"></p>
-          <small id="auth-footnote">GitHub confirms your identity. IntHub stores its own revocable browser session and never stores your GitHub token.</small>
+          <div class="auth-story-copy">
+            <span class="auth-eyebrow">Project continuity, preserved</span>
+            <h1 id="auth-title">Return to the reason,<br>not just the files.</h1>
+            <p>IntHub keeps the semantic history behind your project so every person and Agent can resume from the right boundary.</p>
+          </div>
+          <div class="auth-preview" aria-hidden="true">
+            <span class="preview-index">CURRENT / 01</span>
+            <strong>The next move stays visible.</strong>
+            <div class="preview-grid">
+              <span><i>Verified</i>Stable boundary reached</span>
+              <span><i>Next</i>Continue implementation</span>
+              <span><i>Blocker</i>None recorded</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="auth-panel">
+          <div class="auth-content">
+            <span class="auth-mark">IntHub / account</span>
+            <h2>Open your project memory.</h2>
+            <p id="auth-description">Sign in or create your IntHub account with your GitHub identity.</p>
+            <a class="github-login is-hidden" id="github-login" href="/api/v1/auth/github/start">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56v-2.24c-3.22.7-3.9-1.37-3.9-1.37-.52-1.34-1.28-1.69-1.28-1.69-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.57-.29-5.27-1.28-5.27-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.47.11-3.05 0 0 .97-.31 3.16 1.18A10.9 10.9 0 0 1 12 6.11c.98 0 1.94.13 2.85.38 2.2-1.49 3.16-1.18 3.16-1.18.63 1.58.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.71 5.38-5.29 5.67.42.36.78 1.07.78 2.16v3.27c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .7Z"/></svg>
+              <span id="github-login-label">Continue with GitHub</span>
+              <span class="github-login-arrow" aria-hidden="true">↗</span>
+            </a>
+            <p class="auth-error is-hidden" id="auth-error" role="alert"></p>
+            <small id="auth-footnote">GitHub confirms your identity. IntHub stores its own revocable browser session and never stores your GitHub token.</small>
+          </div>
         </div>
       </section>
     </div>
 
     <dialog class="token-dialog" id="token-dialog" aria-labelledby="token-dialog-title">
       <form method="dialog" class="token-dialog-card">
-        <span class="auth-mark">IntHub / account access</span>
-        <h2 id="token-dialog-title">CLI token</h2>
-        <p>This token is shown once. Paste it into <code>itt auth login</code>, then use <code>itt hub link</code> once per repository and <code>itt push</code> for later snapshots.</p>
+        <span class="auth-mark">IntHub / developer access</span>
+        <h2 id="token-dialog-title">New access token</h2>
+        <p>This secret is shown once. Paste it into <code>itt auth login</code>; IntHub will not display it again.</p>
         <input id="token-output" type="text" readonly aria-label="New CLI token">
         <div class="token-dialog-actions">
           <button id="token-copy" type="button">Copy token</button>
@@ -99,6 +189,7 @@
         </div>
       </form>
     </dialog>
-    <script src="/app.js" defer></script>
+
+    <script src="/app.js?rev=uiux-p1" defer></script>
   </body>
 </html>
