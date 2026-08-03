@@ -83,6 +83,8 @@ itt push
 
 若未提供 `--token` 或 `INTHUB_TOKEN`，`itt auth login` 会无回显地提示输入。它只把服务地址写入用户配置，token 则交给 Git 已配置的 credential helper。应使用操作系统安全存储支持的 helper；Git 的 `store` helper 会明文保存。也可以继续用 `--token` 仅传给单次 CLI 命令。CLI 不会将 token 写入 `.intent/hub.json`。HTTP 中使用标准 `Authorization: Bearer <token>`，这里的 Bearer 是传输方式，权限主体仍是具体 IntHub 账户。`itt auth logout` 只删除本机凭据，不撤销服务端 token；若凭据泄露或要永久移除，应在 Web UI 中撤销。
 
+网络操作采用最多两次、每次 15 秒的有界尝试。`hub link` 或 `push` 发出数据前，CLI 会原子保存非敏感 pending 操作 ID。响应丢失时，`itt hub status` 会报告 `link_pending` 或 `sync_pending`；再次执行同一条 `itt hub link` 或 `itt push` 即可收敛，未变化的操作会复用原 workspace 或 sync-batch ID。不要直接编辑 `hub.json`、切换 endpoint，或用另一个仓库 push 成功来推断当前仓库也已成功。
+
 ## 验证
 
 ```bash

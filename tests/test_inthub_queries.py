@@ -132,6 +132,26 @@ def test_accounts_can_link_the_same_repo_without_seeing_each_others_projects(tmp
     assert exc_info.value.code == "OBJECT_NOT_FOUND"
 
 
+def test_link_reuses_the_same_project_and_workspace_operation(tmp_path):
+    db_path = str(tmp_path / "inthub.db")
+    account = upsert_github_account(db_path, {"id": 7, "login": "retry-user"})
+    repo = {
+        "provider": "gitee",
+        "repo_id": "example/retried",
+        "owner": "example",
+        "name": "retried",
+    }
+
+    first = link_project(
+        db_path, "Retried link", repo, "wks_stable", account_id=account["id"],
+    )
+    second = link_project(
+        db_path, "Retried link", repo, "wks_stable", account_id=account["id"],
+    )
+
+    assert second == first
+
+
 def test_repo_provider_is_part_of_the_project_identity(tmp_path):
     db_path = str(tmp_path / "inthub.db")
     account = upsert_github_account(db_path, {"id": 3, "login": "provider-user"})

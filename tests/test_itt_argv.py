@@ -74,3 +74,53 @@ def test_runner_rejects_raw_shell_payload():
 
     assert result.returncode == 1
     assert json.loads(result.stdout)["error"]["code"] == "INVALID_INPUT"
+
+
+def test_runner_normalizes_invalid_child_output_without_forwarding_stderr(tmp_path):
+    fake_itt = tmp_path / "itt"
+    fake_itt.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "print('not-json')\n"
+        "print('private traceback detail', file=sys.stderr)\n",
+        encoding="utf-8",
+    )
+    fake_itt.chmod(0o755)
+    env = os.environ.copy()
+    env["PATH"] = f"{tmp_path}{os.pathsep}{env.get('PATH', '')}"
+
+    result = subprocess.run(
+        [sys.executable, str(RUNNER_PATH), _encode(["inspect"])],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    output = json.loads(result.stdout)
+    assert result.returncode == 1
+    assert result.stderr == ""
+    assert output["error"]["code"] == "NON_JSON_OUTPUT"
+    assert output["error"]["details"]["stderr_length"] > 0
+    assert "private traceback detail" not in result.stdout
+
+
+def test_runner_timeout_is_json_and_classifies_mutation(monkeypatch, tmp_path, capsys):
+    runner = _load_runner()
+    fake_itt = tmp_path / "itt"
+    fake_itt.write_text(
+        "#!/usr/bin/env python3\n"
+        "import time\n"
+        "time.sleep(1)\n",
+        encoding="utf-8",
+    )
+    fake_itt.chmod(0o755)
+    monkeypatch.setattr(runner.shutil, "which", lambda _name: str(fake_itt))
+    monkeypatch.setattr(runner, "COMMAND_TIMEOUT_SECONDS", 0.05)
+
+    returncode = runner.main([_encode(["hub", "link"])])
+
+    output = json.loads(capsys.readouterr().out)
+    assert returncode == 1
+    assert output["error"]["code"] == "PROCESS_TIMEOUT"
+    assert output["error"]["details"]["completion_unknown"] is True
+    assert runner.command_may_mutate(["inspect"]) is False

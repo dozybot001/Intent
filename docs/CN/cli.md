@@ -57,11 +57,11 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 | `itt auth logout [--api-base-url URL]` | 删除本机 credential-helper 条目，不撤销服务端 token。 |
 | `itt push [--api-base-url URL] [--token TOKEN] [--dry-run]` | 推送当前仓库的完整 Intent 快照，作为主要 Git 风格命令。 |
 | `itt hub start [--port PORT] [--no-open]` | 启动 IntHub Local |
-| `itt hub status [--api-base-url URL]` | 在不调用 IntHub API 的情况下读取有效服务地址、本地仓库绑定、同步时间和可复用凭据是否存在。 |
+| `itt hub status [--api-base-url URL]` | 在不调用 IntHub API 的情况下读取有效服务地址、本地仓库绑定、同步时间、pending link/sync 操作和可复用凭据是否存在。 |
 | `itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]` | 将当前仓库绑定到 IntHub。默认使用全局地址和账户凭据，只把非敏感绑定信息写入 `.intent/hub.json`。 |
 | `itt hub sync [--api-base-url URL] [--token TOKEN] [--dry-run]` | `itt push` 的兼容别名。 |
 
-鉴权采用类似 Git 的“全局凭据、仓库级 remote”分层。`itt auth login` 把服务地址写入用户级 Intent 配置，并让 Git 已配置的 credential helper 保存账户 token。建议使用 macOS Keychain、Git Credential Manager 或 libsecret 等安全 helper；Git 的 `store` helper 会以明文保存凭据。每个仓库仍需运行一次 `itt hub link`，因为项目和 workspace 绑定属于仓库。GitHub 和 Gitee origin 都受支持；GitHub OAuth 只用于识别 IntHub 账户，不限制仓库 provider。CLI 绝不修改 `origin`，且每次 push 都会校验当前 provider 与仓库 ID 仍和保存的绑定一致。CLI 的凭据优先级依次为显式 `--token`、`INTHUB_TOKEN`、按有效 API 地址查找的 credential helper。
+鉴权采用类似 Git 的“全局凭据、仓库级 remote”分层。`itt auth login` 把服务地址写入用户级 Intent 配置，并让 Git 已配置的 credential helper 保存账户 token。建议使用 macOS Keychain、Git Credential Manager 或 libsecret 等安全 helper；Git 的 `store` helper 会以明文保存凭据。每个仓库仍需运行一次 `itt hub link`，因为项目和 workspace 绑定属于仓库。GitHub 和 Gitee origin 都受支持；GitHub OAuth 只用于识别 IntHub 账户，不限制仓库 provider。CLI 绝不修改 `origin`，且每次 push 都会校验当前 provider 与仓库 ID 仍和保存的绑定一致。link 与 push 会在网络 I/O 前持久化非敏感 pending 操作 ID；有界重试或之后再次执行时，可以收敛丢失响应，并避免对未变化状态创建第二个操作。CLI 的凭据优先级依次为显式 `--token`、`INTHUB_TOKEN`、按有效 API 地址查找的 credential helper。
 
 ## 对象模型
 
@@ -289,14 +289,18 @@ stateDiagram-v2
 | `MULTIPLE_SUSPENDED_INTENTS` | `intent activate` 在省略目标时，存在多个 `suspend` intent |
 | `NO_OPEN_INTENT` | `intent cancel` 省略目标，且没有 `active` 或 `suspend` intent |
 | `MULTIPLE_OPEN_INTENTS` | `intent cancel` 省略目标，且存在多个 `active` 或 `suspend` intent |
-| `WORKSPACE_BUSY` | 另一个 Intent 命令仍持有工作区写锁 |
+| `WORKSPACE_BUSY` | 另一个 Intent 命令仍持有工作区写锁；可用时 details 会包含其 PID、操作和开始时间 |
 | `GLOBAL_CONFIG_ERROR` | 用户级 IntHub 地址配置不合法或无法写入 |
 | `CREDENTIAL_STORE_ERROR` | Git 已配置的 credential helper 无法保存或删除账户 token |
 | `HUB_NOT_CONFIGURED` | 缺少 IntHub API base URL |
 | `NOT_LINKED` | 当前工作区还没绑定到 IntHub |
+| `LINK_PENDING` | 之前的仓库绑定请求必须先通过 `itt hub link` 收敛，才能 push |
+| `PENDING_LINK_CONFLICT` | pending link 指向不同的服务地址或仓库 |
+| `HUB_STATE_INVALID` | 仓库级 pending Hub 状态格式损坏 |
 | `PROVIDER_UNSUPPORTED` | 当前 Git remote 不受支持 |
 | `REPO_BINDING_MISMATCH` | 当前 `origin` 指向的 provider 或仓库与已保存的 IntHub 绑定不一致 |
 | `NETWORK_ERROR` | 无法连接 IntHub |
+| `NETWORK_TIMEOUT` | IntHub 未在有界请求时间内响应；变更是否完成可能未知 |
 | `SERVER_ERROR` | IntHub 返回错误或非法 JSON |
 
 ## 运行约束
@@ -307,7 +311,8 @@ stateDiagram-v2
 - 显式 `--token` 和 `INTHUB_TOKEN` 会覆盖已保存凭据，且绝不会持久化到 `hub.json`
 - IntHub Local 默认绑定 `127.0.0.1`，但当前 API 不强制校验 Bearer Token，且使用宽松 CORS；不要将它暴露到局域网或公网
 - IntHub 生产配置使用 GitHub 登录或注册和有时限的只读 HttpOnly Web 会话；CLI 写入使用当前账户签发的 access token（HTTP `Bearer`），项目读取和写入均按账户隔离，生产数据库使用 PostgreSQL，详见 [IntHub 生产部署](inthub-production.md)
-- 对象和 Hub 配置通过原子替换写入，对象变更命令使用工作区级跨进程写锁；这会串行化 Intent CLI 写入，但不会把 `.intent/` 变成多用户数据库
+- 对象和 Hub 配置通过原子替换写入，变更命令使用带有界 owner 诊断的工作区级跨进程写锁；这会串行化 Intent CLI 写入，但不会把 `.intent/` 变成多用户数据库
+- IntHub 请求每次尝试最多等待 15 秒、最多尝试两次；随附 argv 适配器具有 60 秒进程安全超时，并始终输出一个 JSON 文档
 - 对象 ID 在路径 I/O 前校验，对象路径必须留在对应类型目录内，`.intent/` 对象存储拒绝符号链接重定向
 - 描述性字段写一次；状态与自动维护的关系字段会随着后续命令推进
 - ID 按对象类型单调递增并零填充，例如 `intent-001`、`snap-001`、`decision-001`

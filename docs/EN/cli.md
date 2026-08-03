@@ -57,11 +57,11 @@ The CLI is intentionally small:
 | `itt auth logout [--api-base-url URL]` | Remove the local credential-helper entry. Does not revoke the server-side token. |
 | `itt push [--api-base-url URL] [--token TOKEN] [--dry-run]` | Push the current repository's complete Intent snapshot. Primary Git-style command. |
 | `itt hub start [--port PORT] [--no-open]` | Launch IntHub Local |
-| `itt hub status [--api-base-url URL]` | Read the effective endpoint, local repository binding, sync timestamps, and reusable-credential availability without calling the IntHub API. |
+| `itt hub status [--api-base-url URL]` | Read the effective endpoint, local repository binding, sync timestamps, pending link/sync operations, and reusable-credential availability without calling the IntHub API. |
 | `itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]` | Link this repository to IntHub. Uses the global endpoint and account credential by default; writes only non-secret binding data to `.intent/hub.json`. |
 | `itt hub sync [--api-base-url URL] [--token TOKEN] [--dry-run]` | Compatibility alias for `itt push`. |
 
-Authentication follows Git's split between global credentials and repository-local remotes. `itt auth login` stores the endpoint in the user-level Intent config and asks Git's configured credential helper to store the account token. A secure helper such as macOS Keychain, Git Credential Manager, or libsecret is recommended; Git's `store` helper keeps credentials in plaintext. Each repository must still run `itt hub link` once because its project and workspace binding is repository-specific. GitHub and Gitee origins are supported. GitHub OAuth identifies the IntHub account; it does not constrain the repository provider. The CLI never changes `origin`, and each push verifies that the current provider and repository ID still match the saved binding. The CLI precedence is explicit `--token`, `INTHUB_TOKEN`, then the credential helper selected for the effective API base URL.
+Authentication follows Git's split between global credentials and repository-local remotes. `itt auth login` stores the endpoint in the user-level Intent config and asks Git's configured credential helper to store the account token. A secure helper such as macOS Keychain, Git Credential Manager, or libsecret is recommended; Git's `store` helper keeps credentials in plaintext. Each repository must still run `itt hub link` once because its project and workspace binding is repository-specific. GitHub and Gitee origins are supported. GitHub OAuth identifies the IntHub account; it does not constrain the repository provider. The CLI never changes `origin`, and each push verifies that the current provider and repository ID still match the saved binding. Link and push persist non-secret pending operation IDs before network I/O; bounded retries and later reruns therefore reconcile a lost response without inventing a second operation for unchanged state. The CLI precedence is explicit `--token`, `INTHUB_TOKEN`, then the credential helper selected for the effective API base URL.
 
 ## Object Model
 
@@ -289,14 +289,18 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 | `MULTIPLE_SUSPENDED_INTENTS` | `intent activate` omitted the target intent and several are `suspend` |
 | `NO_OPEN_INTENT` | `intent cancel` omitted the target and no intent is `active` or `suspend` |
 | `MULTIPLE_OPEN_INTENTS` | `intent cancel` omitted the target and several intents are `active` or `suspend` |
-| `WORKSPACE_BUSY` | Another Intent command still holds the workspace write lock |
+| `WORKSPACE_BUSY` | Another Intent command still holds the workspace write lock; details identify its PID, operation, and start time when available |
 | `GLOBAL_CONFIG_ERROR` | The user-level IntHub endpoint config is invalid or cannot be written |
 | `CREDENTIAL_STORE_ERROR` | Git's configured credential helper could not persist or remove the account token |
 | `HUB_NOT_CONFIGURED` | IntHub API base URL is missing |
 | `NOT_LINKED` | Current workspace has not been linked to IntHub |
+| `LINK_PENDING` | A previous repository-link request must be reconciled with `itt hub link` before pushing |
+| `PENDING_LINK_CONFLICT` | Pending link state targets a different endpoint or repository |
+| `HUB_STATE_INVALID` | Repository-local pending Hub state is malformed |
 | `PROVIDER_UNSUPPORTED` | Current Git remote is not supported |
 | `REPO_BINDING_MISMATCH` | Current `origin` identifies a different provider or repository than the saved IntHub binding |
 | `NETWORK_ERROR` | IntHub could not be reached |
+| `NETWORK_TIMEOUT` | IntHub did not answer within the bounded request timeout; mutation completion may be unknown |
 | `SERVER_ERROR` | IntHub returned an error or invalid JSON |
 
 ## Operational Notes
@@ -307,7 +311,8 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 - Explicit `--token` and `INTHUB_TOKEN` override the stored credential and are never persisted to `hub.json`
 - IntHub Local binds to `127.0.0.1` by default, but its current API does not enforce bearer-token authentication and uses permissive CORS; do not expose it to a LAN or the public internet
 - The IntHub production profile uses GitHub sign-up or sign-in and bounded read-only HttpOnly Web sessions; CLI writes use an access token issued by the current account (sent as HTTP `Bearer`), all project reads and writes are account-scoped, and production uses PostgreSQL; see [IntHub Production Deployment](inthub-production.md)
-- Object and Hub-config replacements are atomic, and mutating object commands use a workspace-level cross-process lock; this serializes Intent CLI writers but does not turn `.intent/` into a multi-user database
+- Object and Hub-config replacements are atomic, and mutating object commands use a workspace-level cross-process lock with bounded owner diagnostics; this serializes Intent CLI writers but does not turn `.intent/` into a multi-user database
+- IntHub requests use a 15-second per-attempt timeout and at most two attempts; the bundled argv adapter has a 60-second process safety timeout and always emits one JSON document
 - Object IDs are validated before path I/O, object paths must remain under their type directory, and `.intent/` object storage refuses symlink redirection
 - Descriptive fields are write-once; status and auto-maintained relationship fields evolve through later commands
 - IDs are zero-padded and monotonic per object type: `intent-001`, `snap-001`, `decision-001`

@@ -69,11 +69,11 @@ def snapshot_payload(base):
     }
 
 
-def build_sync_payload(base, hub_config):
+def build_sync_payload(base, hub_config, *, generated_at=None):
     require_matching_repository(hub_config["repo_binding"])
     return {
         "sync_batch_id": hub_config["sync_batch_id"],
-        "generated_at": now_utc(),
+        "generated_at": generated_at or now_utc(),
         "client": {
             "name": "intent-cli",
             "version": __version__,

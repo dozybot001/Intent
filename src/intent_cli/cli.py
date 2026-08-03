@@ -85,10 +85,11 @@ def _invoke(command, args):
                 "conflicts": exc.conflicts,
             },
         )
-    except WorkspaceBusyError:
+    except WorkspaceBusyError as exc:
         error(
             "WORKSPACE_BUSY",
             "Another Intent command is writing to this workspace.",
+            details={"owner": exc.owner},
             suggested_fix="Wait for that command to finish, then retry.",
         )
     except StorageSecurityError as exc:

@@ -83,6 +83,8 @@ itt push
 
 `itt auth login` prompts without echo when `--token` and `INTHUB_TOKEN` are absent. It saves only the endpoint in the user config and delegates the token to Git's configured credential helper. Use a secure OS-backed helper; Git's `store` helper is plaintext. `--token` can still supply a token to one CLI command. The CLI never persists a token to `.intent/hub.json`. HTTP sends it as `Authorization: Bearer <token>`; Bearer is the transport scheme, while the authorization principal remains the specific IntHub account. `itt auth logout` removes the local credential but does not revoke it on the server; revoke it in the Web UI when compromise or permanent removal is intended.
 
+Network operations are bounded to two 15-second attempts. Before `hub link` or `push` sends data, the CLI atomically saves a non-secret pending operation ID. If the response is lost, `itt hub status` reports `link_pending` or `sync_pending`; rerun the same `itt hub link` or `itt push` command to reconcile it. An unchanged operation reuses the same workspace or sync-batch ID. Do not edit `hub.json`, switch endpoints, or infer this repository's result from another repository's successful push.
+
 ## Verification
 
 ```bash

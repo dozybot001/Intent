@@ -8,6 +8,7 @@ import tempfile
 import time
 import uuid
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -84,6 +85,10 @@ class StoredObjectWriteConflictError(StorageSecurityError):
 
 class WorkspaceBusyError(RuntimeError):
     """Raised when another Intent writer holds the workspace lock."""
+
+    def __init__(self, message, *, owner=None):
+        self.owner = owner or {}
+        super().__init__(message)
 
 
 def validate_object_id(object_type, obj_id):
@@ -356,8 +361,39 @@ def ensure_local_git_exclude(root):
         return False
 
 
+def _read_lock_owner(lock_file):
+    try:
+        lock_file.seek(0)
+        raw = lock_file.read(4096).lstrip(b"\0")
+        if not raw:
+            return {}
+        owner = json.loads(raw.decode("utf-8"))
+        if not isinstance(owner, dict):
+            return {}
+        return {
+            key: owner[key]
+            for key in ("pid", "operation", "started_at")
+            if key in owner
+        }
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return {}
+
+
+def _write_lock_owner(lock_file, operation):
+    owner = {
+        "pid": os.getpid(),
+        "operation": operation or "unknown",
+        "started_at": datetime.now(timezone.utc).isoformat(),
+    }
+    lock_file.seek(0)
+    lock_file.truncate()
+    lock_file.write(json.dumps(owner, ensure_ascii=True).encode("ascii"))
+    lock_file.flush()
+    os.fsync(lock_file.fileno())
+
+
 @contextmanager
-def workspace_write_lock(base, timeout=10.0):
+def workspace_write_lock(base, timeout=10.0, operation=None):
     """Serialize writers for one workspace without leaving a stale lock state."""
     base, _resolved_base = _safe_storage_root(base)
     lock_path = base / ".write.lock"
@@ -399,12 +435,19 @@ def workspace_write_lock(base, timeout=10.0):
             except (BlockingIOError, OSError):
                 if time.monotonic() >= deadline:
                     raise WorkspaceBusyError(
-                        "Another Intent command is writing to this workspace."
+                        "Another Intent command is writing to this workspace.",
+                        owner=_read_lock_owner(lock_file),
                     )
                 time.sleep(0.05)
+        _write_lock_owner(lock_file, operation)
         yield
     finally:
         if acquired:
+            lock_file.seek(0)
+            lock_file.truncate()
+            if os.name == "nt":
+                lock_file.write(b"\0")
+                lock_file.flush()
             unlock()
         lock_file.close()
 
@@ -681,15 +724,32 @@ def load_graph_once(base, *, tolerant=False):
 
 def read_hub_config(base):
     """Read hub.json if present. Returns dict or None."""
+    base, _resolved_base = _safe_storage_root(base)
     path = base / HUB_CONFIG
-    if not path.is_file():
+    if path.is_symlink():
+        raise UnsafeStoragePathError(path, "Hub config must not be a symlink")
+    if not path.exists():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    if not path.is_file():
+        raise UnsafeStoragePathError(path, "Hub config must be a regular file")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise StoredObjectParseError(path, str(exc)) from exc
+    if not isinstance(data, dict):
+        raise StoredObjectSchemaError(path, "top-level JSON must be an object")
+    return data
 
 
 def write_hub_config(base, data):
     """Atomically write hub.json."""
-    _write_json_atomic(base / HUB_CONFIG, data)
+    base, _resolved_base = _safe_storage_root(base)
+    path = base / HUB_CONFIG
+    if path.is_symlink():
+        raise UnsafeStoragePathError(path, "Hub config must not be a symlink")
+    if not isinstance(data, dict):
+        raise StoredObjectSchemaError(path, "top-level JSON must be an object")
+    _write_json_atomic(path, data)
 
 
 def git_current_branch():

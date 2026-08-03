@@ -70,7 +70,7 @@ def cmd_inspect(args):
     if args.intent is not None:
         validate_object_id("intent", args.intent)
 
-    with workspace_write_lock(base):
+    with workspace_write_lock(base, operation="inspect"):
         graph = load_graph_once(base)
 
     snap_by_id = graph["snap"]
@@ -138,7 +138,7 @@ def cmd_inspect(args):
 
 def cmd_doctor(_args):
     base = require_init()
-    with workspace_write_lock(base):
+    with workspace_write_lock(base, operation="doctor"):
         graph = load_graph_once(base, tolerant=True)
     success("doctor", validate_graph(graph))
 

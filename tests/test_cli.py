@@ -350,6 +350,8 @@ class TestHub:
         assert r["result"]["missing_fields"] == [
             "project_id", "workspace_id", "repo_binding",
         ]
+        assert r["result"]["link_pending"] is False
+        assert r["result"]["sync_pending"] is False
         assert not (workspace / ".intent" / "hub.json").exists()
 
     def test_global_auth_reused_by_two_projects_and_push_alias(
@@ -1245,6 +1247,31 @@ class TestAtomicWrites:
             "api_base_url": "http://127.0.0.1"
         }
 
+    def test_hub_status_normalizes_corrupt_hub_json(self, workspace):
+        hub_config = workspace / ".intent" / "hub.json"
+        hub_config.write_text('{"api_base_url":', encoding="utf-8")
+
+        result = _run(workspace, "hub", "status")
+
+        assert result["ok"] is False
+        assert result["error"]["code"] == "STORAGE_PARSE_ERROR"
+        assert result["error"]["details"]["path"] == str(hub_config)
+
+    def test_hub_status_rejects_symlinked_hub_json(self, workspace, tmp_path):
+        target = tmp_path / "outside-hub.json"
+        target.write_text("{}", encoding="utf-8")
+        hub_config = workspace / ".intent" / "hub.json"
+        try:
+            hub_config.symlink_to(target)
+        except (OSError, NotImplementedError):
+            pytest.skip("symlinks are unavailable")
+
+        result = _run(workspace, "hub", "status")
+
+        assert result["ok"] is False
+        assert result["error"]["code"] == "UNSAFE_STORAGE"
+        assert json.loads(target.read_text(encoding="utf-8")) == {}
+
     def test_casefold_occupied_id_is_counted_and_never_overwritten(self, workspace):
         base = workspace / ".intent"
         occupied = base / "intents" / "intent-001.JSON"
@@ -1291,10 +1318,15 @@ class TestAtomicWrites:
 
     def test_workspace_write_lock_times_out_for_second_writer(self, workspace):
         base = workspace / ".intent"
-        with intent_store.workspace_write_lock(base):
-            with pytest.raises(intent_store.WorkspaceBusyError):
+        with intent_store.workspace_write_lock(base, operation="hub.link"):
+            with pytest.raises(intent_store.WorkspaceBusyError) as exc_info:
                 with intent_store.workspace_write_lock(base, timeout=0.01):
                     pass
+            assert exc_info.value.owner["pid"] == os.getpid()
+            assert exc_info.value.owner["operation"] == "hub.link"
+            assert exc_info.value.owner["started_at"]
+
+        assert (base / ".write.lock").read_bytes() == b""
 
     def test_inspect_waits_for_complete_multi_file_snapshot(self, workspace):
         base = workspace / ".intent"

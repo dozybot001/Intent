@@ -40,13 +40,15 @@ def workspace_mutation(command):
     @wraps(command)
     def wrapped(args):
         base = require_init()
+        operation = command.__name__.removeprefix("cmd_").replace("_", ".", 1)
         try:
-            with workspace_write_lock(base):
+            with workspace_write_lock(base, operation=operation):
                 return command(args)
-        except WorkspaceBusyError:
+        except WorkspaceBusyError as exc:
             error(
                 "WORKSPACE_BUSY",
                 "Another Intent command is writing to this workspace.",
+                details={"owner": exc.owner},
                 suggested_fix="Wait for that command to finish, then retry.",
             )
     return wrapped
