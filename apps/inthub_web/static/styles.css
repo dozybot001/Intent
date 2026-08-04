@@ -1044,16 +1044,6 @@ svg {
   font-style: italic;
 }
 
-.brief-context {
-  margin: 0 14px 14px;
-  padding: 13px 14px;
-  border-radius: 14px;
-  color: var(--muted);
-  background: rgba(237, 239, 234, 0.68);
-  font-size: 0.76rem;
-  line-height: 1.55;
-}
-
 .support-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(270px, 0.95fr);
@@ -2280,10 +2270,6 @@ input:focus {
   .checkpoint {
     min-height: 0;
     padding: 18px 18px 19px;
-  }
-
-  .brief-context {
-    padding: 14px 16px 16px;
   }
 
   .support-card {

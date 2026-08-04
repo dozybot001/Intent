@@ -701,18 +701,7 @@ function checkpointCell(key, label, value) {
 }
 
 function continuationCard(intent, index) {
-  const snap = intent.latest_snap;
-  const checkpoint = parseCheckpoint(snap);
-  const contextParts = [];
-  if (checkpoint.context && checkpoint.context !== checkpoint.verified) {
-    contextParts.push(checkpoint.context);
-  }
-  if (checkpoint.constraints) {
-    contextParts.push(`Checkpoint constraint: ${checkpoint.constraints}`);
-  }
-  if (!snap) {
-    contextParts.push("This Intent has no latest Snap. Resume semantics are incomplete until a self-contained checkpoint is recorded.");
-  }
+  const checkpoint = parseCheckpoint(intent.latest_snap);
 
   return `
     <article class="brief-card">
@@ -730,7 +719,6 @@ function continuationCard(intent, index) {
         ${checkpointCell("boundary", "Boundary", checkpoint.boundary)}
         ${checkpointCell("verified", "Verified", checkpoint.verified)}
       </div>
-      ${contextParts.length ? `<div class="brief-context">${esc(contextParts.join(" · "))}</div>` : ""}
     </article>`;
 }
 
