@@ -100,6 +100,24 @@ function truncate(v, n = 140) {
   return v.slice(0, n).trimEnd() + "\u2026";
 }
 
+function accountInitials(account) {
+  const label = String(account?.display_name || account?.login || "IntHub").trim();
+  const compact = label.replace(/\s+/g, "");
+  if (!compact) return "IH";
+  if (/[^\u0000-\u00ff]/.test(compact)) return Array.from(compact).slice(0, 2).join("");
+  const words = label.split(/\s+/).filter(Boolean);
+  if (words.length > 1) {
+    return `${words[0][0]}${words.at(-1)[0]}`.toUpperCase();
+  }
+  return compact.slice(0, 2).toUpperCase();
+}
+
+function accountAvatarTone(account) {
+  const seed = String(account?.login || account?.display_name || "inthub");
+  const hash = Array.from(seed).reduce((total, char) => total + char.codePointAt(0), 0);
+  return String(hash % 4);
+}
+
 function formatText(v) {
   if (!v) return "";
   const safe = esc(v);
@@ -200,14 +218,8 @@ function hideAuthGate() {
   el.accountLabel.textContent = account
     ? account.display_name || `@${account.login}`
     : "Private session";
-  el.accountAvatar.classList.toggle("is-hidden", !account?.avatar_url);
-  if (account?.avatar_url) {
-    el.accountAvatar.src = account.avatar_url;
-    el.accountAvatar.alt = account.login ? `${account.login}'s avatar` : "Account avatar";
-  } else {
-    el.accountAvatar.removeAttribute("src");
-    el.accountAvatar.alt = "";
-  }
+  el.accountAvatar.textContent = accountInitials(account);
+  el.accountAvatar.dataset.tone = accountAvatarTone(account);
   el.authError.textContent = "";
   el.authError.classList.add("is-hidden");
 }
@@ -536,16 +548,127 @@ function renderDecisionsTab() {
   el.sidebarBody.innerHTML = activeHtml + deprecatedHtml;
 }
 
-function snapCard(snap) {
+function intentForSnap(snap) {
+  const intents = [
+    ...(state.overview?.active_intents || []),
+    ...(state.overview?.other_intents || []),
+  ];
+  return intents.find((intent) =>
+    intent.id === snap.intent_id && intent.workspace_id === snap.workspace_id,
+  ) || intents.find((intent) => intent.id === snap.intent_id) || null;
+}
+
+function timelineDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return { key: "undated", label: "Undated", time: "—", datetime: "" };
+  }
+  const dayKey = (entry) => [
+    entry.getFullYear(),
+    String(entry.getMonth() + 1).padStart(2, "0"),
+    String(entry.getDate()).padStart(2, "0"),
+  ].join("-");
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const key = dayKey(date);
+  const label = key === dayKey(today)
+    ? "Today"
+    : key === dayKey(yesterday)
+      ? "Yesterday"
+      : new Intl.DateTimeFormat(undefined, {
+          month: "short",
+          day: "numeric",
+          year: date.getFullYear() === today.getFullYear() ? undefined : "numeric",
+        }).format(date);
+  return {
+    key,
+    label,
+    time: new Intl.DateTimeFormat(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date),
+    datetime: date.toISOString(),
+  };
+}
+
+function timelineState(checkpoint) {
+  if (checkpoint.blocker && !isClearBlocker(checkpoint.blocker)) {
+    return { className: " is-blocked", label: "Blocked" };
+  }
+  if (!checkpoint.next) {
+    return { className: " is-incomplete", label: "Next missing" };
+  }
+  if (checkpoint.blocker && isClearBlocker(checkpoint.blocker)) {
+    return { className: " is-ready", label: "Unblocked" };
+  }
+  return { className: "", label: "Checkpoint" };
+}
+
+function snapTimelineEntry(snap) {
+  const checkpoint = parseCheckpoint(snap);
+  const recordedAt = timelineDate(snap.created_at);
+  const status = timelineState(checkpoint);
+  const intent = intentForSnap(snap);
+  const supportingValue = checkpoint.next || checkpoint.boundary || snap.why || "";
+  const supportingLabel = checkpoint.next
+    ? "Next"
+    : checkpoint.boundary
+      ? "Boundary"
+      : "Context";
   return `
-    <button type="button" class="card" data-detail-type="snap" data-remote-id="${esc(snap.remote_id)}">
-      <span class="card-title">${esc(snap.what)}</span>
-      ${snap.why ? `<span class="card-body">${esc(truncate(snap.why, 140))}</span>` : ""}
-      <span class="card-meta">
-        <span class="badge">${esc(snap.id)}</span>
-        ${originBadge(snap.origin)}
+    <button type="button" class="timeline-entry${status.className}" data-detail-type="snap" data-remote-id="${esc(snap.remote_id)}">
+      <span class="timeline-node" aria-hidden="true"></span>
+      <span class="timeline-entry-body">
+        <span class="timeline-entry-topline">
+          <time datetime="${esc(recordedAt.datetime)}">${esc(recordedAt.time)}</time>
+          <span class="timeline-entry-id">${esc(snap.id)}</span>
+          <span class="timeline-entry-state">${esc(status.label)}</span>
+        </span>
+        <strong class="timeline-entry-title">${esc(conciseSnapTitle(snap))}</strong>
+        ${supportingValue ? `<span class="timeline-entry-summary"><i>${esc(supportingLabel)}</i>${esc(truncate(supportingValue, 104))}</span>` : ""}
+        <span class="timeline-entry-intent">${esc(intent ? truncate(intent.what, 72) : snap.intent_id || "Unlinked Intent")}</span>
       </span>
     </button>`;
+}
+
+function renderTimeline(snaps) {
+  if (!state._pageState) state._pageState = {};
+  const shown = state._pageState.snaps || PAGE_SIZE;
+  const visible = snaps.slice(0, shown);
+  const groups = [];
+  for (const snap of visible) {
+    const date = timelineDate(snap.created_at);
+    const current = groups.at(-1);
+    if (!current || current.key !== date.key) {
+      groups.push({ key: date.key, label: date.label, snaps: [snap] });
+    } else {
+      current.snaps.push(snap);
+    }
+  }
+
+  const remaining = snaps.length - visible.length;
+  el.sidebarBody.innerHTML = groups
+    .map((group) => `
+      <section class="timeline-group">
+        <header class="timeline-day">
+          <span>${esc(group.label)}</span>
+          <span>${group.snaps.length}</span>
+        </header>
+        <div class="timeline-events">${group.snaps.map(snapTimelineEntry).join("")}</div>
+      </section>`)
+    .join("")
+    + (remaining > 0
+      ? `<button type="button" class="load-more-btn" id="load-more-snaps">Load more (${remaining})</button>`
+      : "");
+
+  const loadMore = document.getElementById("load-more-snaps");
+  if (loadMore) {
+    loadMore.addEventListener("click", () => {
+      state._pageState.snaps = shown + PAGE_SIZE;
+      renderSidebar();
+    });
+  }
 }
 
 function renderSnapsTab() {
@@ -555,7 +678,7 @@ function renderSnapsTab() {
       '<div class="empty-state">No snaps synced yet.</div>';
     return;
   }
-  renderPaged(el.sidebarBody, snaps, snapCard, "snaps");
+  renderTimeline(snaps);
 }
 
 function renderSearchTab() {
@@ -619,16 +742,19 @@ function renderSearchResults(result) {
     return;
   }
   container.innerHTML = result.matches
-    .map(
-      (m) => `
-    <button type="button" class="card" data-detail-type="${esc(m.object_type)}" data-remote-id="${esc(m.remote_id)}">
-      <span class="card-title">${esc(m.what || m.title || m.id)}</span>
-      <span class="card-body">${esc(m.object_type)} \u00b7 ${esc(m.status || "\u2014")}</span>
-      <span class="card-meta">
-        <span class="badge">${esc(m.id)}</span>
-      </span>
-    </button>`,
-    )
+    .map((m) => {
+      const title = m.object_type === "snap"
+        ? conciseSnapTitle(m)
+        : m.what || m.title || m.id;
+      return `
+        <button type="button" class="card" data-detail-type="${esc(m.object_type)}" data-remote-id="${esc(m.remote_id)}">
+          <span class="card-title">${esc(title)}</span>
+          <span class="card-body">${esc(m.object_type)} \u00b7 ${esc(m.status || "\u2014")}</span>
+          <span class="card-meta">
+            <span class="badge">${esc(m.id)}</span>
+          </span>
+        </button>`;
+    })
     .join("");
   syncSelected();
 }
@@ -652,8 +778,10 @@ function checkpointKey(label) {
   return null;
 }
 
-function parseCheckpoint(snap) {
-  const source = String(snap?.why || "").trim();
+function extractCheckpointParts(value) {
+  const source = String(value || "")
+    .trim()
+    .replace(/^(?:checkpoint|检查点)\s*[:：]\s*/i, "");
   const fields = {};
   const marker = /(?:^|[\n\r.。；;])\s*(Verified(?: state)?|Boundary|Current(?: work)? boundary|Next(?: step)?|Blockers?|Constraints?|已验证(?:到)?(?:的?状态)?|验证结果|当前状态|当前(?:真正的)?工作边界|当前边界|工作边界|边界|下一步|阻塞(?:项)?|必须遵守(?:的约束)?|约束)\s*[:：]\s*/giu;
   const matches = [];
@@ -679,6 +807,17 @@ function parseCheckpoint(snap) {
   const context = matches.length
     ? source.slice(0, matches[0].markerStart).replace(/[\s.。；;]+$/g, "").trim()
     : source;
+  return { fields, context, structured: matches.length > 0 };
+}
+
+function parseCheckpoint(snap) {
+  const what = extractCheckpointParts(snap?.what);
+  const why = extractCheckpointParts(snap?.why);
+  const fields = { ...why.fields, ...what.fields };
+  const context = [what.structured ? what.context : "", why.context]
+    .filter(Boolean)
+    .filter((value, index, values) => values.indexOf(value) === index)
+    .join(" · ");
   return {
     verified: fields.verified || snap?.what || "",
     boundary: fields.boundary || "",
@@ -689,10 +828,30 @@ function parseCheckpoint(snap) {
   };
 }
 
+function conciseSnapTitle(snap, maxLength = 86) {
+  const checkpoint = parseCheckpoint(snap);
+  const source = String(checkpoint.verified || snap?.what || "")
+    .replace(/\s+/g, " ")
+    .replace(/^(?:verified(?: state)?|已验证(?:到)?(?:的?状态)?|验证结果|当前状态)\s*[:：]\s*/i, "")
+    .trim();
+  if (!source) return `${snap?.id || "Snap"} checkpoint`;
+
+  const stop = source.search(/[。！？!?；;\n]/);
+  const clause = stop >= 16 && stop <= maxLength + 18
+    ? source.slice(0, stop + 1)
+    : source;
+  return truncate(clause, maxLength);
+}
+
+function isClearBlocker(value) {
+  return /^(none|n\/a|not blocked|no blocker|无|没有|无阻塞|暂无)[.!。！]?$/.test(
+    String(value || "").trim().toLowerCase(),
+  );
+}
+
 function checkpointCell(key, label, value) {
   const missing = !value;
-  const clearBlocker = key === "blocker"
-    && /^(none|n\/a|not blocked|no blocker|无|没有|无阻塞|暂无)[.!。！]?$/.test(String(value || "").trim().toLowerCase());
+  const clearBlocker = key === "blocker" && isClearBlocker(value);
   return `
     <section class="checkpoint checkpoint-${esc(key)}${missing ? " is-missing" : ""}${clearBlocker ? " is-clear" : ""}">
       <span class="checkpoint-label">${esc(label)}</span>
@@ -961,7 +1120,7 @@ function buildIntentDetailHtml(payload) {
       "snap",
       remoteId(payload.workspace_id, s.id),
       s.id,
-      s.what || s.title || s.id,
+      conciseSnapTitle(s),
       truncate(s.why || "", 80),
     ),
   );
@@ -1049,6 +1208,8 @@ function renderDecisionDetailTo(target, payload) {
 function buildSnapDetailHtml(payload) {
   const snap = payload.snap;
   const checkpoint = parseCheckpoint(snap);
+  const status = timelineState(checkpoint);
+  const parentTitle = payload.intent?.what || "an unlinked Intent";
   const parentLink = payload.intent
     ? `<div class="relation-list">${relationItem(
         "intent",
@@ -1061,10 +1222,12 @@ function buildSnapDetailHtml(payload) {
     : '<div class="empty-state">No linked intent.</div>';
 
   return `
-    <div class="detail-header">
+    <div class="detail-header detail-header-snap">
       <span class="detail-id">${esc(snap.id)} \u00b7 Snap</span>
-      <h2 class="detail-title">${esc(snap.what)}</h2>
+      <h2 class="detail-title detail-title-snap">${esc(conciseSnapTitle(snap, 110))}</h2>
+      <p class="snap-detail-context">Semantic checkpoint for <strong>${esc(parentTitle)}</strong></p>
       <div class="detail-meta">
+        <span class="badge snap-state${status.className}">${esc(status.label)}</span>
         ${originBadge(snap.origin)}
         <span class="badge">${esc(fmtDate(snap.created_at))}</span>
       </div>

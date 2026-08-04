@@ -85,12 +85,22 @@ P1 的视觉和交互观感由产品所有者验收；自动化侧只负责语�
 
 ### P2：对象浏览与语义时间线
 
+- [x] 以“连续语义轨迹”替换旧柱状图 Logo，并为账户提供不依赖外部图片的确定性字母头像。
 - [ ] Intent 使用 Active、Suspended、Completed/Cancelled 分组和折叠。
-- [ ] Snap 以时间线展示，并按 Intent、Workspace 和日期分组。
-- [ ] Snap 详情按 Verified、Boundary、Next、Blocker、Constraints 拆分。
+- [x] Snap 使用按日期分组的纵向时间流，显示短标题、Next/Boundary、阻塞状态和 Intent 归属。
+- [x] Snap 详情按 Verified、Boundary、Next、Blocker、Constraints 拆分，并限制详情标题的视觉尺度。
 - [ ] Decision 突出当前约束、影响范围和 superseded 历史。
 - [ ] 支持 split view、关系跳转、详情返回栈和上下文菜单。
 - [ ] 补齐搜索范围、结果高亮、最近搜索与键盘结果导航。
+
+#### Snap 展示标题契约
+
+Snap 的存储 schema 没有独立 `title`：`what` 是已验证里程碑或紧凑接续检查点，`why` 承载原因、权衡和局部约束。IntHub 不再把完整 `what` 同时当页面标题。
+
+- Timeline、搜索结果、关系列表和详情页标题，从 `Verified` 的首个有效语义分句生成短展示标题。
+- 展示标题只在客户端计算，不写回 `.intent/`，不改变 append-only 历史，也不要求旧数据迁移。
+- 完整内容继续在结构化 checkpoint、对象详情和 Raw JSON 中展示。
+- 当 `what` 或 `why` 已包含显式 Verified、Boundary、Next、Blocker、Constraints 标记时，解析器可从两者合并字段；无法识别时仍保守回退到原始 `what`，不猜测缺失语义。
 
 ### P3：SaaS 账户与首次使用
 

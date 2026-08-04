@@ -6,7 +6,7 @@
     <meta name="color-scheme" content="light">
     <meta name="theme-color" content="#f4f5f2">
     <title>IntHub</title>
-    <link rel="stylesheet" href="/styles.css?rev=soft-cards-2">
+    <link rel="stylesheet" href="/styles.css?rev=uiux-p2-1">
   </head>
   <body>
     <a class="skip-link" href="#detail-content">Skip to project content</a>
@@ -15,7 +15,12 @@
       <header class="app-header">
         <div class="header-context">
           <a class="brand" href="/" aria-label="IntHub home">
-            <span class="brand-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
+            <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+              <path class="brand-mark-rail brand-mark-rail-a" d="M8 6.5V16a8 8 0 0 0 16 0V6.5"/>
+              <path class="brand-mark-rail brand-mark-rail-b" d="M24 25.5V16A8 8 0 0 0 8 16v9.5"/>
+              <circle class="brand-mark-node" cx="8" cy="6.5" r="2.25"/>
+              <circle class="brand-mark-node brand-mark-node-end" cx="24" cy="25.5" r="2.25"/>
+            </svg>
             <span class="brand-wordmark">IntHub</span>
           </a>
 
@@ -51,7 +56,7 @@
           </button>
 
           <div id="account-control" class="account-control is-hidden">
-            <img id="account-avatar" class="account-avatar is-hidden" alt="">
+            <span id="account-avatar" class="account-avatar" aria-hidden="true">IH</span>
             <span id="account-label" class="account-label">Account</span>
             <button id="token-btn" class="account-action" type="button">Access token</button>
             <button id="logout-btn" class="account-action account-action-muted" type="button">Sign out</button>
@@ -141,7 +146,12 @@
       <section class="auth-stage">
         <div class="auth-story">
           <a class="brand brand-on-dark" href="/" aria-label="IntHub home">
-            <span class="brand-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
+            <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+              <path class="brand-mark-rail brand-mark-rail-a" d="M8 6.5V16a8 8 0 0 0 16 0V6.5"/>
+              <path class="brand-mark-rail brand-mark-rail-b" d="M24 25.5V16A8 8 0 0 0 8 16v9.5"/>
+              <circle class="brand-mark-node" cx="8" cy="6.5" r="2.25"/>
+              <circle class="brand-mark-node brand-mark-node-end" cx="24" cy="25.5" r="2.25"/>
+            </svg>
             <span class="brand-wordmark">IntHub</span>
           </a>
           <div class="auth-story-copy">
@@ -190,6 +200,6 @@
       </form>
     </dialog>
 
-    <script src="/app.js?rev=soft-cards-2" defer></script>
+    <script src="/app.js?rev=uiux-p2-1" defer></script>
   </body>
 </html>
