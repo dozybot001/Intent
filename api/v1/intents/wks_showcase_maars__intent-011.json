@@ -1,0 +1,211 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_maars",
+    "intent": {
+      "id": "intent-011",
+      "object": "intent",
+      "created_at": "2026-03-29T13:55:30.907543+00:00",
+      "what": "v10.0.0 architecture overhaul — unified label system, structured UI, file I/O centralization",
+      "status": "done",
+      "why": "results目录混乱、前端左右面板标签体系不统一、文件操作分散在多个模块，需要全面收敛整理",
+      "origin": "claude-code",
+      "decision_ids": [
+        "decision-002",
+        "decision-005",
+        "decision-006",
+        "decision-009",
+        "decision-011",
+        "decision-013"
+      ],
+      "snap_ids": [
+        "snap-046",
+        "snap-047",
+        "snap-048",
+        "snap-049",
+        "snap-050",
+        "snap-051",
+        "snap-052"
+      ]
+    },
+    "snaps": [
+      {
+        "id": "snap-046",
+        "object": "snap",
+        "created_at": "2026-03-29T13:55:37.752739+00:00",
+        "what": "plan_list.json + plan_tree.json 双文件同步",
+        "why": "plan.json重命名为plan_list.json与plan_tree.json对称，amendment和redecompose时同时更新两个文件，删除replan_tree增量补丁",
+        "intent_id": "intent-011",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-047",
+        "object": "snap",
+        "created_at": "2026-03-29T13:55:45.041860+00:00",
+        "what": "Kaggle 数据流修复: idea 存原始输入, refined_idea 包含完整竞赛描述",
+        "why": "之前 idea 和 refined_idea 内容一样且信息量太少，现在 idea 存用户原文(URL+备注)，refined_idea 读取 data_description.txt 等构建丰富上下文",
+        "intent_id": "intent-011",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-048",
+        "object": "snap",
+        "created_at": "2026-03-29T13:55:53.832038+00:00",
+        "what": "统一 chunk level 体系: 1=stage, 2=phase, 3=task, 4=tool",
+        "why": "之前前端靠硬编码SESSION_LABELS猜测标签层级，现在后端每个emit点显式标注level，前端按level switch处理，消除所有启发式匹配",
+        "intent_id": "intent-011",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-049",
+        "object": "snap",
+        "created_at": "2026-03-29T13:56:01.783283+00:00",
+        "what": "统一折叠UI: fold-label/fold-body/fold-text 三个CSS class替代7+个旧class",
+        "why": "左右面板之前用不同的标签样式(.log-label/.task-group-header/.po-phase-body等)，用户选择方案C最小化——所有层级相同样式靠缩进区分",
+        "intent_id": "intent-011",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-050",
+        "object": "snap",
+        "created_at": "2026-03-29T13:56:11.115617+00:00",
+        "what": "右侧结构化事件: document/score/task_summary 推送 + modal 组件",
+        "why": "右侧面板之前只有tree和exec_list有结构化数据，calibration/strategy/evaluation/score全靠左侧日志文本流。新增doc:ready和score:update事件，统一modal替代window.open",
+        "intent_id": "intent-011",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-051",
+        "object": "snap",
+        "created_at": "2026-03-29T13:56:20.308208+00:00",
+        "what": "文件I/O全部收归db.py: save_script, promote_best_score, save_reproduce_files",
+        "why": "之前docker_exec.py和reproduce.py直接写文件，db应该是文件系统的唯一网关。同时删除get_root()暴露，拆成get_tasks_dir和get_latest_score",
+        "intent_id": "intent-011",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-052",
+        "object": "snap",
+        "created_at": "2026-03-29T13:56:27.897231+00:00",
+        "what": "统一streaming路径: _stream_llm提升到BaseStage, evaluate合入research, prompts独立文件",
+        "why": "之前evaluate.py和decompose.py有各自的streaming loop重复_dispatch_stream逻辑。evaluate合入research直接调_stream_llm，decompose通过stream_fn callable间接调用。prompts.py提取207行prompt常量",
+        "intent_id": "intent-011",
+        "origin": "claude-code"
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-002",
+        "object": "decision",
+        "created_at": "2026-03-23T14:58:49.819668+00:00",
+        "what": "Unified call_id streaming model for all stages",
+        "status": "active",
+        "why": "所有 LLM 调用（顺序/并行）统一通过 call_id 标记 chunk。前端按 call_id 路由到独立 DOM 块。左侧显示 LLM 输出过程，右侧显示结构化产出。Agent 模式的 ReAct 事件也走同一机制。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009",
+          "intent-010",
+          "intent-011"
+        ]
+      },
+      {
+        "id": "decision-005",
+        "object": "decision",
+        "created_at": "2026-03-25T12:00:00.000000+00:00",
+        "what": "Docker reproduction is auto-generated, not agent-driven",
+        "status": "active",
+        "why": "复现文件生成是纯流程逻辑（收集脚本名+依赖→模板渲染），不需要 LLM 参与。放在 Execute finalize 中自动执行，Agent 无需感知，避免额外 token 消耗和不确定性。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009",
+          "intent-010",
+          "intent-011"
+        ]
+      },
+      {
+        "id": "decision-006",
+        "object": "decision",
+        "created_at": "2026-03-25T12:10:00.000000+00:00",
+        "what": "Inter-stage data flow through DB, not stage.output (supersedes decision-003)",
+        "status": "active",
+        "why": "Agent 模式下工具直接写 DB，stage.output 字符串直传无法覆盖这个路径。统一为 DB 作为 stage 间数据总线：Agent 用 DB tools 读写，Gemini/Mock 由 pipeline 从 DB 读取注入 prompt。decision-003 的 stage.output 机制降级为 pipeline 内部实现细节，不再是架构约束。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009",
+          "intent-010",
+          "intent-011"
+        ]
+      },
+      {
+        "id": "decision-009",
+        "object": "decision",
+        "created_at": "2026-03-25T20:49:57.824796+00:00",
+        "what": "LLMClient.stream() yields StreamEvent, pipeline is the only broadcast point",
+        "status": "active",
+        "why": "Client 不应该持有 broadcast 回调。所有 LLM 事件（content/think/tool/tokens）统一通过 StreamEvent 交给 pipeline dispatch，新增 Agent 框架只需映射事件类型，不需要重写广播逻辑。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-007",
+          "intent-006",
+          "intent-008",
+          "intent-009",
+          "intent-010",
+          "intent-011"
+        ]
+      },
+      {
+        "id": "decision-011",
+        "object": "decision",
+        "created_at": "2026-03-27T23:37:37.323870+00:00",
+        "what": "Pipeline is 3 stages (Refine → Research → Write); Research internally orchestrates decompose/execute/evaluate cycle",
+        "status": "active",
+        "why": "Plan and Execute were merged because Plan's sole consumer was Execute, and the feedback loop (evaluate → re-decompose) is naturally an execution concern, not an orchestration concern",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-009",
+          "intent-010",
+          "intent-011",
+          "intent-006"
+        ]
+      },
+      {
+        "id": "decision-013",
+        "object": "decision",
+        "created_at": "2026-03-29T04:37:42.781900+00:00",
+        "what": "Research internal state (calibration, strategy, scores) must be persisted to DB, not held in memory only",
+        "status": "active",
+        "why": "Memory-only state is lost on pause/resume, breaking checkpoint recovery. All state that survives across iterations must have a DB file.",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-010",
+          "intent-011",
+          "intent-006"
+        ]
+      }
+    ]
+  }
+}

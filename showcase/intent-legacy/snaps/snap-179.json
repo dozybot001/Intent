@@ -1,0 +1,9 @@
+{
+  "id": "snap-179",
+  "object": "snap",
+  "created_at": "2026-03-28T10:32:17.825229+00:00",
+  "what": "创建并发布 v5.0.0 GitHub release",
+  "why": "核心契约已经稳定，需要把当前实现以正式 tag 和双语 release notes 固化下来，给后续安装、展示和协作一个明确基线。",
+  "intent_id": "intent-048",
+  "origin": "codex-desktop"
+}

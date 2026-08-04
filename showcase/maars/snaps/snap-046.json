@@ -1,0 +1,9 @@
+{
+  "id": "snap-046",
+  "object": "snap",
+  "created_at": "2026-03-29T13:55:37.752739+00:00",
+  "what": "plan_list.json + plan_tree.json 双文件同步",
+  "why": "plan.json重命名为plan_list.json与plan_tree.json对称，amendment和redecompose时同时更新两个文件，删除replan_tree增量补丁",
+  "intent_id": "intent-011",
+  "origin": "claude-code"
+}

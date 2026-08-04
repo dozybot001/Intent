@@ -1,0 +1,9 @@
+{
+  "id": "snap-049",
+  "object": "snap",
+  "created_at": "2026-03-29T13:56:01.783283+00:00",
+  "what": "统一折叠UI: fold-label/fold-body/fold-text 三个CSS class替代7+个旧class",
+  "why": "左右面板之前用不同的标签样式(.log-label/.task-group-header/.po-phase-body等)，用户选择方案C最小化——所有层级相同样式靠缩进区分",
+  "intent_id": "intent-011",
+  "origin": "claude-code"
+}

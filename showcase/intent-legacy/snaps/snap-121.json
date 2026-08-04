@@ -1,0 +1,10 @@
+{
+  "id": "snap-121",
+  "object": "snap",
+  "created_at": "2026-03-20T17:58:58.036850+00:00",
+  "intent_id": "intent-024",
+  "query": "",
+  "what": "收紧 Intent 与 Git 的分层原则并同步文档",
+  "why": "",
+  "next": "-"
+}

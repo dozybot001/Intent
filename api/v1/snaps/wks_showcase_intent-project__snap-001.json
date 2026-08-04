@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-project",
+    "snap": {
+      "id": "snap-001",
+      "object": "snap",
+      "created_at": "2026-07-30T09:15:00+00:00",
+      "what": "Separated transient provider timeouts from business rejections",
+      "why": "Only infrastructure failures are safe to retry; rejected payments are terminal outcomes.",
+      "intent_id": "intent-001",
+      "origin": "synthetic-showcase"
+    },
+    "intent": {
+      "id": "intent-001",
+      "object": "intent",
+      "created_at": "2026-07-30T09:00:00+00:00",
+      "what": "Stabilize checkout retry semantics",
+      "status": "active",
+      "why": "Intermittent provider timeouts leave otherwise valid orders pending.",
+      "origin": "synthetic-showcase",
+      "decision_ids": [
+        "decision-001",
+        "decision-002"
+      ],
+      "snap_ids": [
+        "snap-001",
+        "snap-002"
+      ]
+    }
+  }
+}

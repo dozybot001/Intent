@@ -1,0 +1,73 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-project",
+    "intent": {
+      "id": "intent-001",
+      "object": "intent",
+      "created_at": "2026-07-30T09:00:00+00:00",
+      "what": "Stabilize checkout retry semantics",
+      "status": "active",
+      "why": "Intermittent provider timeouts leave otherwise valid orders pending.",
+      "origin": "synthetic-showcase",
+      "decision_ids": [
+        "decision-001",
+        "decision-002"
+      ],
+      "snap_ids": [
+        "snap-001",
+        "snap-002"
+      ]
+    },
+    "snaps": [
+      {
+        "id": "snap-001",
+        "object": "snap",
+        "created_at": "2026-07-30T09:15:00+00:00",
+        "what": "Separated transient provider timeouts from business rejections",
+        "why": "Only infrastructure failures are safe to retry; rejected payments are terminal outcomes.",
+        "intent_id": "intent-001",
+        "origin": "synthetic-showcase"
+      },
+      {
+        "id": "snap-002",
+        "object": "snap",
+        "created_at": "2026-07-30T09:30:00+00:00",
+        "what": "Added a bounded three-attempt exponential backoff",
+        "why": "It absorbs short provider interruptions without extending checkout indefinitely.",
+        "intent_id": "intent-001",
+        "origin": "synthetic-showcase"
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-001",
+        "object": "decision",
+        "created_at": "2026-07-30T09:05:00+00:00",
+        "what": "Outbound payment calls use bounded retries",
+        "status": "active",
+        "why": "Unbounded retries can duplicate side effects and hide provider incidents.",
+        "origin": "synthetic-showcase",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003"
+        ]
+      },
+      {
+        "id": "decision-002",
+        "object": "decision",
+        "created_at": "2026-07-30T10:35:00+00:00",
+        "what": "Retry all checkout failures three times",
+        "status": "deprecated",
+        "why": "A single rule initially seemed easier to operate than an explicit failure taxonomy.",
+        "origin": "synthetic-showcase",
+        "intent_ids": [
+          "intent-001",
+          "intent-003"
+        ],
+        "reason": "Business rejections are terminal; only transient provider failures may be retried."
+      }
+    ]
+  }
+}

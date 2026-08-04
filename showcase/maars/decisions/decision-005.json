@@ -1,0 +1,22 @@
+{
+  "id": "decision-005",
+  "object": "decision",
+  "created_at": "2026-03-25T12:00:00.000000+00:00",
+  "what": "Docker reproduction is auto-generated, not agent-driven",
+  "status": "active",
+  "why": "复现文件生成是纯流程逻辑（收集脚本名+依赖→模板渲染），不需要 LLM 参与。放在 Execute finalize 中自动执行，Agent 无需感知，避免额外 token 消耗和不确定性。",
+  "origin": "claude-code",
+  "intent_ids": [
+    "intent-001",
+    "intent-002",
+    "intent-003",
+    "intent-004",
+    "intent-005",
+    "intent-006",
+    "intent-007",
+    "intent-008",
+    "intent-009",
+    "intent-010",
+    "intent-011"
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "snap": {
+      "id": "snap-164",
+      "object": "snap",
+      "created_at": "2026-03-21T14:34:02.382469+00:00",
+      "intent_id": "intent-040",
+      "origin": "claude-code",
+      "what": "Install scripts shipped",
+      "why": "Created install.sh (bash) and install.ps1 (PowerShell) one-liner install scripts. Both auto-detect Python 3.9+, bootstrap pipx if missing, then pipx install intent-cli from GitHub. Updated Quick Start in both READMEs to use curl/irm one-liners. Tested on Windows — works. Line endings verified LF in index for .sh.",
+      "next": "-",
+      "query": "-"
+    },
+    "intent": {
+      "id": "intent-040",
+      "object": "intent",
+      "created_at": "2026-03-21T14:31:16.958300+00:00",
+      "status": "done",
+      "decision_ids": [
+        "decision-001",
+        "decision-003",
+        "decision-009",
+        "decision-010",
+        "decision-011",
+        "decision-013",
+        "decision-014",
+        "decision-015",
+        "decision-016",
+        "decision-018",
+        "decision-019",
+        "decision-020",
+        "decision-022"
+      ],
+      "snap_ids": [
+        "snap-164"
+      ],
+      "what": "One-line install script for Intent CLI",
+      "why": "Lower the barrier to entry — a single command should handle pipx bootstrap and intent-cli installation",
+      "query": "安装intent太麻烦了，要先装scoop再装pipx再装intent"
+    }
+  }
+}

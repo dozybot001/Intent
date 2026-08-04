@@ -1,0 +1,10 @@
+{
+  "id": "snap-108",
+  "object": "snap",
+  "created_at": "2026-03-20T07:49:49.609712+00:00",
+  "intent_id": "intent-022",
+  "query": "算了，fig1别用箭头，不好看",
+  "what": "去掉 Fig.1 的箭头头部，改为纯连接线",
+  "why": "",
+  "next": "-"
+}

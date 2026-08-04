@@ -1,0 +1,10 @@
+{
+  "id": "snap-067",
+  "object": "snap",
+  "created_at": "2026-03-19T17:14:39.016053+00:00",
+  "intent_id": "intent-013",
+  "query": "可以，加一个官方showcase也不错",
+  "what": "将官方 showcase project 写入 IntHub MVP",
+  "why": "用户已同意将官方 showcase 作为 IntHub 的方向，需要把它从口头判断落到 MVP 文档，形成后续产品实现的约束。",
+  "next": "-"
+}

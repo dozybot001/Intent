@@ -1,0 +1,68 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "snap": {
+      "id": "snap-133",
+      "object": "snap",
+      "created_at": "2026-03-20T20:33:09.273905+00:00",
+      "intent_id": "intent-025",
+      "what": "简化 snap create 为 title 与 summary",
+      "why": "已将 snap create 收紧为只接受 TITLE、--intent、--summary，其中 --summary 为必填。新建 snap 对象不再写入 query 或 rationale，只保留 title、summary，以及默认空的 feedback；用户反馈继续通过单独的 snap feedback 命令记录。同步更新了 parser、core 写入逻辑、tests/test_cli.py、中英文 cli.md、仓库内与本机 skill，以及 IntHub 的 MVP / sync contract 文档，使所有表述统一到新的 snap 模型。",
+      "next": "-",
+      "query": "-"
+    },
+    "intent": {
+      "id": "intent-025",
+      "object": "intent",
+      "created_at": "2026-03-20T18:07:05.302778+00:00",
+      "status": "done",
+      "decision_ids": [
+        "decision-001",
+        "decision-003",
+        "decision-004",
+        "decision-008",
+        "decision-009",
+        "decision-010",
+        "decision-011",
+        "decision-012",
+        "decision-013",
+        "decision-014",
+        "decision-015",
+        "decision-016",
+        "decision-017",
+        "decision-018",
+        "decision-019"
+      ],
+      "snap_ids": [
+        "snap-122",
+        "snap-123",
+        "snap-124",
+        "snap-125",
+        "snap-126",
+        "snap-127",
+        "snap-128",
+        "snap-129",
+        "snap-130",
+        "snap-131",
+        "snap-132",
+        "snap-133",
+        "snap-134",
+        "snap-135",
+        "snap-136",
+        "snap-137",
+        "snap-138",
+        "snap-139",
+        "snap-140",
+        "snap-141",
+        "snap-142",
+        "snap-143",
+        "snap-144",
+        "snap-145"
+      ],
+      "what": "收紧 intent-cli 的命令面设计",
+      "why": "这是对 intent-cli 命令面本身的系统性收敛目标，需要跨多轮评估 inspect/version/doctor 等全局命令的边界、输出与噪音控制。",
+      "query": "是的，我觉得有很多很多冗余噪音，我们需要仔细优化一下命令面设计了。先从全局命令开始。"
+    }
+  }
+}

@@ -1,0 +1,154 @@
+{
+  "ok": true,
+  "result": {
+    "project": {
+      "id": "showcase_intent-project",
+      "name": "intent-project",
+      "repo": {
+        "owner": "showcase",
+        "name": "intent-project"
+      }
+    },
+    "workspaces": [
+      {
+        "workspace_id": "wks_showcase_intent-project",
+        "branch": "main",
+        "dirty": false,
+        "last_synced_at": "2026-07-30T10:45:00+00:00"
+      }
+    ],
+    "active_intents": [
+      {
+        "id": "intent-001",
+        "object": "intent",
+        "created_at": "2026-07-30T09:00:00+00:00",
+        "what": "Stabilize checkout retry semantics",
+        "status": "active",
+        "why": "Intermittent provider timeouts leave otherwise valid orders pending.",
+        "origin": "synthetic-showcase",
+        "decision_ids": [
+          "decision-001",
+          "decision-002"
+        ],
+        "snap_ids": [
+          "snap-001",
+          "snap-002"
+        ],
+        "remote_id": "wks_showcase_intent-project__intent-001"
+      }
+    ],
+    "other_intents": [
+      {
+        "id": "intent-002",
+        "object": "intent",
+        "created_at": "2026-07-30T10:00:00+00:00",
+        "what": "Verify retry behavior against the provider sandbox",
+        "status": "suspend",
+        "why": "The local contract is complete, but the external sandbox is temporarily unavailable.",
+        "origin": "synthetic-showcase",
+        "decision_ids": [
+          "decision-001"
+        ],
+        "snap_ids": [
+          "snap-003"
+        ],
+        "remote_id": "wks_showcase_intent-project__intent-002"
+      },
+      {
+        "id": "intent-003",
+        "object": "intent",
+        "created_at": "2026-07-30T10:30:00+00:00",
+        "what": "Retry every checkout failure automatically",
+        "status": "cancelled",
+        "why": "A uniform retry path initially appeared simpler than classifying failures.",
+        "origin": "synthetic-showcase",
+        "decision_ids": [
+          "decision-001",
+          "decision-002"
+        ],
+        "snap_ids": [
+          "snap-004"
+        ],
+        "reason": "Business rejections are terminal and must never enter the provider retry path.",
+        "remote_id": "wks_showcase_intent-project__intent-003"
+      }
+    ],
+    "active_decisions": [
+      {
+        "id": "decision-001",
+        "object": "decision",
+        "created_at": "2026-07-30T09:05:00+00:00",
+        "what": "Outbound payment calls use bounded retries",
+        "status": "active",
+        "why": "Unbounded retries can duplicate side effects and hide provider incidents.",
+        "origin": "synthetic-showcase",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003"
+        ],
+        "remote_id": "wks_showcase_intent-project__decision-001"
+      }
+    ],
+    "deprecated_decisions": [
+      {
+        "id": "decision-002",
+        "object": "decision",
+        "created_at": "2026-07-30T10:35:00+00:00",
+        "what": "Retry all checkout failures three times",
+        "status": "deprecated",
+        "why": "A single rule initially seemed easier to operate than an explicit failure taxonomy.",
+        "origin": "synthetic-showcase",
+        "intent_ids": [
+          "intent-001",
+          "intent-003"
+        ],
+        "reason": "Business rejections are terminal; only transient provider failures may be retried.",
+        "remote_id": "wks_showcase_intent-project__decision-002"
+      }
+    ],
+    "recent_snaps": [
+      {
+        "id": "snap-004",
+        "object": "snap",
+        "created_at": "2026-07-30T10:45:00+00:00",
+        "what": "Proved that business rejections must bypass retries",
+        "why": "Retrying a terminal rejection adds latency and can obscure the user-facing reason.",
+        "intent_id": "intent-003",
+        "origin": "synthetic-showcase",
+        "remote_id": "wks_showcase_intent-project__snap-004"
+      },
+      {
+        "id": "snap-003",
+        "object": "snap",
+        "created_at": "2026-07-30T10:15:00+00:00",
+        "what": "Prepared sandbox cases for timeout, rejection, and recovery",
+        "why": "The next session can resume at external verification instead of reconstructing the local design.",
+        "intent_id": "intent-002",
+        "origin": "synthetic-showcase",
+        "remote_id": "wks_showcase_intent-project__snap-003"
+      },
+      {
+        "id": "snap-002",
+        "object": "snap",
+        "created_at": "2026-07-30T09:30:00+00:00",
+        "what": "Added a bounded three-attempt exponential backoff",
+        "why": "It absorbs short provider interruptions without extending checkout indefinitely.",
+        "intent_id": "intent-001",
+        "origin": "synthetic-showcase",
+        "remote_id": "wks_showcase_intent-project__snap-002"
+      },
+      {
+        "id": "snap-001",
+        "object": "snap",
+        "created_at": "2026-07-30T09:15:00+00:00",
+        "what": "Separated transient provider timeouts from business rejections",
+        "why": "Only infrastructure failures are safe to retry; rejected payments are terminal outcomes.",
+        "intent_id": "intent-001",
+        "origin": "synthetic-showcase",
+        "remote_id": "wks_showcase_intent-project__snap-001"
+      }
+    ],
+    "total_snaps": 4
+  }
+}

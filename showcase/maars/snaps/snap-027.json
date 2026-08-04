@@ -1,0 +1,9 @@
+{
+  "id": "snap-027",
+  "object": "snap",
+  "created_at": "2026-03-25T20:49:24.200824+00:00",
+  "what": "AgnoClient + create_agno_stages + model factory",
+  "why": "AgnoClient 实现 LLMClient 接口，封装 Agno Agent 的 arun() 流式事件。create_agno_stages 镜像 ADK 的工厂模式，复用 DB/Docker 工具和 AgentRefineStage/AgentWriteStage。model factory 支持 google/anthropic/openai 三个 provider。",
+  "intent_id": "intent-007",
+  "origin": "claude-code"
+}

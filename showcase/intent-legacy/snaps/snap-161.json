@@ -1,0 +1,11 @@
+{
+  "id": "snap-161",
+  "object": "snap",
+  "created_at": "2026-03-21T13:33:48.499672+00:00",
+  "intent_id": "intent-037",
+  "origin": "codex-desktop",
+  "what": "移除历史 release manifests",
+  "why": "已从仓库删除顶层 VERSION 与 releases/ 下的全部历史 manifest 文件。当前已跟踪代码、文档、workflow、测试中已无任何对 VERSION 或 releases/ 的引用；它们现在只剩 showcase 历史 snap 中的语义提及，未被改写。这样仓库层面不再暗示仍在维护项目版本索引。",
+  "next": "-",
+  "query": "-"
+}

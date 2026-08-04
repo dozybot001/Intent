@@ -1,0 +1,20 @@
+{
+  "id": "decision-008",
+  "object": "decision",
+  "created_at": "2026-03-25T14:28:38.154736+00:00",
+  "what": "Stage boundary alignment, internal execution freedom — modes share 4 stages and DB contract, not implementation",
+  "status": "deprecated",
+  "why": "Gemini 和 Agent 共享同一套 4 阶段（Refine→Plan→Execute→Write）、同样的 DB 数据流合约（idea.md→refined_idea.md→plan.json→tasks/*.md→paper.md）。但内部执行完全自由：Gemini 用多轮 LLM 调用，Agent 用单 session 自主完成。对齐的层次是阶段边界和 DB 合约，不是内部实现。",
+  "origin": "claude-code",
+  "intent_ids": [
+    "intent-001",
+    "intent-003",
+    "intent-004",
+    "intent-005",
+    "intent-006",
+    "intent-007",
+    "intent-008",
+    "intent-009"
+  ],
+  "reason": "Pipeline is now 3 stages (Refine → Research → Write), not 4. Research stage internally handles decompose+execute+evaluate."
+}

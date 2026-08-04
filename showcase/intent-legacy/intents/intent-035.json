@@ -1,0 +1,27 @@
+{
+  "id": "intent-035",
+  "object": "intent",
+  "created_at": "2026-03-21T13:06:47.298990+00:00",
+  "status": "done",
+  "decision_ids": [
+    "decision-001",
+    "decision-003",
+    "decision-009",
+    "decision-010",
+    "decision-011",
+    "decision-013",
+    "decision-014",
+    "decision-015",
+    "decision-016",
+    "decision-018",
+    "decision-019",
+    "decision-020",
+    "decision-022"
+  ],
+  "snap_ids": [
+    "snap-159"
+  ],
+  "what": "收紧 README 顶部产品定位",
+  "why": "README 顶部一句话应先定义 Intent 的本质是 Git 之上的语义历史层，再谈产品形成历史和恢复能力，避免把定位降成单纯的跨 agent 上下文工具。",
+  "query": "我觉得readme第一句话不太合适，没有讲出intent的本质，而且也不是专门为了跨agent记录上下文设计的，这样会把intent的定位拉低了"
+}

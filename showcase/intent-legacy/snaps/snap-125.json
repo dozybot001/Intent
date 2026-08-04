@@ -1,0 +1,10 @@
+{
+  "id": "snap-125",
+  "object": "snap",
+  "created_at": "2026-03-20T18:37:36.914548+00:00",
+  "intent_id": "intent-025",
+  "query": "",
+  "what": "实现 inspect 的 resume-first 默认结构",
+  "why": "",
+  "next": "-"
+}

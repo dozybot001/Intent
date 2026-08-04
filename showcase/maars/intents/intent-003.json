@@ -1,0 +1,22 @@
+{
+  "id": "intent-003",
+  "object": "intent",
+  "created_at": "2026-03-25T14:27:51.261596+00:00",
+  "what": "Redesign Agent mode stage control: stop/resume/retry semantics",
+  "status": "done",
+  "why": "当前 pause/resume 机制对 Agent 模式无效（Agent 单 session 无天然暂停点）。需要重新设计：stop=cancel 当前 session，resume=重跑当前 batch 内未完成任务（DB 作为 checkpoint），retry=重启整个阶段。Execute 保留已排好的 batch 列表和 current_batch_idx，不重新拓扑排序。",
+  "origin": "claude-code",
+  "decision_ids": [
+    "decision-001",
+    "decision-002",
+    "decision-004",
+    "decision-005",
+    "decision-006",
+    "decision-007",
+    "decision-008"
+  ],
+  "snap_ids": [
+    "snap-021",
+    "snap-022"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "id": "snap-036",
+  "object": "snap",
+  "created_at": "2026-03-27T23:36:37.803504+00:00",
+  "what": "Created ResearchStage with decompose → execute → evaluate loop",
+  "why": "The feedback loop lives inside the stage (not the orchestrator) because iteration is an execution concern — orchestrator stays linear, and checkpoint resume naturally handles 'only run new tasks'",
+  "intent_id": "intent-009",
+  "origin": "claude-code"
+}

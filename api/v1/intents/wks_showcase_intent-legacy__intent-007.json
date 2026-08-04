@@ -1,0 +1,121 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "intent": {
+      "id": "intent-007",
+      "object": "intent",
+      "created_at": "2026-03-19T10:17:17.956164+00:00",
+      "status": "done",
+      "decision_ids": [
+        "decision-001",
+        "decision-002"
+      ],
+      "snap_ids": [
+        "snap-008"
+      ],
+      "what": "按代码改动覆盖原则继续优化 intent-cli skill",
+      "why": "用户确认将‘代码改动必须可追溯到 intent’记录为长期约束，并要求继续据此收紧 SKILL.md 的规则表述",
+      "query": "是的，记录。你的理解非常正确，比我的表述更加准确，按照这个理解进一步优化skill"
+    },
+    "snaps": [
+      {
+        "id": "snap-008",
+        "object": "snap",
+        "created_at": "2026-03-19T10:18:19.080303+00:00",
+        "intent_id": "intent-007",
+        "query": "是的，记录。你的理解非常正确，比我的表述更加准确，按照这个理解进一步优化skill",
+        "what": "记录代码改动覆盖原则并继续优化 skill",
+        "why": "用户确认将该原则上升为长期约束，并要求把它落到 SKILL.md 的可执行判断规则中",
+        "next": "-"
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-001",
+        "object": "decision",
+        "created_at": "2026-03-18T08:19:45.615389+00:00",
+        "status": "active",
+        "intent_ids": [
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009",
+          "intent-010",
+          "intent-011",
+          "intent-012",
+          "intent-013",
+          "intent-014",
+          "intent-015",
+          "intent-016",
+          "intent-017",
+          "intent-018",
+          "intent-019",
+          "intent-020",
+          "intent-021",
+          "intent-022",
+          "intent-023",
+          "intent-024",
+          "intent-025",
+          "intent-026",
+          "intent-027",
+          "intent-028",
+          "intent-029",
+          "intent-030",
+          "intent-031",
+          "intent-032",
+          "intent-033",
+          "intent-034",
+          "intent-035",
+          "intent-036",
+          "intent-037",
+          "intent-038",
+          "intent-039",
+          "intent-040",
+          "intent-041",
+          "intent-042",
+          "intent-043",
+          "intent-044",
+          "intent-045",
+          "intent-046",
+          "intent-047"
+        ],
+        "what": "SKILL 的撰写目标是让 Agent 只阅读 SKILL，其行为表现能满足 Vision 和 CLI 的设计预期",
+        "why": "SKILL 是 agent 接触 Intent 系统的唯一入口。如果 SKILL 不能独立传达 Vision 的设计哲学和 CLI 的技术规范，agent 的使用就会形式正确但语义空洞，违背 Intent 降低语义损耗的根本目标。",
+        "query": "-"
+      },
+      {
+        "id": "decision-002",
+        "object": "decision",
+        "created_at": "2026-03-19T10:17:17.956299+00:00",
+        "status": "deprecated",
+        "intent_ids": [
+          "intent-007",
+          "intent-008",
+          "intent-009",
+          "intent-010",
+          "intent-011",
+          "intent-012",
+          "intent-013",
+          "intent-014",
+          "intent-015",
+          "intent-016",
+          "intent-017",
+          "intent-018",
+          "intent-019",
+          "intent-020",
+          "intent-021",
+          "intent-022",
+          "intent-023",
+          "intent-024"
+        ],
+        "what": "任何代码改动都必须可追溯到某个 intent；Intent 至少覆盖 Git 记录的代码工作语义",
+        "why": "Git 记录代码改动的事实，Intent 记录改动背后的目标、约束、上下文和未完成状态。作为 Git 之上的语义层，Intent 至少不能遗漏任何代码改动的语义归属；否则未来会话只能看到 diff，看不到为什么改、改到哪一步、还剩什么。",
+        "query": "-"
+      }
+    ]
+  }
+}

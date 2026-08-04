@@ -1,0 +1,11 @@
+{
+  "id": "snap-167",
+  "object": "snap",
+  "created_at": "2026-03-22T06:49:37.184031+00:00",
+  "intent_id": "intent-043",
+  "origin": "claude-code",
+  "what": "Add origin and source_query to intent/decision",
+  "why": "Added origin field (auto-detected from environment) to intent and decision objects. Added source_query (--query) to decision. Removed status field from snap objects — snaps have no state transitions. Fixed snap detail view to not render empty status badge. Drawer close button vertical alignment fixed. CLI reinstalled and IntHub restarted.",
+  "next": "-",
+  "query": "-"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "snap-153",
+  "object": "snap",
+  "created_at": "2026-03-21T07:04:08.735040+00:00",
+  "intent_id": "intent-029",
+  "origin": "claude-code",
+  "what": "v1.7.0 发布完成",
+  "why": "v1.7.0 已提交、打 tag、推送并创建 GitHub Release。包含 CLI 瘦身（移除浏览子命令）、snap origin 自动检测（Claude Code/Cursor/Codex 等）、intent ID 推断、inspect 输出重设计、文档图表化等全部改动。66 tests passed。Release URL: https://github.com/dozybot001/Intent/releases/tag/v1.7.0",
+  "next": "-",
+  "query": "-"
+}

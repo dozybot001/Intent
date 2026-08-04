@@ -1,0 +1,9 @@
+{
+  "id": "snap-008",
+  "object": "snap",
+  "created_at": "2026-03-23T14:58:32.210955+00:00",
+  "what": "Agent mode with Google ADK",
+  "why": "接入 Google ADK Agent 模式：AgentStage 基类桥接 ADK ReAct 循环到 BaseStage 接口。Refine/Write 用单 Agent，Plan 用单 Agent 一次性输出 JSON（max_depth=3 防止爆炸），Execute 用 per-task Agent 并行。tools/ 和 skills/ 包结构预留扩展。三种模式完全并列（mock/gemini/agent），.env 一行切换。Agent 模式 Gemini 真实调用验证通过：HMAO 架构论文，12 原子任务。mock 数据替换为真实 LLM 运行记录。",
+  "intent_id": "intent-001",
+  "origin": "claude-code"
+}

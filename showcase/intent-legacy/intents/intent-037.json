@@ -1,0 +1,27 @@
+{
+  "id": "intent-037",
+  "object": "intent",
+  "created_at": "2026-03-21T13:32:55.116632+00:00",
+  "status": "done",
+  "decision_ids": [
+    "decision-001",
+    "decision-003",
+    "decision-009",
+    "decision-010",
+    "decision-011",
+    "decision-013",
+    "decision-014",
+    "decision-015",
+    "decision-016",
+    "decision-018",
+    "decision-019",
+    "decision-020",
+    "decision-022"
+  ],
+  "snap_ids": [
+    "snap-161"
+  ],
+  "what": "移除历史 releases 目录与相关引用",
+  "why": "仓库已不再维护项目版本 release manifests，releases/ 若无运行或文档依赖则应移除，避免继续制造版本心智负担。",
+  "query": "releases也没用了，已经不分版本了"
+}

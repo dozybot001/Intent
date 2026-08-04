@@ -1,0 +1,9 @@
+{
+  "id": "snap-042",
+  "object": "snap",
+  "created_at": "2026-03-29T04:36:59.473198+00:00",
+  "what": "Evaluate split: system checks score delta, LLM analyzes improvements",
+  "why": "LLM evaluate was rubber-stamping mediocre results. Now system reads best_score.json for hard stop/continue decision, LLM only provides improvement analysis for replan.",
+  "intent_id": "intent-010",
+  "origin": "claude-code"
+}

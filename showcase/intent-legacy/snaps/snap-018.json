@@ -1,0 +1,10 @@
+{
+  "id": "snap-018",
+  "object": "snap",
+  "created_at": "2026-03-19T11:26:43.890840+00:00",
+  "intent_id": "intent-013",
+  "query": "可以",
+  "what": "起草 IntHub MVP 设计文档",
+  "why": "用户确认把 IntHub 的首期想法收敛成文档，因此需要形成一个可直接承接实现的 MVP spec，而不只是口头方向。",
+  "next": "-"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "snap-024",
+  "object": "snap",
+  "created_at": "2026-03-25T16:02:13.324952+00:00",
+  "what": "Auto-fold labels in Reasoning Log with user-expanded protection",
+  "why": "新 label 出现时自动折叠同 section 内所有之前的 block，只保持最新展开。用户手动展开的标记 user-expanded 不被自动折叠。stage 级和 label 级逻辑统一。max-height 从 48px 提到 200px。",
+  "intent_id": "intent-004",
+  "origin": "claude-code"
+}

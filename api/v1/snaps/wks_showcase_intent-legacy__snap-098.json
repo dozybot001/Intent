@@ -1,0 +1,51 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "snap": {
+      "id": "snap-098",
+      "object": "snap",
+      "created_at": "2026-03-20T06:56:12.108351+00:00",
+      "intent_id": "intent-021",
+      "query": "效果依旧不好，出现显示错误，intent到agent的箭头非常大。然后为什么intent和agent都是紫色的。可以提高设计感。按你的想法来。",
+      "what": "全面重设计 Fig.1，修复箭头、配色和设计感",
+      "why": "arrowPurple marker 尺寸 10x8 + stroke 1.8 导致箭头过大；Agent 和 Intent 同为紫色缺乏语义区分；整体设计缺少层次和精致感",
+      "next": "-"
+    },
+    "intent": {
+      "id": "intent-021",
+      "object": "intent",
+      "created_at": "2026-03-20T06:39:22.175322+00:00",
+      "status": "done",
+      "decision_ids": [
+        "decision-001",
+        "decision-002",
+        "decision-003",
+        "decision-004",
+        "decision-008",
+        "decision-009",
+        "decision-010",
+        "decision-011",
+        "decision-012",
+        "decision-013",
+        "decision-014"
+      ],
+      "snap_ids": [
+        "snap-094",
+        "snap-095",
+        "snap-096",
+        "snap-097",
+        "snap-098",
+        "snap-099",
+        "snap-100",
+        "snap-101",
+        "snap-102",
+        "snap-103",
+        "snap-104"
+      ],
+      "what": "重构 architecture.html 为科研论文风格架构图",
+      "why": "当前架构图页面是暗色主题，视觉效果不佳，需要重构为类似顶级 CS 会议论文的学术风格架构可视化",
+      "query": "检查itt，重构架构图页面，目前不好看，有没有那种简约、美观、清晰的科研论文架构图，不要过于简单了，有色彩，有图像，有点缀"
+    }
+  }
+}

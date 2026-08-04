@@ -1,0 +1,14 @@
+{
+  "id": "decision-013",
+  "object": "decision",
+  "created_at": "2026-03-29T04:37:42.781900+00:00",
+  "what": "Research internal state (calibration, strategy, scores) must be persisted to DB, not held in memory only",
+  "status": "active",
+  "why": "Memory-only state is lost on pause/resume, breaking checkpoint recovery. All state that survives across iterations must have a DB file.",
+  "origin": "claude-code",
+  "intent_ids": [
+    "intent-010",
+    "intent-011",
+    "intent-006"
+  ]
+}

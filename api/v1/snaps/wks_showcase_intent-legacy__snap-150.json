@@ -1,0 +1,46 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "snap": {
+      "id": "snap-150",
+      "object": "snap",
+      "created_at": "2026-03-21T06:50:25.647475+00:00",
+      "intent_id": "intent-027",
+      "origin": "",
+      "what": "继续收紧 CLI happy path",
+      "why": "intent activate、suspend、done 现在在恰好只有一个匹配对象时可省略 ID，并在成功返回里给 inferred warning；没有候选或有多个候选时分别返回 NO_ACTIVE_INTENT / MULTIPLE_ACTIVE_INTENTS / NO_SUSPENDED_INTENT / MULTIPLE_SUSPENDED_INTENTS。decision attach 已从公开 CLI 命令面移除，parser、测试、CLI 文档与两份 SKILL 已同步；decision --help 现在只剩 create、deprecate。pytest tests/test_cli.py 通过。",
+      "next": "-",
+      "query": "-"
+    },
+    "intent": {
+      "id": "intent-027",
+      "object": "intent",
+      "created_at": "2026-03-21T06:46:05.896740+00:00",
+      "status": "done",
+      "decision_ids": [
+        "decision-001",
+        "decision-003",
+        "decision-004",
+        "decision-008",
+        "decision-009",
+        "decision-010",
+        "decision-011",
+        "decision-012",
+        "decision-013",
+        "decision-014",
+        "decision-015",
+        "decision-016",
+        "decision-018",
+        "decision-019",
+        "decision-020"
+      ],
+      "snap_ids": [
+        "snap-150"
+      ],
+      "what": "继续收紧 intent-cli 以减轻 agent 负担",
+      "why": "进一步减少日常 itt 命令中的机械参数输入，并把非 happy-path 命令移出公开命令面。",
+      "query": "可以，你的建议我都采纳"
+    }
+  }
+}

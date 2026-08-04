@@ -1,0 +1,10 @@
+{
+  "id": "snap-016",
+  "object": "snap",
+  "created_at": "2026-03-19T11:18:02.376265+00:00",
+  "intent_id": "intent-012",
+  "query": "可以，顺便把1.1.0的release note也改写一下吧",
+  "what": "按短模板重写 v1.1.0 release note",
+  "why": "release-publisher 的模板刚收敛为更短的默认结构，因此历史 release 也应同步到新风格，保持一致性。",
+  "next": "-"
+}

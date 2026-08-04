@@ -1,0 +1,37 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_maars",
+    "snap": {
+      "id": "snap-026",
+      "object": "snap",
+      "created_at": "2026-03-25T17:16:01.415179+00:00",
+      "what": "Resume only for Execute, remove dead pause-gate mechanism",
+      "why": "非 Execute 阶段 resume = retry（无 checkpoint），resume 按钮无意义。HTML 只在 Execute 保留 resume。同时删除整个 _pause_event 机制（stop 改用 task cancellation 后不再需要）、BaseStage.stop()/resume() 死方法、orchestrator 中 per-stage cancel 的 no-op 调用。纯删 27 行。",
+      "intent_id": "intent-005",
+      "origin": "claude-code"
+    },
+    "intent": {
+      "id": "intent-005",
+      "object": "intent",
+      "created_at": "2026-03-25T17:15:47.610491+00:00",
+      "what": "Control surface convergence: remove run, unify stop/resume/retry",
+      "status": "done",
+      "why": "四阶段的控制操作存在冗余——run 按钮和 START 重复、resume 对非 Execute 阶段无意义、_pause_event 机制在 task cancellation 模式下已死。需要收敛到最简控制面。",
+      "origin": "claude-code",
+      "decision_ids": [
+        "decision-001",
+        "decision-002",
+        "decision-004",
+        "decision-005",
+        "decision-006",
+        "decision-007",
+        "decision-008"
+      ],
+      "snap_ids": [
+        "snap-025",
+        "snap-026"
+      ]
+    }
+  }
+}

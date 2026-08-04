@@ -1,0 +1,10 @@
+{
+  "id": "snap-124",
+  "object": "snap",
+  "created_at": "2026-03-20T18:31:44.015028+00:00",
+  "intent_id": "intent-025",
+  "query": "",
+  "what": "确认 inspect 中 decision 与 intent 的并列结构",
+  "why": "",
+  "next": "-"
+}

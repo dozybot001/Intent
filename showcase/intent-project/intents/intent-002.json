@@ -1,0 +1,15 @@
+{
+  "id": "intent-002",
+  "object": "intent",
+  "created_at": "2026-07-30T10:00:00+00:00",
+  "what": "Verify retry behavior against the provider sandbox",
+  "status": "suspend",
+  "why": "The local contract is complete, but the external sandbox is temporarily unavailable.",
+  "origin": "synthetic-showcase",
+  "decision_ids": [
+    "decision-001"
+  ],
+  "snap_ids": [
+    "snap-003"
+  ]
+}

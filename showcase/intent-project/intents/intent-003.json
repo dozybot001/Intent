@@ -1,0 +1,17 @@
+{
+  "id": "intent-003",
+  "object": "intent",
+  "created_at": "2026-07-30T10:30:00+00:00",
+  "what": "Retry every checkout failure automatically",
+  "status": "cancelled",
+  "why": "A uniform retry path initially appeared simpler than classifying failures.",
+  "origin": "synthetic-showcase",
+  "decision_ids": [
+    "decision-001",
+    "decision-002"
+  ],
+  "snap_ids": [
+    "snap-004"
+  ],
+  "reason": "Business rejections are terminal and must never enter the provider retry path."
+}

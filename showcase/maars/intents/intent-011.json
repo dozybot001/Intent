@@ -1,0 +1,26 @@
+{
+  "id": "intent-011",
+  "object": "intent",
+  "created_at": "2026-03-29T13:55:30.907543+00:00",
+  "what": "v10.0.0 architecture overhaul — unified label system, structured UI, file I/O centralization",
+  "status": "done",
+  "why": "results目录混乱、前端左右面板标签体系不统一、文件操作分散在多个模块，需要全面收敛整理",
+  "origin": "claude-code",
+  "decision_ids": [
+    "decision-002",
+    "decision-005",
+    "decision-006",
+    "decision-009",
+    "decision-011",
+    "decision-013"
+  ],
+  "snap_ids": [
+    "snap-046",
+    "snap-047",
+    "snap-048",
+    "snap-049",
+    "snap-050",
+    "snap-051",
+    "snap-052"
+  ]
+}

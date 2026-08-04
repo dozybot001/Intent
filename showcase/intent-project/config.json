@@ -1,0 +1,6 @@
+{
+  "name": "Intent 6 Continuation Case",
+  "description": "Synthetic, non-production data demonstrating the current semantic-history schema.",
+  "schema_version": "6.0.0",
+  "synthetic": true
+}

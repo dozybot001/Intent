@@ -1,0 +1,198 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_maars",
+    "intent": {
+      "id": "intent-005",
+      "object": "intent",
+      "created_at": "2026-03-25T17:15:47.610491+00:00",
+      "what": "Control surface convergence: remove run, unify stop/resume/retry",
+      "status": "done",
+      "why": "四阶段的控制操作存在冗余——run 按钮和 START 重复、resume 对非 Execute 阶段无意义、_pause_event 机制在 task cancellation 模式下已死。需要收敛到最简控制面。",
+      "origin": "claude-code",
+      "decision_ids": [
+        "decision-001",
+        "decision-002",
+        "decision-004",
+        "decision-005",
+        "decision-006",
+        "decision-007",
+        "decision-008"
+      ],
+      "snap_ids": [
+        "snap-025",
+        "snap-026"
+      ]
+    },
+    "snaps": [
+      {
+        "id": "snap-025",
+        "object": "snap",
+        "created_at": "2026-03-25T17:15:53.431591+00:00",
+        "what": "Remove per-stage run — START is the only entry point",
+        "why": "run 按钮与 START 功能重复。删除 4 个 run 按钮、/stage/{name}/run endpoint、check_runnable()、run_stage_background()。resume/retry 改为调 _run_from() 自动推进后续 stage。",
+        "intent_id": "intent-005",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-026",
+        "object": "snap",
+        "created_at": "2026-03-25T17:16:01.415179+00:00",
+        "what": "Resume only for Execute, remove dead pause-gate mechanism",
+        "why": "非 Execute 阶段 resume = retry（无 checkpoint），resume 按钮无意义。HTML 只在 Execute 保留 resume。同时删除整个 _pause_event 机制（stop 改用 task cancellation 后不再需要）、BaseStage.stop()/resume() 死方法、orchestrator 中 per-stage cancel 的 no-op 调用。纯删 27 行。",
+        "intent_id": "intent-005",
+        "origin": "claude-code"
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-001",
+        "object": "decision",
+        "created_at": "2026-03-23T14:58:41.679728+00:00",
+        "what": "Three-layer architecture: llm(interface) → pipeline(framework) → mode(mock/gemini/agent)",
+        "status": "deprecated",
+        "why": "Pipeline 层只依赖 LLMClient ABC，不知道背后是 mock 还是真实 LLM。模式层实现接口并组装 stages。main.py 只做模式选择。零耦合。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009"
+        ],
+        "reason": "Simplified to two layers: pipeline → AgnoClient. No more multi-mode adapter layer."
+      },
+      {
+        "id": "decision-002",
+        "object": "decision",
+        "created_at": "2026-03-23T14:58:49.819668+00:00",
+        "what": "Unified call_id streaming model for all stages",
+        "status": "active",
+        "why": "所有 LLM 调用（顺序/并行）统一通过 call_id 标记 chunk。前端按 call_id 路由到独立 DOM 块。左侧显示 LLM 输出过程，右侧显示结构化产出。Agent 模式的 ReAct 事件也走同一机制。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009",
+          "intent-010",
+          "intent-011"
+        ]
+      },
+      {
+        "id": "decision-004",
+        "object": "decision",
+        "created_at": "2026-03-24T14:59:27.997030+00:00",
+        "what": "Tool selection priority: ADK built-in > MCP ecosystem > custom (internal data only)",
+        "status": "deprecated",
+        "why": "自建工具维护成本高且容易与生态重复。MCP/ADK 持续升级，复用生态工具质量更高。自建仅限无替代品的内部数据访问（如 DB tools）。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009"
+        ],
+        "reason": "ADK removed. Tool strategy is now: Agno built-in (DuckDuckGo, arXiv, Wikipedia) + custom (DB, Docker)."
+      },
+      {
+        "id": "decision-005",
+        "object": "decision",
+        "created_at": "2026-03-25T12:00:00.000000+00:00",
+        "what": "Docker reproduction is auto-generated, not agent-driven",
+        "status": "active",
+        "why": "复现文件生成是纯流程逻辑（收集脚本名+依赖→模板渲染），不需要 LLM 参与。放在 Execute finalize 中自动执行，Agent 无需感知，避免额外 token 消耗和不确定性。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009",
+          "intent-010",
+          "intent-011"
+        ]
+      },
+      {
+        "id": "decision-006",
+        "object": "decision",
+        "created_at": "2026-03-25T12:10:00.000000+00:00",
+        "what": "Inter-stage data flow through DB, not stage.output (supersedes decision-003)",
+        "status": "active",
+        "why": "Agent 模式下工具直接写 DB，stage.output 字符串直传无法覆盖这个路径。统一为 DB 作为 stage 间数据总线：Agent 用 DB tools 读写，Gemini/Mock 由 pipeline 从 DB 读取注入 prompt。decision-003 的 stage.output 机制降级为 pipeline 内部实现细节，不再是架构约束。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009",
+          "intent-010",
+          "intent-011"
+        ]
+      },
+      {
+        "id": "decision-007",
+        "object": "decision",
+        "created_at": "2026-03-25T14:28:24.366007+00:00",
+        "what": "Agent instructions are independent from pipeline prompts — pipeline flow is reference only",
+        "status": "deprecated",
+        "why": "Agent 有工具能力，能自主决定执行步骤，不需要 pipeline 手把手编排。Agent instruction 描述完整任务目标和参考流程，独立编写；pipeline 的多轮 prompt（Explore/Evaluate/Crystallize、outline/sections/polish）仅用于 Gemini/Mock 模式。两套 prompt 互不依赖，各自演进。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009"
+        ],
+        "reason": "AgnoClient is now a pure adapter with no baked-in instructions. All prompts flow from pipeline via system messages."
+      },
+      {
+        "id": "decision-008",
+        "object": "decision",
+        "created_at": "2026-03-25T14:28:38.154736+00:00",
+        "what": "Stage boundary alignment, internal execution freedom — modes share 4 stages and DB contract, not implementation",
+        "status": "deprecated",
+        "why": "Gemini 和 Agent 共享同一套 4 阶段（Refine→Plan→Execute→Write）、同样的 DB 数据流合约（idea.md→refined_idea.md→plan.json→tasks/*.md→paper.md）。但内部执行完全自由：Gemini 用多轮 LLM 调用，Agent 用单 session 自主完成。对齐的层次是阶段边界和 DB 合约，不是内部实现。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009"
+        ],
+        "reason": "Pipeline is now 3 stages (Refine → Research → Write), not 4. Research stage internally handles decompose+execute+evaluate."
+      }
+    ]
+  }
+}

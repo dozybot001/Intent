@@ -1,0 +1,37 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_maars",
+    "snap": {
+      "id": "snap-024",
+      "object": "snap",
+      "created_at": "2026-03-25T16:02:13.324952+00:00",
+      "what": "Auto-fold labels in Reasoning Log with user-expanded protection",
+      "why": "新 label 出现时自动折叠同 section 内所有之前的 block，只保持最新展开。用户手动展开的标记 user-expanded 不被自动折叠。stage 级和 label 级逻辑统一。max-height 从 48px 提到 200px。",
+      "intent_id": "intent-004",
+      "origin": "claude-code"
+    },
+    "intent": {
+      "id": "intent-004",
+      "object": "intent",
+      "created_at": "2026-03-25T16:02:00.927903+00:00",
+      "what": "Reasoning Log UX: real token counts and auto-fold",
+      "status": "done",
+      "why": "Token 估算用 chars/2 启发式偏差大（中英文比例不同可差 2x 且只算 output）；Log 面板内每阶段 Think/Tool/Result block 平铺堆叠，信息过载无法快速定位。",
+      "origin": "claude-code",
+      "decision_ids": [
+        "decision-001",
+        "decision-002",
+        "decision-004",
+        "decision-005",
+        "decision-006",
+        "decision-007",
+        "decision-008"
+      ],
+      "snap_ids": [
+        "snap-023",
+        "snap-024"
+      ]
+    }
+  }
+}

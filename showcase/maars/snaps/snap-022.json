@@ -1,0 +1,9 @@
+{
+  "id": "snap-022",
+  "object": "snap",
+  "created_at": "2026-03-25T15:35:53.834217+00:00",
+  "what": "Close intent-001: MAARS system build complete",
+  "why": "四阶段 pipeline 成型、三模式就绪、Docker 复现已有。后续工作属于演进而非构建，标记 done。",
+  "intent_id": "intent-003",
+  "origin": "claude-code"
+}

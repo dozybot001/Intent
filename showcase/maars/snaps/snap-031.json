@@ -1,0 +1,9 @@
+{
+  "id": "snap-031",
+  "object": "snap",
+  "created_at": "2026-03-25T21:07:26.265324+00:00",
+  "what": "Design: Kaggle integration — 3 phases with feedback loop",
+  "why": "Phase 1: 加 Kaggle API 工具（kaggle_download_data, kaggle_submit）到 Agno 模式的 Execute 阶段，code_execute 已能跑 sklearn/XGBoost。Phase 2: Execute 产出 submission.csv 后自动提交 Kaggle 拿分数，写入 research/{id}/feedback.md。Phase 3: _run_from 加评估循环——Execute 完成后读 feedback.md 判断是否达标，不达标则 retry Execute（feedback 自动注入 task prompt 通过 _build_execute_prompt 读 db.get_feedback()）。目标竞赛：Titanic → House Prices → Playground Series。Decision-010 确认反馈通过 DB 传递，不改 stage 接口。",
+  "intent_id": "intent-006",
+  "origin": "claude-code"
+}

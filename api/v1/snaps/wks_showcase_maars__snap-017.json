@@ -1,0 +1,39 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_maars",
+    "snap": {
+      "id": "snap-017",
+      "object": "snap",
+      "created_at": "2026-03-25T14:27:07.434429+00:00",
+      "what": "Agent mode Refine/Write: single-session stages with independent instructions",
+      "why": "原架构 Agent 模式复用 pipeline 多轮循环（Refine 3 轮、Write 多 phase），每轮新建 session 丢失工具上下文。改为 AgentRefineStage/AgentWriteStage（max_rounds=1），Agent instruction 独立编写描述完整任务，pipeline 多轮 prompt 仅作参考流程。阶段边界对齐，内部执行各自最优。",
+      "intent_id": "intent-002",
+      "origin": "claude-code"
+    },
+    "intent": {
+      "id": "intent-002",
+      "object": "intent",
+      "created_at": "2026-03-25T14:26:41.817912+00:00",
+      "what": "Code audit + architecture refactor: fix critical smells, Agent mode symmetry, and prompt engineering",
+      "status": "done",
+      "why": "全面审计发现 28 个坏味道（3 CRITICAL / 7 HIGH），同时 Agent 模式 Refine/Write 多轮丢上下文、Plan 分解粒度不合理。本次集中修复关键问题并重新设计 Agent 架构。",
+      "origin": "claude-code",
+      "decision_ids": [
+        "decision-001",
+        "decision-002",
+        "decision-004",
+        "decision-005",
+        "decision-006"
+      ],
+      "snap_ids": [
+        "snap-015",
+        "snap-016",
+        "snap-017",
+        "snap-018",
+        "snap-019",
+        "snap-020"
+      ]
+    }
+  }
+}

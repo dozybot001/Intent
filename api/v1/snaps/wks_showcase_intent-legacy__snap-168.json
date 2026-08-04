@@ -1,0 +1,48 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "snap": {
+      "id": "snap-168",
+      "object": "snap",
+      "created_at": "2026-03-22T07:30:41.549734+00:00",
+      "intent_id": "intent-043",
+      "origin": "claude-code",
+      "what": "Snap repositioned as persisted AI reasoning",
+      "why": "Redefined snap from 'semantic checkpoint' to 'persisted AI reasoning'. Core insight: AI already thinks before acting — snap externalizes that thinking, not extra documentation burden. Established three clear creation categories: (A) no snap for simple Q&A, (B) snap with code changes records reasoning behind changes, (C) snap without code changes for investigation conclusions, direction decisions, non-code work. Removed feedback field from CLI and IntHub — snaps are fully immutable, user feedback becomes a new snap. Updated SKILL.md, cli.md EN/CN with new positioning, examples, and field tables.",
+      "next": "-",
+      "query": "-"
+    },
+    "intent": {
+      "id": "intent-043",
+      "object": "intent",
+      "created_at": "2026-03-22T06:41:01.190787+00:00",
+      "status": "done",
+      "decision_ids": [
+        "decision-001",
+        "decision-003",
+        "decision-009",
+        "decision-010",
+        "decision-011",
+        "decision-013",
+        "decision-014",
+        "decision-015",
+        "decision-016",
+        "decision-018",
+        "decision-019",
+        "decision-020",
+        "decision-022"
+      ],
+      "snap_ids": [
+        "snap-167",
+        "snap-168",
+        "snap-169",
+        "snap-170",
+        "snap-171"
+      ],
+      "what": "IntHub frontend polish round 2",
+      "why": "Ongoing UI refinements based on hands-on review",
+      "query": "继续优化IntHub前端体验"
+    }
+  }
+}

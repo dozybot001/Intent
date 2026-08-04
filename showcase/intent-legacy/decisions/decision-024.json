@@ -1,0 +1,15 @@
+{
+  "id": "decision-024",
+  "object": "decision",
+  "created_at": "2026-03-22T14:24:53.577660+00:00",
+  "what": "IntHub Local 作为 pip package 的一部分分发，itt hub start 从任意目录可用",
+  "status": "active",
+  "query": "",
+  "why": "替代 decision-022；用户 pip install 后 IntHub 即可用，无需知道仓库路径，消除了 hub start 必须从 Intent 仓库目录运行的限制",
+  "origin": "claude-code",
+  "intent_ids": [
+    "intent-045",
+    "intent-046",
+    "intent-047"
+  ]
+}

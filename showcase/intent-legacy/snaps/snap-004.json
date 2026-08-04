@@ -1,0 +1,10 @@
+{
+  "id": "snap-004",
+  "object": "snap",
+  "created_at": "2026-03-18T08:39:00.270280+00:00",
+  "intent_id": "intent-004",
+  "query": "readme完善，增加克隆链接、pipx安装cli命令，skill安装命令；docs双语化；发布",
+  "what": "README 安装改进 + 文档双语结构 + 双版本发布",
+  "why": "",
+  "next": "-"
+}

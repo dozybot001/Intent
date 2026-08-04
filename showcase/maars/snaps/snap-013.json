@@ -1,0 +1,9 @@
+{
+  "id": "snap-013",
+  "object": "snap",
+  "created_at": "2026-03-25T09:55:31.032858+00:00",
+  "what": "Agent real-time streaming via SSE — partial events as primary stream",
+  "why": "Agent 模式原先无流式输出。三步修复：1) 恢复 streaming display。2) Gemini partial 事件对齐为主流事件，消除重复广播 bug。3) 启用 ADK SSE StreamingMode，推理过程实时可见。同时修复 MCP timeout（5s→30s→60s）。",
+  "intent_id": "intent-001",
+  "origin": "claude-code"
+}

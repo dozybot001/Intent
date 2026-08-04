@@ -1,0 +1,9 @@
+{
+  "id": "snap-021",
+  "object": "snap",
+  "created_at": "2026-03-25T15:35:48.933803+00:00",
+  "what": "Implement checkpoint-based resume for Execute stage",
+  "why": "Stop 后 Agent session 已死，旧 pause gate 机制无法真正恢复。改为：stop = cancel task + PAUSED，resume = 重启 run() 从 DB 加载已完成 task 跳过。retry 则清 DB task 文件全部重跑。统一了所有模式的 stop/resume 语义——stop 取消 task 而非阻塞流，resume 重启而非解阻塞。",
+  "intent_id": "intent-003",
+  "origin": "claude-code"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "snap-041",
+  "object": "snap",
+  "created_at": "2026-03-29T04:36:56.990192+00:00",
+  "what": "Added Strategy phase between Calibrate and Decompose",
+  "why": "Agent was decomposing blindly without domain knowledge. Strategy session searches for best approaches (top solutions, key techniques) and injects findings into decompose prompt.",
+  "intent_id": "intent-010",
+  "origin": "claude-code"
+}

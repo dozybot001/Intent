@@ -1,0 +1,40 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "snap": {
+      "id": "snap-077",
+      "object": "snap",
+      "created_at": "2026-03-19T18:30:30.831771+00:00",
+      "intent_id": "intent-014",
+      "query": "这个需要忽略吗，你怎么看。可以。清完后就发版吧",
+      "what": "忽略 .inthub 并发布项目版 v1.5.0",
+      "why": "",
+      "next": "-"
+    },
+    "intent": {
+      "id": "intent-014",
+      "object": "intent",
+      "created_at": "2026-03-19T18:26:50.854063+00:00",
+      "status": "done",
+      "decision_ids": [
+        "decision-001",
+        "decision-002",
+        "decision-003",
+        "decision-004",
+        "decision-008",
+        "decision-009",
+        "decision-010",
+        "decision-011",
+        "decision-012",
+        "decision-013"
+      ],
+      "snap_ids": [
+        "snap-077"
+      ],
+      "what": "忽略本地 IntHub 运行目录并准备下一个项目版本发布",
+      "why": "用户已确认 .inthub/ 属于本地运行产物，应忽略并在工作区清理后继续项目级发版",
+      "query": "这个需要忽略吗，你怎么看。可以。清完后就发版吧"
+    }
+  }
+}

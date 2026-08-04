@@ -1,0 +1,9 @@
+{
+  "id": "snap-030",
+  "object": "snap",
+  "created_at": "2026-03-25T20:49:45.779434+00:00",
+  "what": "Fix Agno streaming: model 404, content duplication, error handling",
+  "why": "三个 bug：1) gemini-2.0-flash 在 Agno 的 v1beta endpoint 404，改为共用 gemini_model 配置；2) run_content + run_completed 重复输出导致 JSON 解析失败；3) RunError 事件未处理，错误被静默吞掉。同时修复 BaseStage/ExecuteStage 异常时未广播 FAILED 状态。",
+  "intent_id": "intent-007",
+  "origin": "claude-code"
+}

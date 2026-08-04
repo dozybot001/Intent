@@ -1,0 +1,16 @@
+{
+  "id": "decision-010",
+  "object": "decision",
+  "created_at": "2026-03-25T20:50:04.773732+00:00",
+  "what": "Inter-iteration feedback through DB (feedback.md), not stage interface changes",
+  "status": "deprecated",
+  "why": "迭代反馈（Kaggle 跑分→调优）通过 research/{id}/feedback.md 传递，Execute 重跑时读取。符合 decision-006（阶段间仅通过 DB 通信），不需要改 stage 接口或新增通信机制。",
+  "origin": "claude-code",
+  "intent_ids": [
+    "intent-007",
+    "intent-006",
+    "intent-008",
+    "intent-009"
+  ],
+  "reason": "Feedback is now through evaluations/eval_v*.json and plan amendments, not a standalone feedback.md"
+}

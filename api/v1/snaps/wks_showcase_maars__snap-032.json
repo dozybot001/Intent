@@ -1,0 +1,40 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_maars",
+    "snap": {
+      "id": "snap-032",
+      "object": "snap",
+      "created_at": "2026-03-26T04:58:38.593189+00:00",
+      "what": "Assess GenerationDraft codebase — 6 core files identified",
+      "why": "核心文件：writing_agent_pipeline.py（主编排）、agents.py（WritingAgent 6 个方法：generate_paper_outline/draft_section/review_draft/revise_section/generate_abstract/fix_latex_errors）、schemas.py（PaperOutline/PaperReview Pydantic 模型）、utils.py（上下文加载/LaTeX 组装）、config.py。适配点：1）上下文从 MAARS DB 读取而非 exp_dir；2）LLM 调用从直接 genai.Client 改为 LLMClient.stream()；3）结构化输出 response_schema 需适配 Agno 的 output_schema；4）review-revision 循环放入 WriteStage.run() 内部；5）LaTeX 编译可选。",
+      "intent_id": "intent-008",
+      "origin": "claude-code"
+    },
+    "intent": {
+      "id": "intent-008",
+      "object": "intent",
+      "created_at": "2026-03-26T04:58:29.058570+00:00",
+      "what": "Integrate GenerationDraft 6-stage write pipeline into MAARS",
+      "status": "done",
+      "why": "当前 Write 阶段只有 outline→sections→polish 三步，输出 markdown。组员的 GenerationDraft 实现了更完整的学术写作流水线：Planning（结构化 outline）→ Drafting（逐章节 LaTeX）→ Review（结构化审查）→ Revision（按 feedback 修订，最多 3 轮，已通过章节锁定）→ Abstract → Compile（tectonic 编译 + 自动修错）。替换现有 Write 实现。",
+      "origin": "claude-code",
+      "decision_ids": [
+        "decision-001",
+        "decision-002",
+        "decision-004",
+        "decision-005",
+        "decision-006",
+        "decision-007",
+        "decision-008",
+        "decision-009",
+        "decision-010"
+      ],
+      "snap_ids": [
+        "snap-032",
+        "snap-033",
+        "snap-034"
+      ]
+    }
+  }
+}

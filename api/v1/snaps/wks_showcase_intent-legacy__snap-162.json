@@ -1,0 +1,44 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "snap": {
+      "id": "snap-162",
+      "object": "snap",
+      "created_at": "2026-03-21T13:35:32.294427+00:00",
+      "intent_id": "intent-038",
+      "origin": "codex-desktop",
+      "what": "推送目录收敛与版本索引清理",
+      "why": "已提交并推送目录收敛相关改动，commit 为 b912039（Prune local artifacts and legacy release manifests）。仓库现在移除了顶层 VERSION 与 releases/ 历史 manifest，并将 .claude/ 整体忽略。对换机迁移而言，源码侧已可直接 clone；若要延续当前工作语义，核心需要额外迁移的是 .intent/。",
+      "next": "-",
+      "query": "-"
+    },
+    "intent": {
+      "id": "intent-038",
+      "object": "intent",
+      "created_at": "2026-03-21T13:35:13.559390+00:00",
+      "status": "done",
+      "decision_ids": [
+        "decision-001",
+        "decision-003",
+        "decision-009",
+        "decision-010",
+        "decision-011",
+        "decision-013",
+        "decision-014",
+        "decision-015",
+        "decision-016",
+        "decision-018",
+        "decision-019",
+        "decision-020",
+        "decision-022"
+      ],
+      "snap_ids": [
+        "snap-162"
+      ],
+      "what": "提交目录收敛与历史版本索引清理",
+      "why": "将已完成的目录收敛和 releases/VERSION 清理正式提交推送，并明确换机时需要迁移的本地语义数据与本机安装态边界。",
+      "query": "push。现在我只需要把.intent数据移过去就可以了吧"
+    }
+  }
+}

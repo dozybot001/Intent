@@ -1,0 +1,27 @@
+{
+  "id": "intent-038",
+  "object": "intent",
+  "created_at": "2026-03-21T13:35:13.559390+00:00",
+  "status": "done",
+  "decision_ids": [
+    "decision-001",
+    "decision-003",
+    "decision-009",
+    "decision-010",
+    "decision-011",
+    "decision-013",
+    "decision-014",
+    "decision-015",
+    "decision-016",
+    "decision-018",
+    "decision-019",
+    "decision-020",
+    "decision-022"
+  ],
+  "snap_ids": [
+    "snap-162"
+  ],
+  "what": "提交目录收敛与历史版本索引清理",
+  "why": "将已完成的目录收敛和 releases/VERSION 清理正式提交推送，并明确换机时需要迁移的本地语义数据与本机安装态边界。",
+  "query": "push。现在我只需要把.intent数据移过去就可以了吧"
+}

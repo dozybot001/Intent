@@ -1,0 +1,9 @@
+{
+  "id": "snap-043",
+  "object": "snap",
+  "created_at": "2026-03-29T04:37:01.521029+00:00",
+  "what": "Fixed redecompose dependency bug — downstream tasks now wait for subtasks",
+  "why": "When a task was redecomposed, its ID was deleted from the DAG but downstream deps still referenced it. Topological sort fell back to dumping all remaining tasks into one parallel batch.",
+  "intent_id": "intent-010",
+  "origin": "claude-code"
+}

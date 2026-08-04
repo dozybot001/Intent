@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-project",
+    "snap": {
+      "id": "snap-002",
+      "object": "snap",
+      "created_at": "2026-07-30T09:30:00+00:00",
+      "what": "Added a bounded three-attempt exponential backoff",
+      "why": "It absorbs short provider interruptions without extending checkout indefinitely.",
+      "intent_id": "intent-001",
+      "origin": "synthetic-showcase"
+    },
+    "intent": {
+      "id": "intent-001",
+      "object": "intent",
+      "created_at": "2026-07-30T09:00:00+00:00",
+      "what": "Stabilize checkout retry semantics",
+      "status": "active",
+      "why": "Intermittent provider timeouts leave otherwise valid orders pending.",
+      "origin": "synthetic-showcase",
+      "decision_ids": [
+        "decision-001",
+        "decision-002"
+      ],
+      "snap_ids": [
+        "snap-001",
+        "snap-002"
+      ]
+    }
+  }
+}

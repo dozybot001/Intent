@@ -1,0 +1,9 @@
+{
+  "id": "snap-051",
+  "object": "snap",
+  "created_at": "2026-03-29T13:56:20.308208+00:00",
+  "what": "文件I/O全部收归db.py: save_script, promote_best_score, save_reproduce_files",
+  "why": "之前docker_exec.py和reproduce.py直接写文件，db应该是文件系统的唯一网关。同时删除get_root()暴露，拆成get_tasks_dir和get_latest_score",
+  "intent_id": "intent-011",
+  "origin": "claude-code"
+}

@@ -1,0 +1,48 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-project",
+    "intent": {
+      "id": "intent-002",
+      "object": "intent",
+      "created_at": "2026-07-30T10:00:00+00:00",
+      "what": "Verify retry behavior against the provider sandbox",
+      "status": "suspend",
+      "why": "The local contract is complete, but the external sandbox is temporarily unavailable.",
+      "origin": "synthetic-showcase",
+      "decision_ids": [
+        "decision-001"
+      ],
+      "snap_ids": [
+        "snap-003"
+      ]
+    },
+    "snaps": [
+      {
+        "id": "snap-003",
+        "object": "snap",
+        "created_at": "2026-07-30T10:15:00+00:00",
+        "what": "Prepared sandbox cases for timeout, rejection, and recovery",
+        "why": "The next session can resume at external verification instead of reconstructing the local design.",
+        "intent_id": "intent-002",
+        "origin": "synthetic-showcase"
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-001",
+        "object": "decision",
+        "created_at": "2026-07-30T09:05:00+00:00",
+        "what": "Outbound payment calls use bounded retries",
+        "status": "active",
+        "why": "Unbounded retries can duplicate side effects and hide provider incidents.",
+        "origin": "synthetic-showcase",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003"
+        ]
+      }
+    ]
+  }
+}

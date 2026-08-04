@@ -1,0 +1,79 @@
+{
+  "ok": true,
+  "result": {
+    "items": [
+      {
+        "object_type": "intent",
+        "id": "intent-001",
+        "remote_id": "wks_showcase_intent-project__intent-001",
+        "what": "Stabilize checkout retry semantics",
+        "why": "Intermittent provider timeouts leave otherwise valid orders pending.",
+        "status": "active"
+      },
+      {
+        "object_type": "intent",
+        "id": "intent-002",
+        "remote_id": "wks_showcase_intent-project__intent-002",
+        "what": "Verify retry behavior against the provider sandbox",
+        "why": "The local contract is complete, but the external sandbox is temporarily unavailable.",
+        "status": "suspend"
+      },
+      {
+        "object_type": "intent",
+        "id": "intent-003",
+        "remote_id": "wks_showcase_intent-project__intent-003",
+        "what": "Retry every checkout failure automatically",
+        "why": "A uniform retry path initially appeared simpler than classifying failures.",
+        "status": "cancelled"
+      },
+      {
+        "object_type": "decision",
+        "id": "decision-001",
+        "remote_id": "wks_showcase_intent-project__decision-001",
+        "what": "Outbound payment calls use bounded retries",
+        "why": "Unbounded retries can duplicate side effects and hide provider incidents.",
+        "status": "active"
+      },
+      {
+        "object_type": "decision",
+        "id": "decision-002",
+        "remote_id": "wks_showcase_intent-project__decision-002",
+        "what": "Retry all checkout failures three times",
+        "why": "A single rule initially seemed easier to operate than an explicit failure taxonomy.",
+        "status": "deprecated"
+      },
+      {
+        "object_type": "snap",
+        "id": "snap-001",
+        "remote_id": "wks_showcase_intent-project__snap-001",
+        "what": "Separated transient provider timeouts from business rejections",
+        "why": "Only infrastructure failures are safe to retry; rejected payments are terminal outcomes.",
+        "status": ""
+      },
+      {
+        "object_type": "snap",
+        "id": "snap-002",
+        "remote_id": "wks_showcase_intent-project__snap-002",
+        "what": "Added a bounded three-attempt exponential backoff",
+        "why": "It absorbs short provider interruptions without extending checkout indefinitely.",
+        "status": ""
+      },
+      {
+        "object_type": "snap",
+        "id": "snap-003",
+        "remote_id": "wks_showcase_intent-project__snap-003",
+        "what": "Prepared sandbox cases for timeout, rejection, and recovery",
+        "why": "The next session can resume at external verification instead of reconstructing the local design.",
+        "status": ""
+      },
+      {
+        "object_type": "snap",
+        "id": "snap-004",
+        "remote_id": "wks_showcase_intent-project__snap-004",
+        "what": "Proved that business rejections must bypass retries",
+        "why": "Retrying a terminal rejection adds latency and can obscure the user-facing reason.",
+        "status": ""
+      }
+    ]
+  }
+}

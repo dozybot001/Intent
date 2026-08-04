@@ -1,0 +1,27 @@
+{
+  "id": "decision-012",
+  "object": "decision",
+  "created_at": "2026-03-19T19:57:02.673816+00:00",
+  "status": "deprecated",
+  "intent_ids": [
+    "intent-014",
+    "intent-015",
+    "intent-016",
+    "intent-017",
+    "intent-018",
+    "intent-019",
+    "intent-020",
+    "intent-021",
+    "intent-022",
+    "intent-023",
+    "intent-024",
+    "intent-025",
+    "intent-026",
+    "intent-027",
+    "intent-028",
+    "intent-029"
+  ],
+  "what": "IntHub Local 通过 GitHub Release assets 分发，并默认仅绑定 localhost",
+  "why": "用户确认 IntHub V1 更适合作为可安装的本地实例交付，普通用户应能在本机浏览器查看自己项目的语义历史，而无需先部署远端服务或拉取源码仓库",
+  "query": "-"
+}

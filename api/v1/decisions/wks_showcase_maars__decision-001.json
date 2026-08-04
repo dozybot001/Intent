@@ -1,0 +1,258 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_maars",
+    "decision": {
+      "id": "decision-001",
+      "object": "decision",
+      "created_at": "2026-03-23T14:58:41.679728+00:00",
+      "what": "Three-layer architecture: llm(interface) → pipeline(framework) → mode(mock/gemini/agent)",
+      "status": "deprecated",
+      "why": "Pipeline 层只依赖 LLMClient ABC，不知道背后是 mock 还是真实 LLM。模式层实现接口并组装 stages。main.py 只做模式选择。零耦合。",
+      "origin": "claude-code",
+      "intent_ids": [
+        "intent-001",
+        "intent-002",
+        "intent-003",
+        "intent-004",
+        "intent-005",
+        "intent-006",
+        "intent-007",
+        "intent-008",
+        "intent-009"
+      ],
+      "reason": "Simplified to two layers: pipeline → AgnoClient. No more multi-mode adapter layer."
+    },
+    "intents": [
+      {
+        "id": "intent-001",
+        "object": "intent",
+        "created_at": "2026-03-23T14:56:46.649102+00:00",
+        "what": "Build MAARS: Multi-Agent Automated Research System from scratch",
+        "status": "done",
+        "why": "构建一个全自动的研究论文生成系统，支持 mock/gemini/agent 三种模式，架构解耦，从零开始。",
+        "origin": "claude-code",
+        "decision_ids": [
+          "decision-001",
+          "decision-002",
+          "decision-003",
+          "decision-004",
+          "decision-005",
+          "decision-006",
+          "decision-007",
+          "decision-008"
+        ],
+        "snap_ids": [
+          "snap-001",
+          "snap-002",
+          "snap-003",
+          "snap-004",
+          "snap-005",
+          "snap-006",
+          "snap-007",
+          "snap-008",
+          "snap-009",
+          "snap-010",
+          "snap-011",
+          "snap-012",
+          "snap-013",
+          "snap-014"
+        ]
+      },
+      {
+        "id": "intent-002",
+        "object": "intent",
+        "created_at": "2026-03-25T14:26:41.817912+00:00",
+        "what": "Code audit + architecture refactor: fix critical smells, Agent mode symmetry, and prompt engineering",
+        "status": "done",
+        "why": "全面审计发现 28 个坏味道（3 CRITICAL / 7 HIGH），同时 Agent 模式 Refine/Write 多轮丢上下文、Plan 分解粒度不合理。本次集中修复关键问题并重新设计 Agent 架构。",
+        "origin": "claude-code",
+        "decision_ids": [
+          "decision-001",
+          "decision-002",
+          "decision-004",
+          "decision-005",
+          "decision-006"
+        ],
+        "snap_ids": [
+          "snap-015",
+          "snap-016",
+          "snap-017",
+          "snap-018",
+          "snap-019",
+          "snap-020"
+        ]
+      },
+      {
+        "id": "intent-003",
+        "object": "intent",
+        "created_at": "2026-03-25T14:27:51.261596+00:00",
+        "what": "Redesign Agent mode stage control: stop/resume/retry semantics",
+        "status": "done",
+        "why": "当前 pause/resume 机制对 Agent 模式无效（Agent 单 session 无天然暂停点）。需要重新设计：stop=cancel 当前 session，resume=重跑当前 batch 内未完成任务（DB 作为 checkpoint），retry=重启整个阶段。Execute 保留已排好的 batch 列表和 current_batch_idx，不重新拓扑排序。",
+        "origin": "claude-code",
+        "decision_ids": [
+          "decision-001",
+          "decision-002",
+          "decision-004",
+          "decision-005",
+          "decision-006",
+          "decision-007",
+          "decision-008"
+        ],
+        "snap_ids": [
+          "snap-021",
+          "snap-022"
+        ]
+      },
+      {
+        "id": "intent-004",
+        "object": "intent",
+        "created_at": "2026-03-25T16:02:00.927903+00:00",
+        "what": "Reasoning Log UX: real token counts and auto-fold",
+        "status": "done",
+        "why": "Token 估算用 chars/2 启发式偏差大（中英文比例不同可差 2x 且只算 output）；Log 面板内每阶段 Think/Tool/Result block 平铺堆叠，信息过载无法快速定位。",
+        "origin": "claude-code",
+        "decision_ids": [
+          "decision-001",
+          "decision-002",
+          "decision-004",
+          "decision-005",
+          "decision-006",
+          "decision-007",
+          "decision-008"
+        ],
+        "snap_ids": [
+          "snap-023",
+          "snap-024"
+        ]
+      },
+      {
+        "id": "intent-005",
+        "object": "intent",
+        "created_at": "2026-03-25T17:15:47.610491+00:00",
+        "what": "Control surface convergence: remove run, unify stop/resume/retry",
+        "status": "done",
+        "why": "四阶段的控制操作存在冗余——run 按钮和 START 重复、resume 对非 Execute 阶段无意义、_pause_event 机制在 task cancellation 模式下已死。需要收敛到最简控制面。",
+        "origin": "claude-code",
+        "decision_ids": [
+          "decision-001",
+          "decision-002",
+          "decision-004",
+          "decision-005",
+          "decision-006",
+          "decision-007",
+          "decision-008"
+        ],
+        "snap_ids": [
+          "snap-025",
+          "snap-026"
+        ]
+      },
+      {
+        "id": "intent-006",
+        "object": "intent",
+        "created_at": "2026-03-25T17:16:14.095421+00:00",
+        "what": "Extend MAARS for Kaggle competition participation",
+        "status": "done",
+        "why": "MAARS 当前能力（CPU Docker + web search + code_execute）可以覆盖 Kaggle Playground/Getting Started 类表格数据竞赛（Titanic、House Prices、Playground Series）。缺三个环节：数据获取（Kaggle API）、提交生成（submission.csv）、迭代调优循环。需要规划最小改动路径。",
+        "origin": "claude-code",
+        "decision_ids": [
+          "decision-001",
+          "decision-002",
+          "decision-004",
+          "decision-005",
+          "decision-006",
+          "decision-007",
+          "decision-008",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-013"
+        ],
+        "snap_ids": [
+          "snap-031"
+        ]
+      },
+      {
+        "id": "intent-007",
+        "object": "intent",
+        "created_at": "2026-03-25T20:49:17.024894+00:00",
+        "what": "Add Agno framework as fourth LLM mode",
+        "status": "done",
+        "why": "MAARS 绑死 Google 生态（ADK + Gemini）。Agno 支持 40+ 模型 provider，工具接口与 MAARS 兼容（纯 Python 函数），且有 100+ 内置工具。新增 agno 模式实现模型自由。",
+        "origin": "claude-code",
+        "decision_ids": [
+          "decision-001",
+          "decision-002",
+          "decision-004",
+          "decision-005",
+          "decision-006",
+          "decision-007",
+          "decision-008",
+          "decision-009",
+          "decision-010"
+        ],
+        "snap_ids": [
+          "snap-027",
+          "snap-028",
+          "snap-029",
+          "snap-030"
+        ]
+      },
+      {
+        "id": "intent-008",
+        "object": "intent",
+        "created_at": "2026-03-26T04:58:29.058570+00:00",
+        "what": "Integrate GenerationDraft 6-stage write pipeline into MAARS",
+        "status": "done",
+        "why": "当前 Write 阶段只有 outline→sections→polish 三步，输出 markdown。组员的 GenerationDraft 实现了更完整的学术写作流水线：Planning（结构化 outline）→ Drafting（逐章节 LaTeX）→ Review（结构化审查）→ Revision（按 feedback 修订，最多 3 轮，已通过章节锁定）→ Abstract → Compile（tectonic 编译 + 自动修错）。替换现有 Write 实现。",
+        "origin": "claude-code",
+        "decision_ids": [
+          "decision-001",
+          "decision-002",
+          "decision-004",
+          "decision-005",
+          "decision-006",
+          "decision-007",
+          "decision-008",
+          "decision-009",
+          "decision-010"
+        ],
+        "snap_ids": [
+          "snap-032",
+          "snap-033",
+          "snap-034"
+        ]
+      },
+      {
+        "id": "intent-009",
+        "object": "intent",
+        "created_at": "2026-03-27T23:36:23.606061+00:00",
+        "what": "Refactor pipeline from 4-stage linear to 3-stage iterative (Refine → Research → Write)",
+        "status": "done",
+        "why": "Plan and Execute were artificially separated; adding a feedback loop required merging them into a single Research stage with decompose → execute → evaluate cycle",
+        "origin": "claude-code",
+        "decision_ids": [
+          "decision-001",
+          "decision-002",
+          "decision-004",
+          "decision-005",
+          "decision-006",
+          "decision-007",
+          "decision-008",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-012"
+        ],
+        "snap_ids": [
+          "snap-035",
+          "snap-036",
+          "snap-037",
+          "snap-038"
+        ]
+      }
+    ]
+  }
+}

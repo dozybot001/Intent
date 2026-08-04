@@ -1,0 +1,91 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "intent": {
+      "id": "intent-003",
+      "object": "intent",
+      "created_at": "2026-03-18T07:27:10.084584+00:00",
+      "status": "done",
+      "decision_ids": [
+        "decision-001"
+      ],
+      "snap_ids": [
+        "snap-003"
+      ],
+      "what": "撰写 SKILL.md agent 使用指南",
+      "query": "撰写SKILL.md教Agent如何用Intent-CLI命令",
+      "why": "-"
+    },
+    "snaps": [
+      {
+        "id": "snap-003",
+        "object": "snap",
+        "created_at": "2026-03-18T07:28:22.425162+00:00",
+        "intent_id": "intent-003",
+        "query": "撰写SKILL.md教Agent如何用Intent-CLI命令",
+        "what": "撰写 v0.6 SKILL.md",
+        "why": "基于旧版 SKILL.md 结构完全重写，匹配 v0.6 对象中心设计：对象子命令风格、多 active intent、summary/feedback 替代 rationale、双向自动挂载、完整命令表、状态机、when-to/when-not-to 指南、anti-patterns",
+        "next": "-"
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-001",
+        "object": "decision",
+        "created_at": "2026-03-18T08:19:45.615389+00:00",
+        "status": "active",
+        "intent_ids": [
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009",
+          "intent-010",
+          "intent-011",
+          "intent-012",
+          "intent-013",
+          "intent-014",
+          "intent-015",
+          "intent-016",
+          "intent-017",
+          "intent-018",
+          "intent-019",
+          "intent-020",
+          "intent-021",
+          "intent-022",
+          "intent-023",
+          "intent-024",
+          "intent-025",
+          "intent-026",
+          "intent-027",
+          "intent-028",
+          "intent-029",
+          "intent-030",
+          "intent-031",
+          "intent-032",
+          "intent-033",
+          "intent-034",
+          "intent-035",
+          "intent-036",
+          "intent-037",
+          "intent-038",
+          "intent-039",
+          "intent-040",
+          "intent-041",
+          "intent-042",
+          "intent-043",
+          "intent-044",
+          "intent-045",
+          "intent-046",
+          "intent-047"
+        ],
+        "what": "SKILL 的撰写目标是让 Agent 只阅读 SKILL，其行为表现能满足 Vision 和 CLI 的设计预期",
+        "why": "SKILL 是 agent 接触 Intent 系统的唯一入口。如果 SKILL 不能独立传达 Vision 的设计哲学和 CLI 的技术规范，agent 的使用就会形式正确但语义空洞，违背 Intent 降低语义损耗的根本目标。",
+        "query": "-"
+      }
+    ]
+  }
+}

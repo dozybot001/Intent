@@ -1,0 +1,41 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_maars",
+    "snap": {
+      "id": "snap-050",
+      "object": "snap",
+      "created_at": "2026-03-29T13:56:11.115617+00:00",
+      "what": "右侧结构化事件: document/score/task_summary 推送 + modal 组件",
+      "why": "右侧面板之前只有tree和exec_list有结构化数据，calibration/strategy/evaluation/score全靠左侧日志文本流。新增doc:ready和score:update事件，统一modal替代window.open",
+      "intent_id": "intent-011",
+      "origin": "claude-code"
+    },
+    "intent": {
+      "id": "intent-011",
+      "object": "intent",
+      "created_at": "2026-03-29T13:55:30.907543+00:00",
+      "what": "v10.0.0 architecture overhaul — unified label system, structured UI, file I/O centralization",
+      "status": "done",
+      "why": "results目录混乱、前端左右面板标签体系不统一、文件操作分散在多个模块，需要全面收敛整理",
+      "origin": "claude-code",
+      "decision_ids": [
+        "decision-002",
+        "decision-005",
+        "decision-006",
+        "decision-009",
+        "decision-011",
+        "decision-013"
+      ],
+      "snap_ids": [
+        "snap-046",
+        "snap-047",
+        "snap-048",
+        "snap-049",
+        "snap-050",
+        "snap-051",
+        "snap-052"
+      ]
+    }
+  }
+}

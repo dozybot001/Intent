@@ -1,0 +1,254 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_maars",
+    "intent": {
+      "id": "intent-006",
+      "object": "intent",
+      "created_at": "2026-03-25T17:16:14.095421+00:00",
+      "what": "Extend MAARS for Kaggle competition participation",
+      "status": "done",
+      "why": "MAARS 当前能力（CPU Docker + web search + code_execute）可以覆盖 Kaggle Playground/Getting Started 类表格数据竞赛（Titanic、House Prices、Playground Series）。缺三个环节：数据获取（Kaggle API）、提交生成（submission.csv）、迭代调优循环。需要规划最小改动路径。",
+      "origin": "claude-code",
+      "decision_ids": [
+        "decision-001",
+        "decision-002",
+        "decision-004",
+        "decision-005",
+        "decision-006",
+        "decision-007",
+        "decision-008",
+        "decision-009",
+        "decision-010",
+        "decision-011",
+        "decision-013"
+      ],
+      "snap_ids": [
+        "snap-031"
+      ]
+    },
+    "snaps": [
+      {
+        "id": "snap-031",
+        "object": "snap",
+        "created_at": "2026-03-25T21:07:26.265324+00:00",
+        "what": "Design: Kaggle integration — 3 phases with feedback loop",
+        "why": "Phase 1: 加 Kaggle API 工具（kaggle_download_data, kaggle_submit）到 Agno 模式的 Execute 阶段，code_execute 已能跑 sklearn/XGBoost。Phase 2: Execute 产出 submission.csv 后自动提交 Kaggle 拿分数，写入 research/{id}/feedback.md。Phase 3: _run_from 加评估循环——Execute 完成后读 feedback.md 判断是否达标，不达标则 retry Execute（feedback 自动注入 task prompt 通过 _build_execute_prompt 读 db.get_feedback()）。目标竞赛：Titanic → House Prices → Playground Series。Decision-010 确认反馈通过 DB 传递，不改 stage 接口。",
+        "intent_id": "intent-006",
+        "origin": "claude-code"
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-001",
+        "object": "decision",
+        "created_at": "2026-03-23T14:58:41.679728+00:00",
+        "what": "Three-layer architecture: llm(interface) → pipeline(framework) → mode(mock/gemini/agent)",
+        "status": "deprecated",
+        "why": "Pipeline 层只依赖 LLMClient ABC，不知道背后是 mock 还是真实 LLM。模式层实现接口并组装 stages。main.py 只做模式选择。零耦合。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009"
+        ],
+        "reason": "Simplified to two layers: pipeline → AgnoClient. No more multi-mode adapter layer."
+      },
+      {
+        "id": "decision-002",
+        "object": "decision",
+        "created_at": "2026-03-23T14:58:49.819668+00:00",
+        "what": "Unified call_id streaming model for all stages",
+        "status": "active",
+        "why": "所有 LLM 调用（顺序/并行）统一通过 call_id 标记 chunk。前端按 call_id 路由到独立 DOM 块。左侧显示 LLM 输出过程，右侧显示结构化产出。Agent 模式的 ReAct 事件也走同一机制。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009",
+          "intent-010",
+          "intent-011"
+        ]
+      },
+      {
+        "id": "decision-004",
+        "object": "decision",
+        "created_at": "2026-03-24T14:59:27.997030+00:00",
+        "what": "Tool selection priority: ADK built-in > MCP ecosystem > custom (internal data only)",
+        "status": "deprecated",
+        "why": "自建工具维护成本高且容易与生态重复。MCP/ADK 持续升级，复用生态工具质量更高。自建仅限无替代品的内部数据访问（如 DB tools）。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009"
+        ],
+        "reason": "ADK removed. Tool strategy is now: Agno built-in (DuckDuckGo, arXiv, Wikipedia) + custom (DB, Docker)."
+      },
+      {
+        "id": "decision-005",
+        "object": "decision",
+        "created_at": "2026-03-25T12:00:00.000000+00:00",
+        "what": "Docker reproduction is auto-generated, not agent-driven",
+        "status": "active",
+        "why": "复现文件生成是纯流程逻辑（收集脚本名+依赖→模板渲染），不需要 LLM 参与。放在 Execute finalize 中自动执行，Agent 无需感知，避免额外 token 消耗和不确定性。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009",
+          "intent-010",
+          "intent-011"
+        ]
+      },
+      {
+        "id": "decision-006",
+        "object": "decision",
+        "created_at": "2026-03-25T12:10:00.000000+00:00",
+        "what": "Inter-stage data flow through DB, not stage.output (supersedes decision-003)",
+        "status": "active",
+        "why": "Agent 模式下工具直接写 DB，stage.output 字符串直传无法覆盖这个路径。统一为 DB 作为 stage 间数据总线：Agent 用 DB tools 读写，Gemini/Mock 由 pipeline 从 DB 读取注入 prompt。decision-003 的 stage.output 机制降级为 pipeline 内部实现细节，不再是架构约束。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009",
+          "intent-010",
+          "intent-011"
+        ]
+      },
+      {
+        "id": "decision-007",
+        "object": "decision",
+        "created_at": "2026-03-25T14:28:24.366007+00:00",
+        "what": "Agent instructions are independent from pipeline prompts — pipeline flow is reference only",
+        "status": "deprecated",
+        "why": "Agent 有工具能力，能自主决定执行步骤，不需要 pipeline 手把手编排。Agent instruction 描述完整任务目标和参考流程，独立编写；pipeline 的多轮 prompt（Explore/Evaluate/Crystallize、outline/sections/polish）仅用于 Gemini/Mock 模式。两套 prompt 互不依赖，各自演进。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009"
+        ],
+        "reason": "AgnoClient is now a pure adapter with no baked-in instructions. All prompts flow from pipeline via system messages."
+      },
+      {
+        "id": "decision-008",
+        "object": "decision",
+        "created_at": "2026-03-25T14:28:38.154736+00:00",
+        "what": "Stage boundary alignment, internal execution freedom — modes share 4 stages and DB contract, not implementation",
+        "status": "deprecated",
+        "why": "Gemini 和 Agent 共享同一套 4 阶段（Refine→Plan→Execute→Write）、同样的 DB 数据流合约（idea.md→refined_idea.md→plan.json→tasks/*.md→paper.md）。但内部执行完全自由：Gemini 用多轮 LLM 调用，Agent 用单 session 自主完成。对齐的层次是阶段边界和 DB 合约，不是内部实现。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009"
+        ],
+        "reason": "Pipeline is now 3 stages (Refine → Research → Write), not 4. Research stage internally handles decompose+execute+evaluate."
+      },
+      {
+        "id": "decision-009",
+        "object": "decision",
+        "created_at": "2026-03-25T20:49:57.824796+00:00",
+        "what": "LLMClient.stream() yields StreamEvent, pipeline is the only broadcast point",
+        "status": "active",
+        "why": "Client 不应该持有 broadcast 回调。所有 LLM 事件（content/think/tool/tokens）统一通过 StreamEvent 交给 pipeline dispatch，新增 Agent 框架只需映射事件类型，不需要重写广播逻辑。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-007",
+          "intent-006",
+          "intent-008",
+          "intent-009",
+          "intent-010",
+          "intent-011"
+        ]
+      },
+      {
+        "id": "decision-010",
+        "object": "decision",
+        "created_at": "2026-03-25T20:50:04.773732+00:00",
+        "what": "Inter-iteration feedback through DB (feedback.md), not stage interface changes",
+        "status": "deprecated",
+        "why": "迭代反馈（Kaggle 跑分→调优）通过 research/{id}/feedback.md 传递，Execute 重跑时读取。符合 decision-006（阶段间仅通过 DB 通信），不需要改 stage 接口或新增通信机制。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-007",
+          "intent-006",
+          "intent-008",
+          "intent-009"
+        ],
+        "reason": "Feedback is now through evaluations/eval_v*.json and plan amendments, not a standalone feedback.md"
+      },
+      {
+        "id": "decision-011",
+        "object": "decision",
+        "created_at": "2026-03-27T23:37:37.323870+00:00",
+        "what": "Pipeline is 3 stages (Refine → Research → Write); Research internally orchestrates decompose/execute/evaluate cycle",
+        "status": "active",
+        "why": "Plan and Execute were merged because Plan's sole consumer was Execute, and the feedback loop (evaluate → re-decompose) is naturally an execution concern, not an orchestration concern",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-009",
+          "intent-010",
+          "intent-011",
+          "intent-006"
+        ]
+      },
+      {
+        "id": "decision-013",
+        "object": "decision",
+        "created_at": "2026-03-29T04:37:42.781900+00:00",
+        "what": "Research internal state (calibration, strategy, scores) must be persisted to DB, not held in memory only",
+        "status": "active",
+        "why": "Memory-only state is lost on pause/resume, breaking checkpoint recovery. All state that survives across iterations must have a DB file.",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-010",
+          "intent-011",
+          "intent-006"
+        ]
+      }
+    ]
+  }
+}

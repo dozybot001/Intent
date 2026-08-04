@@ -1,0 +1,10 @@
+{
+  "id": "snap-129",
+  "object": "snap",
+  "created_at": "2026-03-20T19:17:04.995722+00:00",
+  "intent_id": "intent-025",
+  "query": "",
+  "what": "将 inspect 与 doctor 文档改为命令契约式写法",
+  "why": "",
+  "next": "-"
+}

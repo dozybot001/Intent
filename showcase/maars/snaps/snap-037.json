@@ -1,0 +1,9 @@
+{
+  "id": "snap-037",
+  "object": "snap",
+  "created_at": "2026-03-27T23:36:44.272235+00:00",
+  "what": "Task summaries generated during verify step, fed to evaluate",
+  "why": "Avoids context explosion in evaluate — verify already reads the full output, so producing a one-line summary there is zero extra cost",
+  "intent_id": "intent-009",
+  "origin": "claude-code"
+}

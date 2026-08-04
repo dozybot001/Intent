@@ -1,0 +1,71 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-project",
+    "decision": {
+      "id": "decision-001",
+      "object": "decision",
+      "created_at": "2026-07-30T09:05:00+00:00",
+      "what": "Outbound payment calls use bounded retries",
+      "status": "active",
+      "why": "Unbounded retries can duplicate side effects and hide provider incidents.",
+      "origin": "synthetic-showcase",
+      "intent_ids": [
+        "intent-001",
+        "intent-002",
+        "intent-003"
+      ]
+    },
+    "intents": [
+      {
+        "id": "intent-001",
+        "object": "intent",
+        "created_at": "2026-07-30T09:00:00+00:00",
+        "what": "Stabilize checkout retry semantics",
+        "status": "active",
+        "why": "Intermittent provider timeouts leave otherwise valid orders pending.",
+        "origin": "synthetic-showcase",
+        "decision_ids": [
+          "decision-001",
+          "decision-002"
+        ],
+        "snap_ids": [
+          "snap-001",
+          "snap-002"
+        ]
+      },
+      {
+        "id": "intent-002",
+        "object": "intent",
+        "created_at": "2026-07-30T10:00:00+00:00",
+        "what": "Verify retry behavior against the provider sandbox",
+        "status": "suspend",
+        "why": "The local contract is complete, but the external sandbox is temporarily unavailable.",
+        "origin": "synthetic-showcase",
+        "decision_ids": [
+          "decision-001"
+        ],
+        "snap_ids": [
+          "snap-003"
+        ]
+      },
+      {
+        "id": "intent-003",
+        "object": "intent",
+        "created_at": "2026-07-30T10:30:00+00:00",
+        "what": "Retry every checkout failure automatically",
+        "status": "cancelled",
+        "why": "A uniform retry path initially appeared simpler than classifying failures.",
+        "origin": "synthetic-showcase",
+        "decision_ids": [
+          "decision-001",
+          "decision-002"
+        ],
+        "snap_ids": [
+          "snap-004"
+        ],
+        "reason": "Business rejections are terminal and must never enter the provider retry path."
+      }
+    ]
+  }
+}

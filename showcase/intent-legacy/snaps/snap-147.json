@@ -1,0 +1,11 @@
+{
+  "id": "snap-147",
+  "object": "snap",
+  "created_at": "2026-03-21T06:34:51.963042+00:00",
+  "intent_id": "intent-026",
+  "origin": "cursor",
+  "what": "intent.create 响应去掉 decision_ids",
+  "why": "同意与 inspect 去重：磁盘 intent JSON 仍含 decision_ids 与自动挂载逻辑不变；success 的 result 不再带 decision_ids，Agent 用 itt inspect 看 active_decisions。已改 core.py、test_cli、docs EN/CN cli Intent 说明。pytest 全绿。",
+  "next": "-",
+  "query": "-"
+}

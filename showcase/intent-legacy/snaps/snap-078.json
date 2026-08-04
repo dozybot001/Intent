@@ -1,0 +1,10 @@
+{
+  "id": "snap-078",
+  "object": "snap",
+  "created_at": "2026-03-19T19:27:48.174913+00:00",
+  "intent_id": "intent-015",
+  "query": "Readme好像没有写IntHub相关的，怎么启动也不知道。主要是我想截几张图展示Intent的语义，用于Intent推广。",
+  "what": "补充 IntHub 本地演示与截图说明",
+  "why": "",
+  "next": "-"
+}

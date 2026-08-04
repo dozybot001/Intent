@@ -1,0 +1,9 @@
+{
+  "id": "snap-001",
+  "object": "snap",
+  "created_at": "2026-07-30T09:15:00+00:00",
+  "what": "Separated transient provider timeouts from business rejections",
+  "why": "Only infrastructure failures are safe to retry; rejected payments are terminal outcomes.",
+  "intent_id": "intent-001",
+  "origin": "synthetic-showcase"
+}

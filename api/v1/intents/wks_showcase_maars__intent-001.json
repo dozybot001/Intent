@@ -1,0 +1,332 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_maars",
+    "intent": {
+      "id": "intent-001",
+      "object": "intent",
+      "created_at": "2026-03-23T14:56:46.649102+00:00",
+      "what": "Build MAARS: Multi-Agent Automated Research System from scratch",
+      "status": "done",
+      "why": "构建一个全自动的研究论文生成系统，支持 mock/gemini/agent 三种模式，架构解耦，从零开始。",
+      "origin": "claude-code",
+      "decision_ids": [
+        "decision-001",
+        "decision-002",
+        "decision-003",
+        "decision-004",
+        "decision-005",
+        "decision-006",
+        "decision-007",
+        "decision-008"
+      ],
+      "snap_ids": [
+        "snap-001",
+        "snap-002",
+        "snap-003",
+        "snap-004",
+        "snap-005",
+        "snap-006",
+        "snap-007",
+        "snap-008",
+        "snap-009",
+        "snap-010",
+        "snap-011",
+        "snap-012",
+        "snap-013",
+        "snap-014"
+      ]
+    },
+    "snaps": [
+      {
+        "id": "snap-001",
+        "object": "snap",
+        "created_at": "2026-03-23T14:57:10.617290+00:00",
+        "what": "Architecture design & skeleton",
+        "why": "从零设计 MAARS 架构：Python FastAPI 后端 + Vanilla JS 前端 + SSE 流式通信。BaseStage 状态机 + PipelineOrchestrator 调度 4 阶段。MockClient 模拟数据。前端输入框 + 4 卡片 + 日志区。run/stop/resume/retry 控制已实现并验证。",
+        "intent_id": "intent-001",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-002",
+        "object": "snap",
+        "created_at": "2026-03-23T14:57:21.362993+00:00",
+        "what": "Retry robustness & broadcast SSE",
+        "why": "修复 retry 竞态：加入 _run_id 代际计数器防止新旧 run() 并发写入。SSE 从单队列改为广播模式（per-connection subscribe/unsubscribe），解决刷新页面事件串台问题。retry 前一阶段时自动失效所有下游阶段。前一阶段未完成时禁止执行后续阶段（check_runnable + 前端按钮 disable）。",
+        "intent_id": "intent-001",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-003",
+        "object": "snap",
+        "created_at": "2026-03-23T14:57:32.652040+00:00",
+        "what": "Refine & Plan pipeline implementation",
+        "why": "RefineStage: 3 轮 Explore→Evaluate→Crystallize，每轮不同 system prompt + 历史上下文。PlanStage: 递归分解树 + 依赖解析（继承+展开两步算法），前端分解树实时渲染。BaseStage 新增 process_response + finalize 钩子。plan.py 包含完整的 Task 数据结构、_resolve_dependencies、_ancestor_chain、_get_atomic_descendants。",
+        "intent_id": "intent-001",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-004",
+        "object": "snap",
+        "created_at": "2026-03-23T14:57:44.833522+00:00",
+        "what": "Execute & Write stages + file DB",
+        "why": "ExecuteStage: 拓扑排序→批次并行执行（asyncio.gather）→验证→可选重试→存 DB。WriteStage: outline→逐章节写→polish 三阶段，每章节只拉关联 task 输出控制 prompt 大小。ResearchDB: 文件系统存储，per-session 文件夹（idea/refined/plan/tasks/paper）。四阶段端到端跑通。",
+        "intent_id": "intent-001",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-005",
+        "object": "snap",
+        "created_at": "2026-03-23T14:57:56.259192+00:00",
+        "what": "Architecture decoupling: mock/gemini/agent modes",
+        "why": "三次重大解耦：1) MockClient 从 pipeline 分离到独立 mock/ 模块（data.py + client.py + 组装函数）。2) llm_factory 移除，改用 ParallelMockClient（per-asyncio-task 计数器）对齐 Gemini 无状态行为。3) LLMClient 从 stage 参数化注入，orchestrator 不持有 client。最终形成 llm/（接口）→ pipeline/（框架）→ mock/|gemini/|agent/（模式）三层架构。",
+        "intent_id": "intent-001",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-006",
+        "object": "snap",
+        "created_at": "2026-03-23T14:58:08.300965+00:00",
+        "what": "Unified streaming model + Gemini integration",
+        "why": "所有 LLM 调用统一 call_id 机制：label chunk 创建块，text chunk 追加到对应块。前端 log-viewer 按 call_id 路由到独立 DOM 块，并行任务互不干扰。GeminiClient 实现 LLMClient ABC（消息格式转换 OpenAI→Gemini）。.env 切换 MAARS_LLM_MODE=gemini 即可。真实 Gemini 调用验证通过：完整论文生成（Cognitive Buffer Hypothesis，31 原子任务，~153KB 输出）。",
+        "intent_id": "intent-001",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-007",
+        "object": "snap",
+        "created_at": "2026-03-23T14:58:19.621375+00:00",
+        "what": "UI consolidation: dual-panel workspace + collapsible stages",
+        "why": "前端重构为左右双栏 workspace：左侧 LLM Output Log（阶段标识 + call_id 文本块 + max-height 限制），右侧 Process & Output（分解树 + 执行树 + 文件图标）。统一 log-separator 样式，点击折叠/展开。autoscroll 模块（wheel 事件检测用户滚动解锁）。移除 <reasoning>/<output> 标签系统，LLM 直接输出。prompt 优化：全局纯文本管道约束 + 全自动无人干预声明。",
+        "intent_id": "intent-001",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-008",
+        "object": "snap",
+        "created_at": "2026-03-23T14:58:32.210955+00:00",
+        "what": "Agent mode with Google ADK",
+        "why": "接入 Google ADK Agent 模式：AgentStage 基类桥接 ADK ReAct 循环到 BaseStage 接口。Refine/Write 用单 Agent，Plan 用单 Agent 一次性输出 JSON（max_depth=3 防止爆炸），Execute 用 per-task Agent 并行。tools/ 和 skills/ 包结构预留扩展。三种模式完全并列（mock/gemini/agent），.env 一行切换。Agent 模式 Gemini 真实调用验证通过：HMAO 架构论文，12 原子任务。mock 数据替换为真实 LLM 运行记录。",
+        "intent_id": "intent-001",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-009",
+        "object": "snap",
+        "created_at": "2026-03-24T14:59:00.961401+00:00",
+        "what": "Replace custom tools with MCP servers + ADK built-ins",
+        "why": "自建的 arxiv_search/semantic_scholar_search/fetch_arxiv_paper 在重复造轮子。arXiv MCP server 和 mcp-server-fetch 已有社区实现，ADK 内置 url_context 和 BuiltInCodeExecutor 零成本可用。删除 academic.py、search.py（-180 行），改用 MCP toolset 接入。自建工具仅保留 DB tools（内部数据访问无替代品）。",
+        "intent_id": "intent-001",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-010",
+        "object": "snap",
+        "created_at": "2026-03-24T14:59:09.315682+00:00",
+        "what": "Remove skills scaffold — model-native reasoning replaces Skill layer",
+        "why": "ADK 没有 Skill 原语，其职责被分解到 instruction/sub_agents/ExampleTool/planner。Gemini 2.0+ 模型能力足够自主编排工具调用，显式 Skill 编排层增加维护成本且随模型升级会成为限制。删除空的 skills/ 目录。",
+        "intent_id": "intent-001",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-011",
+        "object": "snap",
+        "created_at": "2026-03-25T09:55:18.734302+00:00",
+        "what": "DB-centric inter-stage data flow — stages communicate through DB, not stage.output",
+        "why": "原架构（decision-003）是 stage.output 字符串直传，但 Agent 模式下 stage 产出存在 DB 中（工具写入），不走 stage.output。统一改为：所有模式的 stage 都通过 DB 读写数据。AgentClient adapter 桥接 ADK 到 pipeline 接口，broadcast 解耦为独立层。Agent 通过 DB tools 读取上游输出，Gemini/Mock 由 pipeline 从 DB 读取后注入 prompt。",
+        "intent_id": "intent-001",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-012",
+        "object": "snap",
+        "created_at": "2026-03-25T09:55:25.983617+00:00",
+        "what": "Agent instruction & prompt unification — adapter-specific task definitions, Chinese as pipeline-level constraint",
+        "why": "五项统一：1) 自主约束写入 Agent adapter instruction。2) Plan stage 直接读 DB，不依赖工具。3) 原子任务定义改为 adapter-specific（Agent 可更粗粒度）。4) pipeline system prompt 合并进 Agent instruction，删除 _AGENT_AUTO。5) 中文要求上提到 pipeline _AUTO 前缀，所有模式统一生效。",
+        "intent_id": "intent-001",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-013",
+        "object": "snap",
+        "created_at": "2026-03-25T09:55:31.032858+00:00",
+        "what": "Agent real-time streaming via SSE — partial events as primary stream",
+        "why": "Agent 模式原先无流式输出。三步修复：1) 恢复 streaming display。2) Gemini partial 事件对齐为主流事件，消除重复广播 bug。3) 启用 ADK SSE StreamingMode，推理过程实时可见。同时修复 MCP timeout（5s→30s→60s）。",
+        "intent_id": "intent-001",
+        "origin": "claude-code"
+      },
+      {
+        "id": "snap-014",
+        "object": "snap",
+        "created_at": "2026-03-25T09:55:39.346260+00:00",
+        "what": "Auto-generate Docker reproduction files after Execute stage",
+        "why": "研究产出需要可复现。之前 artifacts 只是平铺文件。现在 code_execute 调用被跟踪，Execute finalize 时自动生成 Dockerfile.experiment + run.sh + docker-compose.yml，docker compose up 即可重跑所有实验。符合顶会代码提交规范。",
+        "intent_id": "intent-001",
+        "origin": "claude-code"
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-001",
+        "object": "decision",
+        "created_at": "2026-03-23T14:58:41.679728+00:00",
+        "what": "Three-layer architecture: llm(interface) → pipeline(framework) → mode(mock/gemini/agent)",
+        "status": "deprecated",
+        "why": "Pipeline 层只依赖 LLMClient ABC，不知道背后是 mock 还是真实 LLM。模式层实现接口并组装 stages。main.py 只做模式选择。零耦合。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009"
+        ],
+        "reason": "Simplified to two layers: pipeline → AgnoClient. No more multi-mode adapter layer."
+      },
+      {
+        "id": "decision-002",
+        "object": "decision",
+        "created_at": "2026-03-23T14:58:49.819668+00:00",
+        "what": "Unified call_id streaming model for all stages",
+        "status": "active",
+        "why": "所有 LLM 调用（顺序/并行）统一通过 call_id 标记 chunk。前端按 call_id 路由到独立 DOM 块。左侧显示 LLM 输出过程，右侧显示结构化产出。Agent 模式的 ReAct 事件也走同一机制。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009",
+          "intent-010",
+          "intent-011"
+        ]
+      },
+      {
+        "id": "decision-003",
+        "object": "decision",
+        "created_at": "2026-03-23T14:58:59.029140+00:00",
+        "what": "Stage inter-stage data flow: string in, string out via stage.output",
+        "status": "deprecated",
+        "why": "阶段间传递固定为 input_text → run() → stage.output 字符串。无论 LLM 模式还是 Agent 模式，上下游接口一致。不需要额外的记忆模块，pipeline 框架已处理传递。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001"
+        ],
+        "reason": "Replaced by decision-006: stages communicate through DB, not stage.output"
+      },
+      {
+        "id": "decision-004",
+        "object": "decision",
+        "created_at": "2026-03-24T14:59:27.997030+00:00",
+        "what": "Tool selection priority: ADK built-in > MCP ecosystem > custom (internal data only)",
+        "status": "deprecated",
+        "why": "自建工具维护成本高且容易与生态重复。MCP/ADK 持续升级，复用生态工具质量更高。自建仅限无替代品的内部数据访问（如 DB tools）。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009"
+        ],
+        "reason": "ADK removed. Tool strategy is now: Agno built-in (DuckDuckGo, arXiv, Wikipedia) + custom (DB, Docker)."
+      },
+      {
+        "id": "decision-005",
+        "object": "decision",
+        "created_at": "2026-03-25T12:00:00.000000+00:00",
+        "what": "Docker reproduction is auto-generated, not agent-driven",
+        "status": "active",
+        "why": "复现文件生成是纯流程逻辑（收集脚本名+依赖→模板渲染），不需要 LLM 参与。放在 Execute finalize 中自动执行，Agent 无需感知，避免额外 token 消耗和不确定性。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009",
+          "intent-010",
+          "intent-011"
+        ]
+      },
+      {
+        "id": "decision-006",
+        "object": "decision",
+        "created_at": "2026-03-25T12:10:00.000000+00:00",
+        "what": "Inter-stage data flow through DB, not stage.output (supersedes decision-003)",
+        "status": "active",
+        "why": "Agent 模式下工具直接写 DB，stage.output 字符串直传无法覆盖这个路径。统一为 DB 作为 stage 间数据总线：Agent 用 DB tools 读写，Gemini/Mock 由 pipeline 从 DB 读取注入 prompt。decision-003 的 stage.output 机制降级为 pipeline 内部实现细节，不再是架构约束。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-002",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009",
+          "intent-010",
+          "intent-011"
+        ]
+      },
+      {
+        "id": "decision-007",
+        "object": "decision",
+        "created_at": "2026-03-25T14:28:24.366007+00:00",
+        "what": "Agent instructions are independent from pipeline prompts — pipeline flow is reference only",
+        "status": "deprecated",
+        "why": "Agent 有工具能力，能自主决定执行步骤，不需要 pipeline 手把手编排。Agent instruction 描述完整任务目标和参考流程，独立编写；pipeline 的多轮 prompt（Explore/Evaluate/Crystallize、outline/sections/polish）仅用于 Gemini/Mock 模式。两套 prompt 互不依赖，各自演进。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009"
+        ],
+        "reason": "AgnoClient is now a pure adapter with no baked-in instructions. All prompts flow from pipeline via system messages."
+      },
+      {
+        "id": "decision-008",
+        "object": "decision",
+        "created_at": "2026-03-25T14:28:38.154736+00:00",
+        "what": "Stage boundary alignment, internal execution freedom — modes share 4 stages and DB contract, not implementation",
+        "status": "deprecated",
+        "why": "Gemini 和 Agent 共享同一套 4 阶段（Refine→Plan→Execute→Write）、同样的 DB 数据流合约（idea.md→refined_idea.md→plan.json→tasks/*.md→paper.md）。但内部执行完全自由：Gemini 用多轮 LLM 调用，Agent 用单 session 自主完成。对齐的层次是阶段边界和 DB 合约，不是内部实现。",
+        "origin": "claude-code",
+        "intent_ids": [
+          "intent-001",
+          "intent-003",
+          "intent-004",
+          "intent-005",
+          "intent-006",
+          "intent-007",
+          "intent-008",
+          "intent-009"
+        ],
+        "reason": "Pipeline is now 3 stages (Refine → Research → Write), not 4. Research stage internally handles decompose+execute+evaluate."
+      }
+    ]
+  }
+}

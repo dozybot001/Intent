@@ -1,0 +1,10 @@
+{
+  "id": "snap-080",
+  "object": "snap",
+  "created_at": "2026-03-19T19:51:35.084085+00:00",
+  "intent_id": "intent-015",
+  "query": "目前暂时只放用户的体验命令吧。我想知道现在用户要体验是不是得先把IntHub的源码扒下来，然后才login、link、sync，我期望的是用户能够用IntHub看自己项目内建立的intent元数据。",
+  "what": "澄清普通用户体验 IntHub 的前提",
+  "why": "",
+  "next": "-"
+}

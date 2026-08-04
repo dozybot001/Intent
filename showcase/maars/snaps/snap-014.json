@@ -1,0 +1,9 @@
+{
+  "id": "snap-014",
+  "object": "snap",
+  "created_at": "2026-03-25T09:55:39.346260+00:00",
+  "what": "Auto-generate Docker reproduction files after Execute stage",
+  "why": "研究产出需要可复现。之前 artifacts 只是平铺文件。现在 code_execute 调用被跟踪，Execute finalize 时自动生成 Dockerfile.experiment + run.sh + docker-compose.yml，docker compose up 即可重跑所有实验。符合顶会代码提交规范。",
+  "intent_id": "intent-001",
+  "origin": "claude-code"
+}

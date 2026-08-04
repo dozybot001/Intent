@@ -1,0 +1,9 @@
+{
+  "id": "snap-034",
+  "object": "snap",
+  "created_at": "2026-03-27T16:36:18.893546+00:00",
+  "what": "Removed LaTeX/PDF conversion — markdown-only output",
+  "why": "pandoc + IEEEtran 双栏兼容性差（longtable/CJK hack 太多），转换效果不如 VSCode 原生预览。删除 _md_to_latex、_md_to_pdf、save_paper_tex，净删 205 行。",
+  "intent_id": "intent-008",
+  "origin": "claude-code"
+}

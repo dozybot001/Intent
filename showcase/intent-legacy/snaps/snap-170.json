@@ -1,0 +1,11 @@
+{
+  "id": "snap-170",
+  "object": "snap",
+  "created_at": "2026-03-22T08:55:21.056479+00:00",
+  "what": "Field migration to what/query/why/next",
+  "query": "全部迁移到新结构",
+  "why": "完成了CLI、IntHub API、IntHub Web全栈字段重命名。title→what, rationale→why, summary→why, source_query→query, deprecated_reason→reason。snap新增query和next字段。兼容层确保旧showcase数据正常展示。",
+  "next": "重启IntHub验证前端渲染。测试全部通过后发版。",
+  "intent_id": "intent-043",
+  "origin": "claude-code"
+}

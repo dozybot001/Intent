@@ -1,0 +1,29 @@
+{
+  "id": "intent-028",
+  "object": "intent",
+  "created_at": "2026-03-21T06:51:33.779576+00:00",
+  "status": "done",
+  "decision_ids": [
+    "decision-001",
+    "decision-003",
+    "decision-004",
+    "decision-008",
+    "decision-009",
+    "decision-010",
+    "decision-011",
+    "decision-012",
+    "decision-013",
+    "decision-014",
+    "decision-015",
+    "decision-016",
+    "decision-018",
+    "decision-019",
+    "decision-020"
+  ],
+  "snap_ids": [
+    "snap-151"
+  ],
+  "what": "增强 origin 自动识别",
+  "why": "在不增加 agent 输入负担的前提下，提高跨 agent/宿主环境来源识别的稳定性，增强 IntHub 与 dogfooding 的分析价值。",
+  "query": "可以，续增强 origin 的自动识别，不增加手填负担。"
+}

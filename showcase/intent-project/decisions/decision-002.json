@@ -1,0 +1,14 @@
+{
+  "id": "decision-002",
+  "object": "decision",
+  "created_at": "2026-07-30T10:35:00+00:00",
+  "what": "Retry all checkout failures three times",
+  "status": "deprecated",
+  "why": "A single rule initially seemed easier to operate than an explicit failure taxonomy.",
+  "origin": "synthetic-showcase",
+  "intent_ids": [
+    "intent-001",
+    "intent-003"
+  ],
+  "reason": "Business rejections are terminal; only transient provider failures may be retried."
+}

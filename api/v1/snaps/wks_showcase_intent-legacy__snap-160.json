@@ -1,0 +1,44 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "snap": {
+      "id": "snap-160",
+      "object": "snap",
+      "created_at": "2026-03-21T13:30:03.486917+00:00",
+      "intent_id": "intent-036",
+      "origin": "codex-desktop",
+      "what": "目录结构保守收敛",
+      "why": "清理了本地产物目录与文件：build/、dist/、.pytest_cache/、.DS_Store、各处 __pycache__/ 以及 src/intent_cli_python.egg-info。顶层保留的已跟踪业务目录现在更清晰：apps、docs、releases、scripts、showcase、src、tests。仓库边界上将 .claude/ 整体加入 .gitignore，避免 Claude 本机配置继续污染工作区；没有移动或删除任何已跟踪源码/文档目录。",
+      "next": "-",
+      "query": "-"
+    },
+    "intent": {
+      "id": "intent-036",
+      "object": "intent",
+      "created_at": "2026-03-21T13:28:23.468491+00:00",
+      "status": "done",
+      "decision_ids": [
+        "decision-001",
+        "decision-003",
+        "decision-009",
+        "decision-010",
+        "decision-011",
+        "decision-013",
+        "decision-014",
+        "decision-015",
+        "decision-016",
+        "decision-018",
+        "decision-019",
+        "decision-020",
+        "decision-022"
+      ],
+      "snap_ids": [
+        "snap-160"
+      ],
+      "what": "收敛仓库目录结构",
+      "why": "清理历史遗留的目录与分发痕迹，收紧项目目录语义，降低新机器或新贡献者理解成本。",
+      "query": "你可以帮我把目录收敛一遍吗"
+    }
+  }
+}

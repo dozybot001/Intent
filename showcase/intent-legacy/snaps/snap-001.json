@@ -1,0 +1,10 @@
+{
+  "id": "snap-001",
+  "object": "snap",
+  "created_at": "2026-03-18T07:21:30.640610+00:00",
+  "intent_id": "intent-001",
+  "query": "构建readme用于PyPI发布",
+  "what": "撰写 README.md",
+  "why": "基于 cli.md 和 pyproject.toml 撰写了面向 PyPI 的 README，涵盖三对象模型、安装、快速上手、全部命令表、设计原则和存储结构",
+  "next": "-"
+}

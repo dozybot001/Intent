@@ -1,0 +1,9 @@
+{
+  "id": "snap-002",
+  "object": "snap",
+  "created_at": "2026-07-30T09:30:00+00:00",
+  "what": "Added a bounded three-attempt exponential backoff",
+  "why": "It absorbs short provider interruptions without extending checkout indefinitely.",
+  "intent_id": "intent-001",
+  "origin": "synthetic-showcase"
+}

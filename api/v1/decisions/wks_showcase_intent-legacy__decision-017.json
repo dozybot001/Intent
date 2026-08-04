@@ -1,0 +1,72 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_intent-legacy",
+    "decision": {
+      "id": "decision-017",
+      "object": "decision",
+      "created_at": "2026-03-20T18:17:46.725792+00:00",
+      "status": "deprecated",
+      "intent_ids": [
+        "intent-025"
+      ],
+      "what": "inspect 默认应服务于继续干活；完整对象图不应由其默认输出承担",
+      "why": " 的默认职责应是帮助 agent 在新 session 中继续干活，而不是展示完整对象图。完整对象图主要服务于人类浏览、审查和追溯，这类需求更适合通过 IntHub 或显式的 full/graph 视图承担。随着 IntHub 已存在， 没必要再默认承担全量对象浏览职责，应该优先最小化噪音、突出继续工作的必要信息。",
+      "query": "-"
+    },
+    "intents": [
+      {
+        "id": "intent-025",
+        "object": "intent",
+        "created_at": "2026-03-20T18:07:05.302778+00:00",
+        "status": "done",
+        "decision_ids": [
+          "decision-001",
+          "decision-003",
+          "decision-004",
+          "decision-008",
+          "decision-009",
+          "decision-010",
+          "decision-011",
+          "decision-012",
+          "decision-013",
+          "decision-014",
+          "decision-015",
+          "decision-016",
+          "decision-017",
+          "decision-018",
+          "decision-019"
+        ],
+        "snap_ids": [
+          "snap-122",
+          "snap-123",
+          "snap-124",
+          "snap-125",
+          "snap-126",
+          "snap-127",
+          "snap-128",
+          "snap-129",
+          "snap-130",
+          "snap-131",
+          "snap-132",
+          "snap-133",
+          "snap-134",
+          "snap-135",
+          "snap-136",
+          "snap-137",
+          "snap-138",
+          "snap-139",
+          "snap-140",
+          "snap-141",
+          "snap-142",
+          "snap-143",
+          "snap-144",
+          "snap-145"
+        ],
+        "what": "收紧 intent-cli 的命令面设计",
+        "why": "这是对 intent-cli 命令面本身的系统性收敛目标，需要跨多轮评估 inspect/version/doctor 等全局命令的边界、输出与噪音控制。",
+        "query": "是的，我觉得有很多很多冗余噪音，我们需要仔细优化一下命令面设计了。先从全局命令开始。"
+      }
+    ]
+  }
+}

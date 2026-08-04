@@ -1,0 +1,15 @@
+{
+  "id": "intent-006",
+  "object": "intent",
+  "created_at": "2026-03-19T10:12:14.249648+00:00",
+  "status": "done",
+  "decision_ids": [
+    "decision-001"
+  ],
+  "snap_ids": [
+    "snap-007"
+  ],
+  "what": "收紧 intent-cli 中 intent 的判定边界",
+  "why": "用户确认修改 SKILL.md，避免 agent 将工作流熟悉、协作约定等元请求误判为需要跨会话追踪的目标",
+  "query": "可以"
+}

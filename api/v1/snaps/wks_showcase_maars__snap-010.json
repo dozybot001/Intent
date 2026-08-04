@@ -1,0 +1,50 @@
+{
+  "ok": true,
+  "result": {
+    "workspace_id": "wks_showcase_maars",
+    "snap": {
+      "id": "snap-010",
+      "object": "snap",
+      "created_at": "2026-03-24T14:59:09.315682+00:00",
+      "what": "Remove skills scaffold — model-native reasoning replaces Skill layer",
+      "why": "ADK 没有 Skill 原语，其职责被分解到 instruction/sub_agents/ExampleTool/planner。Gemini 2.0+ 模型能力足够自主编排工具调用，显式 Skill 编排层增加维护成本且随模型升级会成为限制。删除空的 skills/ 目录。",
+      "intent_id": "intent-001",
+      "origin": "claude-code"
+    },
+    "intent": {
+      "id": "intent-001",
+      "object": "intent",
+      "created_at": "2026-03-23T14:56:46.649102+00:00",
+      "what": "Build MAARS: Multi-Agent Automated Research System from scratch",
+      "status": "done",
+      "why": "构建一个全自动的研究论文生成系统，支持 mock/gemini/agent 三种模式，架构解耦，从零开始。",
+      "origin": "claude-code",
+      "decision_ids": [
+        "decision-001",
+        "decision-002",
+        "decision-003",
+        "decision-004",
+        "decision-005",
+        "decision-006",
+        "decision-007",
+        "decision-008"
+      ],
+      "snap_ids": [
+        "snap-001",
+        "snap-002",
+        "snap-003",
+        "snap-004",
+        "snap-005",
+        "snap-006",
+        "snap-007",
+        "snap-008",
+        "snap-009",
+        "snap-010",
+        "snap-011",
+        "snap-012",
+        "snap-013",
+        "snap-014"
+      ]
+    }
+  }
+}

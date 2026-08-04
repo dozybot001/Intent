@@ -1,0 +1,17 @@
+{
+  "id": "intent-001",
+  "object": "intent",
+  "created_at": "2026-07-30T09:00:00+00:00",
+  "what": "Stabilize checkout retry semantics",
+  "status": "active",
+  "why": "Intermittent provider timeouts leave otherwise valid orders pending.",
+  "origin": "synthetic-showcase",
+  "decision_ids": [
+    "decision-001",
+    "decision-002"
+  ],
+  "snap_ids": [
+    "snap-001",
+    "snap-002"
+  ]
+}
