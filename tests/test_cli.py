@@ -550,10 +550,11 @@ class TestHub:
         js = urlopen(f"{inthub_web_server}/app.js").read().decode("utf-8")
         assert "Raw JSON" in js
         assert "Linked Decisions" in js
-        assert "card-cancelled" in js
+        assert "Resolved history" in js
         assert "itt push" in js
         css = urlopen(f"{inthub_web_server}/styles.css").read().decode("utf-8")
         assert ".badge.status-cancelled" in css
+        assert ".intent-entry-cancelled" in css
 
 
 # ---------------------------------------------------------------------------

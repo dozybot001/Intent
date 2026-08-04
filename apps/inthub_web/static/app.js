@@ -461,71 +461,171 @@ function renderContinuationQueue() {
 }
 
 
-function intentCard(intent) {
-  const cls = intent.status === "done"
-    ? " card-muted"
-    : intent.status === "cancelled"
-      ? " card-cancelled"
-      : "";
-  return `
-    <button type="button" class="card${cls}" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
-      <span class="card-title">${esc(intent.what)}</span>
-      ${intent.why ? `<span class="card-body">${esc(truncate(intent.why, 140))}</span>` : ""}
-      <span class="card-meta">
-        <span class="badge">${esc(intent.id)}</span>
-        ${statusBadge(intent.status)}
-        ${originBadge(intent.origin)}
-      </span>
-    </button>`;
-}
-
 const PAGE_SIZE = 30;
-
-function renderPaged(container, items, renderFn, tabKey) {
-  if (!state._pageState) state._pageState = {};
-  const shown = state._pageState[tabKey] || PAGE_SIZE;
-
-  const visible = items.slice(0, shown);
-  const remaining = items.length - visible.length;
-
-  container.innerHTML = visible.map(renderFn).join("")
-    + (remaining > 0
-      ? `<button type="button" class="load-more-btn" id="load-more-${tabKey}">Load more (${remaining})</button>`
-      : "");
-
-  const btn = document.getElementById(`load-more-${tabKey}`);
-  if (btn) {
-    btn.addEventListener("click", () => {
-      state._pageState[tabKey] = shown + PAGE_SIZE;
-      renderSidebar();
-    });
-  }
-}
 
 function renderIntentsTab() {
   const active = state.overview.active_intents || [];
   const other = [...(state.overview.other_intents || [])].reverse();
-  const all = [...active, ...other];
+  const suspended = other.filter((intent) => intent.status === "suspend");
+  const completed = other.filter((intent) => intent.status === "done");
+  const cancelled = other.filter((intent) => intent.status === "cancelled");
+  const otherHistory = other.filter((intent) =>
+    !["suspend", "done", "cancelled"].includes(intent.status),
+  );
+  const total = active.length + other.length;
 
-  if (!all.length) {
+  if (!total) {
     el.sidebarBody.innerHTML =
       '<div class="empty-state">No intents.</div>';
     return;
   }
 
-  renderPaged(el.sidebarBody, all, intentCard, "intents");
+  if (!state._pageState) state._pageState = {};
+  const archiveShown = state._pageState.intentArchive || PAGE_SIZE;
+  const archived = [...completed, ...cancelled, ...otherHistory];
+  const visibleArchive = archived.slice(0, archiveShown);
+  const visibleIds = new Set(visibleArchive.map((intent) => intent.remote_id));
+  const visibleCompleted = completed.filter((intent) => visibleIds.has(intent.remote_id));
+  const visibleCancelled = cancelled.filter((intent) => visibleIds.has(intent.remote_id));
+  const visibleOther = otherHistory.filter((intent) => visibleIds.has(intent.remote_id));
+  const archiveRemaining = archived.length - visibleArchive.length;
+
+  const archive = archived.length
+    ? `<details class="object-archive intent-archive">
+        <summary>
+          <span>
+            <strong>Resolved history</strong>
+            <small>Completed and cancelled objectives</small>
+          </span>
+          <span class="object-archive-count">${archived.length}</span>
+        </summary>
+        <div class="object-archive-body">
+          ${intentSubgroup("Completed", visibleCompleted, "done")}
+          ${intentSubgroup("Cancelled", visibleCancelled, "cancelled")}
+          ${intentSubgroup("Other", visibleOther, "history")}
+          ${archiveRemaining > 0
+            ? `<button type="button" class="load-more-btn" id="load-more-intent-archive">Load more (${archiveRemaining})</button>`
+            : ""}
+        </div>
+      </details>`
+    : "";
+
+  el.sidebarBody.innerHTML = `
+    ${intentGroup(
+      "Active objectives",
+      active,
+      "active",
+      "No active objective. Resume a suspended Intent or record a new one.",
+    )}
+    ${suspended.length
+      ? intentGroup("Suspended", suspended, "suspend")
+      : ""}
+    ${archive}`;
+
+  const loadMore = document.getElementById("load-more-intent-archive");
+  if (loadMore) {
+    loadMore.addEventListener("click", () => {
+      state._pageState.intentArchive = archiveShown + PAGE_SIZE;
+      renderSidebar();
+      document.querySelector(".intent-archive")?.setAttribute("open", "");
+    });
+  }
 }
 
-function decisionCard(d) {
-  const cls = d.status === "deprecated" ? " card-deprecated" : "";
+function intentStatusLabel(status) {
+  return {
+    active: "In progress",
+    suspend: "On hold",
+    done: "Completed",
+    cancelled: "Cancelled",
+  }[status] || status || "Unknown";
+}
+
+function intentEntry(intent) {
+  const decisions = intent.decision_ids || [];
+  const checkpoint = intent.latest_snap_id
+    ? `Checkpoint ${intent.latest_snap_id}`
+    : "Checkpoint missing";
   return `
-    <button type="button" class="card${cls}" data-detail-type="decision" data-remote-id="${esc(d.remote_id)}">
-      <span class="card-title">${esc(d.what)}</span>
-      ${d.why ? `<span class="card-body">${esc(truncate(d.why, 140))}</span>` : ""}
-      <span class="card-meta">
-        <span class="badge">${esc(d.id)}</span>
-        ${statusBadge(d.status)}
-        ${originBadge(d.origin)}
+    <button type="button" class="intent-entry intent-entry-${esc(intent.status)}" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
+      <span class="intent-entry-topline">
+        <span class="intent-lifecycle"><i aria-hidden="true"></i>${esc(intentStatusLabel(intent.status))}</span>
+        <span class="intent-entry-id">${esc(intent.id)}</span>
+      </span>
+      <strong class="intent-entry-title">${esc(intent.what)}</strong>
+      ${intent.why ? `<span class="intent-entry-summary">${esc(truncate(intent.why, 132))}</span>` : ""}
+      <span class="intent-entry-context">
+        <span class="${intent.latest_snap_id ? "has-checkpoint" : "missing-checkpoint"}">${esc(checkpoint)}</span>
+        <span>${decisions.length} decision${decisions.length === 1 ? "" : "s"}</span>
+      </span>
+    </button>`;
+}
+
+function intentGroup(label, intents, tone, emptyMessage = "") {
+  const body = intents.length
+    ? `<div class="object-group-list">${intents.map(intentEntry).join("")}</div>`
+    : `<div class="object-group-empty">${esc(emptyMessage)}</div>`;
+  return `
+    <section class="object-group intent-group intent-group-${esc(tone)}">
+      <header class="object-group-header">
+        <span class="object-group-title"><i aria-hidden="true"></i>${esc(label)}</span>
+        <span class="object-group-count">${intents.length}</span>
+      </header>
+      ${body}
+    </section>`;
+}
+
+function intentSubgroup(label, intents, tone) {
+  if (!intents.length) return "";
+  return `
+    <section class="object-subgroup object-subgroup-${esc(tone)}">
+      <header><span>${esc(label)}</span><span>${intents.length}</span></header>
+      <div class="object-group-list">${intents.map(intentEntry).join("")}</div>
+    </section>`;
+}
+
+function overviewIntents() {
+  return [
+    ...(state.overview?.active_intents || []),
+    ...(state.overview?.other_intents || []),
+  ];
+}
+
+function decisionScope(decision) {
+  const ids = decision.intent_ids || [];
+  const linked = overviewIntents().filter((intent) =>
+    intent.workspace_id === decision.workspace_id && ids.includes(intent.id),
+  );
+  return {
+    count: ids.length,
+    titles: linked.map((intent) => intent.what),
+  };
+}
+
+function decisionConstraint(decision, index, deprecated = false) {
+  const scope = decisionScope(decision);
+  const scopeLabel = scope.count
+    ? `${scope.count} linked Intent${scope.count === 1 ? "" : "s"}`
+    : "No Intent scope recorded";
+  const scopePreview = scope.titles.length
+    ? truncate(scope.titles.join(" · "), 94)
+    : scope.count
+      ? truncate((decision.intent_ids || []).join(" · "), 94)
+      : "Open the Decision to inspect its recorded rationale.";
+  return `
+    <button type="button" class="decision-constraint${deprecated ? " is-deprecated" : ""}" data-detail-type="decision" data-remote-id="${esc(decision.remote_id)}">
+      <span class="decision-sequence" aria-hidden="true">${String(index + 1).padStart(2, "0")}</span>
+      <span class="decision-constraint-body">
+        <span class="decision-constraint-topline">
+          <span>${deprecated ? "Deprecated" : "Current constraint"}</span>
+          <span class="decision-id">${esc(decision.id)}</span>
+        </span>
+        <strong class="decision-constraint-title">${esc(decision.what)}</strong>
+        ${decision.why ? `<span class="decision-constraint-why">${esc(truncate(decision.why, 132))}</span>` : ""}
+        <span class="decision-scope">
+          <strong>${esc(scopeLabel)}</strong>
+          <span>${esc(scopePreview)}</span>
+        </span>
       </span>
     </button>`;
 }
@@ -540,12 +640,34 @@ function renderDecisionsTab() {
     return;
   }
 
-  const activeHtml = active.map(decisionCard).join("");
+  const activeHtml = active.length
+    ? active.map((decision, index) => decisionConstraint(decision, index)).join("")
+    : '<div class="object-group-empty">No active cross-Intent constraints.</div>';
   const deprecatedHtml = deprecated.length
-    ? `<details class="collapse-toggle is-deprecated"><summary>${deprecated.length} deprecated</summary>${deprecated.map(decisionCard).join("")}</details>`
+    ? `<details class="object-archive decision-archive">
+        <summary>
+          <span>
+            <strong>Deprecated history</strong>
+            <small>Retired constraints kept for traceability</small>
+          </span>
+          <span class="object-archive-count">${deprecated.length}</span>
+        </summary>
+        <div class="object-archive-body decision-archive-body">
+          ${deprecated.map((decision, index) => decisionConstraint(decision, index, true)).join("")}
+        </div>
+      </details>`
     : "";
 
-  el.sidebarBody.innerHTML = activeHtml + deprecatedHtml;
+  el.sidebarBody.innerHTML = `
+    <section class="object-group decision-group">
+      <header class="object-group-header">
+        <span class="object-group-title"><i aria-hidden="true"></i>Active constraints</span>
+        <span class="object-group-count">${active.length}</span>
+      </header>
+      <p class="object-group-intro">Rules that remain binding across linked objectives.</p>
+      <div class="decision-constraint-list">${activeHtml}</div>
+    </section>
+    ${deprecatedHtml}`;
 }
 
 function intentForSnap(snap) {
@@ -1166,6 +1288,10 @@ function collapsibleRelation(allItems, visibleCount, moreLabel) {
 
 function buildDecisionDetailHtml(payload) {
   const decision = payload.decision;
+  const linkedCount = payload.intents.length;
+  const scopeSummary = linkedCount
+    ? `Applies to ${linkedCount} linked Intent${linkedCount === 1 ? "" : "s"}.`
+    : "No Intent scope is recorded.";
   const intentLinks = payload.intents.map((i) =>
     relationItem(
       "intent",
@@ -1185,6 +1311,7 @@ function buildDecisionDetailHtml(payload) {
     <div class="detail-header">
       <span class="detail-id">${esc(decision.id)} \u00b7 Decision</span>
       <h2 class="detail-title">${esc(decision.what)}</h2>
+      <p class="decision-detail-scope">${decision.status === "active" ? "Current cross-Intent constraint" : "Deprecated constraint history"} \u00b7 ${esc(scopeSummary)}</p>
       <div class="detail-meta">
         ${statusBadge(decision.status)}
         ${originBadge(decision.origin)}

@@ -31,7 +31,7 @@ def test_web_shell_uses_soft_cards_without_console_style_color_rails():
     javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
     stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
 
-    assert "uiux-p2-1" in html
+    assert "uiux-p2-2" in html
     assert "--shadow-card:" in stylesheet
     assert ".checkpoint-blocker.is-clear" in stylesheet
     assert 'clearBlocker ? " is-clear"' in javascript
@@ -79,3 +79,31 @@ def test_timeline_uses_concise_snap_titles_and_structured_event_rows():
     assert "extractCheckpointParts(snap?.why)" in javascript
     assert ".timeline-events::before" in stylesheet
     assert ".detail-title-snap" in stylesheet
+
+
+def test_intents_are_grouped_by_lifecycle_with_collapsed_history():
+    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
+    stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
+
+    assert 'other.filter((intent) => intent.status === "suspend")' in javascript
+    assert 'other.filter((intent) => intent.status === "done")' in javascript
+    assert 'other.filter((intent) => intent.status === "cancelled")' in javascript
+    assert 'class="object-archive intent-archive"' in javascript
+    assert "Active objectives" in javascript
+    assert "Resolved history" in javascript
+    assert ".intent-entry" in stylesheet
+    assert ".object-archive" in stylesheet
+
+
+def test_decisions_surface_current_constraints_scope_and_deprecated_history():
+    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
+    stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
+
+    assert "function decisionScope" in javascript
+    assert "function decisionConstraint" in javascript
+    assert "Active constraints" in javascript
+    assert "No Intent scope recorded" in javascript
+    assert "Deprecated history" in javascript
+    assert "Current cross-Intent constraint" in javascript
+    assert ".decision-constraint" in stylesheet
+    assert ".decision-detail-scope" in stylesheet

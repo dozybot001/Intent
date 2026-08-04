@@ -86,10 +86,10 @@ P1 的视觉和交互观感由产品所有者验收；自动化侧只负责语�
 ### P2：对象浏览与语义时间线
 
 - [x] 以“连续语义轨迹”替换旧柱状图 Logo，并为账户提供不依赖外部图片的确定性字母头像。
-- [ ] Intent 使用 Active、Suspended、Completed/Cancelled 分组和折叠。
+- [x] Intent 使用 Active、Suspended、Completed/Cancelled 分组和折叠。
 - [x] Snap 使用按日期分组的纵向时间流，显示短标题、Next/Boundary、阻塞状态和 Intent 归属。
 - [x] Snap 详情按 Verified、Boundary、Next、Blocker、Constraints 拆分，并限制详情标题的视觉尺度。
-- [ ] Decision 突出当前约束、影响范围和 superseded 历史。
+- [x] Decision 突出当前约束、影响范围和 deprecated 历史；在没有显式取代关系时不虚构 superseded 链路。
 - [ ] 支持 split view、关系跳转、详情返回栈和上下文菜单。
 - [ ] 补齐搜索范围、结果高亮、最近搜索与键盘结果导航。
 

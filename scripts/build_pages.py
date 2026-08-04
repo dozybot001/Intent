@@ -269,8 +269,8 @@ def build():
 
     # Copy index.html (adjust paths for relative loading)
     html = (WEB_STATIC / "index.html").read_text()
-    html = html.replace('href="/styles.css?rev=uiux-p2-1"', 'href="styles.css?rev=uiux-p2-1"')
-    html = html.replace('src="/app.js?rev=uiux-p2-1"', 'src="app.js?rev=uiux-p2-1"')
+    html = html.replace('href="/styles.css?rev=uiux-p2-2"', 'href="styles.css?rev=uiux-p2-2"')
+    html = html.replace('src="/app.js?rev=uiux-p2-2"', 'src="app.js?rev=uiux-p2-2"')
     (OUT_DIR / "index.html").write_text(html)
 
     # Copy and patch app.js for static mode
