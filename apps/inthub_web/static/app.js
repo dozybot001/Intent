@@ -691,8 +691,10 @@ function parseCheckpoint(snap) {
 
 function checkpointCell(key, label, value) {
   const missing = !value;
+  const clearBlocker = key === "blocker"
+    && /^(none|n\/a|not blocked|no blocker|无|没有|无阻塞|暂无)[.!。！]?$/.test(String(value || "").trim().toLowerCase());
   return `
-    <section class="checkpoint checkpoint-${esc(key)}${missing ? " is-missing" : ""}">
+    <section class="checkpoint checkpoint-${esc(key)}${missing ? " is-missing" : ""}${clearBlocker ? " is-clear" : ""}">
       <span class="checkpoint-label">${esc(label)}</span>
       <p class="checkpoint-value">${missing ? "Not explicitly recorded in the latest Snap." : esc(value)}</p>
     </section>`;

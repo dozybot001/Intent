@@ -4,17 +4,17 @@
   --graphite-900: #191c18;
   --graphite-850: #20231f;
   --graphite-800: #292d28;
-  --canvas: #f1f2ee;
-  --canvas-deep: #e8eae4;
-  --surface: #fbfcf9;
+  --canvas: #f4f5f2;
+  --canvas-deep: #e9ece7;
+  --surface: #fafbf8;
   --surface-strong: #ffffff;
-  --surface-warm: #f7f2ea;
+  --surface-warm: #f8f4ee;
   --ink: #1c211c;
   --ink-soft: #394139;
   --muted: #697269;
   --muted-strong: #515b52;
-  --line: #d9ddd6;
-  --line-strong: #c5cbc2;
+  --line: rgba(28, 33, 28, 0.09);
+  --line-strong: rgba(28, 33, 28, 0.16);
   --copper: #b85f31;
   --copper-dark: #8f4320;
   --copper-soft: #f1ded1;
@@ -26,12 +26,15 @@
   --red-soft: #f2deda;
   --blue: #3f6279;
   --blue-soft: #dce8ee;
-  --shadow-sm: 0 1px 2px rgba(20, 24, 20, 0.04), 0 8px 24px rgba(20, 24, 20, 0.04);
-  --shadow-md: 0 18px 60px rgba(13, 16, 13, 0.16);
+  --shadow-xs: 0 1px 2px rgba(20, 24, 20, 0.045), 0 3px 10px rgba(20, 24, 20, 0.025);
+  --shadow-sm: 0 2px 6px rgba(20, 24, 20, 0.045), 0 14px 34px rgba(20, 24, 20, 0.055);
+  --shadow-card: 0 1px 2px rgba(20, 24, 20, 0.04), 0 18px 50px rgba(20, 24, 20, 0.065);
+  --shadow-card-hover: 0 4px 12px rgba(20, 24, 20, 0.06), 0 24px 58px rgba(20, 24, 20, 0.09);
+  --shadow-md: 0 24px 70px rgba(13, 16, 13, 0.14);
   --radius-xs: 6px;
-  --radius-sm: 10px;
-  --radius: 16px;
-  --radius-lg: 24px;
+  --radius-sm: 12px;
+  --radius: 18px;
+  --radius-lg: 26px;
   --header-h: 70px;
   --nav-w: 216px;
   --index-w: 354px;
@@ -138,8 +141,8 @@ svg {
   gap: 24px;
   min-width: 0;
   padding: 0 18px;
-  border-bottom: 1px solid var(--line);
-  background: rgba(251, 252, 249, 0.94);
+  border-bottom: 1px solid rgba(28, 33, 28, 0.07);
+  background: rgba(252, 253, 250, 0.9);
   backdrop-filter: blur(18px);
 }
 
@@ -480,23 +483,13 @@ svg {
   min-height: 0;
   padding: 24px 14px 16px;
   overflow: hidden;
-  color: rgba(244, 247, 241, 0.82);
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px) 0 0 / 100% 24px,
-    var(--graphite-900);
+  color: var(--ink-soft);
+  border-right: 1px solid rgba(28, 33, 28, 0.07);
+  background: #eef0ec;
 }
 
 .primary-nav::after {
-  position: absolute;
-  right: -80px;
-  bottom: -100px;
-  width: 230px;
-  height: 230px;
-  border: 1px solid rgba(220, 145, 98, 0.12);
-  border-radius: 50%;
-  content: "";
-  box-shadow: 0 0 0 38px rgba(220, 145, 98, 0.025), 0 0 0 76px rgba(220, 145, 98, 0.015);
-  pointer-events: none;
+  display: none;
 }
 
 .nav-context {
@@ -504,17 +497,18 @@ svg {
   align-items: center;
   gap: 10px;
   padding: 0 10px 17px;
-  color: rgba(244, 247, 241, 0.38);
-  font-family: var(--mono);
-  font-size: 0.61rem;
-  letter-spacing: 0.1em;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .nav-context-rule {
   height: 1px;
   flex: 1;
-  background: rgba(244, 247, 241, 0.12);
+  background: rgba(28, 33, 28, 0.1);
 }
 
 .primary-nav-list {
@@ -531,11 +525,12 @@ svg {
   width: 100%;
   min-height: 43px;
   padding: 9px 11px;
-  border-radius: var(--radius-sm);
-  color: rgba(244, 247, 241, 0.58);
+  border: 1px solid transparent;
+  border-radius: 14px;
+  color: var(--muted-strong);
   background: transparent;
   text-align: left;
-  transition: color 130ms ease, background 130ms ease, transform 130ms ease;
+  transition: color 150ms ease, background 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
 }
 
 .tab svg {
@@ -549,15 +544,16 @@ svg {
 }
 
 .tab:hover {
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(255, 255, 255, 0.055);
-  transform: translateX(2px);
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.62);
+  transform: translateY(-1px);
 }
 
 .tab.is-active {
-  color: white;
-  background: rgba(255, 255, 255, 0.095);
-  box-shadow: inset 3px 0 0 #d7814f;
+  color: var(--ink);
+  border-color: rgba(28, 33, 28, 0.07);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-xs);
 }
 
 .tab span:not(.tab-count) {
@@ -569,8 +565,8 @@ svg {
   min-width: 22px;
   padding: 2px 6px;
   border-radius: 999px;
-  color: rgba(255, 255, 255, 0.58);
-  background: rgba(255, 255, 255, 0.07);
+  color: var(--muted);
+  background: rgba(28, 33, 28, 0.055);
   font-family: var(--mono);
   font-size: 0.6rem;
   text-align: center;
@@ -587,7 +583,7 @@ svg {
   left: 10px;
   height: 1px;
   content: "";
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(28, 33, 28, 0.08);
 }
 
 .nav-foot {
@@ -597,20 +593,21 @@ svg {
   gap: 4px;
   margin-top: auto;
   padding: 14px 10px 3px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(28, 33, 28, 0.08);
 }
 
 .nav-foot-label {
-  color: rgba(255, 255, 255, 0.32);
-  font-family: var(--mono);
-  font-size: 0.58rem;
-  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 0.61rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .nav-foot-value {
   overflow: hidden;
-  color: rgba(255, 255, 255, 0.68);
+  color: var(--ink-soft);
   font-size: 0.72rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -621,7 +618,7 @@ svg {
   min-height: 0;
   overflow: hidden;
   border-right: 1px solid var(--line);
-  background: #f7f8f5;
+  background: #f8f9f7;
 }
 
 .index-header {
@@ -641,10 +638,10 @@ svg {
 .checkpoint-label,
 .support-label {
   color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.09em;
+  font-family: var(--sans);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.055em;
   text-transform: uppercase;
 }
 
@@ -727,29 +724,30 @@ svg {
   display: grid;
   gap: 9px;
   width: 100%;
-  margin-bottom: 6px;
-  padding: 14px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  padding: 15px;
+  border: 1px solid rgba(28, 33, 28, 0.055);
+  border-radius: 16px;
   color: var(--ink);
-  background: transparent;
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: var(--shadow-xs);
   text-align: left;
-  transition: background 130ms ease, border-color 130ms ease, box-shadow 130ms ease, transform 130ms ease;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 .queue-item:hover,
 .card:hover {
-  border-color: var(--line);
+  border-color: rgba(28, 33, 28, 0.085);
   background: var(--surface-strong);
   box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
 .queue-item.is-selected,
 .card.is-selected {
-  border-color: #dfb596;
-  background: #fff9f4;
-  box-shadow: inset 3px 0 0 var(--copper), var(--shadow-sm);
+  border-color: rgba(184, 95, 49, 0.24);
+  background: #fffdfb;
+  box-shadow: 0 0 0 3px rgba(184, 95, 49, 0.07), var(--shadow-sm);
 }
 
 .queue-item-title,
@@ -785,10 +783,11 @@ svg {
 .queue-empty {
   margin: 5px;
   padding: 20px 16px;
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--radius-sm);
+  border: 1px solid rgba(28, 33, 28, 0.06);
+  border-radius: 16px;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.52);
+  box-shadow: var(--shadow-xs);
   font-size: 0.77rem;
 }
 
@@ -827,13 +826,19 @@ svg {
 .overview-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
+  padding: 6px 9px;
+  border: 1px solid rgba(184, 95, 49, 0.12);
+  border-radius: 999px;
   color: var(--copper-dark);
+  background: rgba(255, 250, 246, 0.72);
+  box-shadow: var(--shadow-xs);
 }
 
 .overview-eyebrow::before {
-  width: 24px;
-  height: 1px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
   content: "";
   background: var(--copper);
 }
@@ -860,15 +865,31 @@ svg {
 
 .hero-health {
   display: grid;
-  gap: 4px;
+  grid-template-columns: auto 1fr;
+  column-gap: 9px;
+  row-gap: 3px;
+  align-items: center;
   min-width: 170px;
   padding: 12px 15px;
-  border-left: 2px solid var(--green);
-  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(28, 33, 28, 0.06);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: var(--shadow-xs);
 }
 
-.hero-health.is-warning {
-  border-left-color: var(--amber);
+.hero-health::before {
+  grid-row: 1 / span 2;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  content: "";
+  background: var(--green);
+  box-shadow: 0 0 0 4px rgba(66, 119, 82, 0.1);
+}
+
+.hero-health.is-warning::before {
+  background: var(--amber);
+  box-shadow: 0 0 0 4px rgba(171, 118, 31, 0.11);
 }
 
 .hero-health strong {
@@ -889,28 +910,28 @@ svg {
 .brief-card {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(28, 33, 28, 0.06);
   border-radius: var(--radius-lg);
   background: var(--surface-strong);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 180ms ease, transform 180ms ease;
+}
+
+.brief-card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
 }
 
 .brief-card::before {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 4px;
-  content: "";
-  background: var(--copper);
+  display: none;
 }
 
 .brief-card-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 24px;
-  padding: 24px 26px 20px 30px;
-  border-bottom: 1px solid var(--line);
+  padding: 25px 26px 21px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(249, 249, 246, 0.72));
 }
 
 .brief-card-head h2 {
@@ -935,37 +956,36 @@ svg {
   align-items: center;
   gap: 5px;
   padding: 7px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border: 1px solid rgba(28, 33, 28, 0.065);
+  border-radius: 999px;
   color: var(--ink-soft);
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: var(--shadow-xs);
   font-size: 0.72rem;
   white-space: nowrap;
 }
 
 .brief-open:hover {
   color: var(--copper-dark);
-  border-color: #ddb496;
+  border-color: rgba(184, 95, 49, 0.24);
+  background: #fff;
 }
 
 .checkpoint-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
+  background: #f5f6f3;
 }
 
 .checkpoint {
   min-height: 138px;
-  padding: 21px 26px 24px 30px;
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-}
-
-.checkpoint:nth-child(2n) {
-  border-right: 0;
-}
-
-.checkpoint:nth-last-child(-n + 2) {
-  border-bottom: 0;
+  padding: 20px 21px 22px;
+  border: 1px solid rgba(28, 33, 28, 0.05);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: var(--shadow-xs);
 }
 
 .checkpoint-label {
@@ -975,19 +995,34 @@ svg {
 }
 
 .checkpoint-label::before {
-  width: 7px;
-  height: 7px;
-  border: 1px solid currentColor;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   content: "";
+  background: currentColor;
+  opacity: 0.7;
 }
 
 .checkpoint-next .checkpoint-label {
   color: var(--copper-dark);
 }
 
+.checkpoint-next {
+  border-color: rgba(184, 95, 49, 0.09);
+  background: rgba(255, 250, 246, 0.76);
+}
+
 .checkpoint-blocker .checkpoint-label {
   color: var(--red);
+}
+
+.checkpoint-blocker.is-clear {
+  border-color: rgba(66, 119, 82, 0.09);
+  background: rgba(245, 250, 246, 0.82);
+}
+
+.checkpoint-blocker.is-clear .checkpoint-label {
+  color: var(--green);
 }
 
 .checkpoint-value {
@@ -999,9 +1034,9 @@ svg {
 }
 
 .checkpoint.is-missing {
-  background:
-    repeating-linear-gradient(-45deg, transparent 0 11px, rgba(105, 114, 105, 0.025) 11px 12px),
-    #fafbf8;
+  border-color: rgba(28, 33, 28, 0.035);
+  background: rgba(255, 255, 255, 0.42);
+  box-shadow: none;
 }
 
 .checkpoint.is-missing .checkpoint-value {
@@ -1010,10 +1045,11 @@ svg {
 }
 
 .brief-context {
-  padding: 16px 26px 18px 30px;
-  border-top: 1px solid var(--line);
+  margin: 0 14px 14px;
+  padding: 13px 14px;
+  border-radius: 14px;
   color: var(--muted);
-  background: #fafbf8;
+  background: rgba(237, 239, 234, 0.68);
   font-size: 0.76rem;
   line-height: 1.55;
 }
@@ -1028,9 +1064,10 @@ svg {
 .support-card {
   min-width: 0;
   padding: 21px 22px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: rgba(251, 252, 249, 0.76);
+  border: 1px solid rgba(28, 33, 28, 0.055);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: var(--shadow-xs);
 }
 
 .support-card-head {
@@ -1105,9 +1142,10 @@ svg {
   place-items: center;
   min-height: 330px;
   padding: 50px;
-  border: 1px dashed var(--line-strong);
+  border: 1px solid rgba(28, 33, 28, 0.055);
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.44);
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: var(--shadow-xs);
   text-align: center;
 }
 
@@ -1210,18 +1248,20 @@ svg {
   max-width: 850px;
   margin-bottom: 16px;
   padding: 22px 24px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: rgba(251, 252, 249, 0.82);
+  border: 1px solid rgba(28, 33, 28, 0.055);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: var(--shadow-xs);
   animation: content-in 270ms 30ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .detail-section-title {
   margin: 0 0 13px;
   color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.09em;
+  font-family: var(--sans);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.055em;
   text-transform: uppercase;
 }
 
@@ -1237,9 +1277,9 @@ svg {
 
 .detail-checkpoint-grid {
   margin: -8px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  overflow: visible;
+  border: 0;
+  border-radius: 18px;
 }
 
 .detail-checkpoint-grid .checkpoint {
@@ -1298,19 +1338,20 @@ svg {
   gap: 5px;
   width: 100%;
   padding: 12px 13px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border: 1px solid rgba(28, 33, 28, 0.055);
+  border-radius: 15px;
   color: var(--ink);
-  background: var(--surface-strong);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: var(--shadow-xs);
   text-align: left;
   transition: border-color 130ms ease, transform 130ms ease, box-shadow 130ms ease;
 }
 
 .relation-item:hover,
 .detail-link:hover {
-  border-color: #ddb496;
+  border-color: rgba(184, 95, 49, 0.18);
   box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
 .relation-id {
@@ -1354,9 +1395,10 @@ svg {
   max-width: 850px;
   margin-top: 12px;
   padding: 10px 12px;
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: rgba(251, 252, 249, 0.56);
+  border: 1px solid rgba(28, 33, 28, 0.055);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: var(--shadow-xs);
 }
 
 .collapse-toggle summary,
@@ -1736,9 +1778,9 @@ input:focus {
   width: min(560px, 100%);
   padding: 18px 20px;
   border: 1px solid rgba(255, 255, 255, 0.11);
-  border-left-color: #dc8b59;
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.045);
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.14);
   backdrop-filter: blur(10px);
 }
 
@@ -2011,15 +2053,6 @@ input:focus {
     grid-template-columns: 1fr;
   }
 
-  .checkpoint {
-    border-right: 0;
-    border-bottom: 1px solid var(--line) !important;
-  }
-
-  .checkpoint:last-child {
-    border-bottom: 0 !important;
-  }
-
   .auth-stage {
     grid-template-columns: 1fr;
   }
@@ -2100,8 +2133,9 @@ input:focus {
     display: block;
     height: 64px;
     padding: 6px max(7px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(7px, env(safe-area-inset-left));
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(25, 28, 24, 0.97);
+    border-top: 1px solid rgba(28, 33, 28, 0.08);
+    background: rgba(242, 244, 240, 0.94);
+    box-shadow: 0 -10px 34px rgba(20, 24, 20, 0.07);
     backdrop-filter: blur(18px);
   }
 
@@ -2132,7 +2166,8 @@ input:focus {
   }
 
   .tab.is-active {
-    box-shadow: inset 0 -2px 0 #d7814f;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: var(--shadow-xs);
   }
 
   .tab svg {
@@ -2235,7 +2270,7 @@ input:focus {
   .brief-card-head {
     grid-template-columns: 1fr;
     gap: 14px;
-    padding: 20px 18px 17px 22px;
+    padding: 20px 18px 17px;
   }
 
   .brief-open {
@@ -2244,11 +2279,11 @@ input:focus {
 
   .checkpoint {
     min-height: 0;
-    padding: 18px 18px 19px 22px;
+    padding: 18px 18px 19px;
   }
 
   .brief-context {
-    padding: 14px 18px 16px 22px;
+    padding: 14px 16px 16px;
   }
 
   .support-card {

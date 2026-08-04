@@ -24,3 +24,17 @@ def test_web_client_loads_handoff_and_surfaces_checkpoint_contract():
     assert 'checkpointCell("next", "Next"' in javascript
     assert 'checkpointCell("blocker", "Blocker"' in javascript
     assert "event.metaKey || event.ctrlKey" in javascript
+
+
+def test_web_shell_uses_soft_cards_without_console_style_color_rails():
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
+    stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
+
+    assert "soft-cards-1" in html
+    assert "--shadow-card:" in stylesheet
+    assert ".checkpoint-blocker.is-clear" in stylesheet
+    assert 'clearBlocker ? " is-clear"' in javascript
+    assert "box-shadow: inset 3px 0 0" not in stylesheet
+    assert "box-shadow: inset 0 -2px 0" not in stylesheet
+    assert "background: rgba(25, 28, 24, 0.97)" not in stylesheet
