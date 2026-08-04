@@ -31,7 +31,7 @@ def test_web_shell_uses_soft_cards_without_console_style_color_rails():
     javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
     stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
 
-    assert "uiux-p2-2" in html
+    assert "uiux-p2-3" in html
     assert "--shadow-card:" in stylesheet
     assert ".checkpoint-blocker.is-clear" in stylesheet
     assert 'clearBlocker ? " is-clear"' in javascript
@@ -107,3 +107,20 @@ def test_decisions_surface_current_constraints_scope_and_deprecated_history():
     assert "Current cross-Intent constraint" in javascript
     assert ".decision-constraint" in stylesheet
     assert ".decision-detail-scope" in stylesheet
+
+
+def test_login_page_matches_the_continuity_workspace_and_keeps_one_auth_path():
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
+    stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
+
+    assert 'class="auth-trajectory"' in html
+    assert 'class="auth-preview"' in html
+    assert "Resume with the" in html
+    assert "Continuation brief" in html
+    assert html.count('id="github-login"') == 1
+    assert "No repository permissions" in html
+    assert "never stores your GitHub access token" in javascript
+    assert ".auth-assurances" in stylesheet
+    assert ".auth-preview-flow::before" in stylesheet
+    assert "var(--graphite-950);" not in stylesheet[stylesheet.index(".auth-gate {"):stylesheet.index(".auth-stage {")]

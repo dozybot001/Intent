@@ -203,9 +203,9 @@ function showAuthGate(message = "") {
   el.githubLogin.href = `/api/v1/auth/github/start?return_to=${encodeURIComponent(returnTo)}`;
   el.githubLoginLabel.textContent = "Continue with GitHub";
   el.authDescription.textContent =
-    "Sign in or create your IntHub account with your GitHub identity.";
+    "Use your GitHub identity to sign in or create your IntHub account.";
   el.authFootnote.textContent =
-    "GitHub confirms your identity. IntHub stores its own revocable browser session and never stores your GitHub token.";
+    "IntHub stores its own revocable browser session and never stores your GitHub access token.";
   window.setTimeout(() => el.githubLogin.focus(), 0);
 }
 

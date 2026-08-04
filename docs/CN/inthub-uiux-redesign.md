@@ -104,7 +104,7 @@ Snap 的存储 schema 没有独立 `title`：`what` 是已验证里程碑或紧�
 
 ### P3：SaaS 账户与首次使用
 
-- [ ] 登录页说明价值、展示产品预览，并移除 “private archive” 单用户语义。
+- [x] 登录页采用与工作台一致的 Soft Spatial Cards，说明产品价值、展示 Continuation Brief 预览，并移除 “private archive” 单用户语义。
 - [ ] 首次登录引导完成安装 CLI、Link Project 和 First Sync。
 - [ ] 建立 Settings / Developer Settings / Access Tokens。
 - [ ] Token 创建支持名称、有效期、一次性 Secret、复制、列表、last-used 和 revoke。
