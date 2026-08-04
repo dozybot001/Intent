@@ -31,7 +31,7 @@ def test_web_shell_uses_soft_cards_without_console_style_color_rails():
     javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
     stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
 
-    assert "uiux-p2-3" in html
+    assert "uiux-p2-4" in html
     assert "--shadow-card:" in stylesheet
     assert ".checkpoint-blocker.is-clear" in stylesheet
     assert 'clearBlocker ? " is-clear"' in javascript
@@ -124,3 +124,19 @@ def test_login_page_matches_the_continuity_workspace_and_keeps_one_auth_path():
     assert ".auth-assurances" in stylesheet
     assert ".auth-preview-flow::before" in stylesheet
     assert "var(--graphite-950);" not in stylesheet[stylesheet.index(".auth-gate {"):stylesheet.index(".auth-stage {")]
+
+
+def test_github_login_has_immediate_loading_feedback_and_recovers_from_history():
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
+    stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
+
+    assert 'class="github-login-spinner"' in html
+    assert 'aria-live="polite"' in html
+    assert "function setGithubLoginLoading" in javascript
+    assert 'setAttribute("aria-busy", String(loading))' in javascript
+    assert '"Connecting to GitHub\\u2026"' in javascript
+    assert 'window.addEventListener("pageshow"' in javascript
+    assert 'event.preventDefault()' in javascript
+    assert ".github-login.is-loading" in stylesheet
+    assert "animation: spin 700ms linear infinite" in stylesheet

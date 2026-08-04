@@ -191,6 +191,19 @@ async function fetchJson(url, options = {}) {
   return p.result;
 }
 
+function setGithubLoginLoading(loading) {
+  el.githubLogin.classList.toggle("is-loading", loading);
+  el.githubLogin.setAttribute("aria-busy", String(loading));
+  if (loading) {
+    el.githubLogin.setAttribute("aria-disabled", "true");
+  } else {
+    el.githubLogin.removeAttribute("aria-disabled");
+  }
+  el.githubLoginLabel.textContent = loading
+    ? "Connecting to GitHub\u2026"
+    : "Continue with GitHub";
+}
+
 function showAuthGate(message = "") {
   state.authenticated = false;
   el.shell.classList.add("is-locked");
@@ -201,7 +214,7 @@ function showAuthGate(message = "") {
   el.githubLogin.classList.remove("is-hidden");
   const returnTo = `${window.location.pathname}${window.location.search}`;
   el.githubLogin.href = `/api/v1/auth/github/start?return_to=${encodeURIComponent(returnTo)}`;
-  el.githubLoginLabel.textContent = "Continue with GitHub";
+  setGithubLoginLoading(false);
   el.authDescription.textContent =
     "Use your GitHub identity to sign in or create your IntHub account.";
   el.authFootnote.textContent =
@@ -1584,6 +1597,19 @@ async function loadProjects() {
 
 function bindEvents() {
   el.searchTrigger.addEventListener("click", () => switchTab("search"));
+
+  el.githubLogin.addEventListener("click", (event) => {
+    if (el.githubLogin.classList.contains("is-loading")) {
+      event.preventDefault();
+      return;
+    }
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    setGithubLoginLoading(true);
+  });
+
+  window.addEventListener("pageshow", () => {
+    setGithubLoginLoading(false);
+  });
 
   el.tokenBtn.addEventListener("click", async () => {
     el.tokenBtn.disabled = true;

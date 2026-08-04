@@ -2670,14 +2670,56 @@ input:focus {
   transform: translateY(-2px);
 }
 
-.github-login svg {
+.github-login-visual {
+  position: relative;
+  display: grid;
   width: 22px;
   height: 22px;
+  place-items: center;
+}
+
+.github-login-visual svg {
+  width: 22px;
+  height: 22px;
+  transition: opacity 120ms ease, transform 180ms ease;
+}
+
+.github-login-spinner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.26);
+  border-top-color: white;
+  border-radius: 50%;
+  opacity: 0;
+}
+
+.github-login.is-loading,
+.github-login.is-loading:hover {
+  cursor: wait;
+  background: var(--graphite-800);
+  box-shadow: 0 8px 22px rgba(20, 24, 20, 0.14);
+  transform: none;
+}
+
+.github-login.is-loading .github-login-visual svg {
+  opacity: 0;
+  transform: scale(0.72);
+}
+
+.github-login.is-loading .github-login-spinner {
+  opacity: 1;
+  animation: spin 700ms linear infinite;
+}
+
+.github-login.is-loading .github-login-arrow {
+  opacity: 0;
 }
 
 .github-login-arrow {
   color: #e7a77f;
   font-size: 1rem;
+  transition: opacity 120ms ease;
 }
 
 .auth-error {
