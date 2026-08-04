@@ -4,374 +4,266 @@
 
 ## Metadata
 
-- Status: reviewed
+- Status: implemented
 - Owner: project maintainers
 - Last verified: 2026-08-04
-- Runtime surface: deploy, ops, data, web, API
-- Primary code anchors:
-  - [deploy/inthub/compose.yaml](../../deploy/inthub/compose.yaml) - 定义独立 PostgreSQL、应用镜像、回环端口、健康检查和容器安全边界
-  - [deploy/inthub/inthub.caddy](../../deploy/inthub/inthub.caddy) - 定义 `inthub.tenon.asia` 的独立公网入口
-  - [deploy/inthub/inthub.env.example](../../deploy/inthub/inthub.env.example) - 定义生产配置键，不包含真实 Secret
-  - [Dockerfile](../../Dockerfile) - 定义以 Git commit 构建的只读 IntHub 应用镜像
-- Primary tests:
-  - [tests/test_inthub_postgres.py](../../tests/test_inthub_postgres.py) - 守护 PostgreSQL schema、账户隔离和并发写入边界
-  - [tests/test_inthub_auth.py](../../tests/test_inthub_auth.py) - 守护 GitHub OAuth、Web session 和账户 access token
-  - [tests/test_inthub_api_server.py](../../tests/test_inthub_api_server.py) - 守护健康检查、认证和 HTTP API 契约
-  - [tests/test_inthub_web_ui.py](../../tests/test_inthub_web_ui.py) - 守护登录入口和 Web 静态契约
-- Related docs:
-  - [CLI 使用说明](cli.md)
-  - [IntHub UI/UX 改造计划](inthub-uiux-redesign.md)
+- Runtime surface: build, package, deploy, ops, data, web, API
+- 正式入口：[deploy/inthub/release.sh](../../deploy/inthub/release.sh)
+- 内部实现：
+  - [build-release.sh](../../deploy/inthub/build-release.sh) - 从 clean Commit 构建并验证 release bundle
+  - [release_manifest.py](../../deploy/inthub/release_manifest.py) - 生成并严格校验 manifest 与 checksum
+  - [remote-release.sh](../../deploy/inthub/remote-release.sh) - 服务器校验、备份、加载、验收和回滚
+  - [runtime-images.lock.json](../../deploy/inthub/runtime-images.lock.json) - 锁定数据库 runtime identity
+  - [smoke.sh](../../deploy/inthub/smoke.sh) - 内部与公网验收
+  - [compose.yaml](../../deploy/inthub/compose.yaml) - 只允许启动已经加载的镜像
+  - [inthub.caddy](../../deploy/inthub/inthub.caddy) - IntHub 独立公网入口
 
-## 简短结论
+## 结论
 
-IntHub 官方生产环境只从 Gitee 部署仓库
-[`https://gitee.com/dozybot/Intent.git`](https://gitee.com/dozybot/Intent) 的
-`main` 拉取代码。Gitee `origin/main` 是发布来源和生产 provenance；GitHub
-[`dozybot001/Intent`](https://github.com/dozybot001/Intent) 可以继续接收提交、运行
-CI 或 Pages，但不得成为生产拉取源，也不得在 Gitee 不可用时自动降级为部署 fallback。
+IntHub 生产发布使用下面的固定闭环：
 
-GitHub 在这里同时承担 OAuth identity provider，但 OAuth 身份来源与代码部署来源是两个
-独立边界：保留 GitHub 登录不意味着服务器应从 GitHub 拉代码。
+```text
+本地 clean main Commit
+  → 从 Git object 导出 commit-exact source context
+  → 本机共享 linux/amd64 Builder 构建镜像
+  → 对同一镜像做本地 smoke
+  → source archive + image archive + manifest + SHA-256
+  → SSH 上传 /opt/inthub/incoming
+  → 取得 /opt/inthub/.release-lock
+  → 服务器校验并 docker load，禁止 clone、build、pull
+  → PostgreSQL/env 备份
+  → --no-build --pull never 启动非活动 App slot
+  → 候选 slot 内部 ready，旧 slot 继续服务
+  → Caddy 切流 + 公网 smoke
+  → 原子切换 /opt/inthub/current，停止旧 slot
+  → 失败时把流量切回仍在运行的旧 slot，不自动降级数据库
+```
 
-官方运行实例固定为：
+唯一支持的生产命令是：
 
-| 项目 | 当前标准值 |
+```bash
+bash deploy/inthub/release.sh
+```
+
+`build-release.sh` 可以单独生成无生产影响的 bundle；`remote-release.sh` 是内部步骤，
+必须持有由正式入口创建的项目发布锁，不能作为常规生产入口直接调用。
+
+## Git 和远端边界
+
+本项目默认只维护一个远端：
+
+```text
+origin  https://github.com/dozybot001/Intent.git
+```
+
+GitHub 是异步备份、协作、CI 和 Pages 平面，不是构建或部署依赖：
+
+- 发布版本由本机完整 Git SHA 标识，不由分支名或远端状态标识；
+- 发布要求本地 `main`、clean worktree 和通过的检查，不要求先 push；
+- GitHub 不可用时可以继续发布本地 clean Commit；
+- manifest 默认记录 `github_sync: pending`；明确确认已同步时可设置
+  `INTHUB_GITHUB_SYNC_STATUS=confirmed`；
+- 未同步 Commit 的 bundle 始终带有 commit-exact source archive；
+- 生产服务器不得执行 `git clone`、`git pull`、`git fetch` 或访问 GitHub；
+- 发布脚本不得临时改写 remote，也不得增加 Gitee 或自动 fallback 镜像。
+
+GitHub 同步是独立动作，例如：
+
+```bash
+git push origin main
+```
+
+它不是 `release.sh` 的隐藏步骤，也不授权生产发布。
+
+## 官方运行边界
+
+| 项目 | 标准值 |
 |---|---|
 | 公网域名 | `https://inthub.tenon.asia` |
-| 官方主机 | `ubuntu@122.51.14.35` |
-| 本机 SSH alias | `agenthub-prod`（仅为操作者便利，不属于服务配置） |
+| 本机 SSH alias | `agenthub-prod` |
 | 生产根目录 | `/opt/inthub` |
-| 回环监听 | `127.0.0.1:7250` |
+| 回环 slot | `127.0.0.1:7250`（blue）、`127.0.0.1:7251`（green） |
+| 目标平台 | `linux/amd64` |
+| 共享 Builder | `shared-linux-amd64` |
 | Compose project | `inthub` |
-| App container | `inthub-app` |
+| App container | `inthub-app-blue` / `inthub-app-green`；首次迁移兼容旧 `inthub-app` |
 | PostgreSQL container | `inthub-postgres` |
 | PostgreSQL volume | `inthub-postgres-data` |
 | Caddy site | `/etc/caddy/sites-enabled/inthub.caddy` |
-| 部署仓库 | `https://gitee.com/dozybot/Intent.git` |
 
-## 心智模型
+PostgreSQL 不发布主机端口，应用只绑定回环地址。IntHub 不复用其他项目的容器、
+数据库、Secret、目录、发布锁、Caddy site 或部署凭据。
 
-```text
-开发机
-  ├─ origin/main  → Gitee dozybot/Intent       ← 唯一生产来源
-  └─ github/main  → GitHub dozybot001/Intent   ← 可选协作、CI、Pages
+## 共享 Builder
 
-生产发布
-  Gitee main 的已解析 commit
-    → /opt/inthub/releases/<git-sha>
-    → Docker image inthub:<git-sha>
-    → /opt/inthub/current 原子切换
-    → Compose project inthub
+IntHub 使用机器级、按目标平台划分的 Builder，不创建项目专属 Builder。默认名称为
+`shared-linux-amd64`，可通过 `INTHUB_BUILDER` 显式覆盖为另一套可信的
+Linux/amd64 Builder。
 
-公网请求
-  Internet
-    → Caddy :443
-    → 127.0.0.1:7250
-    → inthub-app :8000
-    → inthub-postgres :5432（仅 Docker private network）
-```
-
-代码托管、生产运行和用户身份不得混为一个权限边界：
-
-- Gitee 仓库证明“生产部署的是哪个 commit”。
-- GitHub App 只为普通用户提供 OAuth 身份确认，不读取用户仓库。
-- IntHub 账户、Web session、CLI access token 和项目数据由 IntHub 自己的 PostgreSQL
-  保存并授权。
-- AgentHub 只提供服务器与运维背景；IntHub 不复用 AgentHub 的目录、容器、数据库、
-  Secret、Gateway 凭据或部署接口。
-
-## 来源与 remote 规范
-
-开发 clone 必须使用以下 remote 心智：
-
-```text
-origin  https://gitee.com/dozybot/Intent.git
-github  https://github.com/dozybot001/Intent.git
-```
-
-不变量：
-
-1. `origin/main` 是唯一 production source of truth。
-2. 每次部署前，目标 commit 必须已经存在于 Gitee `main`，并由服务器直接通过 Gitee
-   解析和拉取。
-3. GitHub push 是允许但可选的分发动作；GitHub Actions 结果可以作为额外质量证据，
-   不能替代本地检查或 Gitee commit provenance。
-4. 发布脚本不得包含 GitHub archive、GitHub clone、GitHub raw URL 或“Gitee 失败后改拉
-   GitHub”的逻辑。
-5. Gitee 不可用时，正确行为是停止发布并保留当前健康 release，而不是从其他来源继续。
-6. 禁止通过 SCP、未提交工作树、临时压缩包或服务器现场修改生成 production release。
-
-标准推送顺序：
+首次使用时，可在发布之外完成机器级 bootstrap：
 
 ```bash
-git status --short
-git push origin main
-
-# 可选：保持 GitHub 协作面更新，但它不参与生产部署判定。
-git push github main
+docker buildx create \
+  --name shared-linux-amd64 \
+  --driver docker-container \
+  --platform linux/amd64
+docker buildx inspect shared-linux-amd64 --bootstrap
 ```
 
-若需要发布 tag，应先推 Gitee，再选择是否推 GitHub：
+Builder 只接收从指定 Commit 导出的 tracked source context，不接收生产 env、
+PostgreSQL 数据、OAuth Secret、CLI token 或 SSH 私钥。依赖缓存建立和刷新发生在
+取得生产发布锁之前；服务器不会在 Builder 缺失时进行现场 build。
 
-```bash
-git push origin --tags
-git push github --tags
+## Release bundle
+
+`build-release.sh` 在 `dist/inthub/<full-sha>/` 生成不可覆盖的 bundle。`dist/` 已由
+Git 忽略。bundle 的精确文件集是：
+
+```text
+source.tar.gz          commit-exact tracked source archive
+images.tar.gz          linux/amd64 IntHub 与 PostgreSQL image archive
+manifest.json          provenance、平台、镜像 ID、配方和检查结果
+SHA256SUMS             bundle 精确文件集的 SHA-256
+compose.yaml           生产 Compose 配置；没有 build，pull_policy=never
+inthub.caddy           项目独立公网入口
+release_manifest.py    服务器侧标准库校验器
+remote-release.sh      受发布锁保护的内部激活步骤
+runtime-images.lock.json  PostgreSQL reference、pull digest、image ID 与平台锁
+smoke.sh               匿名内部与公网验收
 ```
 
-## 官方服务器目录和权限
+Manifest 至少证明：
+
+- schema version、project ID、完整 Git SHA、`dirty: false`；
+- `github_sync: pending|confirmed`，仅供审计；
+- target `linux/amd64`；
+- source/image archive 的文件名、字节数和 SHA-256；
+- App 与 PostgreSQL 镜像 reference、image ID、平台和可用 RepoDigest；
+- PostgreSQL manifest 必须与 `runtime-images.lock.json` 完全一致；普通 App release
+  不允许隐式升级数据库 runtime；
+- App OCI revision/version/source label；
+- Dockerfile 与 `pyproject.toml` 的 SHA-256；
+- Builder 名称、driver、Buildx 版本和构建时间；
+- `pytest`、`git diff --check` 和同一生产镜像本地 smoke 均已通过。
+
+校验器拒绝未知字段、额外文件、缺失文件、symlink、非普通文件、错误类型、截断 JSON、
+路径逃逸、大小不符、checksum 不符、平台不符和 revision/version 不符。服务器在这些
+校验完成前不会加载镜像或修改运行服务。
+
+## 本地发布资格
+
+正式入口在任何 SSH 上传前完成：
+
+1. 确认 worktree（包括 untracked files）为空；
+2. 确认当前分支为 `main`；
+3. 运行完整 `pytest -q`；
+4. 运行 `git diff --check`；
+5. 从 Commit 导出 source archive 和独立构建上下文；
+6. 对 commit-exact context 执行高置信度凭证扫描；
+7. 用共享 Builder 构建 `inthub:<full-sha>` 的 Linux/amd64 镜像；
+8. 确认 PostgreSQL runtime image 的 ID、不可变 pull digest 和 Linux/amd64 平台
+   与项目 lock 完全一致；
+9. 以 read-only、capability-free、`no-new-privileges` 边界启动同一 App image，
+   验证 `/healthz` 与 `/readyz`；
+10. 打包两个镜像并生成、复验 manifest 与 SHA256SUMS。
+
+已有同 SHA bundle 时不会覆盖；只有完整复验通过才允许复用。
+
+## 服务器目录与 Secret
 
 ```text
 /opt/inthub/
-  current -> /opt/inthub/releases/<git-sha>
-  releases/
-    <git-sha>/
-  shared/
-    inthub.env              # 0600
-  backups/
-    <UTC timestamp>/
-      inthub.dump           # PostgreSQL custom-format dump
-      inthub.env            # 0600
+├── incoming/<sha>-<operation>/
+├── releases/<full-sha>/
+├── current -> releases/<full-sha>
+├── shared/inthub.env              # 0600
+├── backups/<timestamp>-<sha>/
+│   ├── inthub.dump                # 0600，存在数据库时生成
+│   ├── inthub.env                 # 0600
+│   ├── release-manifest.json      # 0600
+│   └── inthub.caddy               # 仅入口变化时保存
+└── .release-lock/
+    ├── owner
+    └── metadata
 ```
 
-- 每个 release 都是不可变目录，以完整 Git SHA 命名。
-- `/opt/inthub/current` 只通过同一文件系统上的临时 symlink + atomic rename 切换。
-- 创建和更新 release 不得覆盖已有目录；同一 SHA 已存在时先验证内容和构建 marker。
-- `/opt/inthub/shared/inthub.env` 属于部署操作者，权限必须保持 `0600`。
-- PostgreSQL 不映射主机端口；应用只绑定 `127.0.0.1:7250`。
-- Caddy 只加载 IntHub 自己的 site 文件，不覆盖共享根 Caddyfile 或其他服务片段。
+真实配置只存在 `/opt/inthub/shared/inthub.env`，权限必须为 `0600`。至少包括域名、
+PostgreSQL 密码、GitHub App client ID/secret、session TTL 和限制参数。release SHA、
+package version、App container 与 blue/green 端口不再由操作者维护；激活脚本从已验证
+manifest 和受限 slot 集合注入，避免共享 Secret 文件与 release/traffic 状态漂移。
 
-## 配置与认证
+Secret、数据库 dump、用户数据、access token 和 Cookie 不得进入 Git、Builder、
+构建上下文、镜像层、bundle、manifest、日志或 Memory。
 
-生产使用 PostgreSQL；本地 `itt hub start` 继续使用只绑定回环地址的 SQLite 无认证模式。
-PostgreSQL 提供并发写入、备份恢复和未来团队协作需要的数据边界，但不替代应用授权。
+## 远端发布顺序
 
-生产只有一条账户路径：
+`release.sh` 只通过 SSH/rsync 传输 bundle，并执行以下受限流程：
 
-- 浏览器：GitHub OAuth + PKCE + 一次性 state。
-- Web session：随机 HttpOnly、SameSite=Strict Cookie；数据库只保存 session hash。
-- CLI：账户签发 `ith_pat_...` access token；数据库只保存 token hash、名称、有效期、
-  last-used 和撤销状态。
-- 数据：Project、Workspace、Intent、Snap、Decision 和同步历史均按 `account_id` 隔离。
+1. 创建项目专属 incoming、releases、backups 和 shared 目录；
+2. 上传到唯一 operation 目录；
+3. 校验上传后的 `remote-release.sh` 与本地 SHA-256 一致；
+4. 通过原子 `mkdir` 获取 fail-closed `/opt/inthub/.release-lock`；
+5. 再次验证 bundle 精确文件集、manifest 和所有 checksum；
+6. 将新 bundle 原子提升为不可写的 `releases/<full-sha>`；同 SHA 只允许内容完全一致；
+7. 备份 mode-0600 env；已有 PostgreSQL volume 时，要求运行中的数据库生成
+   custom-format dump，并用 `pg_restore --list` 复验；
+8. 已有数据库时先确认运行中的 PostgreSQL image ID 与 runtime lock 一致；不一致
+   必须走独立数据库维护流程；
+9. 从 `images.tar.gz` 执行 `docker load`，校验 image ID、平台和 OCI label；
+10. 保持当前 App slot 与 Caddy 不变，在非活动 7250/7251 slot 运行
+    `docker compose ... up --no-deps --no-build --pull never`；
+11. 等待候选 App、PostgreSQL health 和候选 loopback `/readyz`；
+12. 渲染候选端口的 Caddy site，备份旧 site，验证根配置后 reload 切流；
+13. 对候选 loopback 与正式域名执行 smoke；此时旧 slot 仍保持运行；
+14. 全部通过后用同文件系统 symlink rename 原子切换 `current`；
+15. 验证 `current` 与正在服务的 slot image 是同一 SHA，再停止旧 slot 并释放锁。
 
-GitHub App 每个部署只配置一次：
+SSH 使用 keepalive。远端执行开始后，如果连接中断，本地不会擅自移除锁，因为生产
+完成状态未知；操作者必须先只读检查 `current`、容器和 `.release-lock/metadata`。
 
-- Homepage URL：`https://inthub.tenon.asia`
-- Callback URL：`https://inthub.tenon.asia/api/v1/auth/github/callback`
-- Webhook：关闭
-- Repository permissions：无
-- Organization / account permissions：无
-- Installation scope：`Any account`
+## 验收内容
 
-真实配置只写入 `/opt/inthub/shared/inthub.env`，不得写入 Git、聊天或诊断输出。至少包括：
+内部和公网都必须满足：
 
-```text
-INTHUB_DOMAIN=inthub.tenon.asia
-INTHUB_BIND_PORT=7250
-INTHUB_RELEASE=<full-gitee-git-sha>
-INTHUB_PACKAGE_VERSION=<version-derived-from-the-clean-release>
-INTHUB_GITHUB_CLIENT_ID=<configured-client-id>
-INTHUB_GITHUB_CLIENT_SECRET=<configured-client-secret>
-INTHUB_POSTGRES_PASSWORD=<url-safe-random-password>
-```
+- `/healthz` 与 `/readyz` 返回成功；
+- 匿名 `/api/v1/projects` 返回 `401`；
+- GitHub OAuth start 返回 `302` 或 `303`；
+- `TRACE` 返回 `405`；
+- 首页包含要求的 CSP；
+- 当前 `inthub-app-blue` 或 `inthub-app-green` 与 `inthub-postgres` 都为 healthy；
+- PostgreSQL 没有主机端口；
+- App image revision/version 与 manifest 一致；
+- `current` 最终指向预期完整 SHA。
 
-完整键集合以 [inthub.env.example](../../deploy/inthub/inthub.env.example) 为准。
+自动化不能替用户宣称 GitHub 登录后的真实业务流程或 UI 视觉已经验收。UI 改动发布后
+仍需把公网 URL 交给用户检查。
 
-## 标准发布流程
+## 回滚和数据库边界
 
-### 1. 本地发布资格
+- 候选 health、Caddy 或公网 smoke 任一步失败时，恢复旧 Caddy 并删除候选 slot；
+  旧 slot 在整个验收期没有停止，因此回滚不依赖重新拉起旧应用；
+- 第一次发布失败时停止未通过的 App，不删除 PostgreSQL volume；
+- 应用回滚绝不自动执行数据库 downgrade；
+- schema 变化必须使用 expand/contract，保证上一应用在回滚窗口内仍兼容；
+- rollback 不删除 release、镜像、Secret、backup 或 volume；
+- 同机 mode-0600 dump 只提供发布回滚证据，不等于灾难恢复；关键数据仍需异地加密
+  副本、保留策略和恢复演练；
+- release、镜像和 backup 清理是独立、明确授权的操作。
 
-发布操作者必须先确认：
+## Caddy 与首次接入
 
-```bash
-git status --short
-git branch --show-current
-git rev-parse HEAD
-pytest -q
-git diff --check
-```
+DNS 指向生产主机后，正式入口可以安装或更新 IntHub 自己的 Caddy site；它不会覆盖
+共享根 Caddyfile 或其他项目 site。变更前保存旧文件，`caddy validate` 失败或公网
+smoke 失败会恢复旧 site。
 
-要求：工作树干净、分支为 `main`、测试通过。随后先推送 Gitee：
+新主机首次接入前需要由操作者在发布之外完成：
 
-```bash
-git push origin main
-git ls-remote origin refs/heads/main
-```
+1. 本机安装 Docker CLI、Buildx 与可用 Engine；服务器安装 Docker
+   Engine/Compose、Caddy、Gzip、Python 3、rsync 和 SHA-256 工具；
+2. 配置 SSH 与项目目录 sudo 权限；
+3. 创建 mode-`0600` 的 `/opt/inthub/shared/inthub.env`；
+4. 建立机器级 `shared-linux-amd64` Builder；
+5. 确认 DNS 与 GitHub App callback；
+6. 取得当次生产发布授权后运行唯一正式入口。
 
-`git rev-parse HEAD` 必须与 Gitee 返回的 `refs/heads/main` SHA 完全一致。GitHub push
-可以在此之前或之后执行，但不改变部署资格。
-
-### 2. 生产预检
-
-只读确认当前 release、配置权限、容器健康和磁盘空间：
-
-```bash
-ssh agenthub-prod 'readlink -f /opt/inthub/current'
-ssh agenthub-prod 'stat -c "%a %U:%G %n" /opt/inthub/shared/inthub.env'
-ssh agenthub-prod 'sudo docker ps --filter name=inthub --format "{{.Names}} {{.Image}} {{.Status}}"'
-ssh agenthub-prod 'df -h /opt/inthub'
-```
-
-不得输出完整 env、数据库 URL、OAuth Secret、Cookie 或 access token。
-
-### 3. 从 Gitee 解析并拉取 release
-
-服务器使用公开只读 HTTPS 地址，不保存写凭据：
-
-```bash
-SOURCE_REPOSITORY=https://gitee.com/dozybot/Intent.git
-RELEASE_SHA=$(git ls-remote "$SOURCE_REPOSITORY" refs/heads/main | awk '{print $1}')
-RELEASE_DIRECTORY=/opt/inthub/releases/$RELEASE_SHA
-STAGING_DIRECTORY=$(mktemp -d /opt/inthub/releases/.staging.XXXXXX)
-
-git clone --branch main --single-branch --no-tags "$SOURCE_REPOSITORY" "$STAGING_DIRECTORY"
-test "$(git -C "$STAGING_DIRECTORY" rev-parse HEAD)" = "$RELEASE_SHA"
-test ! -e "$RELEASE_DIRECTORY"
-mv "$STAGING_DIRECTORY" "$RELEASE_DIRECTORY"
-```
-
-发布 provenance 以 `git ls-remote` 与 clone 后的 `HEAD` 双重一致为准。不得从 GitHub
-下载 tarball 补足或替换失败的 Gitee 拉取。
-
-### 4. 发布前备份
-
-每次发布都必须同时备份 PostgreSQL 与当前 env：
-
-```bash
-BACKUP_TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
-BACKUP_DIRECTORY=/opt/inthub/backups/$BACKUP_TIMESTAMP
-mkdir -p "$BACKUP_DIRECTORY"
-
-sudo docker exec inthub-postgres sh -c \
-  'export PGPASSWORD="$POSTGRES_PASSWORD"; exec pg_dump --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --format=custom' \
-  > "$BACKUP_DIRECTORY/inthub.dump"
-cp /opt/inthub/shared/inthub.env "$BACKUP_DIRECTORY/inthub.env"
-chmod 600 "$BACKUP_DIRECTORY/inthub.dump" "$BACKUP_DIRECTORY/inthub.env"
-test -s "$BACKUP_DIRECTORY/inthub.dump"
-```
-
-备份完成前不得构建或切换 release。
-
-### 5. 构建不可变镜像
-
-镜像 tag 使用完整 Gitee commit：
-
-```bash
-sudo docker build \
-  --build-arg INTHUB_VERSION="$INTHUB_PACKAGE_VERSION" \
-  --tag "inthub:$RELEASE_SHA" \
-  --file "$RELEASE_DIRECTORY/Dockerfile" \
-  "$RELEASE_DIRECTORY"
-
-sudo docker image inspect \
-  --format '{{index .Config.Labels "org.opencontainers.image.version"}}' \
-  "inthub:$RELEASE_SHA"
-```
-
-构建失败不得修改 `/opt/inthub/current` 或共享 env。
-
-### 6. 原子激活与自动回滚
-
-激活步骤必须作为一个有回滚分支的操作完成：
-
-1. 保存旧 `current` target 和旧 env 副本。
-2. 生成新的 env candidate，只更新 `INTHUB_RELEASE` 与 `INTHUB_PACKAGE_VERSION`。
-3. 原子替换 env，并将 `current` 原子切到新 release。
-4. 使用新 release 的 Compose 文件执行：
-
-```bash
-sudo docker compose \
-  --project-name inthub \
-  --env-file /opt/inthub/shared/inthub.env \
-  --file /opt/inthub/current/deploy/inthub/compose.yaml \
-  up --detach --no-build --remove-orphans
-```
-
-5. 在有界时间内同时等待 `inthub-app` container health 为 `healthy`，且
-   `http://127.0.0.1:7250/readyz` 成功。
-6. 任一步失败时，先恢复旧 env 与旧 `current`，再以旧 Compose 配置重新执行
-   `up --detach --no-build --remove-orphans`。
-
-应用回滚不会自动回滚数据。若 release 包含不兼容 schema 变化，必须恢复对应数据库
-备份，不能只切换代码。
-
-### 7. 发布后验证
-
-服务器内和公网都必须验证：
-
-```bash
-curl --fail --silent --show-error http://127.0.0.1:7250/healthz
-curl --fail --silent --show-error http://127.0.0.1:7250/readyz
-curl --fail --silent --show-error https://inthub.tenon.asia/healthz
-curl --fail --silent --show-error https://inthub.tenon.asia/readyz
-
-# 匿名项目读取必须为 401。
-curl --silent --output /dev/null --write-out '%{http_code}\n' \
-  https://inthub.tenon.asia/api/v1/projects
-
-# GitHub 登录入口必须开始 OAuth redirect。
-curl --silent --output /dev/null --write-out '%{http_code}\n' \
-  https://inthub.tenon.asia/api/v1/auth/github/start
-```
-
-还需验证：
-
-- `/opt/inthub/current` 指向预期完整 Gitee SHA；
-- `INTHUB_RELEASE` 与 image tag 一致；
-- `INTHUB_PACKAGE_VERSION` 与 image label 一致；
-- `inthub-app` 和 `inthub-postgres` 都为 healthy；
-- 新静态资源 revision 可从公网读取；
-- GitHub OAuth 返回 `302`，匿名受保护 API 返回 `401`。
-
-## Caddy 和 DNS
-
-DNS 固定为 `inthub.tenon.asia A 122.51.14.35`。Caddy 只安装 IntHub 独立 site：
-
-```bash
-sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-sudo systemctl reload caddy
-```
-
-只有 [inthub.caddy](../../deploy/inthub/inthub.caddy) 发生变化时才需要 reload。普通应用
-release 不重载 Caddy。
-
-## 运行态排查
-
-只使用有界、不会暴露 Secret 的诊断：
-
-```bash
-sudo docker compose --project-name inthub \
-  --env-file /opt/inthub/shared/inthub.env \
-  --file /opt/inthub/current/deploy/inthub/compose.yaml ps
-sudo docker logs --tail 200 inthub-app
-sudo docker logs --tail 200 inthub-postgres
-git ls-remote https://gitee.com/dozybot/Intent.git refs/heads/main
-```
-
-判断顺序：
-
-1. Gitee `main` 是否仍解析到预期 SHA；
-2. `current`、env release、container image 是否为同一 SHA；
-3. 容器 health 与 loopback `/readyz` 是否通过；
-4. Caddy 与公网入口是否正常；
-5. 匿名鉴权边界是否仍为 `401`。
-
-## 不变量
-
-- 生产代码只来自 Gitee，不自动 fallback 到 GitHub。
-- Gitee 不可用不会影响当前运行实例，只会阻止新发布。
-- PostgreSQL 和应用不暴露公网端口。
-- 浏览器 session 默认只读；CLI 写入只接受账户 access token。
-- GitHub OAuth token 不持久化，GitHub App owner 不获得额外 IntHub 数据权限。
-- 每个 release 先备份、后构建、再切换；新 release 未健康时必须恢复旧 release。
-- 不复用其他服务的容器、数据库、Secret、目录、Caddy site 或运行凭据。
-- 任何日志、命令输出和文档都不得包含账户 token、GitHub Client Secret、数据库密码
-  或 Cookie。
-
-## 未决问题
-
-- 当前发布动作仍由项目 Session 按本规范执行，尚未收敛为仓库内单一 deployment
-  command；未来脚本必须把 Gitee-only provenance、备份和自动回滚做成硬校验。
-- GitHub 与 Gitee 的同步目前是显式双推，不是服务端镜像；如果以后自动化，只允许
-  Gitee 作为部署 authority，不能让 GitHub workflow 直接触发生产拉取。
-- 发布保留策略和旧 Docker image 清理策略尚未自动化；清理前必须保留至少一个已验证
-  可回滚 release 及其数据库/env 备份。
+安装工具和配置 Secret 不应隐含在普通应用 release 中。

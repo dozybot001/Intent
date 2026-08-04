@@ -23,9 +23,11 @@ COPY --chown=inthub:inthub . /app
 # Keep revision-specific metadata after the dependency layer so a new release
 # can reuse the already downloaded PostgreSQL driver.
 ARG INTHUB_VERSION=0.0.0
+ARG INTHUB_REVISION=unknown
 LABEL org.opencontainers.image.title="IntHub" \
-    org.opencontainers.image.source="https://gitee.com/dozybot/Intent" \
-    org.opencontainers.image.version="${INTHUB_VERSION}"
+    org.opencontainers.image.source="https://github.com/dozybot001/Intent" \
+    org.opencontainers.image.version="${INTHUB_VERSION}" \
+    org.opencontainers.image.revision="${INTHUB_REVISION}"
 
 USER 10001:10001
 

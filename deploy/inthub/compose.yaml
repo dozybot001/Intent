@@ -1,6 +1,7 @@
 services:
   database:
     image: postgres:18.4-bookworm
+    pull_policy: never
     container_name: inthub-postgres
     restart: unless-stopped
     environment:
@@ -28,18 +29,14 @@ services:
 
   app:
     image: inthub:${INTHUB_RELEASE:?set INTHUB_RELEASE}
-    container_name: inthub-app
-    build:
-      context: ../..
-      dockerfile: Dockerfile
-      args:
-        INTHUB_VERSION: ${INTHUB_PACKAGE_VERSION:-0.0.0}
+    pull_policy: never
+    container_name: ${INTHUB_APP_CONTAINER:?set INTHUB_APP_CONTAINER}
     restart: unless-stopped
     depends_on:
       database:
         condition: service_healthy
     ports:
-      - 127.0.0.1:${INTHUB_BIND_PORT:-7250}:8000
+      - 127.0.0.1:${INTHUB_BIND_PORT:?set INTHUB_BIND_PORT}:8000
     environment:
       INTHUB_DATABASE_URL: postgresql://${INTHUB_POSTGRES_USER:-inthub}:${INTHUB_POSTGRES_PASSWORD}@database:5432/${INTHUB_POSTGRES_DB:-inthub}
       INTHUB_API_BASE_URL: https://${INTHUB_DOMAIN:?set INTHUB_DOMAIN}
@@ -81,6 +78,7 @@ services:
 networks:
   private:
     name: inthub-private
+    external: true
 
 volumes:
   inthub-postgres-data:
