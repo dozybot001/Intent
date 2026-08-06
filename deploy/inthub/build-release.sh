@@ -3,21 +3,37 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPOSITORY_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-BUILDER="${INTHUB_BUILDER:-shared-linux-amd64}"
+BUILDER="${INTHUB_BUILDER:-desktop-linux}"
+EXPECTED_BUILDER_DRIVER="${INTHUB_BUILDER_DRIVER:-docker}"
 TARGET_PLATFORM="linux/amd64"
 OUTPUT_ROOT="${INTHUB_RELEASE_OUTPUT_ROOT:-${REPOSITORY_ROOT}/dist/inthub}"
-GITHUB_SYNC="${INTHUB_GITHUB_SYNC_STATUS:-pending}"
+REQUIRED_PYTEST_VERSION="8.4.2"
 SMOKE_CONTAINER=""
+TEST_DATABASE_CONTAINER=""
 STAGING_DIRECTORY=""
+CONTEXT_DIRECTORY=""
 
 fail() {
     echo "IntHub release build failed: $*" >&2
     exit 1
 }
 
+image_config_id() {
+    local reference="$1"
+    docker image save "${reference}" \
+        | python3 "${SCRIPT_DIR}/release_manifest.py" image-config-id \
+            --reference "${reference}"
+}
+
 cleanup() {
     if [[ -n "${SMOKE_CONTAINER}" ]]; then
         docker rm --force "${SMOKE_CONTAINER}" >/dev/null 2>&1 || true
+    fi
+    if [[ -n "${TEST_DATABASE_CONTAINER}" ]]; then
+        docker rm --force "${TEST_DATABASE_CONTAINER}" >/dev/null 2>&1 || true
+    fi
+    if [[ -n "${CONTEXT_DIRECTORY}" && -d "${CONTEXT_DIRECTORY}" ]]; then
+        rm -rf -- "${CONTEXT_DIRECTORY}"
     fi
     if [[ -n "${STAGING_DIRECTORY}" && -d "${STAGING_DIRECTORY}" ]]; then
         rm -rf -- "${STAGING_DIRECTORY}"
@@ -25,15 +41,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for command_name in docker git gzip python3 tar; do
+for command_name in awk docker git grep gzip python3 seq tar; do
     command -v "${command_name}" >/dev/null 2>&1 \
         || fail "required command is unavailable: ${command_name}"
 done
 
-[[ "${GITHUB_SYNC}" == pending || "${GITHUB_SYNC}" == confirmed ]] \
-    || fail "INTHUB_GITHUB_SYNC_STATUS must be pending or confirmed"
 [[ "${BUILDER}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] \
     || fail "INTHUB_BUILDER contains unsupported characters"
+[[ "${EXPECTED_BUILDER_DRIVER}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] \
+    || fail "INTHUB_BUILDER_DRIVER contains unsupported characters"
 
 cd "${REPOSITORY_ROOT}"
 
@@ -41,10 +57,17 @@ cd "${REPOSITORY_ROOT}"
     || fail "the Git worktree must be clean, including untracked files"
 [[ "$(git branch --show-current)" == main ]] \
     || fail "official releases must be built from the main branch"
+[[ "$(git rev-parse --is-shallow-repository)" == false ]] \
+    || fail "official releases require a complete, non-shallow Git history"
 
 RELEASE_SHA="$(git rev-parse HEAD)"
 [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40,64}$ ]] \
     || fail "Git did not return a full hexadecimal commit ID"
+[[ -z "$(git ls-files --stage | awk '$1 == "160000" {print $4}')" ]] \
+    || fail "submodules require an explicit project release policy"
+if git grep -n 'filter=lfs' "${RELEASE_SHA}" -- ':(glob)**/.gitattributes' >/dev/null 2>&1; then
+    fail "Git LFS requires an explicit project release policy"
+fi
 RELEASE_VERSION="$(git describe --tags --always --long)"
 APP_IMAGE="inthub:${RELEASE_SHA}"
 FINAL_DIRECTORY="${OUTPUT_ROOT}/${RELEASE_SHA}"
@@ -78,20 +101,99 @@ fi
 docker info >/dev/null 2>&1 \
     || fail "the local Docker Engine is unavailable"
 docker buildx version >/dev/null 2>&1 \
-    || fail "Docker Buildx is unavailable; install it before bootstrapping the shared Builder"
+    || fail "Docker Buildx is unavailable"
 
-python3 -m pytest -q
+mkdir -p "${OUTPUT_ROOT}"
+STAGING_DIRECTORY="$(mktemp -d "${OUTPUT_ROOT}/.preflight.${RELEASE_SHA}.XXXXXX")"
+BUILDER_INSPECT="${STAGING_DIRECTORY}/builder-inspect.txt"
+docker buildx inspect "${BUILDER}" --bootstrap > "${BUILDER_INSPECT}" \
+    || fail "configured Builder ${BUILDER} is unavailable"
+BUILDER_DRIVER="$(awk -F: '/^Driver:/ { sub(/^[[:space:]]+/, "", $2); print $2; exit }' "${BUILDER_INSPECT}")"
+[[ "${BUILDER_DRIVER}" == "${EXPECTED_BUILDER_DRIVER}" ]] \
+    || fail "Builder ${BUILDER} uses ${BUILDER_DRIVER}, expected ${EXPECTED_BUILDER_DRIVER}"
+grep -Eq 'Platforms:.*(^|,|[[:space:]])linux/amd64(,|[[:space:]]|$)' "${BUILDER_INSPECT}" \
+    || fail "Builder ${BUILDER} does not advertise linux/amd64"
+BUILDKIT_VERSION="$(awk -F: '/BuildKit version:/ { sub(/^[[:space:]]+/, "", $2); print $2; exit }' "${BUILDER_INSPECT}")"
+[[ "${BUILDKIT_VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]] \
+    || fail "Builder ${BUILDER} did not report a valid BuildKit version"
+BUILDX_VERSION="$(docker buildx version | tr '\n' ' ' | sed 's/[[:space:]]\+$//')"
+
+APP_BASE_IMAGE="$(awk '$1 == "FROM" {print $2; exit}' Dockerfile)"
+[[ "${APP_BASE_IMAGE}" =~ ^[A-Za-z0-9][A-Za-z0-9._/:+-]*@sha256:[0-9a-f]{64}$ ]] \
+    || fail "Dockerfile base image must use a SHA-256 digest"
+if ! docker image inspect "${APP_BASE_IMAGE}" >/dev/null 2>&1; then
+    docker pull --platform "${TARGET_PLATFORM}" "${APP_BASE_IMAGE}"
+fi
+[[ "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "${APP_BASE_IMAGE}")" == "${TARGET_PLATFORM}" ]] \
+    || fail "application base image does not match ${TARGET_PLATFORM}"
+
+LOCAL_DATABASE_ID="$(image_config_id "${DATABASE_IMAGE}" 2>/dev/null || true)"
+if [[ "${LOCAL_DATABASE_ID}" != "${DATABASE_IMAGE_ID}" ]]; then
+    docker pull --platform "${TARGET_PLATFORM}" "${DATABASE_PULL_REFERENCE}"
+    docker tag "${DATABASE_PULL_REFERENCE}" "${DATABASE_IMAGE}"
+fi
+[[ "$(image_config_id "${DATABASE_IMAGE}")" == "${DATABASE_IMAGE_ID}" ]] \
+    || fail "database image does not match deploy/inthub/runtime-images.lock.json"
+[[ "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "${DATABASE_IMAGE}")" == "${TARGET_PLATFORM}" ]] \
+    || fail "database runtime lock does not resolve to ${TARGET_PLATFORM}"
+
+QUALIFICATION_PYTHON="$(bash "${SCRIPT_DIR}/prepare-release-env.sh")"
+
+QUALIFICATION_PYTHON_VERSION="$(
+    "${QUALIFICATION_PYTHON}" -c 'import platform; print(platform.python_version())'
+)"
+QUALIFICATION_PYTEST_VERSION="$(
+    "${QUALIFICATION_PYTHON}" -c 'import importlib.metadata; print(importlib.metadata.version("pytest"))' 2>/dev/null
+)" || fail "the prepared release environment does not contain pytest"
+[[ "${QUALIFICATION_PYTEST_VERSION}" == "${REQUIRED_PYTEST_VERSION}" ]] \
+    || fail "pytest ${REQUIRED_PYTEST_VERSION} is required, found ${QUALIFICATION_PYTEST_VERSION}"
+
+TEST_DATABASE_CONTAINER="inthub-release-postgres-${RELEASE_SHA:0:12}-$$"
+docker run \
+    --detach \
+    --rm \
+    --platform "${TARGET_PLATFORM}" \
+    --name "${TEST_DATABASE_CONTAINER}" \
+    --env POSTGRES_DB=inthub_test \
+    --env POSTGRES_USER=inthub_test \
+    --env POSTGRES_PASSWORD=inthub_test_password \
+    --publish 127.0.0.1::5432 \
+    "${DATABASE_IMAGE}" >/dev/null
+TEST_DATABASE_READY=false
+for _ in $(seq 1 60); do
+    if docker exec "${TEST_DATABASE_CONTAINER}" \
+        pg_isready --username inthub_test --dbname inthub_test >/dev/null 2>&1; then
+        TEST_DATABASE_READY=true
+        break
+    fi
+    if [[ "$(docker inspect --format '{{.State.Running}}' "${TEST_DATABASE_CONTAINER}" 2>/dev/null || true)" != true ]]; then
+        break
+    fi
+    sleep 1
+done
+if [[ "${TEST_DATABASE_READY}" != true ]]; then
+    docker logs "${TEST_DATABASE_CONTAINER}" >&2 || true
+    fail "the release qualification PostgreSQL container did not become ready"
+fi
+TEST_DATABASE_PORT="$(
+    docker port "${TEST_DATABASE_CONTAINER}" 5432/tcp | awk -F: '/127\.0\.0\.1:/ {print $NF; exit}'
+)"
+[[ "${TEST_DATABASE_PORT}" =~ ^[1-9][0-9]*$ ]] \
+    || fail "could not resolve the release qualification PostgreSQL port"
+INTHUB_TEST_POSTGRES_URL="postgresql://inthub_test:inthub_test_password@127.0.0.1:${TEST_DATABASE_PORT}/inthub_test" \
+    "${QUALIFICATION_PYTHON}" -m pytest -q
+docker rm --force "${TEST_DATABASE_CONTAINER}" >/dev/null
+TEST_DATABASE_CONTAINER=""
 git diff --check
 git show --check --format= "${RELEASE_SHA}" >/dev/null
 [[ "$(git rev-parse HEAD)" == "${RELEASE_SHA}" \
     && -z "$(git status --porcelain=v1 --untracked-files=all)" ]] \
     || fail "the repository changed while local qualification was running"
 
-mkdir -p "${OUTPUT_ROOT}"
+rm -rf -- "${STAGING_DIRECTORY}"
 STAGING_DIRECTORY="$(mktemp -d "${OUTPUT_ROOT}/.staging.${RELEASE_SHA}.XXXXXX")"
-BUNDLE_DIRECTORY="${STAGING_DIRECTORY}/bundle"
-CONTEXT_DIRECTORY="${STAGING_DIRECTORY}/context"
-mkdir "${BUNDLE_DIRECTORY}" "${CONTEXT_DIRECTORY}"
+BUNDLE_DIRECTORY="${STAGING_DIRECTORY}"
+CONTEXT_DIRECTORY="$(mktemp -d "${OUTPUT_ROOT}/.context.${RELEASE_SHA}.XXXXXX")"
 
 # Both the source evidence and the Docker context come from the exact commit,
 # never from an rsync of the live working tree.
@@ -104,13 +206,12 @@ tar -xzf "${BUNDLE_DIRECTORY}/source.tar.gz" \
     -C "${CONTEXT_DIRECTORY}"
 python3 "${SCRIPT_DIR}/release_manifest.py" scan \
     --source "${CONTEXT_DIRECTORY}" >/dev/null
-
-BUILDER_INSPECT="${STAGING_DIRECTORY}/builder-inspect.txt"
-docker buildx inspect "${BUILDER}" --bootstrap > "${BUILDER_INSPECT}" \
-    || fail "shared Builder ${BUILDER} is unavailable; bootstrap it outside the release lock"
-BUILDER_DRIVER="$(awk -F: '/^Driver:/ { sub(/^[[:space:]]+/, "", $2); print $2; exit }' "${BUILDER_INSPECT}")"
-[[ -n "${BUILDER_DRIVER}" ]] || BUILDER_DRIVER=unknown
-BUILDX_VERSION="$(docker buildx version | tr '\n' ' ' | sed 's/[[:space:]]\+$//')"
+DATABASE_SCHEMA_VERSION="$(
+    PYTHONPATH="${CONTEXT_DIRECTORY}" python3 -c \
+        'from apps.inthub_api.db import LATEST_SCHEMA_VERSION; print(LATEST_SCHEMA_VERSION)'
+)"
+[[ "${DATABASE_SCHEMA_VERSION}" =~ ^[1-9][0-9]*$ ]] \
+    || fail "candidate database schema version is invalid"
 
 docker buildx build \
     --builder "${BUILDER}" \
@@ -119,16 +220,9 @@ docker buildx build \
     --tag "${APP_IMAGE}" \
     --build-arg "INTHUB_VERSION=${RELEASE_VERSION}" \
     --build-arg "INTHUB_REVISION=${RELEASE_SHA}" \
+    --build-arg "INTHUB_SCHEMA_VERSION=${DATABASE_SCHEMA_VERSION}" \
     --file "${CONTEXT_DIRECTORY}/Dockerfile" \
     "${CONTEXT_DIRECTORY}"
-
-LOCAL_DATABASE_ID="$(
-    docker image inspect --format '{{.Id}}' "${DATABASE_IMAGE}" 2>/dev/null || true
-)"
-if [[ "${LOCAL_DATABASE_ID}" != "${DATABASE_IMAGE_ID}" ]]; then
-    docker pull --platform "${TARGET_PLATFORM}" "${DATABASE_PULL_REFERENCE}"
-    docker tag "${DATABASE_PULL_REFERENCE}" "${DATABASE_IMAGE}"
-fi
 
 APP_PLATFORM="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "${APP_IMAGE}")"
 DATABASE_PLATFORM="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "${DATABASE_IMAGE}")"
@@ -136,7 +230,7 @@ DATABASE_PLATFORM="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "
     || fail "application image targets ${APP_PLATFORM}, expected ${TARGET_PLATFORM}"
 [[ "${DATABASE_PLATFORM}" == "${TARGET_PLATFORM}" ]] \
     || fail "database image targets ${DATABASE_PLATFORM}, expected ${TARGET_PLATFORM}"
-[[ "$(docker image inspect --format '{{.Id}}' "${DATABASE_IMAGE}")" == "${DATABASE_IMAGE_ID}" ]] \
+[[ "$(image_config_id "${DATABASE_IMAGE}")" == "${DATABASE_IMAGE_ID}" ]] \
     || fail "database image does not match deploy/inthub/runtime-images.lock.json"
 
 # Exercise the exact production image under its production filesystem and
@@ -189,10 +283,13 @@ python3 "${SCRIPT_DIR}/release_manifest.py" create \
     --repository "${CONTEXT_DIRECTORY}" \
     --git-sha "${RELEASE_SHA}" \
     --version "${RELEASE_VERSION}" \
-    --github-sync "${GITHUB_SYNC}" \
+    --database-schema-version "${DATABASE_SCHEMA_VERSION}" \
     --builder "${BUILDER}" \
     --builder-driver "${BUILDER_DRIVER}" \
     --buildx-version "${BUILDX_VERSION}" \
+    --buildkit-version "${BUILDKIT_VERSION}" \
+    --python-version "${QUALIFICATION_PYTHON_VERSION}" \
+    --pytest-version "${QUALIFICATION_PYTEST_VERSION}" \
     --app-image "${APP_IMAGE}" \
     --database-image "${DATABASE_IMAGE}" >/dev/null
 python3 "${SCRIPT_DIR}/release_manifest.py" checksums \
@@ -205,7 +302,9 @@ python3 "${SCRIPT_DIR}/release_manifest.py" verify \
     && -z "$(git status --porcelain=v1 --untracked-files=all)" ]] \
     || fail "the repository changed while the release bundle was being built"
 
-mv "${BUNDLE_DIRECTORY}" "${FINAL_DIRECTORY}"
-rmdir "${STAGING_DIRECTORY}"
+rm -rf -- "${CONTEXT_DIRECTORY}"
+CONTEXT_DIRECTORY=""
+chmod -R a-w "${BUNDLE_DIRECTORY}"
+mv "${STAGING_DIRECTORY}" "${FINAL_DIRECTORY}"
 STAGING_DIRECTORY=""
 printf '%s\n' "${FINAL_DIRECTORY}"

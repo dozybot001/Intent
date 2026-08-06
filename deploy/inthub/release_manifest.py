@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 3
 PROJECT_ID = "inthub"
 GIT_SHA_RE = re.compile(r"[0-9a-f]{40,64}")
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
@@ -52,6 +52,8 @@ MAX_SOURCE_UNCOMPRESSED_BYTES = 512 * 1024 * 1024
 REQUIRED_RECIPE_PATHS = {
     "dockerfile": "Dockerfile",
     "dependency_lock": "pyproject.toml",
+    "database_schema": "apps/inthub_api/db.py",
+    "database_migration_entry": "apps/inthub_api/migrate.py",
     "runtime_images": "deploy/inthub/runtime-images.lock.json",
 }
 REQUIRED_TESTS = {
@@ -72,6 +74,91 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _archive_image_config_id(fileobj, reference: str) -> str:
+    """Return the portable config digest for one image in a docker-save stream.
+
+    Docker's containerd image store reports an OCI manifest or index digest as
+    ``docker image inspect .Id``, while the classic image store reports the
+    config digest.  The docker-save Config member is stable across both stores
+    and across transfer to the production host.
+    """
+
+    manifest_payload = None
+    try:
+        archive = tarfile.open(fileobj=fileobj, mode="r|*")
+    except (tarfile.TarError, OSError) as exc:
+        raise ManifestError("image archive is not a readable tar stream") from exc
+    with archive:
+        for member in archive:
+            if member.name != "manifest.json":
+                continue
+            if not member.isfile():
+                raise ManifestError("image archive manifest.json is not a regular file")
+            extracted = archive.extractfile(member)
+            if extracted is None:
+                raise ManifestError("could not read image archive manifest.json")
+            if manifest_payload is not None:
+                raise ManifestError("image archive contains duplicate manifest.json")
+            manifest_payload = extracted.read()
+
+    if manifest_payload is None:
+        raise ManifestError("image archive is missing manifest.json")
+    try:
+        manifest = json.loads(manifest_payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ManifestError("image archive manifest.json is invalid") from exc
+    if not isinstance(manifest, list) or not manifest:
+        raise ManifestError("image archive manifest.json must be a non-empty array")
+
+    matches = []
+    for entry in manifest:
+        if not isinstance(entry, dict):
+            raise ManifestError("image archive contains invalid image metadata")
+        repo_tags = entry.get("RepoTags")
+        if repo_tags is not None and (
+            not isinstance(repo_tags, list)
+            or any(not isinstance(tag, str) for tag in repo_tags)
+        ):
+            raise ManifestError("image archive RepoTags must be an array or null")
+        if repo_tags and reference in repo_tags:
+            matches.append(entry)
+    if not matches and len(manifest) == 1:
+        matches = [manifest[0]]
+    if len(matches) != 1:
+        raise ManifestError(f"could not identify exactly one archived image: {reference}")
+
+    config = matches[0].get("Config")
+    if not isinstance(config, str):
+        raise ManifestError("image archive Config must be a string")
+    match = re.fullmatch(r"(?:blobs/sha256/)?([0-9a-f]{64})(?:\.json)?", config)
+    if match is None:
+        raise ManifestError("image archive Config is not a SHA-256 digest path")
+    return f"sha256:{match.group(1)}"
+
+
+def _docker_image_config_id(reference: str) -> str:
+    process = subprocess.Popen(
+        ["docker", "image", "save", reference],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert process.stdout is not None
+    assert process.stderr is not None
+    try:
+        config_id = _archive_image_config_id(process.stdout, reference)
+    except Exception:
+        process.kill()
+        process.wait()
+        raise
+    stderr = process.stderr.read().decode("utf-8", errors="replace").strip()
+    return_code = process.wait()
+    if return_code != 0:
+        raise ManifestError(
+            f"docker image save failed for {reference}: {stderr or f'exit {return_code}'}"
+        )
+    return config_id
 
 
 def _regular_file(bundle: Path, name: str) -> Path:
@@ -102,7 +189,7 @@ def _image_metadata(reference: str) -> dict:
     repo_digests = image.get("RepoDigests") or []
     return {
         "reference": reference,
-        "id": image.get("Id"),
+        "id": _docker_image_config_id(reference),
         "os": image.get("Os"),
         "architecture": image.get("Architecture"),
         "repo_digests": sorted(
@@ -144,7 +231,7 @@ def _runtime_lock(bundle: Path) -> dict:
     if re.fullmatch(r"postgres@sha256:[0-9a-f]{64}", database["pull_reference"]) is None:
         raise ManifestError("database pull_reference must use an immutable SHA-256 digest")
     if not database["id"].startswith("sha256:") or SHA256_RE.fullmatch(database["id"][7:]) is None:
-        raise ManifestError("database runtime image ID must be SHA-256")
+        raise ManifestError("database runtime config digest must be SHA-256")
     if database["os"] != "linux" or database["architecture"] != "amd64":
         raise ManifestError("database runtime image must target linux/amd64")
     return database
@@ -159,13 +246,48 @@ def _file_record(bundle: Path, name: str) -> dict:
     }
 
 
+def _recipe_records(repository: Path) -> dict:
+    return {
+        key: {
+            "path": relative_path,
+            "sha256": _sha256(repository / relative_path),
+        }
+        for key, relative_path in REQUIRED_RECIPE_PATHS.items()
+    }
+
+
+def _migration_recipe_checksum(recipe: dict) -> str:
+    digest = hashlib.sha256()
+    for key in ("database_schema", "database_migration_entry"):
+        record = recipe[key]
+        digest.update(record["path"].encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(record["sha256"].encode("ascii"))
+        digest.update(b"\n")
+    return digest.hexdigest()
+
+
+def _app_base_image(repository: Path) -> str:
+    for line in (repository / "Dockerfile").read_text(encoding="utf-8").splitlines():
+        fields = line.strip().split()
+        if fields and fields[0].upper() == "FROM" and len(fields) >= 2:
+            reference = fields[1]
+            if re.fullmatch(
+                r"[A-Za-z0-9][A-Za-z0-9._/:+-]*@sha256:[0-9a-f]{64}",
+                reference,
+            ) is None:
+                raise ManifestError("Application base image must use a SHA-256 digest")
+            return reference
+    raise ManifestError("Dockerfile does not contain a base image")
+
+
 def create_manifest(args: argparse.Namespace) -> dict:
     bundle = Path(args.bundle).resolve()
     repository = Path(args.repository).resolve()
     if GIT_SHA_RE.fullmatch(args.git_sha) is None:
         raise ManifestError("git_sha must be a full hexadecimal Git object ID")
-    if args.github_sync not in {"pending", "confirmed"}:
-        raise ManifestError("github_sync must be pending or confirmed")
+    if args.database_schema_version < 1:
+        raise ManifestError("database_schema_version must be positive")
 
     app = _image_metadata(args.app_image)
     database = _image_metadata(args.database_image)
@@ -180,14 +302,22 @@ def create_manifest(args: argparse.Namespace) -> dict:
         if database.get(key) != database_lock[key]:
             raise ManifestError(f"Database image does not match runtime lock field: {key}")
 
+    recipe = _recipe_records(repository)
+
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "project_id": PROJECT_ID,
+        "bundle_id": args.git_sha,
         "git_sha": args.git_sha,
         "dirty": False,
-        "github_sync": args.github_sync,
         "version": args.version,
         "target": {"os": "linux", "architecture": "amd64"},
+        "database_schema": {
+            "version": args.database_schema_version,
+            "migration_policy": "expand-contract",
+            "backward_compatible": True,
+            "migration_sha256": _migration_recipe_checksum(recipe),
+        },
         "artifacts": {
             key: _file_record(bundle, filename)
             for key, filename in EXPECTED_ARTIFACTS.items()
@@ -204,23 +334,17 @@ def create_manifest(args: argparse.Namespace) -> dict:
                 "name": args.builder,
                 "driver": args.builder_driver,
                 "buildx_version": args.buildx_version,
+                "buildkit_version": args.buildkit_version,
             },
-            "recipe": {
-                "dockerfile": {
-                    "path": "Dockerfile",
-                    "sha256": _sha256(repository / "Dockerfile"),
-                },
-                "dependency_lock": {
-                    "path": "pyproject.toml",
-                    "sha256": _sha256(repository / "pyproject.toml"),
-                },
-                "runtime_images": {
-                    "path": "deploy/inthub/runtime-images.lock.json",
-                    "sha256": _sha256(
-                        repository / "deploy" / "inthub" / "runtime-images.lock.json"
-                    ),
-                },
+            "base_images": {
+                "app": _app_base_image(repository),
+                "database": database_lock["pull_reference"],
             },
+            "qualification": {
+                "python_version": args.python_version,
+                "pytest_version": args.pytest_version,
+            },
+            "recipe": recipe,
             "built_at": datetime.now(timezone.utc).isoformat(),
         },
         "tests": [
@@ -273,7 +397,7 @@ def _verify_image(image, field: str, git_sha: str, version: str) -> None:
     reference = _expect_string(image.get("reference"), f"{field}.reference")
     image_id = _expect_string(image.get("id"), f"{field}.id")
     if not image_id.startswith("sha256:") or SHA256_RE.fullmatch(image_id[7:]) is None:
-        raise ManifestError(f"{field}.id must be a sha256 image ID")
+        raise ManifestError(f"{field}.id must be a sha256 image config digest")
     if image.get("os") != "linux" or image.get("architecture") != "amd64":
         raise ManifestError(f"{field} must target linux/amd64")
     repo_digests = image.get("repo_digests")
@@ -372,11 +496,12 @@ def verify_manifest(bundle_value: str, expected_sha: str | None = None) -> dict:
     expected_top_level = {
         "schema_version",
         "project_id",
+        "bundle_id",
         "git_sha",
         "dirty",
-        "github_sync",
         "version",
         "target",
+        "database_schema",
         "artifacts",
         "release_files",
         "images",
@@ -390,20 +515,47 @@ def verify_manifest(bundle_value: str, expected_sha: str | None = None) -> dict:
         raise ManifestError(f"Unsupported schema_version: {manifest.get('schema_version')!r}")
     if manifest.get("project_id") != PROJECT_ID:
         raise ManifestError("project_id must be inthub")
+    bundle_id = _expect_string(manifest.get("bundle_id"), "bundle_id")
     git_sha = _expect_string(manifest.get("git_sha"), "git_sha")
     if GIT_SHA_RE.fullmatch(git_sha) is None:
         raise ManifestError("git_sha must be a full hexadecimal Git object ID")
     if expected_sha is not None and git_sha != expected_sha:
         raise ManifestError("manifest git_sha does not match the requested release")
+    if bundle_id != git_sha:
+        raise ManifestError("bundle_id must equal the immutable full Git commit")
     if manifest.get("dirty") is not False:
         raise ManifestError("dirty must be false")
-    if manifest.get("github_sync") not in {"pending", "confirmed"}:
-        raise ManifestError("github_sync must be pending or confirmed")
     version = _expect_string(manifest.get("version"), "version")
     if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]*", version) is None:
         raise ManifestError("version contains unsupported characters")
     if manifest.get("target") != {"os": "linux", "architecture": "amd64"}:
         raise ManifestError("target must be linux/amd64")
+    database_schema = _expect_dict(
+        manifest.get("database_schema"), "database_schema"
+    )
+    if set(database_schema) != {
+        "version",
+        "migration_policy",
+        "backward_compatible",
+        "migration_sha256",
+    }:
+        raise ManifestError("database_schema contains missing or unknown fields")
+    if (
+        not isinstance(database_schema.get("version"), int)
+        or isinstance(database_schema.get("version"), bool)
+        or database_schema["version"] < 1
+    ):
+        raise ManifestError("database_schema.version must be a positive integer")
+    if database_schema.get("migration_policy") != "expand-contract":
+        raise ManifestError("database_schema.migration_policy must be expand-contract")
+    if database_schema.get("backward_compatible") is not True:
+        raise ManifestError("database_schema must be backward compatible")
+    migration_sha256 = _expect_string(
+        database_schema.get("migration_sha256"),
+        "database_schema.migration_sha256",
+    )
+    if SHA256_RE.fullmatch(migration_sha256) is None:
+        raise ManifestError("database_schema.migration_sha256 must be SHA-256")
 
     artifacts = _expect_dict(manifest.get("artifacts"), "artifacts")
     if set(artifacts) != set(EXPECTED_ARTIFACTS):
@@ -429,13 +581,42 @@ def verify_manifest(bundle_value: str, expected_sha: str | None = None) -> dict:
             raise ManifestError(f"Database manifest does not match runtime lock field: {key}")
 
     build = _expect_dict(manifest.get("build"), "build")
-    if set(build) != {"builder", "recipe", "built_at"}:
+    if set(build) != {
+        "builder",
+        "base_images",
+        "qualification",
+        "recipe",
+        "built_at",
+    }:
         raise ManifestError("build contains missing or unknown fields")
     builder = _expect_dict(build.get("builder"), "build.builder")
-    if set(builder) != {"name", "driver", "buildx_version"}:
+    if set(builder) != {"name", "driver", "buildx_version", "buildkit_version"}:
         raise ManifestError("build.builder contains missing or unknown fields")
-    for key in ("name", "driver", "buildx_version"):
+    for key in ("name", "driver", "buildx_version", "buildkit_version"):
         _expect_string(builder.get(key), f"build.builder.{key}")
+    base_images = _expect_dict(build.get("base_images"), "build.base_images")
+    if set(base_images) != {"app", "database"}:
+        raise ManifestError("build.base_images must contain exactly app and database")
+    app_base = _expect_string(base_images.get("app"), "build.base_images.app")
+    if re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9._/:+-]*@sha256:[0-9a-f]{64}", app_base
+    ) is None:
+        raise ManifestError("build.base_images.app must use a SHA-256 digest")
+    if base_images.get("database") != database_lock["pull_reference"]:
+        raise ManifestError("build.base_images.database does not match runtime lock")
+    qualification = _expect_dict(build.get("qualification"), "build.qualification")
+    if set(qualification) != {"python_version", "pytest_version"}:
+        raise ManifestError("build.qualification contains missing or unknown fields")
+    python_version = _expect_string(
+        qualification.get("python_version"), "build.qualification.python_version"
+    )
+    pytest_version = _expect_string(
+        qualification.get("pytest_version"), "build.qualification.pytest_version"
+    )
+    if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", python_version) is None:
+        raise ManifestError("build.qualification.python_version must be semantic")
+    if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", pytest_version) is None:
+        raise ManifestError("build.qualification.pytest_version must be semantic")
     built_at = _expect_string(build.get("built_at"), "build.built_at")
     try:
         parsed_built_at = datetime.fromisoformat(built_at)
@@ -455,6 +636,8 @@ def verify_manifest(bundle_value: str, expected_sha: str | None = None) -> dict:
         checksum = _expect_string(record.get("sha256"), f"build.recipe.{key}.sha256")
         if SHA256_RE.fullmatch(checksum) is None:
             raise ManifestError(f"build.recipe.{key}.sha256 must be SHA-256")
+    if _migration_recipe_checksum(recipe) != migration_sha256:
+        raise ManifestError("database migration recipe checksum mismatch")
     tests = manifest.get("tests")
     if not isinstance(tests, list) or not tests:
         raise ManifestError("tests must be a non-empty array")
@@ -551,10 +734,13 @@ def _parser() -> argparse.ArgumentParser:
     create.add_argument("--repository", required=True)
     create.add_argument("--git-sha", required=True)
     create.add_argument("--version", required=True)
-    create.add_argument("--github-sync", required=True)
+    create.add_argument("--database-schema-version", required=True, type=int)
     create.add_argument("--builder", required=True)
     create.add_argument("--builder-driver", required=True)
     create.add_argument("--buildx-version", required=True)
+    create.add_argument("--buildkit-version", required=True)
+    create.add_argument("--python-version", required=True)
+    create.add_argument("--pytest-version", required=True)
     create.add_argument("--app-image", required=True)
     create.add_argument("--database-image", required=True)
 
@@ -567,6 +753,9 @@ def _parser() -> argparse.ArgumentParser:
 
     scan = subparsers.add_parser("scan")
     scan.add_argument("--source", required=True)
+
+    image_config_id = subparsers.add_parser("image-config-id")
+    image_config_id.add_argument("--reference", required=True)
     return parser
 
 
@@ -582,9 +771,12 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "verify":
             manifest = verify_manifest(args.bundle, args.expected_sha)
             verify_checksums(args.bundle)
-        else:
+        elif args.command == "scan":
             scan_source(args.source)
             print(json.dumps({"ok": True, "result": {"scan": "passed"}}))
+            return 0
+        else:
+            print(_archive_image_config_id(sys.stdin.buffer, args.reference))
             return 0
     except (ManifestError, OSError, subprocess.CalledProcessError, json.JSONDecodeError) as exc:
         print(
@@ -599,6 +791,7 @@ def main(argv: list[str] | None = None) -> int:
             {
                 "ok": True,
                 "result": {
+                    "bundle_id": manifest["bundle_id"],
                     "git_sha": manifest["git_sha"],
                     "version": manifest["version"],
                 },

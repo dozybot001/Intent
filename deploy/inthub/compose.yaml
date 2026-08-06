@@ -1,6 +1,6 @@
 services:
   database:
-    image: postgres:18.4-bookworm
+    image: ${INTHUB_DATABASE_IMAGE:?set INTHUB_DATABASE_IMAGE}
     pull_policy: never
     container_name: inthub-postgres
     restart: unless-stopped
@@ -28,7 +28,7 @@ services:
         max-file: "3"
 
   app:
-    image: inthub:${INTHUB_RELEASE:?set INTHUB_RELEASE}
+    image: ${INTHUB_APP_IMAGE:?set INTHUB_APP_IMAGE}
     pull_policy: never
     container_name: ${INTHUB_APP_CONTAINER:?set INTHUB_APP_CONTAINER}
     restart: unless-stopped
@@ -49,6 +49,9 @@ services:
       INTHUB_SERVE_WEB: "1"
       INTHUB_MAX_BODY_BYTES: ${INTHUB_MAX_BODY_BYTES:-16777216}
       INTHUB_LOG_LEVEL: ${INTHUB_LOG_LEVEL:-INFO}
+      # Production migrations are an explicit, backed-up release gate. The
+      # serving process must never mutate schema as a startup side effect.
+      INTHUB_AUTO_MIGRATE: "0"
     read_only: true
     tmpfs:
       - /tmp:size=32m,mode=1777

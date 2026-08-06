@@ -48,8 +48,10 @@ check_surface() {
     [[ "${trace_status}" == 405 ]] \
         || { echo "Expected TRACE to return 405, got ${trace_status}." >&2; return 1; }
 
-    grep -Eiq '^content-security-policy: .*frame-ancestors .none.*object-src .none' \
+    grep -Eiq '^content-security-policy: .*frame-ancestors .none' \
         "${TMP_DIRECTORY}/${label}.headers" \
+        && grep -Eiq '^content-security-policy: .*object-src .none' \
+            "${TMP_DIRECTORY}/${label}.headers" \
         || { echo "The ${label} response is missing the required CSP." >&2; return 1; }
 }
 

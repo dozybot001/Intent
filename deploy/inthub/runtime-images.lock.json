@@ -3,8 +3,8 @@
   "images": {
     "database": {
       "reference": "postgres:18.4-bookworm",
-      "pull_reference": "postgres@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296",
-      "id": "sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296",
+      "pull_reference": "postgres@sha256:16fa100a3a6e92c0556632870455e7f8c6f3df5cefddd67d6b95292732bd7ff0",
+      "id": "sha256:0a314d409a9633cff4f89dc18482262625c0ee78cb1aa2ff8e47bc6da0251e1b",
       "os": "linux",
       "architecture": "amd64"
     }

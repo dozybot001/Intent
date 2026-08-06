@@ -1,4 +1,6 @@
-FROM python:3.13-slim
+# Release images are Linux/amd64 only. Pin the exact platform manifest so the
+# same Git commit cannot silently pick up a different Python or Debian base.
+FROM python:3.13-slim@sha256:69e18bd8d831d88e0ef70239dc7771ab7c28bc296ae78ac75cde71e60aa4434f
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
@@ -10,13 +12,9 @@ RUN groupadd --gid 10001 inthub \
     && mkdir -p /data \
     && chown inthub:inthub /data
 
-RUN apt-get update \
-    && apt-get install --yes --no-install-recommends libpq5 \
-    && rm -rf /var/lib/apt/lists/*
-
-# The pure-Python package uses Debian's libpq. Keeping runtime dependencies
-# before COPY makes this layer reusable for every application-only release.
-RUN python -m pip install --no-cache-dir "psycopg==3.3.4"
+# The pinned binary wheel carries libpq, eliminating a floating apt snapshot
+# from the release recipe while retaining an exact application dependency.
+RUN python -m pip install --no-cache-dir "psycopg[binary]==3.3.4"
 
 COPY --chown=inthub:inthub . /app
 
@@ -24,10 +22,12 @@ COPY --chown=inthub:inthub . /app
 # can reuse the already downloaded PostgreSQL driver.
 ARG INTHUB_VERSION=0.0.0
 ARG INTHUB_REVISION=unknown
+ARG INTHUB_SCHEMA_VERSION=1
 LABEL org.opencontainers.image.title="IntHub" \
     org.opencontainers.image.source="https://github.com/dozybot001/Intent" \
     org.opencontainers.image.version="${INTHUB_VERSION}" \
-    org.opencontainers.image.revision="${INTHUB_REVISION}"
+    org.opencontainers.image.revision="${INTHUB_REVISION}" \
+    io.inthub.database-schema-version="${INTHUB_SCHEMA_VERSION}"
 
 USER 10001:10001
 

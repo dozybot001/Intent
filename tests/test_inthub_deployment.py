@@ -18,13 +18,31 @@ manifest_module = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(manifest_module)
 
-
 def _checksum(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _record(path):
     return {"path": path.name, "sha256": _checksum(path), "bytes": path.stat().st_size}
+
+
+def _docker_save_stream(reference, config_digest):
+    payload = io.BytesIO()
+    with tarfile.open(fileobj=payload, mode="w") as archive:
+        manifest = json.dumps(
+            [
+                {
+                    "Config": f"blobs/sha256/{config_digest}",
+                    "RepoTags": [reference],
+                    "Layers": [],
+                }
+            ]
+        ).encode()
+        info = tarfile.TarInfo("manifest.json")
+        info.size = len(manifest)
+        archive.addfile(info, io.BytesIO(manifest))
+    payload.seek(0)
+    return payload
 
 
 def _valid_bundle(tmp_path):
@@ -52,6 +70,8 @@ def _valid_bundle(tmp_path):
     recipe_contents = {
         "Dockerfile": b"FROM scratch\n",
         "pyproject.toml": b"[project]\nname = 'intent-cli'\n",
+        "apps/inthub_api/db.py": b"LATEST_SCHEMA_VERSION = 1\n",
+        "apps/inthub_api/migrate.py": b"# migration entry\n",
         "deploy/inthub/runtime-images.lock.json": runtime_lock_bytes,
     }
     with tarfile.open(tmp_path / "source.tar.gz", mode="w:gz") as archive:
@@ -59,14 +79,27 @@ def _valid_bundle(tmp_path):
             info = tarfile.TarInfo(f"Intent-{git_sha}/{relative_path}")
             info.size = len(payload)
             archive.addfile(info, io.BytesIO(payload))
+    recipe = {
+        key: {
+            "path": relative_path,
+            "sha256": hashlib.sha256(recipe_contents[relative_path]).hexdigest(),
+        }
+        for key, relative_path in manifest_module.REQUIRED_RECIPE_PATHS.items()
+    }
     manifest = {
-        "schema_version": 1,
+        "schema_version": 3,
         "project_id": "inthub",
+        "bundle_id": git_sha,
         "git_sha": git_sha,
         "dirty": False,
-        "github_sync": "pending",
         "version": version,
         "target": {"os": "linux", "architecture": "amd64"},
+        "database_schema": {
+            "version": 1,
+            "migration_policy": "expand-contract",
+            "backward_compatible": True,
+            "migration_sha256": manifest_module._migration_recipe_checksum(recipe),
+        },
         "artifacts": {
             key: _record(tmp_path / name)
             for key, name in manifest_module.EXPECTED_ARTIFACTS.items()
@@ -99,26 +132,20 @@ def _valid_bundle(tmp_path):
         },
         "build": {
             "builder": {
-                "name": "shared-linux-amd64",
-                "driver": "docker-container",
+                "name": "desktop-linux",
+                "driver": "docker",
                 "buildx_version": "github.com/docker/buildx v0.30.1",
+                "buildkit_version": "v0.31.2",
             },
-            "recipe": {
-                "dockerfile": {
-                    "path": "Dockerfile",
-                    "sha256": hashlib.sha256(recipe_contents["Dockerfile"]).hexdigest(),
-                },
-                "dependency_lock": {
-                    "path": "pyproject.toml",
-                    "sha256": hashlib.sha256(
-                        recipe_contents["pyproject.toml"]
-                    ).hexdigest(),
-                },
-                "runtime_images": {
-                    "path": "deploy/inthub/runtime-images.lock.json",
-                    "sha256": hashlib.sha256(runtime_lock_bytes).hexdigest(),
-                },
+            "base_images": {
+                "app": "python:3.13-slim@sha256:" + "e" * 64,
+                "database": "postgres@sha256:" + "d" * 64,
             },
+            "qualification": {
+                "python_version": "3.13.5",
+                "pytest_version": "8.4.2",
+            },
+            "recipe": recipe,
             "built_at": "2026-08-04T00:00:00+00:00",
         },
         "tests": [
@@ -139,35 +166,78 @@ def test_production_image_declares_github_source_and_exact_revision():
         in dockerfile
     )
     assert 'org.opencontainers.image.revision="${INTHUB_REVISION}"' in dockerfile
+    assert 'io.inthub.database-schema-version="${INTHUB_SCHEMA_VERSION}"' in dockerfile
     assert "gitee.com" not in dockerfile
 
 
-def test_compose_can_only_start_preloaded_images():
+def test_compose_uses_explicit_immutable_images_and_disables_auto_migration():
     compose = (REPOSITORY_ROOT / "deploy" / "inthub" / "compose.yaml").read_text(
         encoding="utf-8"
     )
 
     assert "    build:" not in compose
     assert compose.count("pull_policy: never") == 2
-    assert "image: inthub:${INTHUB_RELEASE:?set INTHUB_RELEASE}" in compose
+    assert "image: ${INTHUB_APP_IMAGE:?set INTHUB_APP_IMAGE}" in compose
+    assert "image: ${INTHUB_DATABASE_IMAGE:?set INTHUB_DATABASE_IMAGE}" in compose
     assert (
         "container_name: ${INTHUB_APP_CONTAINER:?set INTHUB_APP_CONTAINER}"
         in compose
     )
     assert "external: true" in compose
+    assert 'INTHUB_AUTO_MIGRATE: "0"' in compose
 
 
-def test_release_entry_builds_uploads_and_locks_without_source_remote():
+def test_release_entry_uses_the_local_immutable_bundle_path():
     release = (REPOSITORY_ROOT / "deploy" / "inthub" / "release.sh").read_text(
         encoding="utf-8"
     )
 
-    assert 'bash "${SCRIPT_DIR}/build-release.sh"' in release
-    assert "rsync --archive" in release
-    assert ".release-lock" in release
-    assert "remote-release.sh" in release
-    assert "git push" not in release
-    assert "git ls-remote" not in release
+    local_release = (REPOSITORY_ROOT / "deploy" / "inthub" / "local-release.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'exec bash "${SCRIPT_DIR}/local-release.sh"' in release
+    assert 'bash "${SCRIPT_DIR}/build-release.sh"' in local_release
+    assert "rsync --archive" in local_release
+    assert "--protect-args" not in local_release
+    assert "release_manifest.py' verify" in local_release
+    assert ".release-lock" in local_release
+    assert "remote-release.sh" in local_release
+    assert "git push" not in local_release
+    assert "git fetch" not in local_release
+    assert "gh " not in local_release
+
+
+def test_local_build_qualifies_commit_and_exports_images_once():
+    build = (REPOSITORY_ROOT / "deploy" / "inthub" / "build-release.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'BUILDER="${INTHUB_BUILDER:-desktop-linux}"' in build
+    assert 'EXPECTED_BUILDER_DRIVER="${INTHUB_BUILDER_DRIVER:-docker}"' in build
+    assert 'bash "${SCRIPT_DIR}/prepare-release-env.sh"' in build
+    assert "git archive" in build
+    assert "INTHUB_TEST_POSTGRES_URL=" in build
+    assert "BUILDKIT_VERSION=" in build
+    assert 'docker image inspect "${APP_BASE_IMAGE}"' in build
+    assert build.count("docker buildx build") == 1
+    assert "docker save" in build
+    assert "image-config-id" in build
+    assert 'BUNDLE_DIRECTORY="${STAGING_DIRECTORY}"' in build
+    assert build.rindex('rm -rf -- "${CONTEXT_DIRECTORY}"') < build.rindex(
+        'mv "${STAGING_DIRECTORY}" "${FINAL_DIRECTORY}"'
+    )
+    assert build.rindex('chmod -R a-w "${BUNDLE_DIRECTORY}"') < build.rindex(
+        'mv "${STAGING_DIRECTORY}" "${FINAL_DIRECTORY}"'
+    )
+    assert "release_manifest.py\" verify" in build
+    assert "docker push" not in build
+    assert "ghcr.io" not in build
+
+
+def test_github_has_no_production_release_or_deploy_workflow():
+    assert not (REPOSITORY_ROOT / ".github" / "workflows" / "release.yml").exists()
+    assert not (REPOSITORY_ROOT / ".github" / "workflows" / "deploy.yml").exists()
 
 
 def test_remote_release_verifies_and_loads_but_never_builds_or_pulls():
@@ -179,9 +249,20 @@ def test_remote_release_verifies_and_loads_but_never_builds_or_pulls():
     assert "images.tar.gz\" | docker_command load" in remote
     assert "pg_dump" in remote
     assert "--no-build --pull never" in remote
+    assert "run --rm --no-deps --pull never app" in remote
+    assert "run --rm --no-deps --no-build" not in remote
     assert "smoke.sh" in remote
     assert "rollback_release" in remote
     assert "CANDIDATE_SLOT" in remote
+    assert "apps.inthub_api.migrate" in remote
+    assert "write_release_state baking" in remote
+    assert "BAKE_SECONDS" in remote
+    assert remote.index('chmod u+w "${SCRIPT_DIRECTORY}"') < remote.index(
+        'mv "${SCRIPT_DIRECTORY}" "${RELEASE_DIRECTORY}"'
+    )
+    assert remote.index('mv "${SCRIPT_DIRECTORY}" "${RELEASE_DIRECTORY}"') < remote.index(
+        'chmod -R a-w "${RELEASE_DIRECTORY}"'
+    )
     assert "restoring the previous traffic boundary" in remote
     assert "git clone" not in remote
     assert "git pull" not in remote
@@ -192,6 +273,8 @@ def test_remote_release_verifies_and_loads_but_never_builds_or_pulls():
 def test_release_scripts_are_executable():
     for name in (
         "build-release.sh",
+        "local-release.sh",
+        "prepare-release-env.sh",
         "release.sh",
         "remote-release.sh",
         "smoke.sh",
@@ -207,6 +290,26 @@ def test_manifest_verifier_accepts_exact_bundle(tmp_path):
     manifest_module.verify_checksums(str(tmp_path))
 
     assert verified["git_sha"] == manifest["git_sha"]
+    assert verified["bundle_id"] == manifest["git_sha"]
+
+
+def test_image_config_id_is_portable_across_docker_image_stores():
+    reference = "postgres:18.4-bookworm"
+    config_digest = "c" * 64
+
+    assert manifest_module._archive_image_config_id(
+        _docker_save_stream(reference, config_digest), reference
+    ) == f"sha256:{config_digest}"
+
+
+def test_manifest_rejects_remote_sync_state(tmp_path):
+    manifest = _valid_bundle(tmp_path)
+    manifest["github_sync"] = "confirmed"
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    manifest_module.write_checksums(str(tmp_path))
+
+    with pytest.raises(manifest_module.ManifestError, match="top-level"):
+        manifest_module.verify_manifest(str(tmp_path))
 
 
 def test_manifest_verifier_rejects_tampering(tmp_path):

@@ -11,11 +11,13 @@ RELEASE_SHA="$2"
 LOCK_TOKEN="$3"
 SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RELEASE_LOCK="${REMOTE_ROOT}/.release-lock"
+STATE_FILE="${RELEASE_LOCK}/state"
 SHARED_ENV="${REMOTE_ROOT}/shared/inthub.env"
 RELEASES_ROOT="${REMOTE_ROOT}/releases"
 RELEASE_DIRECTORY="${RELEASES_ROOT}/${RELEASE_SHA}"
 CURRENT_LINK="${REMOTE_ROOT}/current"
 BACKUPS_ROOT="${REMOTE_ROOT}/backups"
+LOGS_ROOT="${REMOTE_ROOT}/logs"
 CADDY_SITE="/etc/caddy/sites-enabled/inthub.caddy"
 PUBLIC_URL="https://inthub.tenon.asia"
 PRIVATE_NETWORK="inthub-private"
@@ -31,6 +33,8 @@ CADDY_SWITCHED=false
 CURRENT_SWITCHED=false
 ROLLBACK_ARMED=false
 RELEASE_ACCEPTED=false
+PHASE=initializing
+BAKE_SECONDS="${INTHUB_BAKE_SECONDS:-30}"
 
 fail() {
     echo "IntHub remote release failed: $*" >&2
@@ -39,6 +43,13 @@ fail() {
 
 docker_command() {
     sudo -n docker "$@"
+}
+
+image_config_id() {
+    local reference="$1"
+    docker_command image save "${reference}" \
+        | python3 "${SCRIPT_DIRECTORY}/release_manifest.py" image-config-id \
+            --reference "${reference}"
 }
 
 compose_release() {
@@ -51,6 +62,8 @@ compose_release() {
     shift 6
     sudo -n env \
         "INTHUB_RELEASE=${release_sha}" \
+        "INTHUB_APP_IMAGE=inthub:${release_sha}" \
+        "INTHUB_DATABASE_IMAGE=${DATABASE_IMAGE_REFERENCE}" \
         "INTHUB_PACKAGE_VERSION=${release_version}" \
         "INTHUB_APP_CONTAINER=${app_container}" \
         "INTHUB_BIND_PORT=${bind_port}" \
@@ -156,26 +169,104 @@ restore_caddy() {
     sudo -n systemctl reload caddy
 }
 
+write_release_state() {
+    local phase="$1"
+    local state_candidate="${RELEASE_LOCK}/.state.${LOCK_TOKEN}"
+    (
+        umask 077
+        {
+            printf 'phase=%s\n' "${phase}"
+            printf 'release_sha=%s\n' "${RELEASE_SHA}"
+            printf 'bundle_id=%s\n' "${RELEASE_SHA}"
+            printf 'previous_release=%s\n' "${PREVIOUS_DIRECTORY}"
+            printf 'previous_container=%s\n' "${PREVIOUS_CONTAINER}"
+            printf 'previous_port=%s\n' "${PREVIOUS_PORT}"
+            printf 'candidate_container=%s\n' "${CANDIDATE_CONTAINER}"
+            printf 'candidate_port=%s\n' "${CANDIDATE_PORT}"
+            printf 'backup_directory=%s\n' "${BACKUP_DIRECTORY}"
+            printf 'updated_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        } > "${state_candidate}"
+    )
+    mv -f "${state_candidate}" "${STATE_FILE}"
+    PHASE="${phase}"
+}
+
+clear_release_lock() {
+    rm -f \
+        "${RELEASE_LOCK}/owner" \
+        "${RELEASE_LOCK}/metadata" \
+        "${STATE_FILE}" \
+        "${RELEASE_LOCK}/.state.${LOCK_TOKEN}"
+    rmdir "${RELEASE_LOCK}"
+}
+
+archive_release_state() {
+    local outcome="$1"
+    local audit_candidate="${LOGS_ROOT}/.${LOCK_TOKEN}.audit"
+    local audit_file="${LOGS_ROOT}/${LOCK_TOKEN}.log"
+    (
+        umask 077
+        {
+            printf 'outcome=%s\n' "${outcome}"
+            printf 'final_phase=%s\n' "${PHASE}"
+            printf 'release_sha=%s\n' "${RELEASE_SHA}"
+            printf 'bundle_id=%s\n' "${RELEASE_SHA}"
+            printf 'previous_release=%s\n' "${PREVIOUS_DIRECTORY}"
+            printf 'candidate_container=%s\n' "${CANDIDATE_CONTAINER}"
+            printf 'candidate_port=%s\n' "${CANDIDATE_PORT}"
+            printf 'backup_directory=%s\n' "${BACKUP_DIRECTORY}"
+            printf 'finished_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        } > "${audit_candidate}"
+    )
+    mv -f "${audit_candidate}" "${audit_file}"
+}
+
 rollback_release() {
     local exit_code="$?"
+    local rollback_ok=true
     trap - ERR HUP INT TERM
     set +e
     if [[ "${ROLLBACK_ARMED}" == true && "${RELEASE_ACCEPTED}" != true ]]; then
         echo "IntHub acceptance failed; restoring the previous traffic boundary." >&2
-        restore_caddy || echo "CRITICAL: failed to restore the previous IntHub Caddy site." >&2
-        restore_current || echo "CRITICAL: failed to restore the previous current pointer." >&2
+        write_release_state rolling_back || rollback_ok=false
+        restore_caddy || {
+            echo "CRITICAL: failed to restore the previous IntHub Caddy site." >&2
+            rollback_ok=false
+        }
+        restore_current || {
+            echo "CRITICAL: failed to restore the previous current pointer." >&2
+            rollback_ok=false
+        }
         if [[ -n "${CANDIDATE_CONTAINER}" ]]; then
-            docker_command rm --force "${CANDIDATE_CONTAINER}" >/dev/null 2>&1 || \
+            docker_command rm --force "${CANDIDATE_CONTAINER}" >/dev/null 2>&1 || {
                 echo "CRITICAL: failed to stop the rejected IntHub candidate." >&2
+                rollback_ok=false
+            }
         fi
         if [[ -n "${PREVIOUS_CONTAINER}" ]] && ! container_running "${PREVIOUS_CONTAINER}"; then
             echo "CRITICAL: the previous IntHub application is not running after rollback." >&2
+            rollback_ok=false
         fi
     fi
     if [[ -f "${RELEASE_LOCK}/owner" \
         && "$(cat "${RELEASE_LOCK}/owner" 2>/dev/null)" == "${LOCK_TOKEN}" ]]; then
-        rm -f "${RELEASE_LOCK}/owner" "${RELEASE_LOCK}/metadata"
-        rmdir "${RELEASE_LOCK}" 2>/dev/null || true
+        if [[ "${RELEASE_ACCEPTED}" == true || "${ROLLBACK_ARMED}" != true || "${rollback_ok}" == true ]]; then
+            if [[ "${RELEASE_ACCEPTED}" == true ]]; then
+                archive_release_state accepted || exit_code=1
+            else
+                write_release_state rolled_back
+                archive_release_state rolled_back || exit_code=1
+            fi
+            clear_release_lock || {
+                echo "CRITICAL: failed to clear the IntHub release lock." >&2
+                exit_code=1
+            }
+        else
+            write_release_state rollback_failed || true
+            archive_release_state rollback_failed || true
+            echo "CRITICAL: rollback was incomplete; the fail-closed release lock was preserved." >&2
+            exit_code=1
+        fi
     fi
     exit "${exit_code}"
 }
@@ -189,6 +280,8 @@ trap 'false' ERR
     || fail "remote root is unsafe"
 [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40,64}$ ]] || fail "release SHA is invalid"
 [[ "${LOCK_TOKEN}" =~ ^[A-Za-z0-9._-]+$ ]] || fail "lock token is invalid"
+[[ "${BAKE_SECONDS}" =~ ^[0-9]+$ && "${BAKE_SECONDS}" -le 600 ]] \
+    || fail "INTHUB_BAKE_SECONDS must be between 0 and 600"
 [[ -f "${RELEASE_LOCK}/owner" ]] || fail "release lock owner is missing"
 [[ "$(cat "${RELEASE_LOCK}/owner")" == "${LOCK_TOKEN}" ]] \
     || fail "release lock is not owned by this operation"
@@ -199,6 +292,7 @@ for deployment_path in \
     "${REMOTE_ROOT}/incoming" \
     "${RELEASES_ROOT}" \
     "${BACKUPS_ROOT}" \
+    "${LOGS_ROOT}" \
     "${REMOTE_ROOT}/shared"; do
     [[ -d "${deployment_path}" && ! -L "${deployment_path}" ]] \
         || fail "deployment directory is missing or symlinked: ${deployment_path}"
@@ -224,6 +318,7 @@ sudo -n systemctl is-active caddy >/dev/null
 python3 "${SCRIPT_DIRECTORY}/release_manifest.py" verify \
     --bundle "${SCRIPT_DIRECTORY}" \
     --expected-sha "${RELEASE_SHA}" >/dev/null
+write_release_state verified_bundle
 
 mkdir -p "${RELEASES_ROOT}" "${BACKUPS_ROOT}"
 if [[ -e "${RELEASE_DIRECTORY}" ]]; then
@@ -240,6 +335,12 @@ if [[ -e "${RELEASE_DIRECTORY}" ]]; then
     SCRIPT_DIRECTORY="${RELEASE_DIRECTORY}"
     rm -rf -- "${BUNDLE_TO_REMOVE}"
 else
+    # Linux requires write permission on a directory when rename changes its
+    # parent because the directory's `..` entry is updated.  The locally
+    # published Bundle root is intentionally mode 0500, so grant owner-write
+    # only for this locked atomic move.  Bundle contents remain read-only and
+    # are fully reverified after the Release is solidified.
+    chmod u+w "${SCRIPT_DIRECTORY}"
     mv "${SCRIPT_DIRECTORY}" "${RELEASE_DIRECTORY}"
     SCRIPT_DIRECTORY="${RELEASE_DIRECTORY}"
     chmod -R a-w "${RELEASE_DIRECTORY}"
@@ -249,6 +350,7 @@ python3 "${SCRIPT_DIRECTORY}/release_manifest.py" verify \
     --bundle "${SCRIPT_DIRECTORY}" \
     --expected-sha "${RELEASE_SHA}" >/dev/null
 RELEASE_VERSION="$(release_version "${SCRIPT_DIRECTORY}")"
+write_release_state solidified_release
 
 mapfile -t IMAGE_EXPECTATIONS < <(
     python3 - "${SCRIPT_DIRECTORY}/manifest.json" <<'PY'
@@ -319,6 +421,7 @@ if [[ "${PREVIOUS_DIRECTORY}" == "${RELEASE_DIRECTORY}" ]]; then
     INTHUB_BASE_URL="${PUBLIC_URL}" \
     INTHUB_LOOPBACK_URL="http://127.0.0.1:${PREVIOUS_PORT}" \
         bash "${RELEASE_DIRECTORY}/smoke.sh"
+    write_release_state already_active
     RELEASE_ACCEPTED=true
     echo "IntHub release ${RELEASE_SHA} is already active and healthy."
     exit 0
@@ -329,11 +432,13 @@ BACKUP_DIRECTORY="$(mktemp -d "${BACKUPS_ROOT}/${BACKUP_TIMESTAMP}-${RELEASE_SHA
 chmod 0700 "${BACKUP_DIRECTORY}"
 install -m 0600 "${SHARED_ENV}" "${BACKUP_DIRECTORY}/inthub.env"
 install -m 0600 "${RELEASE_DIRECTORY}/manifest.json" "${BACKUP_DIRECTORY}/release-manifest.json"
+write_release_state backing_up
 
 if docker_command volume inspect inthub-postgres-data >/dev/null 2>&1; then
     [[ "$(docker_command inspect --format '{{.State.Running}}' inthub-postgres 2>/dev/null || true)" == true ]] \
         || fail "the existing PostgreSQL volume cannot be backed up because its container is not running"
-    [[ "$(docker_command inspect --format '{{.Image}}' inthub-postgres)" == "${EXPECTED_DATABASE_ID}" ]] \
+    RUNNING_DATABASE_IMAGE="$(docker_command inspect --format '{{.Image}}' inthub-postgres)"
+    [[ "$(image_config_id "${RUNNING_DATABASE_IMAGE}")" == "${EXPECTED_DATABASE_ID}" ]] \
         || fail "database runtime differs from the immutable lock; use a separate database maintenance procedure"
     docker_command exec inthub-postgres sh -c \
         'export PGPASSWORD="$POSTGRES_PASSWORD"; exec pg_dump --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --format=custom' \
@@ -348,13 +453,14 @@ gzip -dc "${RELEASE_DIRECTORY}/images.tar.gz" | docker_command load >/dev/null
 for expectation in "${IMAGE_EXPECTATIONS[@]}"; do
     IFS=$'\t' read -r image_reference expected_id expected_os expected_architecture \
         <<< "${expectation}"
-    actual_id="$(docker_command image inspect --format '{{.Id}}' "${image_reference}")"
+    actual_id="$(image_config_id "${image_reference}")"
     actual_os="$(docker_command image inspect --format '{{.Os}}' "${image_reference}")"
     actual_architecture="$(docker_command image inspect --format '{{.Architecture}}' "${image_reference}")"
-    [[ "${actual_id}" == "${expected_id}" ]] || fail "loaded image ID mismatch for ${image_reference}"
+    [[ "${actual_id}" == "${expected_id}" ]] || fail "loaded image config digest mismatch for ${image_reference}"
     [[ "${actual_os}/${actual_architecture}" == "${expected_os}/${expected_architecture}" ]] \
         || fail "loaded image platform mismatch for ${image_reference}"
 done
+write_release_state loaded_images
 
 APP_REVISION="$(
     docker_command image inspect \
@@ -366,8 +472,14 @@ APP_VERSION="$(
         --format '{{index .Config.Labels "org.opencontainers.image.version"}}' \
         "inthub:${RELEASE_SHA}"
 )"
+APP_SCHEMA_VERSION="$(
+    docker_command image inspect \
+        --format '{{index .Config.Labels "io.inthub.database-schema-version"}}' \
+        "inthub:${RELEASE_SHA}"
+)"
 [[ "${APP_REVISION}" == "${RELEASE_SHA}" ]] || fail "application revision label mismatch"
 [[ "${APP_VERSION}" == "${RELEASE_VERSION}" ]] || fail "application version label mismatch"
+[[ "${APP_SCHEMA_VERSION}" =~ ^[1-9][0-9]*$ ]] || fail "application schema label is invalid"
 
 if ! docker_command network inspect "${PRIVATE_NETWORK}" >/dev/null 2>&1; then
     docker_command network create "${PRIVATE_NETWORK}" >/dev/null
@@ -389,7 +501,18 @@ wait_for_database || fail "PostgreSQL did not become healthy"
 [[ "$(docker_command inspect --format '{{if index .NetworkSettings.Networks "inthub-private"}}attached{{end}}' inthub-postgres)" \
     == attached ]] || fail "PostgreSQL is not attached to the IntHub private network"
 
+write_release_state migrating_database
+compose_release \
+    "inthub-${CANDIDATE_SLOT}" \
+    "${RELEASE_DIRECTORY}" "${RELEASE_SHA}" "${RELEASE_VERSION}" \
+    "${CANDIDATE_CONTAINER}" "${CANDIDATE_PORT}" \
+    run --rm --no-deps --pull never app \
+        python -m apps.inthub_api.migrate \
+        --expect-version "${APP_SCHEMA_VERSION}" \
+        --require-backward-compatible
+
 ROLLBACK_ARMED=true
+write_release_state starting_candidate
 compose_release \
     "inthub-${CANDIDATE_SLOT}" \
     "${RELEASE_DIRECTORY}" "${RELEASE_SHA}" "${RELEASE_VERSION}" \
@@ -407,6 +530,7 @@ if sudo -n test -f "${CADDY_SITE}"; then
     sudo -n chown "$(id -u):$(id -g)" "${CADDY_BACKUP}"
     chmod 0600 "${CADDY_BACKUP}"
 fi
+write_release_state switching_traffic
 CADDY_SWITCHED=true
 sudo -n install -m 0644 -o root -g root "${CADDY_CANDIDATE}" "${CADDY_SITE}"
 sudo -n caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
@@ -415,12 +539,14 @@ sudo -n systemctl reload caddy
 INTHUB_BASE_URL="${PUBLIC_URL}" \
 INTHUB_LOOPBACK_URL="http://127.0.0.1:${CANDIDATE_PORT}" \
     bash "${RELEASE_DIRECTORY}/smoke.sh"
+write_release_state public_smoke_passed
 
 CURRENT_CANDIDATE="${REMOTE_ROOT}/.current.${LOCK_TOKEN}"
 rm -f "${CURRENT_CANDIDATE}"
 ln -s "${RELEASE_DIRECTORY}" "${CURRENT_CANDIDATE}"
 mv -Tf "${CURRENT_CANDIDATE}" "${CURRENT_LINK}"
 CURRENT_SWITCHED=true
+write_release_state baking
 
 [[ "$(readlink -f "${CURRENT_LINK}")" == "${RELEASE_DIRECTORY}" ]] \
     || fail "current did not switch to the accepted release"
@@ -428,8 +554,18 @@ CURRENT_SWITCHED=true
     == "inthub:${RELEASE_SHA}" ]] \
     || fail "serving application image does not match current"
 
+for _ in $(seq 1 "${BAKE_SECONDS}"); do
+    wait_for_app "${CANDIDATE_CONTAINER}" "${CANDIDATE_PORT}" \
+        || fail "candidate application failed during the observation window"
+    sleep 1
+done
+INTHUB_BASE_URL="${PUBLIC_URL}" \
+INTHUB_LOOPBACK_URL="http://127.0.0.1:${CANDIDATE_PORT}" \
+    bash "${RELEASE_DIRECTORY}/smoke.sh"
+
 RELEASE_ACCEPTED=true
 ROLLBACK_ARMED=false
+write_release_state accepted
 if [[ -n "${PREVIOUS_CONTAINER}" ]]; then
     docker_command stop "${PREVIOUS_CONTAINER}" >/dev/null \
         || echo "WARNING: the inactive previous IntHub container could not be stopped." >&2

@@ -1,13 +1,19 @@
 import json
+import os
+import subprocess
 import threading
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from apps.inthub_api.auth import create_account_access_token, upsert_github_account
 from apps.inthub_api.server import make_handler
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 
 class FakeGitHubOAuthClient:
@@ -117,6 +123,36 @@ def test_api_server_can_serve_web_shell(tmp_path):
         assert "IntHub" in deep_link
         js = urlopen(f"{base}/app.js").read().decode("utf-8")
         assert "itt push" in js
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+def test_production_smoke_accepts_order_independent_required_csp(tmp_path):
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0),
+        make_handler(
+            str(tmp_path / "inthub.db"),
+            serve_web=True,
+            github_client_id="github-client-id",
+            github_client_secret="github-client-secret",
+            oauth_client=FakeGitHubOAuthClient(),
+        ),
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        environment = os.environ.copy()
+        environment["INTHUB_BASE_URL"] = f"http://127.0.0.1:{server.server_port}"
+        environment.pop("INTHUB_LOOPBACK_URL", None)
+        subprocess.run(
+            ["bash", str(REPOSITORY_ROOT / "deploy" / "inthub" / "smoke.sh")],
+            check=True,
+            env=environment,
+            capture_output=True,
+            text=True,
+        )
     finally:
         server.shutdown()
         thread.join()

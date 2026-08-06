@@ -40,6 +40,9 @@ server = [
     "psycopg==3.3.4; python_version >= '3.10'",
     "psycopg-binary==3.3.4; python_version >= '3.10' and implementation_name != 'pypy'",
 ]
+release = [
+    "pytest==8.4.2",
+]
 
 [tool.setuptools.packages.find]
 where = ["src", "."]
