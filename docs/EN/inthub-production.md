@@ -47,9 +47,9 @@ Running `build-release.sh` alone only creates a Bundle and never contacts the se
 
 ## GitHub boundary
 
-The approved GitHub `origin` is an asynchronous mirror. `.github/workflows/tests.yml` may
-provide extra feedback for synchronized commits, but it is not a production gate and does
-not create or deploy production artifacts.
+The approved GitHub `origin` is an asynchronous mirror. The repository configures no
+GitHub Actions workflows; tests, Pages builds, and production releases are never triggered
+automatically by GitHub.
 
 - A commit need not be pushed; `origin/main` does not identify or qualify a Release.
 - Production scripts read no remote URL, GitHub token, Actions status, or GHCR state.
@@ -57,6 +57,8 @@ not create or deploy production artifacts.
 - The Manifest records no GitHub sync, PR, workflow-run, or cloud-state field.
 - GitHub synchronization is a separate ordinary Git operation and is never hidden in
   `release.sh`.
+- `.github/workflows/` must remain empty. Tests and static-page builds use explicit local
+  commands when they are needed.
 - GitHub is not the only backup; local Git, Bundles, and recovery materials need a second
   storage location under operator control.
 

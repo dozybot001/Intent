@@ -235,9 +235,10 @@ def test_local_build_qualifies_commit_and_exports_images_once():
     assert "ghcr.io" not in build
 
 
-def test_github_has_no_production_release_or_deploy_workflow():
-    assert not (REPOSITORY_ROOT / ".github" / "workflows" / "release.yml").exists()
-    assert not (REPOSITORY_ROOT / ".github" / "workflows" / "deploy.yml").exists()
+def test_github_has_no_actions_workflows():
+    workflow_directory = REPOSITORY_ROOT / ".github" / "workflows"
+
+    assert not workflow_directory.exists() or not list(workflow_directory.iterdir())
 
 
 def test_remote_release_verifies_and_loads_but_never_builds_or_pulls():

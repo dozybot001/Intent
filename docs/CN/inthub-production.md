@@ -45,14 +45,15 @@ bash deploy/inthub/release.sh
 
 ## GitHub 边界
 
-项目只保留认可的 GitHub `origin` 作为异步镜像。`.github/workflows/tests.yml` 可以为已同步
-Commit 提供附加反馈，但不属于发布门禁，也不会生成或部署生产制品。
+项目只保留认可的 GitHub `origin` 作为异步镜像。仓库不配置 GitHub Actions workflow；
+测试、Pages 构建和生产发布都不会由 GitHub 自动执行。
 
 - Commit 不要求先 push；`origin/main` 不参与 Release 身份或成功判定。
 - 正式脚本不读取 remote URL、GitHub token、Actions 状态或 GHCR。
 - GitHub 同步失败不影响本地构建、发布、验收或回滚。
 - Bundle Manifest 不记录 `github_sync`、PR、workflow run 或云端状态。
 - GitHub 同步是发布之外的普通 Git 操作，不得由 `release.sh` 隐式执行。
+- `.github/workflows/` 必须为空；测试与静态页面如需执行，使用本地显式命令。
 - GitHub 不是唯一备份；本地 Git、Bundle 与数据恢复材料需要自己控制的第二存储。
 
 ## 本地低成本适配
