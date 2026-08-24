@@ -48,6 +48,8 @@ ssh -o BatchMode=yes "${DEPLOY_HOST}" "
     test \"\$(stat -c '%a' '${REMOTE_ROOT}/shared/inthub.env')\" = 600
     test ! -e '${REMOTE_ROOT}/.release-lock'
     test ! -e '${REMOTE_ROOT}/.build-lock'
+    python3 -c 'import ensurepip, venv' >/dev/null 2>&1 \
+        || { echo 'install python3-venv on the production Builder' >&2; exit 1; }
 "
 rsync --archive "${LAUNCHER}" "${DEPLOY_HOST}:${STAGING_PATH}"
 ssh -o BatchMode=yes "${DEPLOY_HOST}" "

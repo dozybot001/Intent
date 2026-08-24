@@ -99,11 +99,19 @@ bash deploy/inthub/bootstrap-gitee-deployment.sh
 ```
 
 初始化会创建并核对项目专属目录、`inthub.env` 的 `0600` 权限、Docker/Buildx 和 Gitee
-只读访问，再以 SHA-256 验证后安装：
+只读访问，并确认主机 Python 能通过 `python3-venv` 创建隔离环境，再以 SHA-256 验证后安装：
 
 ```text
 /opt/inthub/deploy/release-from-gitee.sh
 ```
+
+Ubuntu Builder 的一次性系统依赖为：
+
+```bash
+sudo apt-get install python3-venv
+```
+
+bootstrap 只验证该依赖，不自行修改系统软件包。
 
 正式发布每次都会比较本地与服务器 launcher SHA。二者不一致时只会要求重新执行显式
 bootstrap，不会偷偷更新生产控制面。

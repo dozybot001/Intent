@@ -51,6 +51,8 @@ for command_name in awk curl docker git gzip mktemp python3 seq sha256sum tail t
     command -v "${command_name}" >/dev/null 2>&1 \
         || fail "required server build command is unavailable: ${command_name}"
 done
+python3 -c 'import ensurepip, venv' >/dev/null 2>&1 \
+    || fail "server Python cannot create isolated environments; install python3-venv"
 docker version >/dev/null
 docker buildx version >/dev/null
 docker buildx inspect default --bootstrap >/dev/null

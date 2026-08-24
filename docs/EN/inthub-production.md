@@ -106,11 +106,20 @@ bash deploy/inthub/bootstrap-gitee-deployment.sh
 
 Bootstrap transfers only a small control-plane script. It does not transfer source or images,
 read secrets, build, migrate, restart, or switch traffic. It verifies project directories,
-the `0600` production env, Docker/Buildx, read-only Gitee access, and SHA-256 before installing:
+the `0600` production env, Docker/Buildx, read-only Gitee access, host support for isolated
+Python environments, and SHA-256 before installing:
 
 ```text
 /opt/inthub/deploy/release-from-gitee.sh
 ```
+
+The Ubuntu Builder has one system-level prerequisite:
+
+```bash
+sudo apt-get install python3-venv
+```
+
+Bootstrap verifies this dependency; it does not install or upgrade operating-system packages.
 
 Every formal release compares the local and server launcher hashes. A mismatch fails with an
 explicit bootstrap instruction; the release never upgrades its own production control plane.

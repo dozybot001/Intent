@@ -223,6 +223,7 @@ def test_release_entry_uses_the_gitee_exact_commit_path():
     assert "INTHUB_RELEASE_SOURCE=gitee-exact-commit" in server_release
     assert "git pull" not in server_release
     assert "github.com" not in server_release
+    assert "import ensurepip, venv" in server_release
 
 
 def test_local_build_qualifies_commit_and_exports_images_once():
@@ -273,6 +274,7 @@ def test_gitee_bootstrap_only_installs_the_stable_launcher():
     assert "sha256sum" in bootstrap
     assert "release-from-gitee.sh" in bootstrap
     assert "git ls-remote https://gitee.com/dozybot/Intent.git" in bootstrap
+    assert "import ensurepip, venv" in bootstrap
     assert "build-release.sh" not in bootstrap
     assert "remote-release.sh" not in bootstrap
     assert "docker compose" not in bootstrap
