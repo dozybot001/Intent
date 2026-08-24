@@ -55,6 +55,7 @@ and the current healthy release keeps serving.
 | Public URL | `https://inthub.tenon.asia` |
 | Production host | `ubuntu@122.51.14.35` |
 | Local SSH alias | `agenthub-prod` |
+| Local Gitee write alias | `inthub-gitee` |
 | Gitee production source | `https://gitee.com/dozybot/Intent.git` |
 | Gitee release ref | `refs/heads/main` |
 | Asynchronous GitHub mirror | `https://github.com/dozybot001/Intent.git` |
@@ -73,9 +74,26 @@ origin  https://gitee.com/dozybot/Intent.git
 github  https://github.com/dozybot001/Intent.git
 ```
 
-The release program uses the fixed Gitee URL rather than a remote name. The remote layout
-keeps the operator model clear. GitHub pushes happen separately; failure to mirror cannot
-change a completed production result.
+The release program uses fixed Gitee read and write URLs rather than a remote name. Public
+HTTPS performs readback, while `git@inthub-gitee:dozybot/Intent.git` performs only the
+fast-forward publication. The remote layout keeps the operator model clear. GitHub pushes
+happen separately; failure to mirror cannot change a completed production result.
+
+The release machine needs a dedicated Gitee account SSH key once, with a local alias pinned
+to that private key:
+
+```sshconfig
+Host inthub-gitee
+  HostName gitee.com
+  User git
+  IdentityFile /absolute/path/to/inthub_gitee_push_ed25519
+  IdentitiesOnly yes
+```
+
+Gitee repository deploy keys are read-only and cannot perform the fast-forward publication
+required by the release entry. This therefore uses an independently revocable account key.
+The private key remains only on the release machine and never enters the repository, server,
+or Bundle.
 
 ## One-time control-plane bootstrap
 

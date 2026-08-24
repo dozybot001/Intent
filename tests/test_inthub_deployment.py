@@ -203,9 +203,10 @@ def test_release_entry_uses_the_gitee_exact_commit_path():
         encoding="utf-8"
     )
 
-    assert 'GITEE_URL="https://gitee.com/dozybot/Intent.git"' in release
+    assert 'GITEE_READ_URL="https://gitee.com/dozybot/Intent.git"' in release
+    assert 'GITEE_PUSH_URL="git@inthub-gitee:dozybot/Intent.git"' in release
     assert 'bash "${SCRIPT_DIR}/qualify-release.sh"' in release
-    assert 'git push "${GITEE_URL}" "${RELEASE_SHA}:${GITEE_REF}"' in release
+    assert 'git push "${GITEE_PUSH_URL}" "${RELEASE_SHA}:${GITEE_REF}"' in release
     assert release.count("git ls-remote") == 2
     assert "release-from-gitee.sh" in release
     assert "local-release.sh" not in release

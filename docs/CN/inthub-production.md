@@ -53,6 +53,7 @@ bash deploy/inthub/release.sh
 | 公网域名 | `https://inthub.tenon.asia` |
 | 生产主机 | `ubuntu@122.51.14.35` |
 | 本机 SSH alias | `agenthub-prod` |
+| 本机 Gitee 写入 alias | `inthub-gitee` |
 | Gitee 生产源码 | `https://gitee.com/dozybot/Intent.git` |
 | Gitee 发布 ref | `refs/heads/main` |
 | GitHub 异步镜像 | `https://github.com/dozybot001/Intent.git` |
@@ -71,8 +72,22 @@ origin  https://gitee.com/dozybot/Intent.git
 github  https://github.com/dozybot001/Intent.git
 ```
 
-发布脚本使用固定 Gitee URL，不依赖 remote 名称；该 remote 布局用于保持人的正常心智。
+发布脚本使用固定 Gitee 读写地址，不依赖 remote 名称；其中公开 HTTPS 地址负责回读，
+`git@inthub-gitee:dozybot/Intent.git` 只负责 fast-forward 写入。该 remote 布局用于保持人的正常心智。
 GitHub push 必须在发布之外单独执行，失败不能改变已经完成的生产结果。
+
+发布机需要一次性创建独立的 Gitee 账户 SSH 公钥，并将本机 alias 固定到该私钥：
+
+```sshconfig
+Host inthub-gitee
+  HostName gitee.com
+  User git
+  IdentityFile /absolute/path/to/inthub_gitee_push_ed25519
+  IdentitiesOnly yes
+```
+
+仓库部署公钥在 Gitee 上是只读的，不能完成发布入口所需的 fast-forward push；因此这里使用
+可独立撤销的账户公钥。私钥只留在发布机，不进入仓库、服务器或 Bundle。
 
 ## 一次性控制面初始化
 

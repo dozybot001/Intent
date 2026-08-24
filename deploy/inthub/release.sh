@@ -8,7 +8,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPOSITORY_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 DEPLOY_HOST="${INTHUB_DEPLOY_HOST:-agenthub-prod}"
 REMOTE_ROOT="${INTHUB_REMOTE_ROOT:-/opt/inthub}"
-GITEE_URL="https://gitee.com/dozybot/Intent.git"
+GITEE_READ_URL="https://gitee.com/dozybot/Intent.git"
+GITEE_PUSH_URL="git@inthub-gitee:dozybot/Intent.git"
 GITEE_REF="refs/heads/main"
 PUBLIC_URL="https://inthub.tenon.asia"
 
@@ -40,15 +41,15 @@ REMOTE_LAUNCHER_SHA="$(
 [[ "${REMOTE_LAUNCHER_SHA}" == "${LAUNCHER_SHA}" ]] \
     || fail "server launcher is missing or stale; run deploy/inthub/bootstrap-gitee-deployment.sh"
 
-REMOTE_BEFORE="$(git ls-remote "${GITEE_URL}" "${GITEE_REF}" | awk 'NR == 1 {print $1}')"
+REMOTE_BEFORE="$(git ls-remote "${GITEE_READ_URL}" "${GITEE_REF}" | awk 'NR == 1 {print $1}')"
 if [[ -n "${REMOTE_BEFORE}" ]]; then
     [[ "${REMOTE_BEFORE}" =~ ^[0-9a-f]{40,64}$ ]] \
         || fail "Gitee returned an invalid main Commit"
     git merge-base --is-ancestor "${REMOTE_BEFORE}" "${RELEASE_SHA}" \
         || fail "Gitee main is not an ancestor of the requested release"
 fi
-git push "${GITEE_URL}" "${RELEASE_SHA}:${GITEE_REF}"
-REMOTE_AFTER="$(git ls-remote "${GITEE_URL}" "${GITEE_REF}" | awk 'NR == 1 {print $1}')"
+git push "${GITEE_PUSH_URL}" "${RELEASE_SHA}:${GITEE_REF}"
+REMOTE_AFTER="$(git ls-remote "${GITEE_READ_URL}" "${GITEE_REF}" | awk 'NR == 1 {print $1}')"
 [[ "${REMOTE_AFTER}" == "${RELEASE_SHA}" ]] \
     || fail "Gitee main did not settle on the requested release SHA"
 
