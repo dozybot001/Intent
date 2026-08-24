@@ -154,11 +154,11 @@ IntHub Local 默认只绑定 `127.0.0.1`。当前本地 API 不强制校验 Bear
 
 ## Showcase
 
-本项目曾用 Intent 管理自身的开发过程。在线浏览已发布的语义历史快照：
+浏览维护者持续更新、只读的个人 IntHub：
 
-**[IntHub Showcase](https://dozybot001.github.io/Intent/)** — 交互式查看 Intent 早期项目历史、MAARS 及旧版数据。
+**[IntHub Showcase](https://inthub.tenon.asia/showcase)** — 展示显式选中的项目及其当前 Intent、时间线和 Decision。公开范围是项目白名单；以后新增的项目在单独加入前仍保持私有。
 
-也可运行 `itt hub start` 在本地浏览。
+早期静态快照仍保留在仓库的历史 Pages 数据中，也可运行 `itt hub start` 在本地浏览。
 
 ## 文档
 

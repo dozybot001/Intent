@@ -22,7 +22,7 @@ COPY --chown=inthub:inthub . /app
 # can reuse the already downloaded PostgreSQL driver.
 ARG INTHUB_VERSION=0.0.0
 ARG INTHUB_REVISION=unknown
-ARG INTHUB_SCHEMA_VERSION=1
+ARG INTHUB_SCHEMA_VERSION=2
 LABEL org.opencontainers.image.title="IntHub" \
     org.opencontainers.image.source="https://github.com/dozybot001/Intent" \
     org.opencontainers.image.version="${INTHUB_VERSION}" \

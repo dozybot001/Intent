@@ -473,6 +473,39 @@ svg {
   white-space: nowrap;
 }
 
+.account-mode {
+  margin-right: 4px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: var(--green);
+  background: var(--green-soft);
+  font-family: var(--mono);
+  font-size: 0.57rem;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  line-height: 1.5;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.public-profile-description {
+  max-width: 680px;
+  margin: 8px 0 10px;
+  color: var(--muted-strong);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.shell.is-public-view .account-control {
+  padding-right: 4px;
+  border-color: rgba(43, 114, 82, 0.15);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.shell.is-public-view .account-label {
+  max-width: 160px;
+}
+
 .account-action {
   padding: 5px 7px;
   border-left: 1px solid var(--line);

@@ -49,6 +49,7 @@ services:
       INTHUB_SERVE_WEB: "1"
       INTHUB_MAX_BODY_BYTES: ${INTHUB_MAX_BODY_BYTES:-16777216}
       INTHUB_LOG_LEVEL: ${INTHUB_LOG_LEVEL:-INFO}
+      INTHUB_SHOWCASE_PROFILE_SLUG: ${INTHUB_SHOWCASE_PROFILE_SLUG:-showcase}
       # Production migrations are an explicit, backed-up release gate. The
       # serving process must never mutate schema as a startup side effect.
       INTHUB_AUTO_MIGRATE: "0"

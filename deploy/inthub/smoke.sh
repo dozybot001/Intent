@@ -15,6 +15,7 @@ check_surface() {
     local label="$2"
     local project_status
     local oauth_status
+    local showcase_status
     local trace_status
 
     curl --fail --silent --show-error --max-time 10 "${base_url}/healthz" >/dev/null
@@ -40,6 +41,30 @@ check_surface() {
     [[ "${oauth_status}" == 302 || "${oauth_status}" == 303 ]] \
         || { echo "Expected GitHub OAuth start to redirect, got ${oauth_status}." >&2; return 1; }
 
+    showcase_status="$(
+        curl --silent --show-error --max-time 10 \
+            --output "${TMP_DIRECTORY}/${label}.showcase.html" --write-out '%{http_code}' \
+            "${base_url}/showcase"
+    )"
+    [[ "${showcase_status}" == 200 ]] \
+        || { echo "Expected the showcase shell to return 200, got ${showcase_status}." >&2; return 1; }
+    curl --fail --silent --show-error --max-time 10 \
+        "${base_url}/showcase/config.json" \
+        > "${TMP_DIRECTORY}/${label}.showcase-config.json"
+    python3 - "${TMP_DIRECTORY}/${label}.showcase-config.json" <<'PY'
+import json
+import pathlib
+import sys
+
+config = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+if config.get("publicMode") is not True:
+    raise SystemExit("showcase config must enable publicMode")
+if config.get("authRequired") is not False:
+    raise SystemExit("showcase config must not require a private browser session")
+if config.get("publicProfileSlug") != "showcase":
+    raise SystemExit("showcase config must resolve the showcase profile")
+PY
+
     trace_status="$(
         curl --silent --show-error --max-time 10 \
             --request TRACE --output /dev/null --write-out '%{http_code}' \
@@ -60,4 +85,4 @@ if [[ -n "${LOOPBACK_URL}" ]]; then
 fi
 check_surface "${BASE_URL}" public
 
-echo "IntHub health, authentication boundary, OAuth entry, TRACE, and CSP checks passed."
+echo "IntHub health, authentication boundary, showcase shell, OAuth entry, TRACE, and CSP checks passed."

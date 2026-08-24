@@ -257,6 +257,189 @@ def list_projects(db_path, account_id=None):
     }
 
 
+def _public_profile_row(conn, slug):
+    row = conn.execute(
+        """
+        SELECT
+            pp.slug,
+            pp.account_id,
+            pp.title,
+            pp.description,
+            pp.created_at,
+            pp.updated_at,
+            a.provider,
+            a.login,
+            a.display_name,
+            a.avatar_url
+        FROM public_profiles AS pp
+        JOIN accounts AS a ON a.id = pp.account_id
+        WHERE pp.slug = ?
+        """,
+        (slug,),
+    ).fetchone()
+    if row is None:
+        raise APIError(
+            "PUBLIC_PROFILE_NOT_FOUND",
+            f"Public profile {slug} not found.",
+            status=404,
+        )
+    return row
+
+
+def _public_project_account_id(conn, slug, project_id):
+    row = conn.execute(
+        """
+        SELECT pp.account_id
+        FROM public_profiles AS pp
+        JOIN public_profile_projects AS ppp ON ppp.profile_slug = pp.slug
+        JOIN projects AS p ON p.id = ppp.project_id
+        WHERE pp.slug = ? AND p.id = ? AND p.account_id = pp.account_id
+        """,
+        (slug, project_id),
+    ).fetchone()
+    if row is None:
+        raise APIError(
+            "OBJECT_NOT_FOUND",
+            f"Published project {project_id} not found.",
+            status=404,
+        )
+    return row["account_id"]
+
+
+def _public_workspace_account_id(conn, slug, workspace_id):
+    row = conn.execute(
+        """
+        SELECT pp.account_id
+        FROM public_profiles AS pp
+        JOIN public_profile_projects AS ppp ON ppp.profile_slug = pp.slug
+        JOIN projects AS p ON p.id = ppp.project_id
+        JOIN workspaces AS w ON w.project_id = p.id
+        WHERE pp.slug = ? AND w.id = ? AND p.account_id = pp.account_id
+        """,
+        (slug, workspace_id),
+    ).fetchone()
+    if row is None:
+        raise APIError(
+            "OBJECT_NOT_FOUND",
+            "Published object not found.",
+            status=404,
+        )
+    return row["account_id"]
+
+
+def public_profile(db_path, slug):
+    """Return public metadata and only the explicitly granted projects."""
+    with connect(db_path) as conn:
+        profile = _public_profile_row(conn, slug)
+        rows = conn.execute(
+            """
+            SELECT
+                p.*,
+                ppp.position,
+                ppp.published_at,
+                COUNT(DISTINCT w.id) AS workspace_count,
+                MAX(sb.accepted_at) AS last_synced_at
+            FROM public_profiles AS pp
+            JOIN public_profile_projects AS ppp ON ppp.profile_slug = pp.slug
+            JOIN projects AS p
+                ON p.id = ppp.project_id AND p.account_id = pp.account_id
+            LEFT JOIN workspaces AS w ON w.project_id = p.id
+            LEFT JOIN sync_batches AS sb ON sb.project_id = p.id
+            WHERE pp.slug = ?
+            GROUP BY p.id, ppp.position, ppp.published_at
+            ORDER BY ppp.position, p.id
+            """,
+            (slug,),
+        ).fetchall()
+
+    return {
+        "profile": {
+            "slug": profile["slug"],
+            "title": profile["title"],
+            "description": profile["description"],
+            "created_at": profile["created_at"],
+            "updated_at": profile["updated_at"],
+            "account": {
+                "provider": profile["provider"],
+                "login": profile["login"],
+                "display_name": profile["display_name"],
+                "avatar_url": profile["avatar_url"],
+            },
+        },
+        "projects": [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "repo": {
+                    "provider": row["provider"],
+                    "repo_id": row["repo_id"],
+                    "owner": row["owner"],
+                    "name": row["repo_name"],
+                },
+                "workspace_count": row["workspace_count"],
+                "last_synced_at": row["last_synced_at"],
+                "created_at": row["created_at"],
+                "published_at": row["published_at"],
+            }
+            for row in rows
+        ],
+    }
+
+
+def public_project_overview(db_path, slug, project_id):
+    with connect(db_path) as conn:
+        account_id = _public_project_account_id(conn, slug, project_id)
+    return project_overview(db_path, project_id, account_id=account_id)
+
+
+def public_project_handoff(db_path, slug, project_id):
+    with connect(db_path) as conn:
+        account_id = _public_project_account_id(conn, slug, project_id)
+    return project_handoff(db_path, project_id, account_id=account_id)
+
+
+def _public_object_account_id(db_path, slug, remote_object_id):
+    workspace_id, _ = split_remote_object_id(remote_object_id)
+    with connect(db_path) as conn:
+        return _public_workspace_account_id(conn, slug, workspace_id)
+
+
+def _sanitize_public_detail(result):
+    """Remove transport metadata that is not part of public semantic history."""
+    git = result.get("git")
+    if isinstance(git, dict):
+        result["git"] = {
+            key: git.get(key)
+            for key in ("branch", "head_commit", "dirty")
+        }
+    return result
+
+
+def public_intent_detail(db_path, slug, remote_object_id):
+    account_id = _public_object_account_id(db_path, slug, remote_object_id)
+    return _sanitize_public_detail(
+        get_intent_detail(db_path, remote_object_id, account_id=account_id)
+    )
+
+
+def public_decision_detail(db_path, slug, remote_object_id):
+    account_id = _public_object_account_id(db_path, slug, remote_object_id)
+    return get_decision_detail(db_path, remote_object_id, account_id=account_id)
+
+
+def public_snap_detail(db_path, slug, remote_object_id):
+    account_id = _public_object_account_id(db_path, slug, remote_object_id)
+    return _sanitize_public_detail(
+        get_snap_detail(db_path, remote_object_id, account_id=account_id)
+    )
+
+
+def public_project_search(db_path, slug, project_id, query):
+    with connect(db_path) as conn:
+        account_id = _public_project_account_id(conn, slug, project_id)
+    return search_project(db_path, project_id, query, account_id=account_id)
+
+
 def project_handoff(db_path, project_id, account_id=None):
     with connect(db_path) as conn:
         project = _project_row(conn, project_id, account_id=account_id)

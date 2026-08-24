@@ -154,11 +154,11 @@ Internet deployments use one account path: GitHub sign-up or sign-in, database-b
 
 ## Showcase
 
-This project has used Intent to manage its own development. Browse a published semantic-history snapshot:
+Browse the maintainer's live, read-only IntHub profile:
 
-**[IntHub Showcase](https://dozybot001.github.io/Intent/)** — interactive viewer for Intent's early project history, MAARS, and legacy data.
+**[IntHub Showcase](https://inthub.tenon.asia/showcase)** — selected projects and their current Intents, timeline, and Decisions. Publication is an explicit project allowlist; later projects stay private until separately added.
 
-Or run `itt hub start` locally.
+The earlier static snapshot remains available through the repository's historical Pages data, or run `itt hub start` locally.
 
 ## Docs
 

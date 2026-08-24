@@ -31,7 +31,7 @@ def test_web_shell_uses_soft_cards_without_console_style_color_rails():
     javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
     stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
 
-    assert "uiux-p2-4" in html
+    assert "showcase-1" in html
     assert "--shadow-card:" in stylesheet
     assert ".checkpoint-blocker.is-clear" in stylesheet
     assert 'clearBlocker ? " is-clear"' in javascript
@@ -140,3 +140,19 @@ def test_github_login_has_immediate_loading_feedback_and_recovers_from_history()
     assert 'event.preventDefault()' in javascript
     assert ".github-login.is-loading" in stylesheet
     assert "animation: spin 700ms linear infinite" in stylesheet
+
+
+def test_showcase_mode_reuses_the_product_shell_without_private_account_actions():
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
+    stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
+
+    assert 'id="account-mode"' in html
+    assert 'data-brand-link' in html
+    assert '"/showcase/config.json"' in javascript
+    assert "/api/v1/public-profiles/" in javascript
+    assert 'el.tokenBtn.classList.toggle("is-hidden", publicMode)' in javascript
+    assert 'el.logoutBtn.classList.toggle("is-hidden", publicMode)' in javascript
+    assert 'el.projectPickerEyebrow.textContent = "Public collection"' in javascript
+    assert ".shell.is-public-view .account-control" in stylesheet
+    assert ".account-mode" in stylesheet

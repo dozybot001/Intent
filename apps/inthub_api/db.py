@@ -17,12 +17,16 @@ from urllib.parse import urlsplit, urlunsplit
 _INITIALIZED = set()
 _INIT_LOCK = threading.Lock()
 
-LATEST_SCHEMA_VERSION = 1
+LATEST_SCHEMA_VERSION = 2
 _INITIAL_SCHEMA_NAME = "initial-account-scoped-schema"
 _INITIAL_SCHEMA_CHECKSUM = hashlib.sha256(
     b"0001:initial-account-scoped-schema:projects-account:tokens:sync-sequence"
 ).hexdigest()
-_EXPECTED_SCHEMA_COLUMNS = {
+_PUBLIC_PROFILES_SCHEMA_NAME = "public-profiles-with-explicit-project-grants"
+_PUBLIC_PROFILES_SCHEMA_CHECKSUM = hashlib.sha256(
+    b"0002:public-profiles:explicit-project-grants"
+).hexdigest()
+_EXPECTED_SCHEMA_COLUMNS_V1 = {
     "projects": {
         "id",
         "account_id",
@@ -80,6 +84,26 @@ _EXPECTED_SCHEMA_COLUMNS = {
         "last_used_at",
         "revoked_at",
     },
+}
+_EXPECTED_SCHEMA_COLUMNS_V2 = {
+    "public_profiles": {
+        "slug",
+        "account_id",
+        "title",
+        "description",
+        "created_at",
+        "updated_at",
+    },
+    "public_profile_projects": {
+        "profile_slug",
+        "project_id",
+        "position",
+        "published_at",
+    },
+}
+_EXPECTED_SCHEMA_COLUMNS = {
+    **_EXPECTED_SCHEMA_COLUMNS_V1,
+    **_EXPECTED_SCHEMA_COLUMNS_V2,
 }
 
 
@@ -416,6 +440,65 @@ def _create_postgresql_schema(conn):
         conn.execute(statement)
 
 
+def _create_sqlite_public_profiles_schema(conn):
+    conn.raw.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS public_profiles (
+            slug TEXT PRIMARY KEY,
+            account_id TEXT NOT NULL UNIQUE,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS public_profile_projects (
+            profile_slug TEXT NOT NULL,
+            project_id TEXT NOT NULL UNIQUE,
+            position INTEGER NOT NULL,
+            published_at TEXT NOT NULL,
+            PRIMARY KEY (profile_slug, project_id),
+            FOREIGN KEY (profile_slug) REFERENCES public_profiles(slug) ON DELETE CASCADE,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_public_profile_projects_profile_position
+            ON public_profile_projects(profile_slug, position, project_id);
+        """
+    )
+
+
+def _create_postgresql_public_profiles_schema(conn):
+    statements = (
+        """
+        CREATE TABLE IF NOT EXISTS public_profiles (
+            slug TEXT PRIMARY KEY,
+            account_id TEXT NOT NULL UNIQUE REFERENCES accounts(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS public_profile_projects (
+            profile_slug TEXT NOT NULL REFERENCES public_profiles(slug) ON DELETE CASCADE,
+            project_id TEXT NOT NULL UNIQUE REFERENCES projects(id) ON DELETE CASCADE,
+            position INTEGER NOT NULL,
+            published_at TEXT NOT NULL,
+            PRIMARY KEY (profile_slug, project_id)
+        )
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_public_profile_projects_profile_position
+            ON public_profile_projects(profile_slug, position, project_id)
+        """,
+    )
+    for statement in statements:
+        conn.execute(statement)
+
+
 def _ensure_migration_ledger(conn):
     conn.execute(
         """
@@ -484,10 +567,10 @@ def _observed_schema_columns(conn):
     return observed
 
 
-def _validate_initial_schema(conn):
+def _validate_schema(conn, expected_schema_columns):
     observed = _observed_schema_columns(conn)
     problems = []
-    for table_name, expected_columns in _EXPECTED_SCHEMA_COLUMNS.items():
+    for table_name, expected_columns in expected_schema_columns.items():
         missing = sorted(expected_columns - observed.get(table_name, set()))
         if missing:
             problems.append(f"{table_name}: missing {','.join(missing)}")
@@ -501,7 +584,12 @@ def _validate_migration_ledger(rows):
             "name": _INITIAL_SCHEMA_NAME,
             "checksum": _INITIAL_SCHEMA_CHECKSUM,
             "backward_compatible": 1,
-        }
+        },
+        2: {
+            "name": _PUBLIC_PROFILES_SCHEMA_NAME,
+            "checksum": _PUBLIC_PROFILES_SCHEMA_CHECKSUM,
+            "backward_compatible": 1,
+        },
     }
     observed_versions = set()
     for row in rows:
@@ -542,7 +630,7 @@ def migrate_db(conn, *, require_backward_compatible=True):
             _create_postgresql_schema(conn)
         else:
             _create_sqlite_schema(conn)
-        _validate_initial_schema(conn)
+        _validate_schema(conn, _EXPECTED_SCHEMA_COLUMNS_V1)
         conn.execute(
             """
             INSERT INTO schema_migrations
@@ -558,9 +646,33 @@ def migrate_db(conn, *, require_backward_compatible=True):
             ),
         )
 
+    if 2 not in applied_versions:
+        backward_compatible = True
+        if require_backward_compatible and not backward_compatible:
+            raise RuntimeError("pending database migration is not backward compatible")
+        if conn.backend == "postgresql":
+            _create_postgresql_public_profiles_schema(conn)
+        else:
+            _create_sqlite_public_profiles_schema(conn)
+        _validate_schema(conn, _EXPECTED_SCHEMA_COLUMNS)
+        conn.execute(
+            """
+            INSERT INTO schema_migrations
+                (version, name, checksum, backward_compatible, applied_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                2,
+                _PUBLIC_PROFILES_SCHEMA_NAME,
+                _PUBLIC_PROFILES_SCHEMA_CHECKSUM,
+                1,
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+
     rows = _migration_rows(conn)
     _validate_migration_ledger(rows)
-    _validate_initial_schema(conn)
+    _validate_schema(conn, _EXPECTED_SCHEMA_COLUMNS)
     to_version = max((int(row["version"]) for row in rows), default=0)
     if to_version < LATEST_SCHEMA_VERSION:
         raise RuntimeError("database did not reach the latest schema version")
@@ -604,7 +716,7 @@ def require_current_schema(conn):
         raise RuntimeError(
             "database schema migration is required before the application starts"
         )
-    _validate_initial_schema(conn)
+    _validate_schema(conn, _EXPECTED_SCHEMA_COLUMNS)
     return version
 
 

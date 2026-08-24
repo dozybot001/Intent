@@ -6,7 +6,7 @@
     <meta name="color-scheme" content="light">
     <meta name="theme-color" content="#f4f5f2">
     <title>IntHub</title>
-    <link rel="stylesheet" href="/styles.css?rev=uiux-p2-4">
+    <link rel="stylesheet" href="/styles.css?rev=showcase-1">
   </head>
   <body>
     <a class="skip-link" href="#detail-content">Skip to project content</a>
@@ -14,7 +14,7 @@
     <div class="shell" id="shell" data-active-tab="overview">
       <header class="app-header">
         <div class="header-context">
-          <a class="brand" href="/" aria-label="IntHub home">
+          <a class="brand" data-brand-link href="/" aria-label="IntHub home">
             <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
               <path class="brand-mark-rail brand-mark-rail-a" d="M8 6.5V16a8 8 0 0 0 16 0V6.5"/>
               <path class="brand-mark-rail brand-mark-rail-b" d="M24 25.5V16A8 8 0 0 0 8 16v9.5"/>
@@ -29,7 +29,7 @@
           <div class="project-picker" id="project-picker">
             <button class="project-picker-trigger" id="project-picker-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
               <span class="project-picker-copy">
-                <span class="project-picker-eyebrow">Project</span>
+                <span class="project-picker-eyebrow" id="project-picker-eyebrow">Project</span>
                 <span class="project-picker-label" id="project-picker-label">No projects yet</span>
               </span>
               <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
@@ -58,6 +58,7 @@
           <div id="account-control" class="account-control is-hidden">
             <span id="account-avatar" class="account-avatar" aria-hidden="true">IH</span>
             <span id="account-label" class="account-label">Account</span>
+            <span id="account-mode" class="account-mode is-hidden">Public view</span>
             <button id="token-btn" class="account-action" type="button">Access token</button>
             <button id="logout-btn" class="account-action account-action-muted" type="button">Sign out</button>
           </div>
@@ -67,7 +68,7 @@
       <div class="main">
         <nav class="primary-nav" aria-label="Project navigation">
           <div class="nav-context">
-            <span class="nav-context-label">Project memory</span>
+            <span class="nav-context-label" id="nav-context-label">Project memory</span>
             <span class="nav-context-rule" aria-hidden="true"></span>
           </div>
 
@@ -152,7 +153,7 @@
         </svg>
 
         <header class="auth-header">
-          <a class="brand brand-on-auth" href="/" aria-label="IntHub home">
+          <a class="brand brand-on-auth" data-brand-link href="/" aria-label="IntHub home">
             <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
               <path class="brand-mark-rail brand-mark-rail-a" d="M8 6.5V16a8 8 0 0 0 16 0V6.5"/>
               <path class="brand-mark-rail brand-mark-rail-b" d="M24 25.5V16A8 8 0 0 0 8 16v9.5"/>
@@ -231,6 +232,6 @@
       </form>
     </dialog>
 
-    <script src="/app.js?rev=uiux-p2-4" defer></script>
+    <script src="/app.js?rev=showcase-1" defer></script>
   </body>
 </html>

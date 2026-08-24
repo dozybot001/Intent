@@ -13,6 +13,7 @@ const state = {
   handoff: null,
   authenticated: false,
   account: null,
+  publicProfile: null,
 };
 
 const el = {
@@ -20,6 +21,7 @@ const el = {
   projectPicker: document.getElementById("project-picker"),
   projectPickerTrigger: document.getElementById("project-picker-trigger"),
   projectPickerLabel: document.getElementById("project-picker-label"),
+  projectPickerEyebrow: document.getElementById("project-picker-eyebrow"),
   projectPickerDropdown: document.getElementById("project-picker-dropdown"),
   refreshBtn: document.getElementById("refresh-btn"),
   searchTrigger: document.getElementById("search-trigger"),
@@ -49,6 +51,7 @@ const el = {
   accountControl: document.getElementById("account-control"),
   accountAvatar: document.getElementById("account-avatar"),
   accountLabel: document.getElementById("account-label"),
+  accountMode: document.getElementById("account-mode"),
   authGate: document.getElementById("auth-gate"),
   authError: document.getElementById("auth-error"),
   authDescription: document.getElementById("auth-description"),
@@ -56,6 +59,8 @@ const el = {
   githubLogin: document.getElementById("github-login"),
   githubLoginLabel: document.getElementById("github-login-label"),
   navHealth: document.getElementById("nav-health"),
+  navContextLabel: document.getElementById("nav-context-label"),
+  brandLinks: document.querySelectorAll("[data-brand-link]"),
 };
 
 /* ---- Helpers ---- */
@@ -160,7 +165,21 @@ function workspaceIdFromRemoteId(rId) {
 }
 
 function apiUrl(path) {
+  if (state.config?.publicMode) {
+    const slug = encodeURIComponent(state.config.publicProfileSlug);
+    const publicPrefix = `/api/v1/public-profiles/${slug}`;
+    if (path === "/api/v1") return `${state.config.apiBaseUrl}${publicPrefix}`;
+    if (path.startsWith("/api/v1/")) {
+      return `${state.config.apiBaseUrl}${publicPrefix}${path.slice("/api/v1".length)}`;
+    }
+  }
   return `${state.config.apiBaseUrl}${path}`;
+}
+
+function configUrl() {
+  return window.location.pathname === "/showcase" || window.location.pathname.startsWith("/showcase/")
+    ? "/showcase/config.json"
+    : "/config.json";
 }
 
 class ApiRequestError extends Error {
@@ -226,10 +245,18 @@ function hideAuthGate() {
   state.authenticated = true;
   el.shell.classList.remove("is-locked");
   el.authGate.classList.add("is-hidden");
-  el.accountControl.classList.toggle("is-hidden", !state.config?.authRequired);
+  const publicMode = Boolean(state.config?.publicMode);
+  el.shell.classList.toggle("is-public-view", publicMode);
+  el.accountControl.classList.toggle(
+    "is-hidden",
+    !(state.config?.authRequired || publicMode),
+  );
+  el.accountMode.classList.toggle("is-hidden", !publicMode);
+  el.tokenBtn.classList.toggle("is-hidden", publicMode);
+  el.logoutBtn.classList.toggle("is-hidden", publicMode);
   const account = state.account;
   el.accountLabel.textContent = account
-    ? account.display_name || `@${account.login}`
+    ? state.publicProfile?.title || account.display_name || `@${account.login}`
     : "Private session";
   el.accountAvatar.textContent = accountInitials(account);
   el.accountAvatar.dataset.tone = accountAvatarTone(account);
@@ -241,6 +268,16 @@ async function loadCurrentAccount() {
   if (state.config?.authMode !== "github") return;
   const result = await fetchJson(apiUrl("/api/v1/auth/me"));
   state.account = result.account;
+}
+
+async function loadPublicProfile() {
+  const result = await fetchJson(apiUrl("/api/v1"));
+  state.publicProfile = result.profile;
+  state.account = result.profile.account;
+  el.projectPickerEyebrow.textContent = "Public collection";
+  el.navContextLabel.textContent = "Published memory";
+  for (const link of el.brandLinks) link.href = "/showcase";
+  document.title = `${result.profile.title} · IntHub`;
 }
 
 function callbackErrorMessage() {
@@ -1059,6 +1096,9 @@ function renderProjectSummary() {
     .sort()
     .at(-1);
   const hasDirtyWorkspace = workspaces.some((workspace) => workspace.dirty);
+  const publicDescription = state.config?.publicMode
+    ? state.publicProfile?.description
+    : "";
 
   const brief = intents.length
     ? `<div class="brief-stack">${intents.map(continuationCard).join("")}</div>`
@@ -1075,8 +1115,9 @@ function renderProjectSummary() {
     <div class="continuation-page">
       <header class="continuation-hero">
         <div>
-          <span class="overview-eyebrow">Continuation brief</span>
+          <span class="overview-eyebrow">${state.config?.publicMode ? "Public semantic history" : "Continuation brief"}</span>
           <h1 class="continuation-title">${esc(project.name)}</h1>
+          ${publicDescription ? `<p class="public-profile-description">${esc(publicDescription)}</p>` : ""}
           <div class="project-repo">
             <span>${esc(project.repo.provider || "git")}</span>
             <span>·</span>
@@ -1398,6 +1439,14 @@ function renderSnapDetailTo(target, payload) {
 /* ---- Setup guide ---- */
 
 function renderSetupGuide(mode) {
+  if (state.config?.publicMode) {
+    el.sidebarBody.innerHTML = `
+      <div class="setup-guide public-empty-state">
+        <h3>No published project yet</h3>
+        <p>This profile exists, but no project is currently included in its public collection.</p>
+      </div>`;
+    return;
+  }
   const linkCmd = state.config.authRequired
     ? "itt hub link"
     : `itt hub link --api-base-url ${state.config.apiBaseUrl}`;
@@ -1514,7 +1563,7 @@ async function loadProject(projectId) {
   const ws = [...(overview.workspaces || [])]
     .sort((left, right) => String(right.last_synced_at || "").localeCompare(String(left.last_synced_at || "")))[0];
   el.syncChip.textContent = ws
-    ? `Synced ${relativeDate(ws.last_synced_at)}`
+    ? `${state.config?.publicMode ? "Updated" : "Synced"} ${relativeDate(ws.last_synced_at)}`
     : "Not synced";
   el.syncChip.title = ws ? fmtDate(ws.last_synced_at) : "";
   el.syncIndicator.classList.toggle("is-unsynced", !ws);
@@ -1533,7 +1582,9 @@ async function loadProject(projectId) {
 
   renderSidebar();
   setStatus(
-    `${overview.project.name} is up to date`,
+    state.config?.publicMode
+      ? `${overview.project.name} · public read-only view`
+      : `${overview.project.name} is up to date`,
   );
 
   if (state.activeTab === "overview") {
@@ -1742,7 +1793,7 @@ function bindEvents() {
 async function init() {
   let authError = "";
   try {
-    state.config = await fetch("/config.json").then((r) => r.json());
+    state.config = await fetch(configUrl()).then((r) => r.json());
     authError = callbackErrorMessage();
     const route = readRoute();
 
@@ -1766,7 +1817,8 @@ async function init() {
     }
 
     bindEvents();
-    await loadCurrentAccount();
+    if (state.config.publicMode) await loadPublicProfile();
+    else await loadCurrentAccount();
     await loadProjects();
     hideAuthGate();
   } catch (err) {

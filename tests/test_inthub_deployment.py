@@ -70,7 +70,7 @@ def _valid_bundle(tmp_path):
     recipe_contents = {
         "Dockerfile": b"FROM scratch\n",
         "pyproject.toml": b"[project]\nname = 'intent-cli'\n",
-        "apps/inthub_api/db.py": b"LATEST_SCHEMA_VERSION = 1\n",
+        "apps/inthub_api/db.py": b"LATEST_SCHEMA_VERSION = 2\n",
         "apps/inthub_api/migrate.py": b"# migration entry\n",
         "deploy/inthub/runtime-images.lock.json": runtime_lock_bytes,
     }
@@ -95,7 +95,7 @@ def _valid_bundle(tmp_path):
         "version": version,
         "target": {"os": "linux", "architecture": "amd64"},
         "database_schema": {
-            "version": 1,
+            "version": 2,
             "migration_policy": "expand-contract",
             "backward_compatible": True,
             "migration_sha256": manifest_module._migration_recipe_checksum(recipe),
@@ -167,6 +167,7 @@ def test_production_image_declares_github_source_and_exact_revision():
     )
     assert 'org.opencontainers.image.revision="${INTHUB_REVISION}"' in dockerfile
     assert 'io.inthub.database-schema-version="${INTHUB_SCHEMA_VERSION}"' in dockerfile
+    assert "ARG INTHUB_SCHEMA_VERSION=2" in dockerfile
     assert "gitee.com" not in dockerfile
 
 
