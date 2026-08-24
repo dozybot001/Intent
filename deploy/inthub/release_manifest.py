@@ -21,8 +21,10 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 PROJECT_ID = "inthub"
+SOURCE_REPOSITORY = "https://gitee.com/dozybot/Intent.git"
+SOURCE_REF = "refs/heads/main"
 GIT_SHA_RE = re.compile(r"[0-9a-f]{40,64}")
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 SAFE_FILENAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
@@ -311,6 +313,12 @@ def create_manifest(args: argparse.Namespace) -> dict:
         "git_sha": args.git_sha,
         "dirty": False,
         "version": args.version,
+        "source": {
+            "transport": "gitee-exact-commit",
+            "repository": SOURCE_REPOSITORY,
+            "ref": SOURCE_REF,
+            "commit": args.git_sha,
+        },
         "target": {"os": "linux", "architecture": "amd64"},
         "database_schema": {
             "version": args.database_schema_version,
@@ -422,7 +430,7 @@ def _verify_image(image, field: str, git_sha: str, version: str) -> None:
             raise ManifestError("Application image revision label mismatch")
         if labels.get("org.opencontainers.image.version") != version:
             raise ManifestError("Application image version label mismatch")
-        if labels.get("org.opencontainers.image.source") != "https://github.com/dozybot001/Intent":
+        if labels.get("org.opencontainers.image.source") != "https://gitee.com/dozybot/Intent":
             raise ManifestError("Application image source label mismatch")
     elif reference != "postgres:18.4-bookworm":
         raise ManifestError("Database image reference must be postgres:18.4-bookworm")
@@ -500,6 +508,7 @@ def verify_manifest(bundle_value: str, expected_sha: str | None = None) -> dict:
         "git_sha",
         "dirty",
         "version",
+        "source",
         "target",
         "database_schema",
         "artifacts",
@@ -528,6 +537,14 @@ def verify_manifest(bundle_value: str, expected_sha: str | None = None) -> dict:
     version = _expect_string(manifest.get("version"), "version")
     if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]*", version) is None:
         raise ManifestError("version contains unsupported characters")
+    source = _expect_dict(manifest.get("source"), "source")
+    if source != {
+        "transport": "gitee-exact-commit",
+        "repository": SOURCE_REPOSITORY,
+        "ref": SOURCE_REF,
+        "commit": git_sha,
+    }:
+        raise ManifestError("source must identify the verified Gitee main Commit")
     if manifest.get("target") != {"os": "linux", "architecture": "amd64"}:
         raise ManifestError("target must be linux/amd64")
     database_schema = _expect_dict(
@@ -594,6 +611,8 @@ def verify_manifest(bundle_value: str, expected_sha: str | None = None) -> dict:
         raise ManifestError("build.builder contains missing or unknown fields")
     for key in ("name", "driver", "buildx_version", "buildkit_version"):
         _expect_string(builder.get(key), f"build.builder.{key}")
+    if builder.get("name") != "default" or builder.get("driver") != "docker":
+        raise ManifestError("production Bundle must use the server default Docker Builder")
     base_images = _expect_dict(build.get("base_images"), "build.base_images")
     if set(base_images) != {"app", "database"}:
         raise ManifestError("build.base_images must contain exactly app and database")

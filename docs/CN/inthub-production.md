@@ -4,210 +4,206 @@
 
 ## Metadata
 
-- Status: implemented locally; production execution requires separate authorization
+- Status: implemented; production execution requires explicit authorization
 - Owner: project maintainers
-- Last verified: 2026-08-07
-- Runtime surface: local Git, Builder, Bundle, SSH, server, data, ingress
+- Last verified: 2026-08-24
+- Runtime surface: local Git, Gitee, isolated server Builder, Bundle, data, ingress
 - 唯一正式入口：[release.sh](../../deploy/inthub/release.sh)
-- 本地实现：[local-release.sh](../../deploy/inthub/local-release.sh)
-- 构建入口：[build-release.sh](../../deploy/inthub/build-release.sh)
-- 服务器激活：[remote-release.sh](../../deploy/inthub/remote-release.sh)
+- 本地资格门禁：[qualify-release.sh](../../deploy/inthub/qualify-release.sh)
+- 服务器构建入口：[release-from-gitee.sh](../../deploy/inthub/release-from-gitee.sh)
+- Bundle 构建器：[build-release.sh](../../deploy/inthub/build-release.sh)
+- 生产激活器：[remote-release.sh](../../deploy/inthub/remote-release.sh)
 - Manifest：[release_manifest.py](../../deploy/inthub/release_manifest.py)
 
-## 结论
+## 唯一标准路径
 
-IntHub 的默认发布闭环完全由本机和目标服务器控制：
+IntHub 生产发布只接受 Gitee `main` 上已经回读确认的完整 Commit。GitHub 可以异步接收
+同一历史，但不参与发布身份、构建、门禁、回滚或灾备判定。
 
 ```text
 本地 clean main Commit
-  → Commit 精确源码归档
-  → 缓存的本地测试环境 + 固定 PostgreSQL 集成测试
-  → Docker Desktop 共享 linux/amd64 Builder 构建一次
-  → 最终 App 镜像在生产安全边界下本地 smoke
-  → source + images + manifest + SHA256SUMS
-  → 从磁盘重新完整验证并原子固化 Bundle
-  → SSH/rsync 上传 incoming
-  → 服务器先验证 Bundle，再取得 fail-closed lock
-  → 固化只读 Release、备份、显式兼容迁移
+  → 固定 PostgreSQL 集成测试、diff/check、Commit 精确源码扫描
+  → fast-forward 推送 Gitee main 并回读完整 SHA
+  → 服务器再次回读同一个 Gitee SHA
+  → /opt/inthub/builder/source 专用 checkout
+  → 服务器固定 linux/amd64 Builder 再跑门禁并只构建一次
+  → 最终镜像本机 smoke
+  → source + images + Manifest v4 + SHA256SUMS
+  → 原子固化只读 Bundle
+  → Bundle 预验证后取得 fail-closed production lock
+  → PostgreSQL/env 备份、显式兼容迁移
   → 非活动 slot → readiness → 可逆切流 → 公网 smoke
   → 更新 current → 观察窗口 → 再次公网 smoke → 停止旧 slot
 ```
 
-日常只有一个命令：
+日常只有一个生产命令：
 
 ```bash
 bash deploy/inthub/release.sh
 ```
 
-该命令不会访问 GitHub API、等待云端 CI、push Commit、上传生产数据到 Registry，或在
-服务器上执行 clone、依赖安装和 build。运行命令表示发起一次发布操作，但生产授权仍遵守
-当前项目规则；仅构建 Bundle 时可单独运行 `build-release.sh`，不会接触服务器。
+不支持本地镜像 Bundle 上传、服务器运行目录 `git pull`、GitHub fallback、外部 Registry、
+可变 tag 部署或服务器现场修改。Gitee 不可用、SHA 不一致、Builder/依赖不可用时，发布
+失败关闭，当前健康版本继续服务。
 
-## GitHub 边界
+## 固定生产边界
 
-项目只保留认可的 GitHub `origin` 作为异步镜像。仓库不配置 GitHub Actions workflow；
-测试、Pages 构建和生产发布都不会由 GitHub 自动执行。
+| 项目 | 标准值 |
+|---|---|
+| 公网域名 | `https://inthub.tenon.asia` |
+| 生产主机 | `ubuntu@122.51.14.35` |
+| 本机 SSH alias | `agenthub-prod` |
+| Gitee 生产源码 | `https://gitee.com/dozybot/Intent.git` |
+| Gitee 发布 ref | `refs/heads/main` |
+| GitHub 异步镜像 | `https://github.com/dozybot001/Intent.git` |
+| 生产根目录 | `/opt/inthub` |
+| App 蓝绿端口 | `127.0.0.1:7250` / `127.0.0.1:7251` |
+| Compose projects | `inthub`、`inthub-blue`、`inthub-green` |
+| PostgreSQL | `inthub-postgres`，仅 `inthub-private` 网络 |
+| Caddy site | `/etc/caddy/sites-enabled/inthub.caddy` |
+| 目标平台 | `linux/amd64` |
+| 服务器 Builder | `default`，driver=`docker` |
 
-- Commit 不要求先 push；`origin/main` 不参与 Release 身份或成功判定。
-- 正式脚本不读取 remote URL、GitHub token、Actions 状态或 GHCR。
-- GitHub 同步失败不影响本地构建、发布、验收或回滚。
-- Bundle Manifest 不记录 `github_sync`、PR、workflow run 或云端状态。
-- GitHub 同步是发布之外的普通 Git 操作，不得由 `release.sh` 隐式执行。
-- `.github/workflows/` 必须为空；测试与静态页面如需执行，使用本地显式命令。
-- GitHub 不是唯一备份；本地 Git、Bundle 与数据恢复材料需要自己控制的第二存储。
-
-## 本地低成本适配
-
-本机已有 Docker Desktop Builder `desktop-linux`，driver 为 `docker`，支持
-`linux/amd64`。IntHub 将它作为默认机器级共享 Builder，不再创建项目专属 Builder：
-
-```text
-INTHUB_BUILDER=desktop-linux
-INTHUB_BUILDER_DRIVER=docker
-target=linux/amd64
-```
-
-`build-release.sh` 每次都读取并记录 Builder 名称、driver、Buildx/BuildKit 可见信息，要求
-driver 与平台符合预期，否则失败关闭。迁移到另一台可信 Builder 时必须显式设置
-`INTHUB_BUILDER` 和 `INTHUB_BUILDER_DRIVER`；脚本不会自动 fallback 到未知 Builder。
-
-[prepare-release-env.sh](../../deploy/inthub/prepare-release-env.sh) 将固定发布测试依赖缓存在：
+建议开发 clone 使用：
 
 ```text
-dist/inthub-tools/<python-id>-<dependency-id>/
+origin  https://gitee.com/dozybot/Intent.git
+github  https://github.com/dozybot001/Intent.git
 ```
 
-`dependency-id` 由本机 Python identity 与 `pyproject.toml` SHA-256 推导。第一次发布需要创建
-venv 并安装依赖；依赖不变时直接复用。`dist/` 已被 Git 忽略，不污染 worktree，也不进入
-源码归档、镜像、Bundle 或服务器。
+发布脚本使用固定 Gitee URL，不依赖 remote 名称；该 remote 布局用于保持人的正常心智。
+GitHub push 必须在发布之外单独执行，失败不能改变已经完成的生产结果。
 
-## 本地质量门禁
+## 一次性控制面初始化
 
-`build-release.sh` 在产生 Bundle 前依次执行：
+服务器需要先安装稳定的 Gitee launcher。初始化只传输很小的控制面脚本，不传输源码、
+镜像、Secret 或数据库，也不会 build、迁移、重启或切流：
 
-1. 要求当前仓库为 clean `main`，包括无 untracked files；
-2. 固定完整 Git Commit 与版本，拒绝工作区在构建期间变化；
-3. 检查 Docker Engine、Buildx、指定 Builder driver 和 `linux/amd64` 能力；
-4. 校验或拉取 `runtime-images.lock.json` 中固定的 PostgreSQL `linux/amd64` platform manifest digest；
-5. 准备或复用固定 pytest/psycopg 测试环境；
-6. 启动临时 Linux/amd64 PostgreSQL，运行完整 pytest，包括 PostgreSQL 集成测试；
-7. 执行 `git diff --check` 与 Commit object 检查；
-8. 使用 `git archive` 导出 Commit 精确 source archive 和隔离 build context；
-9. 扫描 tracked source 中的高置信度凭据与不支持的文件类型；
-10. 推导并记录 database schema version 与 expand/contract 策略；
-11. 在指定 Builder 上只构建一次 `inthub:<full-sha>`；
-12. 从 `docker save` 归档核对 App/PostgreSQL 可移植 config digest、平台和 OCI revision/version/schema labels；
-13. 用 read-only、cap-drop、no-new-privileges 边界启动最终 App 镜像并执行 health smoke；
-14. 导出 App 和 PostgreSQL 镜像，创建 Manifest 与全文件 SHA-256；
-15. 从磁盘重新验证精确文件集、Manifest、source recipe 与 checksum；
-16. 原子 rename 为 `dist/inthub/<full-sha>`。
+```bash
+bash deploy/inthub/bootstrap-gitee-deployment.sh
+```
 
-任一步失败都不会生成可发布 Bundle。已有同 SHA Bundle 时只允许完整验证后复用，不会覆盖
-或拼接旧产物。
-
-## Bundle 与 Manifest v3
-
-Bundle 精确包含：
+初始化会创建并核对项目专属目录、`inthub.env` 的 `0600` 权限、Docker/Buildx 和 Gitee
+只读访问，再以 SHA-256 验证后安装：
 
 ```text
-source.tar.gz             Commit 精确 tracked source
-images.tar.gz             linux/amd64 App + 固定 PostgreSQL 镜像
-manifest.json             Release 身份、构建、测试、数据库与镜像证据
-SHA256SUMS                精确文件集强校验和
-compose.yaml              无 build，pull_policy=never
-inthub.caddy              项目独立入口模板
-release_manifest.py       标准库验证器
-remote-release.sh         lock-protected 激活脚本
-runtime-images.lock.json  PostgreSQL platform manifest/config digest/platform lock
-smoke.sh                  loopback 与公网验收
+/opt/inthub/deploy/release-from-gitee.sh
 ```
 
-Manifest schema v3 至少记录：
+正式发布每次都会比较本地与服务器 launcher SHA。二者不一致时只会要求重新执行显式
+bootstrap，不会偷偷更新生产控制面。
 
-- `project_id=inthub`、完整 `git_sha`、`bundle_id=<git_sha>`、`dirty=false`；
-- target `linux/amd64`；
-- App 与 PostgreSQL reference、可移植 config digest、平台、RepoDigest 和 labels；
-- Builder 名称、driver、Buildx 版本；
-- Python、pytest、构建时间与实际通过的门禁；
-- Dockerfile、`pyproject.toml`、runtime lock 的路径与 SHA-256；
-- database schema version、expand/contract 与 backward-compatible 声明；
-- source/image artifact 与所有 Release 文件的大小和 SHA-256。
+## 本地发布门禁与 Gitee 发布
 
-验证器拒绝未知字段、截断 JSON、错误类型、额外或缺失文件、symlink、路径逃逸、source tar
-特殊项、大小/checksum 漂移、错误平台、错误 config digest、错误 OCI label 与 runtime lock 漂移。
-GitHub 同步状态属于未知字段，不能进入 Release 语义。
+`release.sh` 首先运行 `qualify-release.sh`：
 
-这里不使用 `docker image inspect .Id` 作为跨机器身份：启用 containerd image store 的 Docker
-Desktop 会返回 OCI manifest/index digest，传统 Docker Engine 则返回 config digest。构建端和
-服务器都从 `docker save` 的 `Config` 成员读取相同的 config digest，因此 Bundle 在两种
-image store 之间迁移时不会误报或放过身份漂移。
+1. 要求完整、clean 的 `main` Commit，拒绝 submodule、LFS 和 shallow history；
+2. 校验固定 PostgreSQL runtime config digest 与 `linux/amd64` 平台；
+3. 使用固定 pytest/psycopg 环境运行完整测试和真实 PostgreSQL 集成测试；
+4. 执行 `git diff --check`、Commit object 检查；
+5. 用 `git archive` 导出精确 Commit，并扫描高置信度凭据和不安全文件项；
+6. 再次确认门禁期间 HEAD 和 worktree 未变化。
 
-## 上传与服务器固化
+门禁通过后，脚本要求现有 Gitee `main` 是目标 Commit 的祖先，只允许 fast-forward 推送：
 
-`local-release.sh` 只上传已经在本地完整复验的 Bundle：
+```text
+<full-sha>:refs/heads/main
+```
 
-1. 创建 `/opt/inthub/incoming/<sha>-<operation>`；
-2. 使用 rsync 上传完整 Bundle；
-3. 服务器在未取得生产 lock 前先校验 remote script SHA 与完整 Bundle；
-4. 校验成功后用原子 `mkdir` 获取 `/opt/inthub/.release-lock`；
-5. 写入 Commit、Bundle ID、client host 和开始时间；
-6. 使用 SSH keepalive 调用 Bundle 内已校验的 `remote-release.sh`；
-7. 远端执行开始后若 SSH 中断，本机不擅自删除 lock，因为生产结果未知。
+推送后必须用 `git ls-remote` 回读为相同完整 SHA，才会联系生产 launcher。Gitee 的分支名
+只用于运输；Release 身份始终是完整 Commit、Bundle ID、镜像 config digest 和 Manifest。
 
-服务器不访问 GitHub、Registry 或依赖源，不运行 `git`、`pip`、`apt`、`docker build` 或
-`docker pull`。它只从 Bundle 执行 `docker load`，并再次核对 config digest、平台与 labels。
+## 服务器隔离构建
 
-推荐目录：
+服务器 launcher 使用 `/opt/inthub/.build-lock` 阻止并发构建，并再次回读 Gitee `main`。
+只有它与请求 SHA 完全一致时才会在专用 checkout 中执行：
+
+```text
+/opt/inthub/builder/
+├── source/          Gitee 专用完整 Git checkout
+├── tools/           固定 Python 门禁环境缓存
+└── qualification/   临时精确源码扫描目录
+```
+
+launcher 会 clean 专用 checkout、fetch `main` 和 tags、检出精确 Commit，再用服务器
+`default` linux/amd64 Builder 运行 `build-release.sh`。构建脚本再次执行同一门禁，只构建一次
+App 镜像，对最终镜像做 read-only/cap-drop/no-new-privileges smoke，并生成不可覆盖 Bundle。
+运行目录、`current`、Secret、数据库和 Caddy 都不参与构建。
+
+## Bundle 与 Manifest v4
+
+Bundle 固定包含：
+
+```text
+source.tar.gz
+images.tar.gz
+manifest.json
+SHA256SUMS
+compose.yaml
+inthub.caddy
+release_manifest.py
+remote-release.sh
+runtime-images.lock.json
+smoke.sh
+```
+
+Manifest v4 在既有 Commit、平台、Builder、依赖、数据库、镜像、测试与 checksum 证据之外，
+强制记录：
+
+```json
+{
+  "source": {
+    "transport": "gitee-exact-commit",
+    "repository": "https://gitee.com/dozybot/Intent.git",
+    "ref": "refs/heads/main",
+    "commit": "<full-sha>"
+  }
+}
+```
+
+App OCI source label 同样固定为 `https://gitee.com/dozybot/Intent`。未知字段、额外文件、
+symlink、路径逃逸、大小/checksum/平台/config digest/recipe/source 漂移都会失败关闭。
+
+## 生产固化、数据库与蓝绿切流
+
+服务器构建完成后，Bundle 内的 `remote-release.sh` 先完整验证 Bundle，再原子取得
+`/opt/inthub/.release-lock`。这意味着测试或构建失败不会取得生产锁，也不会备份、迁移、
+启动候选或改变流量。
+
+生产阶段保持原有契约：
+
+1. 原子移动到只读 `/opt/inthub/releases/<full-sha>` 并再次验证；
+2. 生成非空 PostgreSQL custom-format dump，使用 `pg_restore --list` 验证，并备份 env/Manifest；
+3. `INTHUB_AUTO_MIGRATE=0`，只显式执行 backward-compatible expand/contract 迁移；
+4. 从 Bundle `docker load`，核对 config digest、平台、revision/version/schema labels；
+5. 旧槽持续服务，候选只在非活动 7250/7251 槽启动；
+6. readiness 通过后校验并 reload Caddy；
+7. 公网 smoke 通过后才更新 `current`；观察窗口和第二次公网 smoke 通过后才停止旧槽。
+
+App 回滚不自动 downgrade 数据库。若候选、切流或公网 smoke 失败，恢复旧 Caddy/current，
+验证旧槽后删除候选；回滚不完整时保留生产锁与 phase state，后续发布 fail closed。
+
+## 目录与中断恢复
 
 ```text
 /opt/inthub/
-├── incoming/                 未信任上传目录
-├── releases/<bundle-id>/     已验证、只读 Bundle
-├── current -> releases/...   最后通过公网验收的 Release
-├── shared/inthub.env         mode 0600，永不进入 Bundle
-├── backups/<time>-<sha>/     env、manifest、Caddy、数据库 dump
-└── .release-lock/            owner、metadata、phase state
+├── deploy/                    稳定 Gitee server launcher
+├── builder/                   专用 checkout、工具和缓存
+├── incoming/                  尚未受信任的服务器构建 Bundle
+├── releases/<full-sha>/       已验证只读 Release
+├── current -> releases/...    最后通过公网验收的 Release
+├── shared/inthub.env          0600，永不进入 Git/Bundle/镜像
+├── backups/<time>-<sha>/      env、Manifest、Caddy、数据库 dump
+├── logs/                      发布审计
+├── .build-lock/               服务器构建 owner/metadata
+└── .release-lock/             生产 owner/metadata/phase state
 ```
 
-## 数据库、候选槽和切流
+- 本地门禁或 Gitee push 失败：不接触生产。
+- Gitee 回读或服务器构建失败：不取得生产锁，旧服务不变。
+- SSH 中断：先检查 build/release lock、phase、Caddy、容器和 `current`，不得盲目重跑。
+- 生产回滚失败：保留 lock，人工从明确 phase 恢复；不得强删锁后重试。
+- Release、镜像、Builder cache、备份和数据的清理都需要独立授权。
 
-生产 App 固定 `INTHUB_AUTO_MIGRATE=0`。迁移只能在发布流程中显式运行：
-
-1. 已有 PostgreSQL volume 时要求数据库正在运行且 config digest 匹配 runtime lock；
-2. 生成 custom-format `pg_dump`，要求非空，并用 `pg_restore --list` 验证；
-3. 加载并复验镜像；
-4. 启动或确认固定 PostgreSQL；
-5. 用候选 App 镜像执行 `apps.inthub_api.migrate --require-backward-compatible`；
-6. 仅允许 expand/contract 兼容迁移，旧 App 在候选和回滚窗口持续可用；
-7. 不自动 downgrade 数据库。
-
-App 使用 7250/7251 蓝绿槽。旧槽在候选 readiness、Caddy 切流、公网 smoke 和观察窗口结束
-前保持运行。第一次公网 smoke 成功后才原子更新 `current`；默认观察 30 秒并再次执行公网
-smoke，之后才停止旧槽。
-
-## 失败与恢复
-
-- 本地测试、Builder、构建、smoke 或 Bundle 校验失败：不上传、不接触生产。
-- 上传中断：只影响唯一 incoming 目录，不产生 Release。
-- 服务器预验证失败：不取得 lock，不加载镜像、不备份、不迁移。
-- 候选未 ready：删除候选，旧槽继续服务。
-- 切流、公网 smoke 或观察窗口失败：恢复旧 Caddy/current，删除候选并验证旧槽仍运行。
-- 回滚不完整：保留 lock 和 phase state，后续发布 fail closed。
-- SSH/进程中断：先只读检查 lock、state、Caddy、current 与容器，不能盲目重试迁移或切流。
-- 自动清理不删除 Release、镜像、Secret、volume 或 backup；这些都需要独立授权。
-
-同机 dump 是发布回滚材料，不是灾难恢复。Git 历史、完整 Bundle、Secret 恢复材料和数据库
-备份仍需复制到自己控制的加密第二存储，并定期做 restore drill。
-
-## 一次性前置条件
-
-- 本机 Docker Desktop 已启动，`desktop-linux` 支持 Linux/amd64；
-- 本机可以创建 Python venv，首次可访问固定依赖源或已有缓存；
-- SSH alias 默认为 `agenthub-prod`，可显式设置 `INTHUB_DEPLOY_HOST`；
-- 服务器已有 Docker Engine/Compose、Caddy、Python 3、gzip、curl、sha256sum；
-- `/opt/inthub/shared/inthub.env` 已创建、非 symlink、mode `0600`；
-- DNS、TLS 与 GitHub OAuth callback 已准备；
-- 生产执行获得当前项目要求的明确授权。
-
-工具安装、Secret 创建、备份清理、数据库维护和真实生产发布都不是构建基础设施时的隐式
-动作。本规范只定义并验证入口，不替用户授权执行生产变更。
+同机 dump 不是灾难恢复。源码、Gitee/GitHub 之外的 Git 备份、完整 Release、Secret 恢复
+材料和数据库备份仍需复制到自己控制的加密第二存储，并定期演练恢复。

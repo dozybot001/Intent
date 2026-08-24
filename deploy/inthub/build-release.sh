@@ -3,13 +3,12 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPOSITORY_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-BUILDER="${INTHUB_BUILDER:-desktop-linux}"
+BUILDER="${INTHUB_BUILDER:-default}"
 EXPECTED_BUILDER_DRIVER="${INTHUB_BUILDER_DRIVER:-docker}"
 TARGET_PLATFORM="linux/amd64"
 OUTPUT_ROOT="${INTHUB_RELEASE_OUTPUT_ROOT:-${REPOSITORY_ROOT}/dist/inthub}"
 REQUIRED_PYTEST_VERSION="8.4.2"
 SMOKE_CONTAINER=""
-TEST_DATABASE_CONTAINER=""
 STAGING_DIRECTORY=""
 CONTEXT_DIRECTORY=""
 
@@ -28,9 +27,6 @@ image_config_id() {
 cleanup() {
     if [[ -n "${SMOKE_CONTAINER}" ]]; then
         docker rm --force "${SMOKE_CONTAINER}" >/dev/null 2>&1 || true
-    fi
-    if [[ -n "${TEST_DATABASE_CONTAINER}" ]]; then
-        docker rm --force "${TEST_DATABASE_CONTAINER}" >/dev/null 2>&1 || true
     fi
     if [[ -n "${CONTEXT_DIRECTORY}" && -d "${CONTEXT_DIRECTORY}" ]]; then
         rm -rf -- "${CONTEXT_DIRECTORY}"
@@ -148,44 +144,7 @@ QUALIFICATION_PYTEST_VERSION="$(
 [[ "${QUALIFICATION_PYTEST_VERSION}" == "${REQUIRED_PYTEST_VERSION}" ]] \
     || fail "pytest ${REQUIRED_PYTEST_VERSION} is required, found ${QUALIFICATION_PYTEST_VERSION}"
 
-TEST_DATABASE_CONTAINER="inthub-release-postgres-${RELEASE_SHA:0:12}-$$"
-docker run \
-    --detach \
-    --rm \
-    --platform "${TARGET_PLATFORM}" \
-    --name "${TEST_DATABASE_CONTAINER}" \
-    --env POSTGRES_DB=inthub_test \
-    --env POSTGRES_USER=inthub_test \
-    --env POSTGRES_PASSWORD=inthub_test_password \
-    --publish 127.0.0.1::5432 \
-    "${DATABASE_IMAGE}" >/dev/null
-TEST_DATABASE_READY=false
-for _ in $(seq 1 60); do
-    if docker exec "${TEST_DATABASE_CONTAINER}" \
-        pg_isready --username inthub_test --dbname inthub_test >/dev/null 2>&1; then
-        TEST_DATABASE_READY=true
-        break
-    fi
-    if [[ "$(docker inspect --format '{{.State.Running}}' "${TEST_DATABASE_CONTAINER}" 2>/dev/null || true)" != true ]]; then
-        break
-    fi
-    sleep 1
-done
-if [[ "${TEST_DATABASE_READY}" != true ]]; then
-    docker logs "${TEST_DATABASE_CONTAINER}" >&2 || true
-    fail "the release qualification PostgreSQL container did not become ready"
-fi
-TEST_DATABASE_PORT="$(
-    docker port "${TEST_DATABASE_CONTAINER}" 5432/tcp | awk -F: '/127\.0\.0\.1:/ {print $NF; exit}'
-)"
-[[ "${TEST_DATABASE_PORT}" =~ ^[1-9][0-9]*$ ]] \
-    || fail "could not resolve the release qualification PostgreSQL port"
-INTHUB_TEST_POSTGRES_URL="postgresql://inthub_test:inthub_test_password@127.0.0.1:${TEST_DATABASE_PORT}/inthub_test" \
-    "${QUALIFICATION_PYTHON}" -m pytest -q
-docker rm --force "${TEST_DATABASE_CONTAINER}" >/dev/null
-TEST_DATABASE_CONTAINER=""
-git diff --check
-git show --check --format= "${RELEASE_SHA}" >/dev/null
+bash "${SCRIPT_DIR}/qualify-release.sh" "${RELEASE_SHA}"
 [[ "$(git rev-parse HEAD)" == "${RELEASE_SHA}" \
     && -z "$(git status --porcelain=v1 --untracked-files=all)" ]] \
     || fail "the repository changed while local qualification was running"

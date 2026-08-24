@@ -35,6 +35,7 @@ ROLLBACK_ARMED=false
 RELEASE_ACCEPTED=false
 PHASE=initializing
 BAKE_SECONDS="${INTHUB_BAKE_SECONDS:-30}"
+RELEASE_SOURCE="${INTHUB_RELEASE_SOURCE:-}"
 
 fail() {
     echo "IntHub remote release failed: $*" >&2
@@ -178,6 +179,7 @@ write_release_state() {
             printf 'phase=%s\n' "${phase}"
             printf 'release_sha=%s\n' "${RELEASE_SHA}"
             printf 'bundle_id=%s\n' "${RELEASE_SHA}"
+            printf 'source=%s\n' "${RELEASE_SOURCE}"
             printf 'previous_release=%s\n' "${PREVIOUS_DIRECTORY}"
             printf 'previous_container=%s\n' "${PREVIOUS_CONTAINER}"
             printf 'previous_port=%s\n' "${PREVIOUS_PORT}"
@@ -211,6 +213,7 @@ archive_release_state() {
             printf 'final_phase=%s\n' "${PHASE}"
             printf 'release_sha=%s\n' "${RELEASE_SHA}"
             printf 'bundle_id=%s\n' "${RELEASE_SHA}"
+            printf 'source=%s\n' "${RELEASE_SOURCE}"
             printf 'previous_release=%s\n' "${PREVIOUS_DIRECTORY}"
             printf 'candidate_container=%s\n' "${CANDIDATE_CONTAINER}"
             printf 'candidate_port=%s\n' "${CANDIDATE_PORT}"
@@ -280,11 +283,10 @@ trap 'false' ERR
     || fail "remote root is unsafe"
 [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40,64}$ ]] || fail "release SHA is invalid"
 [[ "${LOCK_TOKEN}" =~ ^[A-Za-z0-9._-]+$ ]] || fail "lock token is invalid"
+[[ "${RELEASE_SOURCE}" == gitee-exact-commit ]] \
+    || fail "release source must be the verified Gitee exact Commit"
 [[ "${BAKE_SECONDS}" =~ ^[0-9]+$ && "${BAKE_SECONDS}" -le 600 ]] \
     || fail "INTHUB_BAKE_SECONDS must be between 0 and 600"
-[[ -f "${RELEASE_LOCK}/owner" ]] || fail "release lock owner is missing"
-[[ "$(cat "${RELEASE_LOCK}/owner")" == "${LOCK_TOKEN}" ]] \
-    || fail "release lock is not owned by this operation"
 [[ "${SCRIPT_DIRECTORY}" == "${REMOTE_ROOT}/incoming/"* ]] \
     || fail "release bundle is outside the project incoming directory"
 for deployment_path in \
@@ -318,6 +320,20 @@ sudo -n systemctl is-active caddy >/dev/null
 python3 "${SCRIPT_DIRECTORY}/release_manifest.py" verify \
     --bundle "${SCRIPT_DIRECTORY}" \
     --expected-sha "${RELEASE_SHA}" >/dev/null
+if ! mkdir "${RELEASE_LOCK}" 2>/dev/null; then
+    fail "another IntHub release owns the fail-closed production lock"
+fi
+(
+    umask 077
+    printf '%s\n' "${LOCK_TOKEN}" > "${RELEASE_LOCK}/owner"
+    {
+        printf 'release_sha=%s\n' "${RELEASE_SHA}"
+        printf 'bundle_id=%s\n' "${RELEASE_SHA}"
+        printf 'source=%s\n' "${RELEASE_SOURCE}"
+        printf 'repository=https://gitee.com/dozybot/Intent.git\n'
+        printf 'started_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    } > "${RELEASE_LOCK}/metadata"
+)
 write_release_state verified_bundle
 
 mkdir -p "${RELEASES_ROOT}" "${BACKUPS_ROOT}"

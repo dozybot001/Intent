@@ -25,7 +25,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for command_name in python3 shasum; do
+for command_name in python3; do
     command -v "${command_name}" >/dev/null 2>&1 \
         || fail "required command is unavailable: ${command_name}"
 done
@@ -36,12 +36,16 @@ if [[ -n "${INTHUB_RELEASE_PYTHON:-}" ]]; then
     RELEASE_PYTHON="${INTHUB_RELEASE_PYTHON}"
 else
     PYTHON_ID="$(python3 -c 'import platform; print(f"{platform.python_implementation().lower()}-{platform.python_version()}")')"
-    DEPENDENCY_ID="$(
-        {
-            printf '%s\n' "${PYTHON_ID}"
-            shasum -a 256 "${REPOSITORY_ROOT}/pyproject.toml"
-        } | shasum -a 256 | awk '{print $1}'
-    )"
+    DEPENDENCY_ID="$(python3 - "${PYTHON_ID}" "${REPOSITORY_ROOT}/pyproject.toml" <<'PY'
+import hashlib
+import pathlib
+import sys
+
+python_id = sys.argv[1].encode("utf-8")
+dependency_bytes = pathlib.Path(sys.argv[2]).read_bytes()
+print(hashlib.sha256(python_id + b"\0" + dependency_bytes).hexdigest())
+PY
+)"
     ENVIRONMENT_DIRECTORY="${TOOL_ROOT}/${PYTHON_ID}-${DEPENDENCY_ID}"
     RELEASE_PYTHON="${ENVIRONMENT_DIRECTORY}/bin/python"
     if [[ ! -x "${RELEASE_PYTHON}" ]]; then

@@ -1,163 +1,211 @@
-# IntHub Official Production Deployment Standard
+# IntHub Official Production Deployment
 
 [中文](../CN/inthub-production.md) | [English](inthub-production.md)
 
 ## Metadata
 
-- Status: implemented locally; production execution requires separate authorization
+- Status: implemented; production execution requires explicit authorization
 - Owner: project maintainers
-- Last verified: 2026-08-07
-- Runtime surface: local Git, Builder, Bundle, SSH, server, data, ingress
-- Only supported entry: [release.sh](../../deploy/inthub/release.sh)
-- Local implementation: [local-release.sh](../../deploy/inthub/local-release.sh)
-- Build entry: [build-release.sh](../../deploy/inthub/build-release.sh)
-- Server activation: [remote-release.sh](../../deploy/inthub/remote-release.sh)
+- Last verified: 2026-08-24
+- Runtime surface: local Git, Gitee, isolated server Builder, Bundle, data, ingress
+- Sole production entry: [release.sh](../../deploy/inthub/release.sh)
+- Local qualification: [qualify-release.sh](../../deploy/inthub/qualify-release.sh)
+- Server build launcher: [release-from-gitee.sh](../../deploy/inthub/release-from-gitee.sh)
+- Bundle builder: [build-release.sh](../../deploy/inthub/build-release.sh)
+- Production activator: [remote-release.sh](../../deploy/inthub/remote-release.sh)
 - Manifest: [release_manifest.py](../../deploy/inthub/release_manifest.py)
 
-## Summary
+## One supported path
 
-IntHub's default production path is controlled entirely by the local machine and target
-server:
+Production accepts only a full Commit that has been published to and read back from Gitee
+`main`. GitHub may receive the same history asynchronously, but it is not part of release
+identity, qualification, build, rollback, or disaster recovery.
 
 ```text
-clean local main commit
-  → commit-exact source archive
-  → cached qualification environment + pinned PostgreSQL integration tests
-  → one build on the shared Docker Desktop linux/amd64 Builder
-  → local smoke of the final App image under production security constraints
-  → source + images + manifest + SHA256SUMS
-  → full on-disk re-verification and atomic Bundle publication
-  → SSH/rsync into incoming
-  → server verifies before acquiring the fail-closed lock
-  → read-only Release, backup, and explicit compatible migration
-  → inactive slot → readiness → reversible traffic switch → public smoke
-  → current update → observation window → second public smoke → old slot stops
+clean local main Commit
+  -> PostgreSQL integration tests, diff/check, exact-Commit source scan
+  -> fast-forward Gitee main and read back the full SHA
+  -> server independently reads the same Gitee SHA
+  -> dedicated /opt/inthub/builder/source checkout
+  -> server linux/amd64 Builder requalifies and builds exactly once
+  -> final-image smoke
+  -> source + images + Manifest v4 + SHA256SUMS
+  -> atomically solidified read-only Bundle
+  -> acquire fail-closed production lock only after Bundle verification
+  -> PostgreSQL/env backup and explicit compatible migration
+  -> inactive slot -> readiness -> reversible traffic switch -> public smoke
+  -> update current -> observation window -> second public smoke -> stop old slot
 ```
 
-The daily command is:
+The only routine production command is:
 
 ```bash
 bash deploy/inthub/release.sh
 ```
 
-It does not call the GitHub API, wait for cloud CI, push commits, publish production data
-to a Registry, or clone, install dependencies, or build on the server. Running it initiates
-a release operation, but production authorization still follows current project policy.
-Running `build-release.sh` alone only creates a Bundle and never contacts the server.
+Local image-Bundle uploads, `git pull` in a runtime directory, GitHub fallback, external
+registries, mutable-tag deployments, and on-server source edits are unsupported. If Gitee,
+the exact SHA, the Builder, or locked dependencies are unavailable, the release fails closed
+and the current healthy release keeps serving.
 
-## GitHub boundary
+## Fixed production boundary
 
-The approved GitHub `origin` is an asynchronous mirror. The repository configures no
-GitHub Actions workflows; tests, Pages builds, and production releases are never triggered
-automatically by GitHub.
+| Surface | Standard value |
+|---|---|
+| Public URL | `https://inthub.tenon.asia` |
+| Production host | `ubuntu@122.51.14.35` |
+| Local SSH alias | `agenthub-prod` |
+| Gitee production source | `https://gitee.com/dozybot/Intent.git` |
+| Gitee release ref | `refs/heads/main` |
+| Asynchronous GitHub mirror | `https://github.com/dozybot001/Intent.git` |
+| Production root | `/opt/inthub` |
+| App slots | `127.0.0.1:7250` / `127.0.0.1:7251` |
+| Compose projects | `inthub`, `inthub-blue`, `inthub-green` |
+| PostgreSQL | `inthub-postgres`, only on `inthub-private` |
+| Caddy site | `/etc/caddy/sites-enabled/inthub.caddy` |
+| Target platform | `linux/amd64` |
+| Server Builder | `default`, driver=`docker` |
 
-- A commit need not be pushed; `origin/main` does not identify or qualify a Release.
-- Production scripts read no remote URL, GitHub token, Actions status, or GHCR state.
-- GitHub outage does not block local build, release, acceptance, or rollback.
-- The Manifest records no GitHub sync, PR, workflow-run, or cloud-state field.
-- GitHub synchronization is a separate ordinary Git operation and is never hidden in
-  `release.sh`.
-- `.github/workflows/` must remain empty. Tests and static-page builds use explicit local
-  commands when they are needed.
-- GitHub is not the only backup; local Git, Bundles, and recovery materials need a second
-  storage location under operator control.
+The recommended developer remote model is:
 
-## Low-cost local adaptation
+```text
+origin  https://gitee.com/dozybot/Intent.git
+github  https://github.com/dozybot001/Intent.git
+```
 
-The existing Docker Desktop `desktop-linux` Builder uses the `docker` driver and advertises
-`linux/amd64`. IntHub reuses it as a machine-wide Builder rather than maintaining a project
-VM. Every build records and validates the Builder name, driver, Buildx version, and target
-platform. Moving to another trusted Builder requires explicit `INTHUB_BUILDER` and
-`INTHUB_BUILDER_DRIVER`; there is no fallback to an unknown Builder.
+The release program uses the fixed Gitee URL rather than a remote name. The remote layout
+keeps the operator model clear. GitHub pushes happen separately; failure to mirror cannot
+change a completed production result.
 
-[prepare-release-env.sh](../../deploy/inthub/prepare-release-env.sh) caches the pinned
-qualification environment under `dist/inthub-tools/<python-id>-<dependency-id>`. The ID is
-derived from the local Python identity and `pyproject.toml` SHA-256. First use creates a venv
-and installs dependencies; unchanged dependencies reuse it. The ignored `dist/` cache never
-enters Git, the source archive, image, Bundle, or server.
+## One-time control-plane bootstrap
 
-## Local qualification
+Install the stable Gitee launcher once, or explicitly rerun the bootstrap when that control
+plane changes:
 
-Before publishing a Bundle, `build-release.sh` requires a clean `main`, fixes the full commit,
-checks Docker/Buildx and the configured Builder, validates the pinned PostgreSQL image,
-prepares the cached Python environment, starts a temporary Linux/amd64 PostgreSQL container,
-and runs the full pytest suite including PostgreSQL integration. It then runs diff and commit
-checks, exports source with `git archive`, scans tracked source, derives the database schema,
-and builds `inthub:<full-sha>` exactly once.
+```bash
+bash deploy/inthub/bootstrap-gitee-deployment.sh
+```
 
-The script verifies portable App and database config digests from the `docker save` archive,
-platform and OCI labels, starts the final App
-image read-only with dropped capabilities and `no-new-privileges`, runs health smoke, exports
-both images, writes the Manifest and exact SHA-256 set, rereads everything from disk, and
-atomically renames the result to `dist/inthub/<full-sha>`. A failure creates no deployable
-Bundle. An existing Bundle is reused only after full verification and is never overwritten.
+Bootstrap transfers only a small control-plane script. It does not transfer source or images,
+read secrets, build, migrate, restart, or switch traffic. It verifies project directories,
+the `0600` production env, Docker/Buildx, read-only Gitee access, and SHA-256 before installing:
 
-## Bundle and Manifest v3
+```text
+/opt/inthub/deploy/release-from-gitee.sh
+```
 
-The exact Bundle contains `source.tar.gz`, `images.tar.gz`, `manifest.json`, `SHA256SUMS`,
-Compose/Caddy definitions, the standard-library verifier, the lock-protected remote entry,
-the runtime image lock, and smoke checks.
+Every formal release compares the local and server launcher hashes. A mismatch fails with an
+explicit bootstrap instruction; the release never upgrades its own production control plane.
 
-Manifest v3 records `project_id=inthub`, full `git_sha`, `bundle_id=<git-sha>`, `dirty=false`,
-linux/amd64 target, App and PostgreSQL image identities and labels, Builder/Buildx metadata,
-Python and pytest versions, executed checks, build-recipe checksums, database schema and
-expand/contract compatibility, and sizes/checksums for every artifact and release file.
+## Local gate and Gitee publication
 
-Verification rejects unknown fields, malformed JSON and types, missing or extra files,
-symlinks, source-tar escapes or special entries, size/checksum drift, platform/image/label
-drift, and runtime-lock mismatch. GitHub sync state is an unknown field and cannot enter
-Release semantics.
+`release.sh` first runs `qualify-release.sh`, which:
 
-The portable image identity is the config digest stored in docker-save's `Config` member,
-not `docker image inspect .Id`. Docker Desktop's containerd image store reports an OCI
-manifest or index digest there, while a classic Docker Engine reports the config digest.
-Reading the archive makes build-host and production-host verification agree across both
-stores. The PostgreSQL lock separately pins the exact linux/amd64 platform manifest digest.
+1. requires a complete, clean `main` Commit and rejects shallow history, submodules, and LFS;
+2. verifies the pinned PostgreSQL runtime config digest and `linux/amd64` platform;
+3. runs the full suite, including real PostgreSQL integration, in the pinned pytest/psycopg environment;
+4. runs `git diff --check` and Commit-object checks;
+5. exports the exact Commit with `git archive` and scans it for unsafe entries and high-confidence credentials;
+6. proves that HEAD and the worktree did not change during qualification.
 
-## Upload and server activation
+After qualification, existing Gitee `main` must be an ancestor of the candidate. The program
+performs only a fast-forward push of `<full-sha>:refs/heads/main` and must read the same SHA back
+with `git ls-remote` before it contacts production.
 
-`local-release.sh` uploads only a completely verified Bundle into a unique incoming path.
-The server verifies the remote script SHA and complete Bundle before atomically acquiring
-`/opt/inthub/.release-lock`, then records commit, Bundle ID, client, and start time. SSH uses
-keepalive; after remote execution starts, a disconnected client leaves the lock fail closed
-because production outcome is unknown.
+## Isolated server build
 
-The server never contacts GitHub, a Registry, or dependency source and runs no Git, pip, apt,
-build, or pull. It loads images from the immutable Bundle and rechecks config digests, platforms,
-and labels. Releases live at `/opt/inthub/releases/<bundle-id>`, while `current` means only the
-last Release that passed public acceptance. Secrets remain in mode-0600
-`/opt/inthub/shared/inthub.env`; backups and release state remain separate.
+The server launcher owns `/opt/inthub/.build-lock`, reads Gitee `main` again, and continues only
+when it equals the requested SHA. Its dedicated state is:
 
-## Database, slots, and rollback
+```text
+/opt/inthub/builder/
+├── source/          complete Gitee-only checkout
+├── tools/           pinned Python qualification cache
+└── qualification/   temporary exact-source scan directories
+```
 
-Serving Apps use `INTHUB_AUTO_MIGRATE=0`. After a validated backup, the release explicitly
-runs the candidate image's backward-compatible migration. Changes follow expand/contract;
-automatic application rollback never downgrades the database.
+The launcher cleans this checkout, fetches `main` and tags, checks out the exact Commit, and
+runs `build-release.sh` with the server `default` linux/amd64 Builder. The builder repeats the
+qualification gate, builds the App image exactly once, exercises the final image under the
+read-only/cap-drop/no-new-privileges boundary, and emits an immutable Bundle. Runtime paths,
+`current`, secrets, PostgreSQL, and Caddy are never build inputs.
 
-The App uses loopback blue/green slots 7250 and 7251. The old slot remains live throughout
-candidate readiness, Caddy switch, public smoke, and the observation window. Only after the
-first public smoke does `current` move atomically. The default 30-second observation window
-and a second public smoke must pass before the old slot stops.
+## Bundle and Manifest v4
 
-Local qualification failure never uploads. Upload or pre-verification failure never acquires
-the production lock. Candidate failure leaves the old slot serving. Traffic, public-smoke,
-or observation failure restores old Caddy/current and removes the candidate. Incomplete
-rollback preserves the lock and phase journal; operators inspect lock, state, Caddy, current,
-and containers before any retry. Cleanup of Releases, images, secrets, volumes, or backups
-always requires separate authorization.
+The exact Bundle file set is:
 
-A same-host dump supports release rollback but is not disaster recovery. Git history, full
-Bundles, secret recovery material, and database backups need encrypted second storage and
-regular restore drills under operator control.
+```text
+source.tar.gz
+images.tar.gz
+manifest.json
+SHA256SUMS
+compose.yaml
+inthub.caddy
+release_manifest.py
+remote-release.sh
+runtime-images.lock.json
+smoke.sh
+```
 
-## Prerequisites
+Manifest v4 retains Commit, platform, Builder, dependency, database, image, test, recipe, and
+checksum evidence and additionally requires:
 
-Docker Desktop and `desktop-linux` must be running locally, the machine must be able to create
-a Python venv and obtain pinned dependencies on first use, and SSH defaults to `agenthub-prod`
-unless `INTHUB_DEPLOY_HOST` is explicit. Production needs Docker Engine/Compose, Caddy,
-Python 3, gzip, curl, sha256sum, a mode-0600 non-symlinked environment file, prepared DNS/TLS
-and GitHub OAuth callback, and explicit production authorization.
+```json
+{
+  "source": {
+    "transport": "gitee-exact-commit",
+    "repository": "https://gitee.com/dozybot/Intent.git",
+    "ref": "refs/heads/main",
+    "commit": "<full-sha>"
+  }
+}
+```
 
-Tool installation, secret creation, backup cleanup, database maintenance, and an actual
-production release are never hidden infrastructure-build side effects. This standard defines
-and verifies the entry; it does not grant production authority.
+The App OCI source label is fixed to `https://gitee.com/dozybot/Intent`. Unknown fields, extra
+files, symlinks, path escape, and checksum/platform/config-digest/recipe/source drift fail closed.
+
+## Solidification, database, and blue-green acceptance
+
+The Bundle's `remote-release.sh` completely verifies untrusted incoming bytes before atomically
+acquiring `/opt/inthub/.release-lock`. Qualification or build failures therefore cannot back up,
+migrate, start a candidate, change traffic, or update `current`.
+
+The mature activation contract remains unchanged:
+
+1. atomically move the Bundle to read-only `/opt/inthub/releases/<full-sha>` and verify again;
+2. create a non-empty custom-format PostgreSQL dump, verify it with `pg_restore --list`, and back up env/Manifest;
+3. keep `INTHUB_AUTO_MIGRATE=0` and run only explicit backward-compatible expand/contract migration;
+4. `docker load` from the Bundle and verify config digests, platform, and revision/version/schema labels;
+5. keep the old slot serving while the candidate starts on inactive port 7250 or 7251;
+6. validate and reload Caddy only after readiness;
+7. update `current` only after public smoke, then stop the old slot only after the observation window and second public smoke.
+
+Application rollback does not downgrade the database. Candidate, traffic-switch, or public-smoke
+failure restores old Caddy/current, verifies the old slot, and removes the candidate. Incomplete
+rollback preserves the production lock and phase state so later releases fail closed.
+
+## Paths and interruption recovery
+
+```text
+/opt/inthub/
+├── deploy/                    stable Gitee server launcher
+├── builder/                   dedicated checkout, tools, and caches
+├── incoming/                  untrusted server-built Bundles
+├── releases/<full-sha>/       verified read-only Releases
+├── current -> releases/...    last publicly accepted Release
+├── shared/inthub.env          0600; never in Git, images, or Bundles
+├── backups/<time>-<sha>/      env, Manifest, Caddy, PostgreSQL dump
+├── logs/                      release audit
+├── .build-lock/               server build owner/metadata
+└── .release-lock/             production owner/metadata/phase state
+```
+
+- Local qualification or Gitee push failure never contacts production.
+- Gitee readback or server build failure never acquires the production lock.
+- After SSH interruption, inspect both locks, phase, Caddy, containers, and `current` before retrying.
+- Incomplete production rollback preserves the lock for phase-aware manual recovery.
+- Release, image, Builder-cache, backup, and data cleanup always requires separate authorization.
+
+A same-host dump is not disaster recovery. Git history outside Gitee/GitHub, complete Releases,
+secret recovery material, and database backups still require an encrypted second storage system
+under the operator's control and periodic restore drills.

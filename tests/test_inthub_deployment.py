@@ -87,12 +87,18 @@ def _valid_bundle(tmp_path):
         for key, relative_path in manifest_module.REQUIRED_RECIPE_PATHS.items()
     }
     manifest = {
-        "schema_version": 3,
+        "schema_version": 4,
         "project_id": "inthub",
         "bundle_id": git_sha,
         "git_sha": git_sha,
         "dirty": False,
         "version": version,
+        "source": {
+            "transport": "gitee-exact-commit",
+            "repository": "https://gitee.com/dozybot/Intent.git",
+            "ref": "refs/heads/main",
+            "commit": git_sha,
+        },
         "target": {"os": "linux", "architecture": "amd64"},
         "database_schema": {
             "version": 2,
@@ -117,7 +123,7 @@ def _valid_bundle(tmp_path):
                 "repo_digests": [],
                 "labels": {
                     "org.opencontainers.image.revision": git_sha,
-                    "org.opencontainers.image.source": "https://github.com/dozybot001/Intent",
+                    "org.opencontainers.image.source": "https://gitee.com/dozybot/Intent",
                     "org.opencontainers.image.version": version,
                 },
             },
@@ -132,7 +138,7 @@ def _valid_bundle(tmp_path):
         },
         "build": {
             "builder": {
-                "name": "desktop-linux",
+                "name": "default",
                 "driver": "docker",
                 "buildx_version": "github.com/docker/buildx v0.30.1",
                 "buildkit_version": "v0.31.2",
@@ -158,17 +164,17 @@ def _valid_bundle(tmp_path):
     return manifest
 
 
-def test_production_image_declares_github_source_and_exact_revision():
+def test_production_image_declares_gitee_source_and_exact_revision():
     dockerfile = (REPOSITORY_ROOT / "Dockerfile").read_text(encoding="utf-8")
 
     assert (
-        'org.opencontainers.image.source="https://github.com/dozybot001/Intent"'
+        'org.opencontainers.image.source="https://gitee.com/dozybot/Intent"'
         in dockerfile
     )
     assert 'org.opencontainers.image.revision="${INTHUB_REVISION}"' in dockerfile
     assert 'io.inthub.database-schema-version="${INTHUB_SCHEMA_VERSION}"' in dockerfile
     assert "ARG INTHUB_SCHEMA_VERSION=2" in dockerfile
-    assert "gitee.com" not in dockerfile
+    assert "github.com/dozybot001/Intent" not in dockerfile
 
 
 def test_compose_uses_explicit_immutable_images_and_disables_auto_migration():
@@ -188,25 +194,34 @@ def test_compose_uses_explicit_immutable_images_and_disables_auto_migration():
     assert 'INTHUB_AUTO_MIGRATE: "0"' in compose
 
 
-def test_release_entry_uses_the_local_immutable_bundle_path():
+def test_release_entry_uses_the_gitee_exact_commit_path():
     release = (REPOSITORY_ROOT / "deploy" / "inthub" / "release.sh").read_text(
         encoding="utf-8"
     )
 
-    local_release = (REPOSITORY_ROOT / "deploy" / "inthub" / "local-release.sh").read_text(
+    server_release = (REPOSITORY_ROOT / "deploy" / "inthub" / "release-from-gitee.sh").read_text(
         encoding="utf-8"
     )
 
-    assert 'exec bash "${SCRIPT_DIR}/local-release.sh"' in release
-    assert 'bash "${SCRIPT_DIR}/build-release.sh"' in local_release
-    assert "rsync --archive" in local_release
-    assert "--protect-args" not in local_release
-    assert "release_manifest.py' verify" in local_release
-    assert ".release-lock" in local_release
-    assert "remote-release.sh" in local_release
-    assert "git push" not in local_release
-    assert "git fetch" not in local_release
-    assert "gh " not in local_release
+    assert 'GITEE_URL="https://gitee.com/dozybot/Intent.git"' in release
+    assert 'bash "${SCRIPT_DIR}/qualify-release.sh"' in release
+    assert 'git push "${GITEE_URL}" "${RELEASE_SHA}:${GITEE_REF}"' in release
+    assert release.count("git ls-remote") == 2
+    assert "release-from-gitee.sh" in release
+    assert "local-release.sh" not in release
+    assert "rsync" not in release
+    assert "github.com" not in release
+    assert not (REPOSITORY_ROOT / "deploy" / "inthub" / "local-release.sh").exists()
+
+    assert 'GITEE_URL="https://gitee.com/dozybot/Intent.git"' in server_release
+    assert "git ls-remote" in server_release
+    assert "fetch --prune --tags" in server_release
+    assert 'checkout -B main "${RELEASE_SHA}"' in server_release
+    assert "INTHUB_BUILDER=default" in server_release
+    assert 'bash deploy/inthub/build-release.sh' in server_release
+    assert "INTHUB_RELEASE_SOURCE=gitee-exact-commit" in server_release
+    assert "git pull" not in server_release
+    assert "github.com" not in server_release
 
 
 def test_local_build_qualifies_commit_and_exports_images_once():
@@ -214,11 +229,11 @@ def test_local_build_qualifies_commit_and_exports_images_once():
         encoding="utf-8"
     )
 
-    assert 'BUILDER="${INTHUB_BUILDER:-desktop-linux}"' in build
+    assert 'BUILDER="${INTHUB_BUILDER:-default}"' in build
     assert 'EXPECTED_BUILDER_DRIVER="${INTHUB_BUILDER_DRIVER:-docker}"' in build
     assert 'bash "${SCRIPT_DIR}/prepare-release-env.sh"' in build
     assert "git archive" in build
-    assert "INTHUB_TEST_POSTGRES_URL=" in build
+    assert 'bash "${SCRIPT_DIR}/qualify-release.sh" "${RELEASE_SHA}"' in build
     assert "BUILDKIT_VERSION=" in build
     assert 'docker image inspect "${APP_BASE_IMAGE}"' in build
     assert build.count("docker buildx build") == 1
@@ -234,6 +249,32 @@ def test_local_build_qualifies_commit_and_exports_images_once():
     assert "release_manifest.py\" verify" in build
     assert "docker push" not in build
     assert "ghcr.io" not in build
+
+
+def test_local_qualification_does_not_build_the_application_image():
+    qualify = (REPOSITORY_ROOT / "deploy" / "inthub" / "qualify-release.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert "INTHUB_TEST_POSTGRES_URL=" in qualify
+    assert "git archive" in qualify
+    assert "release_manifest.py\" scan" in qualify
+    assert "git diff --check" in qualify
+    assert "docker buildx build" not in qualify
+
+
+def test_gitee_bootstrap_only_installs_the_stable_launcher():
+    bootstrap = (
+        REPOSITORY_ROOT / "deploy" / "inthub" / "bootstrap-gitee-deployment.sh"
+    ).read_text(encoding="utf-8")
+
+    assert 'rsync --archive "${LAUNCHER}"' in bootstrap
+    assert "sha256sum" in bootstrap
+    assert "release-from-gitee.sh" in bootstrap
+    assert "git ls-remote https://gitee.com/dozybot/Intent.git" in bootstrap
+    assert "build-release.sh" not in bootstrap
+    assert "remote-release.sh" not in bootstrap
+    assert "docker compose" not in bootstrap
 
 
 def test_github_has_no_actions_workflows():
@@ -257,6 +298,10 @@ def test_remote_release_verifies_and_loads_but_never_builds_or_pulls():
     assert "rollback_release" in remote
     assert "CANDIDATE_SLOT" in remote
     assert "apps.inthub_api.migrate" in remote
+    assert "release source must be the verified Gitee exact Commit" in remote
+    assert remote.index('release_manifest.py" verify') < remote.index(
+        'mkdir "${RELEASE_LOCK}"'
+    )
     assert "write_release_state baking" in remote
     assert "BAKE_SECONDS" in remote
     assert remote.index('chmod u+w "${SCRIPT_DIRECTORY}"') < remote.index(
@@ -274,10 +319,12 @@ def test_remote_release_verifies_and_loads_but_never_builds_or_pulls():
 
 def test_release_scripts_are_executable():
     for name in (
+        "bootstrap-gitee-deployment.sh",
         "build-release.sh",
-        "local-release.sh",
         "prepare-release-env.sh",
+        "qualify-release.sh",
         "release.sh",
+        "release-from-gitee.sh",
         "remote-release.sh",
         "smoke.sh",
         "release_manifest.py",
@@ -311,6 +358,26 @@ def test_manifest_rejects_remote_sync_state(tmp_path):
     manifest_module.write_checksums(str(tmp_path))
 
     with pytest.raises(manifest_module.ManifestError, match="top-level"):
+        manifest_module.verify_manifest(str(tmp_path))
+
+
+def test_manifest_rejects_non_gitee_source_provenance(tmp_path):
+    manifest = _valid_bundle(tmp_path)
+    manifest["source"]["repository"] = "https://github.com/dozybot001/Intent.git"
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    manifest_module.write_checksums(str(tmp_path))
+
+    with pytest.raises(manifest_module.ManifestError, match="Gitee main Commit"):
+        manifest_module.verify_manifest(str(tmp_path))
+
+
+def test_manifest_rejects_non_server_builder(tmp_path):
+    manifest = _valid_bundle(tmp_path)
+    manifest["build"]["builder"]["name"] = "desktop-linux"
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    manifest_module.write_checksums(str(tmp_path))
+
+    with pytest.raises(manifest_module.ManifestError, match="server default Docker Builder"):
         manifest_module.verify_manifest(str(tmp_path))
 
 
