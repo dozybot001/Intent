@@ -176,27 +176,7 @@ svg {
   width: 28px;
   height: 28px;
   flex: 0 0 auto;
-  overflow: visible;
-}
-
-.brand-mark-rail {
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2.2;
-}
-
-.brand-mark-rail-b {
-  opacity: 0.34;
-}
-
-.brand-mark-node {
-  fill: currentColor;
-}
-
-.brand-mark-node-end {
-  fill: var(--copper);
+  object-fit: contain;
 }
 
 .brand-wordmark {

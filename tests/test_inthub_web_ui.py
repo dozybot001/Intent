@@ -113,6 +113,14 @@ def test_web_shell_uses_continuity_logo_and_local_default_avatar():
     stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
 
     assert html.count('class="brand-mark"') == 3
+    assert html.count('src="/inthub-mark.svg?rev=1"') == 3
+    assert "brand-mark-rail" not in html + stylesheet
+    import xml.etree.ElementTree as ET
+    mark = ET.parse(STATIC_DIR / "inthub-mark.svg").getroot()
+    assert mark.attrib["viewBox"] == "0 0 32 32"
+    paths = mark.findall("{http://www.w3.org/2000/svg}path")
+    assert len(paths) == 2
+    assert {path.attrib["fill"] for path in paths} == {"#1C211C", "#B85F31"}
     assert "brand-glyph" not in html
     assert "brand-glyph" not in stylesheet
     assert '<span id="account-avatar" class="account-avatar"' in html
