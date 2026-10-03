@@ -23,6 +23,7 @@ COPY --chown=inthub:inthub . /app
 ARG INTHUB_VERSION=0.0.0
 ARG INTHUB_REVISION=unknown
 ARG INTHUB_SCHEMA_VERSION=3
+ENV INTHUB_VERSION=${INTHUB_VERSION}
 LABEL org.opencontainers.image.title="IntHub" \
     org.opencontainers.image.source="https://gitee.com/dozybot/Intent" \
     org.opencontainers.image.version="${INTHUB_VERSION}" \

@@ -31,7 +31,7 @@ def test_web_shell_uses_soft_cards_without_console_style_color_rails():
     javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
     stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
 
-    assert "showcase-1" in html
+    assert "tenon-product-1" in html
     assert "--shadow-card:" in stylesheet
     assert ".checkpoint-blocker.is-clear" in stylesheet
     assert 'clearBlocker ? " is-clear"' in javascript
@@ -55,7 +55,7 @@ def test_web_shell_uses_continuity_logo_and_local_default_avatar():
     javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
     stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
 
-    assert html.count('class="brand-mark"') == 2
+    assert html.count('class="brand-mark"') == 3
     assert "brand-glyph" not in html
     assert "brand-glyph" not in stylesheet
     assert '<span id="account-avatar" class="account-avatar"' in html
@@ -156,3 +156,33 @@ def test_showcase_mode_reuses_the_product_shell_without_private_account_actions(
     assert 'el.projectPickerEyebrow.textContent = "Public collection"' in javascript
     assert ".shell.is-public-view .account-control" in stylesheet
     assert ".account-mode" in stylesheet
+
+
+def test_product_brand_and_about_follow_tenon_standard():
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
+    stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
+    mark = (STATIC_DIR / "tenon-mark.svg").read_text(encoding="utf-8")
+
+    assert html.count('class="product-publisher-mark"') == 3
+    assert html.count('data-about-open') == 2
+    assert 'rel="icon" type="image/svg+xml" href="/tenon-mark.svg"' in html
+    assert 'id="about-dialog" aria-labelledby="about-title"' in html
+    assert 'id="about-close"' in html
+    assert 'id="about-version"' in html
+    assert '榫卯 Tenon AI' in html
+    assert 'href="https://tenon.asia/"' in html
+    assert 'aria-label="IntHub, by Tenon, home"' in html
+    assert (html.index('class="brand about-brand"')
+            < html.index('id="about-version"')
+            < html.index('class="about-description"')
+            < html.index('class="about-publisher"'))
+    assert 'width: max(14px, 0.58em)' in stylesheet
+    assert 'gap: max(4px, 0.18em)' in stylesheet
+    assert 'margin-top: -0.04em' in stylesheet
+    assert 'state.config?.productVersion || "Unavailable"' in javascript
+    assert 'el.aboutDialog.showModal()' in javascript
+    assert 'el.aboutDialog.close()' in javascript
+    assert 'if (el.aboutDialog.open || el.tokenDialog.open) return' in javascript
+    assert 'fill="#f06b32"' in mark
+    assert 'M13 16H51V28H38V48H26V28H13Z' in mark

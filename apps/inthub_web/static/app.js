@@ -61,6 +61,9 @@ const el = {
   navHealth: document.getElementById("nav-health"),
   navContextLabel: document.getElementById("nav-context-label"),
   brandLinks: document.querySelectorAll("[data-brand-link]"),
+  aboutDialog: document.getElementById("about-dialog"),
+  aboutClose: document.getElementById("about-close"),
+  aboutVersion: document.getElementById("about-version"),
 };
 
 /* ---- Helpers ---- */
@@ -1647,6 +1650,13 @@ async function loadProjects() {
 /* ---- Events ---- */
 
 function bindEvents() {
+  for (const trigger of document.querySelectorAll("[data-about-open]")) {
+    trigger.addEventListener("click", () => {
+      el.aboutVersion.textContent = state.config?.productVersion || "Unavailable";
+      el.aboutDialog.showModal();
+    });
+  }
+  el.aboutClose.addEventListener("click", () => el.aboutDialog.close());
   el.searchTrigger.addEventListener("click", () => switchTab("search"));
 
   el.tenonLogin.addEventListener("click", (event) => {
@@ -1775,6 +1785,7 @@ function bindEvents() {
   el.drawerOverlay.addEventListener("click", closeDrawer);
 
   document.addEventListener("keydown", (event) => {
+    if (el.aboutDialog.open || el.tokenDialog.open) return;
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
       event.preventDefault();
       switchTab("search");
@@ -1792,6 +1803,7 @@ function bindEvents() {
 
 async function init() {
   let authError = "";
+  bindEvents();
   try {
     state.config = await fetch(configUrl()).then((r) => r.json());
     authError = callbackErrorMessage();
@@ -1816,7 +1828,6 @@ async function init() {
       btn.classList.toggle("is-active", btn.dataset.tab === state.activeTab);
     }
 
-    bindEvents();
     if (state.config.publicMode) await loadPublicProfile();
     else await loadCurrentAccount();
     await loadProjects();

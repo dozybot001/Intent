@@ -198,10 +198,22 @@ svg {
 }
 
 .brand-wordmark {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: max(4px, 0.18em);
+  padding: max(7px, 0.29em);
+  white-space: nowrap;
   font-family: var(--sans);
   font-size: 1.06rem;
   font-weight: 720;
   letter-spacing: -0.055em;
+}
+
+.product-publisher-mark {
+  width: max(14px, 0.58em);
+  height: max(14px, 0.58em);
+  flex: 0 0 auto;
+  margin-top: -0.04em;
 }
 
 .header-divider {
@@ -2711,7 +2723,7 @@ input:focus {
   place-items: center;
 }
 
-.tenon-login-visual svg {
+.tenon-login-visual img {
   width: 22px;
   height: 22px;
   transition: opacity 120ms ease, transform 180ms ease;
@@ -2735,7 +2747,7 @@ input:focus {
   transform: none;
 }
 
-.tenon-login.is-loading .tenon-login-visual svg {
+.tenon-login.is-loading .tenon-login-visual img {
   opacity: 0;
   transform: scale(0.72);
 }
@@ -2845,6 +2857,105 @@ input:focus {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 14px;
+}
+
+/* --- Product information ------------------------------------------------ */
+
+.about-link {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--muted-strong);
+  background: transparent;
+  font-size: 0.8rem;
+}
+
+.about-link:hover {
+  color: var(--ink);
+  background: var(--canvas-deep);
+}
+
+.about-dialog {
+  width: min(540px, calc(100vw - 28px));
+  max-height: calc(100dvh - 28px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  color: var(--ink);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.about-dialog::backdrop {
+  background: rgba(9, 11, 9, 0.4);
+  backdrop-filter: blur(5px);
+}
+
+.about-card {
+  padding: clamp(20px, 5vw, 32px);
+}
+
+.about-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.about-heading h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.about-brand {
+  margin-top: 24px;
+}
+
+.about-version {
+  margin: 10px 0 22px;
+  color: var(--muted-strong);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.about-description {
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+
+.about-description p {
+  margin: 0 0 16px;
+}
+
+.about-publisher {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.about-publisher-label {
+  color: var(--muted-strong);
+  font-size: 0.8rem;
+}
+
+.about-publisher-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.about-publisher-name img {
+  flex: 0 0 auto;
+}
+
+.about-publisher a {
+  color: var(--copper-dark);
+  text-underline-offset: 4px;
 }
 
 #token-close {
@@ -3005,7 +3116,6 @@ input:focus {
     min-width: 0;
   }
 
-  .brand-wordmark,
   .header-divider,
   .command-trigger,
   .account-control {
@@ -3014,6 +3124,10 @@ input:focus {
 
   .brand-mark {
     flex: 0 0 auto;
+  }
+
+  .app-header .brand-mark {
+    display: none;
   }
 
   .project-picker {

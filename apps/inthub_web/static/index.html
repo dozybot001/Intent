@@ -6,7 +6,8 @@
     <meta name="color-scheme" content="light">
     <meta name="theme-color" content="#f4f5f2">
     <title>IntHub</title>
-    <link rel="stylesheet" href="/styles.css?rev=showcase-1">
+    <link rel="icon" type="image/svg+xml" href="/tenon-mark.svg">
+    <link rel="stylesheet" href="/styles.css?rev=tenon-product-1">
   </head>
   <body>
     <a class="skip-link" href="#detail-content">Skip to project content</a>
@@ -14,14 +15,14 @@
     <div class="shell" id="shell" data-active-tab="overview">
       <header class="app-header">
         <div class="header-context">
-          <a class="brand" data-brand-link href="/" aria-label="IntHub home">
+          <a class="brand" data-brand-link href="/" aria-label="IntHub, by Tenon, home">
             <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
               <path class="brand-mark-rail brand-mark-rail-a" d="M8 6.5V16a8 8 0 0 0 16 0V6.5"/>
               <path class="brand-mark-rail brand-mark-rail-b" d="M24 25.5V16A8 8 0 0 0 8 16v9.5"/>
               <circle class="brand-mark-node" cx="8" cy="6.5" r="2.25"/>
               <circle class="brand-mark-node brand-mark-node-end" cx="24" cy="25.5" r="2.25"/>
             </svg>
-            <span class="brand-wordmark">IntHub</span>
+            <span class="brand-wordmark">IntHub<img class="product-publisher-mark" src="/tenon-mark.svg" alt="" width="64" height="64"></span>
           </a>
 
           <span class="header-divider" aria-hidden="true"></span>
@@ -39,6 +40,9 @@
         </div>
 
         <div class="header-actions">
+          <button class="icon-button" data-about-open type="button" aria-label="About IntHub" title="About IntHub">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 9v5M10 6v.5"/></svg>
+          </button>
           <button class="command-trigger" id="search-trigger" type="button" aria-label="Search project">
             <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
             <span>Search</span>
@@ -153,16 +157,16 @@
         </svg>
 
         <header class="auth-header">
-          <a class="brand brand-on-auth" data-brand-link href="/" aria-label="IntHub home">
+          <a class="brand brand-on-auth" data-brand-link href="/" aria-label="IntHub, by Tenon, home">
             <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
               <path class="brand-mark-rail brand-mark-rail-a" d="M8 6.5V16a8 8 0 0 0 16 0V6.5"/>
               <path class="brand-mark-rail brand-mark-rail-b" d="M24 25.5V16A8 8 0 0 0 8 16v9.5"/>
               <circle class="brand-mark-node" cx="8" cy="6.5" r="2.25"/>
               <circle class="brand-mark-node brand-mark-node-end" cx="24" cy="25.5" r="2.25"/>
             </svg>
-            <span class="brand-wordmark">IntHub</span>
+            <span class="brand-wordmark">IntHub<img class="product-publisher-mark" src="/tenon-mark.svg" alt="" width="64" height="64"></span>
           </a>
-          <span class="auth-header-note"><i aria-hidden="true"></i>Semantic continuity for people &amp; Agents</span>
+          <button class="about-link" data-about-open type="button">About IntHub</button>
         </header>
 
         <div class="auth-layout">
@@ -201,7 +205,7 @@
               <p id="auth-description">Use your Tenon account to continue to your workspace.</p>
               <a class="tenon-login is-hidden" id="tenon-login" href="/api/v1/auth/tenon/start">
                 <span class="tenon-login-visual" aria-hidden="true">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="17" fill="#f06b32"/><path d="M13 16H51V28H38V48H26V28H13Z" fill="#fff"/></svg>
+                  <img src="/tenon-mark.svg" alt="" width="64" height="64">
                   <i class="tenon-login-spinner"></i>
                 </span>
                 <span id="tenon-login-label" aria-live="polite">Sign in with Tenon</span>
@@ -219,6 +223,36 @@
       </section>
     </div>
 
+    <dialog class="about-dialog" id="about-dialog" aria-labelledby="about-title">
+      <div class="about-card">
+        <header class="about-heading">
+          <h2 id="about-title">About IntHub</h2>
+          <button class="icon-button" id="about-close" type="button" aria-label="Close About IntHub" autofocus>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg>
+          </button>
+        </header>
+        <div class="brand about-brand" aria-label="IntHub, by Tenon">
+          <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+            <path class="brand-mark-rail brand-mark-rail-a" d="M8 6.5V16a8 8 0 0 0 16 0V6.5"/>
+            <path class="brand-mark-rail brand-mark-rail-b" d="M24 25.5V16A8 8 0 0 0 8 16v9.5"/>
+            <circle class="brand-mark-node" cx="8" cy="6.5" r="2.25"/>
+            <circle class="brand-mark-node brand-mark-node-end" cx="24" cy="25.5" r="2.25"/>
+          </svg>
+          <span class="brand-wordmark">IntHub<img class="product-publisher-mark" src="/tenon-mark.svg" alt="" width="64" height="64"></span>
+        </div>
+        <p class="about-version">Version <span id="about-version">Loading…</span></p>
+        <div class="about-description">
+          <p>IntHub is a project continuity workspace for developers and Agents. It brings together Intent goals, Snap checkpoints and durable Decisions so work can resume with its context intact.</p>
+          <p>Sync semantic history from the Intent CLI, review the current continuation brief, explore the timeline and search project history. Explicitly published projects can also be shared in a read-only showcase.</p>
+        </div>
+        <footer class="about-publisher">
+          <span class="about-publisher-label">Publisher</span>
+          <span class="about-publisher-name"><img src="/tenon-mark.svg" alt="" width="24" height="24">榫卯 Tenon AI</span>
+          <a href="https://tenon.asia/" target="_blank" rel="noopener noreferrer">tenon.asia</a>
+        </footer>
+      </div>
+    </dialog>
+
     <dialog class="token-dialog" id="token-dialog" aria-labelledby="token-dialog-title">
       <form method="dialog" class="token-dialog-card">
         <span class="auth-mark">IntHub / developer access</span>
@@ -232,6 +266,6 @@
       </form>
     </dialog>
 
-    <script src="/app.js?rev=showcase-1" defer></script>
+    <script src="/app.js?rev=tenon-product-1" defer></script>
   </body>
 </html>

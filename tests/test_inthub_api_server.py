@@ -96,7 +96,8 @@ def test_api_healthz(tmp_path):
         server.server_close()
 
 
-def test_api_server_can_serve_web_shell(tmp_path):
+def test_api_server_can_serve_web_shell(tmp_path, monkeypatch):
+    monkeypatch.setenv("INTHUB_VERSION", "6.0.1.dev36+gtest123")
     server = ThreadingHTTPServer(
         ("127.0.0.1", 0),
         make_handler(
@@ -113,6 +114,11 @@ def test_api_server_can_serve_web_shell(tmp_path):
         assert config["apiBaseUrl"] == base
         assert config["defaultProjectId"] == "proj_demo123"
         assert config["authRequired"] is False
+        assert config["productVersion"] == "6.0.1.dev36+gtest123"
+        assert _get_json(f"{base}/showcase/config.json")["productVersion"] == config["productVersion"]
+
+        mark = urlopen(f"{base}/tenon-mark.svg").read().decode("utf-8")
+        assert 'fill="#f06b32"' in mark
 
         html = urlopen(f"{base}/").read().decode("utf-8")
         assert "IntHub" in html

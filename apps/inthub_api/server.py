@@ -10,6 +10,7 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+from intent_cli import __version__
 
 from apps.inthub_api.auth import (
     account_for_access_token,
@@ -234,6 +235,7 @@ def make_handler(
                         "authMode": "public" if public_mode else auth_mode,
                         "publicMode": public_mode,
                         "publicProfileSlug": showcase_profile_slug if public_mode else None,
+                        "productVersion": os.environ.get("INTHUB_VERSION") or __version__,
                     },
                 )
                 return True
