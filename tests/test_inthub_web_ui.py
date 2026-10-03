@@ -1,7 +1,29 @@
 from pathlib import Path
 
+from apps.inthub_web import product_version
+
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "apps" / "inthub_web" / "static"
+
+
+def test_about_version_reads_build_or_installed_metadata(monkeypatch):
+    monkeypatch.setenv("INTHUB_VERSION", "6.0.1+g1234567")
+    assert product_version() == "6.0.1+g1234567"
+    monkeypatch.delenv("INTHUB_VERSION")
+    monkeypatch.setattr("apps.inthub_web.version", lambda _: "6.0.1.dev36")
+    assert product_version() == "6.0.1.dev36"
+
+
+def test_about_does_not_invent_a_version_for_uninstalled_source(monkeypatch):
+    from importlib.metadata import PackageNotFoundError
+
+    monkeypatch.delenv("INTHUB_VERSION", raising=False)
+
+    def missing(_):
+        raise PackageNotFoundError
+
+    monkeypatch.setattr("apps.inthub_web.version", missing)
+    assert product_version() == "Unavailable (unpackaged source)"
 
 
 def test_web_shell_exposes_continuation_first_navigation():

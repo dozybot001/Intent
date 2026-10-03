@@ -5,7 +5,7 @@ import json
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
-from intent_cli import __version__
+from apps.inthub_web import product_version
 
 
 STATIC_DIR = Path(__file__).with_name("static")
@@ -18,7 +18,7 @@ def make_handler(api_base_url, default_project_id=None, static_dir=None):
         "defaultProjectId": default_project_id,
         "authRequired": False,
         "authMode": "none",
-        "productVersion": __version__,
+        "productVersion": product_version(),
     }
 
     class IntHubWebHandler(SimpleHTTPRequestHandler):
