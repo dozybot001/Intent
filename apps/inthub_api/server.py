@@ -224,7 +224,7 @@ def make_handler(
                 "application/json",
             }:
                 content_type = f"{content_type}; charset=utf-8"
-            cache_control = "no-cache" if path.name == "index.html" else "public, max-age=3600"
+            cache_control = "no-cache" if path.suffix == ".html" else "public, max-age=3600"
             self._send_bytes(200, body, content_type, cache_control=cache_control)
 
         def _serve_index(self):

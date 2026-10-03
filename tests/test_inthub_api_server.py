@@ -119,7 +119,9 @@ def test_api_server_can_serve_web_shell(tmp_path, monkeypatch):
 
         mark = urlopen(f"{base}/tenon-mark.svg").read().decode("utf-8")
         assert 'fill="#f06b32"' in mark
-        transition = urlopen(f"{base}/auth/redirect").read().decode("utf-8")
+        with urlopen(f"{base}/auth/redirect") as response:
+            assert response.headers["Cache-Control"] == "no-cache"
+            transition = response.read().decode("utf-8")
         assert 'id="transition-title"' in transition
         assert 'id="transition-retry"' in transition
         assert 'id="shell"' not in transition

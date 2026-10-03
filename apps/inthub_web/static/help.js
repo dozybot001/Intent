@@ -28,13 +28,15 @@
     const height = viewport?.height || innerHeight;
     const left = viewport?.offsetLeft || 0;
     const top = viewport?.offsetTop || 0;
+    if (rect.bottom < top + 16 || rect.top > top + height - 16) return close();
     panel.style.width = `${Math.min(260, width - 32)}px`;
     const below = top + height - rect.bottom - 24;
     const above = rect.top - top - 24;
     const useAbove = below < 150 && above > below;
-    panel.style.maxHeight = `${Math.max(48, useAbove ? above : below)}px`;
+    panel.style.maxHeight = `${Math.min(height - 32, Math.max(48, useAbove ? above : below))}px`;
     panel.style.left = `${Math.min(Math.max(left + 16, rect.left), left + width - panel.offsetWidth - 16)}px`;
-    panel.style.top = `${useAbove ? rect.top - panel.offsetHeight - 8 : rect.bottom + 8}px`;
+    const preferredTop = useAbove ? rect.top - panel.offsetHeight - 8 : rect.bottom + 8;
+    panel.style.top = `${Math.max(top + 16, Math.min(preferredTop, top + height - panel.offsetHeight - 16))}px`;
   }
   function open(button, pin = false) {
     clearTimeout(timer);

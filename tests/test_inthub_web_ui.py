@@ -27,6 +27,8 @@ def test_updated_standard_uses_fixed_redirect_help_and_shared_dialog_layout():
     assert 'gap: 6px' in css and 'border-radius: 12px' in css
     assert '0 12px 32px #00000016, 0 2px 6px #00000008' in css
     assert 'panel.showPopover()' in help_script and 'aria-describedby' in help_script
+    assert 'rect.bottom < top + 16' in help_script
+    assert 'Math.min(preferredTop, top + height - panel.offsetHeight - 16)' in help_script
     assert '--dialog-width:' in css and '--dialog-height:' in css
     assert css.count('height: var(--dialog-height)') == 2
     assert 'grid-template-rows: auto minmax(0, 1fr) auto' in css
@@ -86,7 +88,7 @@ def test_web_shell_uses_soft_cards_without_console_style_color_rails():
     javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
     stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
 
-    assert "tenon-standard-2" in html
+    assert "tenon-standard-3" in html
     assert "--shadow-card:" in stylesheet
     assert ".checkpoint-blocker.is-clear" in stylesheet
     assert 'clearBlocker ? " is-clear"' in javascript
