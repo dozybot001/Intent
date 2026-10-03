@@ -191,8 +191,9 @@ def test_showcase_is_anonymous_read_only_without_weakening_private_api(tmp_path)
         make_handler(
             db_path,
             serve_web=True,
-            github_client_id="github-client-id",
-            github_client_secret="github-client-secret",
+            tenon_client_id="tenon-client-id",
+            tenon_client_secret="tenon-client-secret",
+            public_api_base_url="https://inthub.example",
         ),
     )
     thread = threading.Thread(target=server.serve_forever, daemon=True)

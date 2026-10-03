@@ -1,22 +1,13 @@
-"""Account, browser-session, and GitHub OAuth helpers for IntHub."""
+"""Local product accounts, revocable sessions and account-scoped PAT helpers."""
 
-import base64
 import hashlib
-import json
 import secrets
 from datetime import datetime, timedelta, timezone
-from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlsplit
-from urllib.request import Request, urlopen
+from urllib.parse import urlsplit
 
 from apps.inthub_api.common import APIError, new_id, now_utc
 from apps.inthub_api.db import connect
 
-
-GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
-GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
-GITHUB_USER_URL = "https://api.github.com/user"
-GITHUB_API_VERSION = "2022-11-28"
 
 
 def _sha256(value):
@@ -47,58 +38,6 @@ def safe_return_to(value):
     if parsed.scheme or parsed.netloc:
         return "/"
     return value
-
-
-def create_login_attempt(db_target, return_to="/", ttl_seconds=600):
-    state = secrets.token_urlsafe(32)
-    verifier = secrets.token_urlsafe(48)
-    challenge = base64.urlsafe_b64encode(
-        hashlib.sha256(verifier.encode("ascii")).digest()
-    ).rstrip(b"=").decode("ascii")
-    created_at = now_utc()
-    expires_at = _expires_at(ttl_seconds)
-
-    with connect(db_target) as conn:
-        conn.execute("DELETE FROM oauth_login_attempts WHERE expires_at <= ?", (created_at,))
-        conn.execute(
-            """
-            INSERT INTO oauth_login_attempts (
-                state_hash, code_verifier, return_to, created_at, expires_at
-            ) VALUES (?, ?, ?, ?, ?)
-            """,
-            (_sha256(state), verifier, safe_return_to(return_to), created_at, expires_at),
-        )
-
-    return {
-        "state": state,
-        "code_verifier": verifier,
-        "code_challenge": challenge,
-        "return_to": safe_return_to(return_to),
-        "expires_at": expires_at,
-    }
-
-
-def consume_login_attempt(db_target, state):
-    if not isinstance(state, str) or not state:
-        raise APIError("OAUTH_STATE_INVALID", "The sign-in attempt is invalid or expired.", 400)
-    state_hash = _sha256(state)
-    with connect(db_target) as conn:
-        row = conn.execute(
-            """
-            SELECT code_verifier, return_to, expires_at
-            FROM oauth_login_attempts
-            WHERE state_hash = ?
-            """,
-            (state_hash,),
-        ).fetchone()
-        conn.execute("DELETE FROM oauth_login_attempts WHERE state_hash = ?", (state_hash,))
-
-    if row is None or _is_expired(row["expires_at"]):
-        raise APIError("OAUTH_STATE_INVALID", "The sign-in attempt is invalid or expired.", 400)
-    return {
-        "code_verifier": row["code_verifier"],
-        "return_to": safe_return_to(row["return_to"]),
-    }
 
 
 def upsert_github_account(db_target, user):
@@ -328,85 +267,3 @@ def public_account(row):
         "created_at": row["created_at"],
         "last_login_at": row["last_login_at"],
     }
-
-
-class GitHubOAuthClient:
-    """Small server-side client for GitHub's OAuth web application flow."""
-
-    def __init__(
-        self,
-        client_id,
-        client_secret,
-        authorize_url=GITHUB_AUTHORIZE_URL,
-        token_url=GITHUB_TOKEN_URL,
-        user_url=GITHUB_USER_URL,
-        timeout=10,
-    ):
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.authorize_url = authorize_url
-        self.token_url = token_url
-        self.user_url = user_url
-        self.timeout = timeout
-
-    def authorization_url(self, redirect_uri, state, code_challenge):
-        query = urlencode(
-            {
-                "client_id": self.client_id,
-                "redirect_uri": redirect_uri,
-                "state": state,
-                "code_challenge": code_challenge,
-                "code_challenge_method": "S256",
-                "allow_signup": "false",
-            }
-        )
-        return f"{self.authorize_url}?{query}"
-
-    def exchange_code(self, code, redirect_uri, code_verifier):
-        payload = urlencode(
-            {
-                "client_id": self.client_id,
-                "client_secret": self.client_secret,
-                "code": code,
-                "redirect_uri": redirect_uri,
-                "code_verifier": code_verifier,
-            }
-        ).encode("utf-8")
-        response = self._json_request(
-            self.token_url,
-            method="POST",
-            data=payload,
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/x-www-form-urlencoded",
-            },
-        )
-        token = response.get("access_token")
-        if not isinstance(token, str) or not token:
-            raise APIError("OAUTH_EXCHANGE_FAILED", "GitHub sign-in could not be completed.", 502)
-        return token
-
-    def get_user(self, access_token):
-        user = self._json_request(
-            self.user_url,
-            headers={
-                "Accept": "application/vnd.github+json",
-                "Authorization": f"Bearer {access_token}",
-                "X-GitHub-Api-Version": GITHUB_API_VERSION,
-            },
-        )
-        if not isinstance(user, dict):
-            raise APIError("OAUTH_IDENTITY_INVALID", "GitHub returned an invalid identity.", 502)
-        return user
-
-    def _json_request(self, url, method="GET", data=None, headers=None):
-        request_headers = {"User-Agent": "IntHub", **(headers or {})}
-        request = Request(url, data=data, headers=request_headers, method=method)
-        try:
-            with urlopen(request, timeout=self.timeout) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except (HTTPError, URLError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise APIError("OAUTH_PROVIDER_ERROR", "GitHub sign-in is temporarily unavailable.", 502) from exc
-        if not isinstance(payload, dict) or payload.get("error"):
-            raise APIError("OAUTH_PROVIDER_ERROR", "GitHub sign-in is temporarily unavailable.", 502)
-        return payload

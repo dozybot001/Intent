@@ -58,6 +58,7 @@ PY
         python3 -m venv "${STAGING_DIRECTORY}/venv"
         "${STAGING_DIRECTORY}/venv/bin/python" -m pip install \
             --disable-pip-version-check \
+            --index-url https://mirrors.cloud.tencent.com/pypi/simple \
             ".[server,release]" >&2
         mv "${STAGING_DIRECTORY}/venv" "${ENVIRONMENT_DIRECTORY}"
         rmdir "${STAGING_DIRECTORY}"

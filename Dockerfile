@@ -14,7 +14,7 @@ RUN groupadd --gid 10001 inthub \
 
 # The pinned binary wheel carries libpq, eliminating a floating apt snapshot
 # from the release recipe while retaining an exact application dependency.
-RUN python -m pip install --no-cache-dir "psycopg[binary]==3.3.4"
+RUN python -m pip install --no-cache-dir --index-url https://mirrors.cloud.tencent.com/pypi/simple "psycopg[binary]==3.3.4" "Authlib==1.6.12" "httpx==0.28.1"
 
 COPY --chown=inthub:inthub . /app
 
@@ -22,7 +22,7 @@ COPY --chown=inthub:inthub . /app
 # can reuse the already downloaded PostgreSQL driver.
 ARG INTHUB_VERSION=0.0.0
 ARG INTHUB_REVISION=unknown
-ARG INTHUB_SCHEMA_VERSION=2
+ARG INTHUB_SCHEMA_VERSION=3
 LABEL org.opencontainers.image.title="IntHub" \
     org.opencontainers.image.source="https://gitee.com/dozybot/Intent" \
     org.opencontainers.image.version="${INTHUB_VERSION}" \

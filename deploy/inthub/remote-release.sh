@@ -527,6 +527,23 @@ compose_release \
         --expect-version "${APP_SCHEMA_VERSION}" \
         --require-backward-compatible
 
+# An explicitly prepared one-time operator binding runs under this release's
+# lock and database backup, before the first Tenon candidate can accept login.
+TENON_BINDING="${REMOTE_ROOT}/shared/tenon-binding.pending.json"
+if sudo -n test -e "${TENON_BINDING}"; then
+    sudo -n test -f "${TENON_BINDING}" && ! sudo -n test -L "${TENON_BINDING}" \
+        || fail "Tenon binding must be a regular file"
+    [[ "$(sudo -n stat -c '%U:%a' "${TENON_BINDING}")" == root:600 ]] \
+        || fail "Tenon binding must be root-owned with mode 0600"
+    sudo -n cat "${TENON_BINDING}" | compose_release \
+        "inthub-${CANDIDATE_SLOT}" \
+        "${RELEASE_DIRECTORY}" "${RELEASE_SHA}" "${RELEASE_VERSION}" \
+        "${CANDIDATE_CONTAINER}" "${CANDIDATE_PORT}" \
+        run --rm --no-deps --pull never -T -e INTHUB_IDENTITY_MAINTENANCE=1 app \
+            python -m apps.inthub_api.bind_tenon
+    sudo -n mv "${TENON_BINDING}" "${BACKUP_DIRECTORY}/tenon-binding.applied.json"
+fi
+
 ROLLBACK_ARMED=true
 write_release_state starting_candidate
 compose_release \

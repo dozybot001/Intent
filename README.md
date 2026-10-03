@@ -131,7 +131,7 @@ itt hub link
 itt push
 ```
 
-`itt auth login` uses `https://inthub.tenon.asia` by default. It stores the non-secret endpoint in the user config and delegates the account token to Git's configured credential helper, such as macOS Keychain, Git Credential Manager, or libsecret. The same account credential is reused across repositories; each repository keeps its own non-secret `project_id`, `workspace_id`, and `repo_binding` in `.intent/hub.json`. `itt hub status` reports that local state without calling the IntHub API. GitHub and Gitee origins are supported, while GitHub OAuth only identifies the IntHub account. The CLI never needs to rewrite `origin`, and `itt push` rejects an origin that no longer matches the saved binding. `--token` and `INTHUB_TOKEN` remain one-command or environment overrides and are never written to repository config. `itt hub sync` remains a compatible alias for `itt push`.
+`itt auth login` uses `https://inthub.tenon.asia` by default. It stores the non-secret endpoint in the user config and delegates the account token to Git's configured credential helper, such as macOS Keychain, Git Credential Manager, or libsecret. The same account credential is reused across repositories; each repository keeps its own non-secret `project_id`, `workspace_id`, and `repo_binding` in `.intent/hub.json`. `itt hub status` reports that local state without calling the IntHub API. GitHub and Gitee origins are supported, while Tenon OIDC identifies the IntHub account. The CLI never needs to rewrite `origin`, and `itt push` rejects an origin that no longer matches the saved binding. `--token` and `INTHUB_TOKEN` remain one-command or environment overrides and are never written to repository config. `itt hub sync` remains a compatible alias for `itt push`.
 
 To browse semantic history in a browser, start **IntHub Local** (works from any directory):
 
@@ -148,7 +148,7 @@ itt push
 
 IntHub Local binds to `127.0.0.1` by default. Its current local API does not enforce bearer-token authentication and returns permissive CORS headers, so use it only on a trusted machine and do not expose it through a public interface or reverse proxy.
 
-Internet deployments use one account path: GitHub sign-up or sign-in, database-backed Web sessions, account-scoped CLI access tokens, account-isolated projects, PostgreSQL, a loopback app port, and Caddy TLS. See [IntHub Production Deployment](docs/EN/inthub-production.md).
+Internet deployments use one account path: Tenon sign-in, database-backed Web sessions, account-scoped CLI access tokens, account-isolated projects, PostgreSQL, a loopback app port, and Caddy TLS. See [IntHub Production Deployment](docs/EN/inthub-production.md).
 
 > **Tips:** Be explicit: “Use Intent to record this work in `.intent/`” enters recording mode; “Resume this project through Intent” enters recovery mode. Ordinary summaries and status reports remain read-only.
 

@@ -310,7 +310,7 @@ stateDiagram-v2
 - 仓库绑定支持精确的 `github.com` 与 `gitee.com` origin；不要为 IntHub 临时改写 `origin`，应使用 `itt hub status` 而不是直接读取 `hub.json`
 - 显式 `--token` 和 `INTHUB_TOKEN` 会覆盖已保存凭据，且绝不会持久化到 `hub.json`
 - IntHub Local 默认绑定 `127.0.0.1`，但当前 API 不强制校验 Bearer Token，且使用宽松 CORS；不要将它暴露到局域网或公网
-- IntHub 生产配置使用 GitHub 登录或注册和有时限的只读 HttpOnly Web 会话；CLI 写入使用当前账户签发的 access token（HTTP `Bearer`），项目读取和写入均按账户隔离，生产数据库使用 PostgreSQL，详见 [IntHub 生产部署](inthub-production.md)
+- IntHub 生产配置使用 Tenon 统一登录和有时限的只读 HttpOnly Web 会话；CLI 写入使用当前账户签发的 access token（HTTP `Bearer`），项目读取和写入均按账户隔离，生产数据库使用 PostgreSQL，详见 [IntHub 生产部署](inthub-production.md)
 - 对象和 Hub 配置通过原子替换写入，变更命令使用带有界 owner 诊断的工作区级跨进程写锁；这会串行化 Intent CLI 写入，但不会把 `.intent/` 变成多用户数据库
 - IntHub 请求每次尝试最多等待 15 秒、最多尝试两次；随附 argv 适配器具有 60 秒进程安全超时，并始终输出一个 JSON 文档
 - 对象 ID 在路径 I/O 前校验，对象路径必须留在对应类型目录内，`.intent/` 对象存储拒绝符号链接重定向

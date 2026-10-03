@@ -48,6 +48,47 @@ registries, mutable-tag deployments, and on-server source edits are unsupported.
 the exact SHA, the Builder, or locked dependencies are unavailable, the release fails closed
 and the current healthy release keeps serving.
 
+## Sole Tenon account entry and one-time migration
+
+The only sign-in entry is `/api/v1/auth/tenon/start`, with the exact registered callback
+`https://inthub.tenon.asia/api/v1/auth/tenon/callback`. The issuer is fixed to
+`https://account.tenon.asia/api/auth`; discovery supplies endpoints and signing keys.
+Authlib validates signed ID Tokens, issuer, audience, expiration and nonce. Every attempt
+uses S256 PKCE and a single-use browser-bound state. The callback requests only
+`openid profile email`, verifies UserInfo sub, verified email and matching platform role,
+then creates an independent product session without persisting central tokens.
+
+Schema v3 adds exact `(issuer, subject)` mappings to existing `accounts.id`. Project ownership,
+local business roles, public grants and PAT ownership are preserved. First-time Tenon users
+receive ordinary local business records; email and display names never merge accounts.
+Central admin applies only to a verified session, never permanently changes a business role,
+and does not bypass private project ownership. Product sessions last at most 15 minutes and
+never exceed token expiration. Ordinary central logout leaves valid product sessions intact;
+central outages cannot create or extend sessions. Role changes take effect on reauthorization.
+
+Register the confidential web client once through Tenon's controlled `account/clients.mjs`
+maintenance entry with `client_secret_basic`, a production lock, verified active container and
+consistent database backup. Save the returned secret directly into the server's `0600` runtime
+configuration as `INTHUB_TENON_CLIENT_ID` / `INTHUB_TENON_CLIENT_SECRET`; never put it in chat,
+logs, Git, images or browser assets.
+
+Existing-account binding is an explicit operator migration after proving the original product
+owner and confirming the exact central subject. Back up IntHub first, then provide exact
+`account_id` and `subject` through protected stdin to `python -m apps.inthub_api.bind_tenon`,
+with `INTHUB_IDENTITY_MAINTENANCE=1`. Conflicts fail without overwriting mappings; identical
+bindings are idempotent. This command is not exposed through HTTP. Legacy GitHub login returns
+410 and its OAuth client implementation has been removed. Pre-migration browser sessions must
+sign in again; PATs retain their original scope and expiration. Remove legacy OAuth configuration
+after acceptance; application rollback requires its protected configuration backup and previous
+image, without deleting mappings or downgrading the database. Actual owner login remains a
+separate acceptance check from isolated protocol tests.
+
+The first migration may stage those exact IDs in root-owned `0600`
+`shared/tenon-binding.pending.json`. The normal publisher binds them under its release lock,
+after database backup and migration but before candidate login, then moves the applied record
+into that release's protected backup directory. The login button reuses Tenon's
+`dist/assets/mark.svg` (2026-10-03), with fixed brand color `#F06B32`.
+
 ## Fixed production boundary
 
 | Surface | Standard value |

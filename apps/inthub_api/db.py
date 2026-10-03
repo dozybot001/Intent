@@ -17,7 +17,7 @@ from urllib.parse import urlsplit, urlunsplit
 _INITIALIZED = set()
 _INIT_LOCK = threading.Lock()
 
-LATEST_SCHEMA_VERSION = 2
+LATEST_SCHEMA_VERSION = 3
 _INITIAL_SCHEMA_NAME = "initial-account-scoped-schema"
 _INITIAL_SCHEMA_CHECKSUM = hashlib.sha256(
     b"0001:initial-account-scoped-schema:projects-account:tokens:sync-sequence"
@@ -25,6 +25,10 @@ _INITIAL_SCHEMA_CHECKSUM = hashlib.sha256(
 _PUBLIC_PROFILES_SCHEMA_NAME = "public-profiles-with-explicit-project-grants"
 _PUBLIC_PROFILES_SCHEMA_CHECKSUM = hashlib.sha256(
     b"0002:public-profiles:explicit-project-grants"
+).hexdigest()
+_TENON_SCHEMA_NAME = "tenon-identities-and-bounded-session-grants"
+_TENON_SCHEMA_CHECKSUM = hashlib.sha256(
+    b"0003:tenon-identities:nonce-attempts:bounded-session-grants"
 ).hexdigest()
 _EXPECTED_SCHEMA_COLUMNS_V1 = {
     "projects": {
@@ -104,6 +108,13 @@ _EXPECTED_SCHEMA_COLUMNS_V2 = {
 _EXPECTED_SCHEMA_COLUMNS = {
     **_EXPECTED_SCHEMA_COLUMNS_V1,
     **_EXPECTED_SCHEMA_COLUMNS_V2,
+    "account_identities": {"issuer", "subject", "account_id", "created_at"},
+    "tenon_login_attempts": {
+        "state_hash", "code_verifier", "nonce", "return_to", "expires_at",
+    },
+    "tenon_session_grants": {
+        "session_id", "issuer", "subject", "platform_role", "verified_at",
+    },
 }
 
 
@@ -513,6 +524,30 @@ def _ensure_migration_ledger(conn):
     )
 
 
+def _create_tenon_schema(conn):
+    # Additive tables keep the previous image compatible during a release rollback.
+    for statement in (
+        """CREATE TABLE IF NOT EXISTS account_identities (
+            issuer TEXT NOT NULL, subject TEXT NOT NULL,
+            account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (issuer, subject), UNIQUE (account_id, issuer)
+        )""",
+        """CREATE TABLE IF NOT EXISTS tenon_login_attempts (
+            state_hash TEXT PRIMARY KEY, code_verifier TEXT NOT NULL,
+            nonce TEXT NOT NULL, return_to TEXT NOT NULL, expires_at TEXT NOT NULL
+        )""",
+        """CREATE TABLE IF NOT EXISTS tenon_session_grants (
+            session_id TEXT PRIMARY KEY REFERENCES web_sessions(id) ON DELETE CASCADE,
+            issuer TEXT NOT NULL, subject TEXT NOT NULL,
+            platform_role TEXT NOT NULL CHECK (platform_role IN ('admin', 'user')),
+            verified_at TEXT NOT NULL
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_tenon_attempts_expires ON tenon_login_attempts(expires_at)",
+    ):
+        conn.execute(statement)
+
+
 def _migration_ledger_exists(conn):
     if conn.backend == "sqlite":
         row = conn.execute(
@@ -590,6 +625,11 @@ def _validate_migration_ledger(rows):
             "checksum": _PUBLIC_PROFILES_SCHEMA_CHECKSUM,
             "backward_compatible": 1,
         },
+        3: {
+            "name": _TENON_SCHEMA_NAME,
+            "checksum": _TENON_SCHEMA_CHECKSUM,
+            "backward_compatible": 1,
+        },
     }
     observed_versions = set()
     for row in rows:
@@ -654,7 +694,7 @@ def migrate_db(conn, *, require_backward_compatible=True):
             _create_postgresql_public_profiles_schema(conn)
         else:
             _create_sqlite_public_profiles_schema(conn)
-        _validate_schema(conn, _EXPECTED_SCHEMA_COLUMNS)
+        _validate_schema(conn, {**_EXPECTED_SCHEMA_COLUMNS_V1, **_EXPECTED_SCHEMA_COLUMNS_V2})
         conn.execute(
             """
             INSERT INTO schema_migrations
@@ -668,6 +708,17 @@ def migrate_db(conn, *, require_backward_compatible=True):
                 1,
                 datetime.now(timezone.utc).isoformat(),
             ),
+        )
+
+    if 3 not in applied_versions:
+        _create_tenon_schema(conn)
+        _validate_schema(conn, _EXPECTED_SCHEMA_COLUMNS)
+        conn.execute(
+            """INSERT INTO schema_migrations
+                (version, name, checksum, backward_compatible, applied_at)
+                VALUES (?, ?, ?, ?, ?)""",
+            (3, _TENON_SCHEMA_NAME, _TENON_SCHEMA_CHECKSUM, 1,
+             datetime.now(timezone.utc).isoformat()),
         )
 
     rows = _migration_rows(conn)

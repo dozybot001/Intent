@@ -131,7 +131,7 @@ itt hub link
 itt push
 ```
 
-`itt auth login` 默认使用 `https://inthub.tenon.asia`。非敏感服务地址保存在用户级配置中，账户 token 则交给 Git 已配置的 credential helper，例如 macOS Keychain、Git Credential Manager 或 libsecret。同一账户凭据可跨仓库复用；每个仓库仍在自己的 `.intent/hub.json` 中保存非敏感的 `project_id`、`workspace_id` 和 `repo_binding`。`itt hub status` 可以在不调用 IntHub API 的情况下报告这些本地状态。GitHub 和 Gitee origin 都受支持，GitHub OAuth 只用于识别 IntHub 账户。CLI 不需要改写 `origin`；如果当前 origin 与保存的绑定不一致，`itt push` 会拒绝执行。`--token` 与 `INTHUB_TOKEN` 继续作为单次命令或环境覆盖，绝不会写入仓库配置。`itt hub sync` 保留为 `itt push` 的兼容别名。
+`itt auth login` 默认使用 `https://inthub.tenon.asia`。非敏感服务地址保存在用户级配置中，账户 token 则交给 Git 已配置的 credential helper，例如 macOS Keychain、Git Credential Manager 或 libsecret。同一账户凭据可跨仓库复用；每个仓库仍在自己的 `.intent/hub.json` 中保存非敏感的 `project_id`、`workspace_id` 和 `repo_binding`。`itt hub status` 可以在不调用 IntHub API 的情况下报告这些本地状态。GitHub 和 Gitee origin 都受支持，Tenon OIDC 用于识别 IntHub 账户。CLI 不需要改写 `origin`；如果当前 origin 与保存的绑定不一致，`itt push` 会拒绝执行。`--token` 与 `INTHUB_TOKEN` 继续作为单次命令或环境覆盖，绝不会写入仓库配置。`itt hub sync` 保留为 `itt push` 的兼容别名。
 
 想在浏览器中查看语义历史，启动 **IntHub Local**（任意目录可用）：
 
@@ -148,7 +148,7 @@ itt push
 
 IntHub Local 默认只绑定 `127.0.0.1`。当前本地 API 不强制校验 Bearer Token，并返回宽松的 CORS 响应头；因此只应在可信本机使用，不要将它绑定到对外网卡，也不要通过公网接口或反向代理暴露。
 
-公网部署使用统一账户路径：GitHub 登录或注册、数据库 Web 会话、账户级 CLI access token、账户隔离的项目、PostgreSQL、回环应用端口和 Caddy TLS。参见 [IntHub 生产部署](docs/CN/inthub-production.md)。
+公网部署使用统一账户路径：Tenon 统一登录、数据库 Web 会话、账户级 CLI access token、账户隔离的项目、PostgreSQL、回环应用端口和 Caddy TLS。参见 [IntHub 生产部署](docs/CN/inthub-production.md)。
 
 > **Tips：** 请明确表达：“用 Intent 把这轮工作写入 `.intent/`”进入记录模式；“通过 Intent 恢复这个项目”进入接续模式。普通总结和状态汇报保持只读。
 

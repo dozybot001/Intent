@@ -56,8 +56,8 @@ const el = {
   authError: document.getElementById("auth-error"),
   authDescription: document.getElementById("auth-description"),
   authFootnote: document.getElementById("auth-footnote"),
-  githubLogin: document.getElementById("github-login"),
-  githubLoginLabel: document.getElementById("github-login-label"),
+  tenonLogin: document.getElementById("tenon-login"),
+  tenonLoginLabel: document.getElementById("tenon-login-label"),
   navHealth: document.getElementById("nav-health"),
   navContextLabel: document.getElementById("nav-context-label"),
   brandLinks: document.querySelectorAll("[data-brand-link]"),
@@ -210,17 +210,17 @@ async function fetchJson(url, options = {}) {
   return p.result;
 }
 
-function setGithubLoginLoading(loading) {
-  el.githubLogin.classList.toggle("is-loading", loading);
-  el.githubLogin.setAttribute("aria-busy", String(loading));
+function setTenonLoginLoading(loading) {
+  el.tenonLogin.classList.toggle("is-loading", loading);
+  el.tenonLogin.setAttribute("aria-busy", String(loading));
   if (loading) {
-    el.githubLogin.setAttribute("aria-disabled", "true");
+    el.tenonLogin.setAttribute("aria-disabled", "true");
   } else {
-    el.githubLogin.removeAttribute("aria-disabled");
+    el.tenonLogin.removeAttribute("aria-disabled");
   }
-  el.githubLoginLabel.textContent = loading
-    ? "Connecting to GitHub\u2026"
-    : "Continue with GitHub";
+  el.tenonLoginLabel.textContent = loading
+    ? "Connecting to Tenon\u2026"
+    : "Sign in with Tenon";
 }
 
 function showAuthGate(message = "") {
@@ -230,15 +230,15 @@ function showAuthGate(message = "") {
   el.accountControl.classList.add("is-hidden");
   el.authError.textContent = message;
   el.authError.classList.toggle("is-hidden", !message);
-  el.githubLogin.classList.remove("is-hidden");
+  el.tenonLogin.classList.remove("is-hidden");
   const returnTo = `${window.location.pathname}${window.location.search}`;
-  el.githubLogin.href = `/api/v1/auth/github/start?return_to=${encodeURIComponent(returnTo)}`;
-  setGithubLoginLoading(false);
+  el.tenonLogin.href = `/api/v1/auth/tenon/start?return_to=${encodeURIComponent(returnTo)}`;
+  setTenonLoginLoading(false);
   el.authDescription.textContent =
-    "Use your GitHub identity to sign in or create your IntHub account.";
+    "Use your Tenon account to continue to your workspace.";
   el.authFootnote.textContent =
-    "IntHub stores its own revocable browser session and never stores your GitHub access token.";
-  window.setTimeout(() => el.githubLogin.focus(), 0);
+    "Your account is managed by Tenon. IntHub keeps a separate, revocable session.";
+  window.setTimeout(() => el.tenonLogin.focus(), 0);
 }
 
 function hideAuthGate() {
@@ -265,7 +265,7 @@ function hideAuthGate() {
 }
 
 async function loadCurrentAccount() {
-  if (state.config?.authMode !== "github") return;
+  if (state.config?.authMode !== "tenon") return;
   const result = await fetchJson(apiUrl("/api/v1/auth/me"));
   state.account = result.account;
 }
@@ -292,9 +292,9 @@ function callbackErrorMessage() {
     `${window.location.pathname}${query ? `?${query}` : ""}`,
   );
   const messages = {
-    github_denied: "GitHub sign-in was cancelled.",
+    tenon_denied: "Tenon sign-in was cancelled.",
     invalid_state: "That sign-in attempt expired. Please try again.",
-    github_failed: "GitHub sign-in could not be completed. Please try again.",
+    tenon_failed: "Tenon sign-in could not be completed. Please try again.",
   };
   return messages[code] || "Sign-in could not be completed.";
 }
@@ -1649,17 +1649,17 @@ async function loadProjects() {
 function bindEvents() {
   el.searchTrigger.addEventListener("click", () => switchTab("search"));
 
-  el.githubLogin.addEventListener("click", (event) => {
-    if (el.githubLogin.classList.contains("is-loading")) {
+  el.tenonLogin.addEventListener("click", (event) => {
+    if (el.tenonLogin.classList.contains("is-loading")) {
       event.preventDefault();
       return;
     }
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    setGithubLoginLoading(true);
+    setTenonLoginLoading(true);
   });
 
   window.addEventListener("pageshow", () => {
-    setGithubLoginLoading(false);
+    setTenonLoginLoading(false);
   });
 
   el.tokenBtn.addEventListener("click", async () => {

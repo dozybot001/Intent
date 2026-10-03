@@ -36,10 +36,12 @@ check_surface() {
     oauth_status="$(
         curl --silent --show-error --max-time 10 \
             --output /dev/null --write-out '%{http_code}' \
-            "${base_url}/api/v1/auth/github/start"
+            "${base_url}/api/v1/auth/tenon/start"
     )"
     [[ "${oauth_status}" == 302 || "${oauth_status}" == 303 ]] \
-        || { echo "Expected GitHub OAuth start to redirect, got ${oauth_status}." >&2; return 1; }
+        || { echo "Expected Tenon OIDC start to redirect, got ${oauth_status}." >&2; return 1; }
+    [[ "$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${base_url}/api/v1/auth/github/start")" == 410 ]] \
+        || { echo "Legacy GitHub login must be retired." >&2; return 1; }
 
     showcase_status="$(
         curl --silent --show-error --max-time 10 \

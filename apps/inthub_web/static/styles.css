@@ -2680,7 +2680,7 @@ input:focus {
   line-height: 1.65;
 }
 
-.github-login {
+.tenon-login {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr) auto;
   align-items: center;
@@ -2697,13 +2697,13 @@ input:focus {
   transition: transform 140ms ease, background 140ms ease, box-shadow 140ms ease;
 }
 
-.github-login:hover {
+.tenon-login:hover {
   background: var(--graphite-800);
   box-shadow: 0 14px 34px rgba(20, 24, 20, 0.18);
   transform: translateY(-2px);
 }
 
-.github-login-visual {
+.tenon-login-visual {
   position: relative;
   display: grid;
   width: 22px;
@@ -2711,13 +2711,13 @@ input:focus {
   place-items: center;
 }
 
-.github-login-visual svg {
+.tenon-login-visual svg {
   width: 22px;
   height: 22px;
   transition: opacity 120ms ease, transform 180ms ease;
 }
 
-.github-login-spinner {
+.tenon-login-spinner {
   position: absolute;
   width: 18px;
   height: 18px;
@@ -2727,29 +2727,29 @@ input:focus {
   opacity: 0;
 }
 
-.github-login.is-loading,
-.github-login.is-loading:hover {
+.tenon-login.is-loading,
+.tenon-login.is-loading:hover {
   cursor: wait;
   background: var(--graphite-800);
   box-shadow: 0 8px 22px rgba(20, 24, 20, 0.14);
   transform: none;
 }
 
-.github-login.is-loading .github-login-visual svg {
+.tenon-login.is-loading .tenon-login-visual svg {
   opacity: 0;
   transform: scale(0.72);
 }
 
-.github-login.is-loading .github-login-spinner {
+.tenon-login.is-loading .tenon-login-spinner {
   opacity: 1;
   animation: spin 700ms linear infinite;
 }
 
-.github-login.is-loading .github-login-arrow {
+.tenon-login.is-loading .tenon-login-arrow {
   opacity: 0;
 }
 
-.github-login-arrow {
+.tenon-login-arrow {
   color: #e7a77f;
   font-size: 1rem;
   transition: opacity 120ms ease;

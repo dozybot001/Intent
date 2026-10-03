@@ -12,9 +12,28 @@ from apps.inthub_api.auth import (
 from apps.inthub_api.ingest import link_project, store_sync_batch
 from apps.inthub_api.public_profiles import configure_public_profile
 from apps.inthub_api.queries import list_projects, project_overview, public_profile
+from apps.inthub_api.tenon import (
+    account_for_identity, account_for_session as tenon_account_for_session,
+    bind_existing_account, consume_attempt, create_attempt, create_session,
+)
+import time
 
 
 POSTGRES_URL = os.getenv("INTHUB_TEST_POSTGRES_URL")
+
+
+@pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")
+def test_postgresql_tenon_mapping_attempt_and_session():
+    suffix = os.urandom(6).hex()
+    account = upsert_github_account(POSTGRES_URL, {"id": "legacy-" + suffix, "login": suffix})
+    subject = "tenon-" + suffix
+    bind_existing_account(POSTGRES_URL, account["id"], subject)
+    info = {"sub": subject, "name": "Integration", "platform_role": "admin", "expires_at": time.time() + 60}
+    assert account_for_identity(POSTGRES_URL, info)["id"] == account["id"]
+    attempt = create_attempt(POSTGRES_URL)
+    assert consume_attempt(POSTGRES_URL, attempt["state"])["nonce"] == attempt["nonce"]
+    session = create_session(POSTGRES_URL, account["id"], info)
+    assert tenon_account_for_session(POSTGRES_URL, session["token"])["role"] == "admin"
 
 
 @pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")

@@ -12,18 +12,16 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from apps.inthub_api.auth import (
-    GitHubOAuthClient,
     account_for_access_token,
-    account_for_session,
-    consume_login_attempt,
     create_account_access_token,
-    create_login_attempt,
-    create_web_session,
     delete_web_session,
     list_account_access_tokens,
     revoke_account_access_token,
     safe_return_to,
-    upsert_github_account,
+)
+from apps.inthub_api.tenon import (
+    TenonOIDCClient, account_for_identity, account_for_session,
+    consume_attempt, create_attempt, create_session, SESSION_MAX_SECONDS,
 )
 from apps.inthub_api.common import APIError
 from apps.inthub_api.db import check_database, describe_database
@@ -49,7 +47,7 @@ STATIC_DIR = Path(__file__).resolve().parents[1] / "inthub_web" / "static"
 DEFAULT_MAX_BODY_BYTES = 16 * 1024 * 1024
 SESSION_COOKIE = "inthub_session"
 OAUTH_STATE_COOKIE = "inthub_oauth_state"
-ACCOUNT_SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
+ACCOUNT_SESSION_TTL_SECONDS = SESSION_MAX_SECONDS
 OAUTH_STATE_TTL_SECONDS = 10 * 60
 LOGGER = logging.getLogger("inthub.api")
 
@@ -104,24 +102,33 @@ def make_handler(
     allowed_origins=None,
     max_body_bytes=DEFAULT_MAX_BODY_BYTES,
     secure_cookies=False,
-    github_client_id=None,
-    github_client_secret=None,
+    tenon_client_id=None,
+    tenon_client_secret=None,
     oauth_client=None,
     account_session_ttl_seconds=ACCOUNT_SESSION_TTL_SECONDS,
     oauth_state_ttl_seconds=OAUTH_STATE_TTL_SECONDS,
     showcase_profile_slug="showcase",
 ):
     root = Path(web_static_dir or STATIC_DIR).resolve()
-    github_configured = bool(github_client_id or github_client_secret)
-    if github_configured and not (github_client_id and github_client_secret):
-        raise ValueError("Both GitHub OAuth client ID and client secret are required.")
+    tenon_configured = bool(tenon_client_id or tenon_client_secret)
+    if tenon_configured and not (tenon_client_id and tenon_client_secret):
+        raise ValueError("Both Tenon OIDC client ID and client secret are required.")
     provider_client = oauth_client
-    if github_configured and provider_client is None:
-        provider_client = GitHubOAuthClient(github_client_id, github_client_secret)
-    auth_required = bool(require_auth or github_configured)
-    if auth_required and not github_configured:
+    if tenon_configured and provider_client is None:
+        provider_client = TenonOIDCClient(tenon_client_id, tenon_client_secret)
+    auth_required = bool(require_auth or tenon_configured)
+    if auth_required and not tenon_configured:
         raise ValueError("Authentication is required but no IntHub authentication is configured.")
-    auth_mode = "github" if github_configured else "none"
+    auth_mode = "tenon" if tenon_configured else "none"
+    if tenon_configured and not public_api_base_url:
+        raise ValueError("Tenon sign-in requires an explicit public API base URL.")
+    if tenon_configured:
+        callback_origin = urlparse(public_api_base_url)
+        if (callback_origin.scheme != "https" or not callback_origin.netloc
+                or callback_origin.username or callback_origin.password
+                or callback_origin.path not in {"", "/"}
+                or callback_origin.query or callback_origin.fragment):
+            raise ValueError("Tenon sign-in requires an exact HTTPS public origin.")
     origin_allowlist = _normalize_origins(allowed_origins)
 
     class IntHubHandler(BaseHTTPRequestHandler):
@@ -188,7 +195,7 @@ def make_handler(
             return f"{proto}://{host}"
 
         def _oauth_callback_url(self):
-            return f"{self._request_base_url()}/api/v1/auth/github/callback"
+            return f"{self._request_base_url()}/api/v1/auth/tenon/callback"
 
         def _send_redirect(self, location, cookies=None):
             headers = [("Location", location)]
@@ -306,7 +313,7 @@ def make_handler(
             return morsel.value if morsel else None
 
         def _current_account(self):
-            if not github_configured:
+            if not tenon_configured:
                 return None
             return account_for_session(db_path, self._cookie_value(SESSION_COOKIE))
 
@@ -344,7 +351,7 @@ def make_handler(
                 value,
                 max_age,
                 same_site="Lax",
-                path="/api/v1/auth/github",
+                path="/api/v1/auth/tenon",
             )
 
         def _handle_logout(self):
@@ -412,34 +419,32 @@ def make_handler(
             revoke_account_access_token(db_path, account["id"], token_id)
             self._send_json(200, _json_success({"revoked": True, "id": token_id}))
 
-        def _begin_github_login(self, return_to="/"):
-            if not github_configured or provider_client is None:
-                raise APIError("AUTH_FLOW_UNAVAILABLE", "GitHub sign-in is not configured.", 404)
-            attempt = create_login_attempt(
+        def _begin_tenon_login(self, return_to="/"):
+            self._check_origin()
+            if self.headers.get("Sec-Fetch-Site") == "cross-site":
+                raise APIError("ORIGIN_DENIED", "Start sign-in from IntHub.", 403)
+            if not tenon_configured or provider_client is None:
+                raise APIError("AUTH_FLOW_UNAVAILABLE", "Tenon sign-in is not configured.", 404)
+            attempt = create_attempt(
                 db_path,
                 return_to=safe_return_to(return_to),
                 ttl_seconds=oauth_state_ttl_seconds,
             )
             location = provider_client.authorization_url(
                 self._oauth_callback_url(),
-                attempt["state"],
-                attempt["code_challenge"],
+                attempt,
             )
             self._send_redirect(
                 location,
                 [self._oauth_state_cookie(attempt["state"], oauth_state_ttl_seconds)],
             )
 
-        def _handle_github_start(self, query):
+        def _handle_tenon_start(self, query):
             return_to = safe_return_to(query.get("return_to", ["/"])[0])
-            self._begin_github_login(return_to=return_to)
+            self._begin_tenon_login(return_to=return_to)
 
-        def _handle_github_callback(self, query):
+        def _handle_tenon_callback(self, query):
             clear_state = self._oauth_state_cookie("", 0)
-            if query.get("error"):
-                self._send_redirect("/?auth_error=github_denied", [clear_state])
-                return
-
             state = query.get("state", [""])[0]
             cookie_state = self._cookie_value(OAUTH_STATE_COOKIE) or ""
             if not state or not hmac.compare_digest(state, cookie_state):
@@ -447,33 +452,36 @@ def make_handler(
                 return
 
             try:
-                attempt = consume_login_attempt(db_path, state)
+                attempt = consume_attempt(db_path, state)
+                if query.get("error"):
+                    self._send_redirect("/?auth_error=tenon_denied", [clear_state])
+                    return
                 code = query.get("code", [""])[0]
                 if not code:
-                    raise APIError("OAUTH_CODE_MISSING", "GitHub did not return a sign-in code.", 400)
+                    raise APIError("OAUTH_CODE_MISSING", "Tenon did not return a sign-in code.", 400)
                 if provider_client is None:
-                    raise APIError("AUTH_FLOW_UNAVAILABLE", "GitHub sign-in is not configured.", 404)
-                access_token = provider_client.exchange_code(
+                    raise APIError("AUTH_FLOW_UNAVAILABLE", "Tenon sign-in is not configured.", 404)
+                identity = provider_client.complete_login(
                     code,
                     self._oauth_callback_url(),
-                    attempt["code_verifier"],
+                    attempt,
                 )
-                user = provider_client.get_user(access_token)
-                account = upsert_github_account(db_path, user)
-                session = create_web_session(
+                account = account_for_identity(db_path, identity)
+                session = create_session(
                     db_path,
                     account["id"],
+                    identity,
                     ttl_seconds=account_session_ttl_seconds,
                 )
             except APIError as exc:
-                LOGGER.warning("GitHub sign-in failed: %s", exc.code)
-                self._send_redirect("/?auth_error=github_failed", [clear_state])
+                LOGGER.warning("Tenon sign-in failed: %s", exc.code)
+                self._send_redirect("/?auth_error=tenon_failed", [clear_state])
                 return
 
             self._send_redirect(
                 attempt["return_to"],
                 [
-                    self._session_cookie(session["token"], account_session_ttl_seconds),
+                    self._session_cookie(session["token"], session["ttl_seconds"]),
                     clear_state,
                 ],
             )
@@ -656,6 +664,8 @@ def make_handler(
             parsed = urlparse(self.path)
             try:
                 self._check_origin()
+                if parsed.path.startswith("/api/v1/auth/github/"):
+                    raise APIError("ACCOUNT_MANAGED_BY_TENON", "Sign in with Tenon.", 410)
                 if parsed.path == "/api/v1/auth/logout":
                     self._handle_logout()
                     return
@@ -690,12 +700,15 @@ def make_handler(
         def do_GET(self):
             parsed = urlparse(self.path)
             try:
-                if parsed.path == "/api/v1/auth/github/start":
-                    self._handle_github_start(parse_qs(parsed.query))
+                if parsed.path.startswith("/api/v1/auth/github/"):
+                    raise APIError("ACCOUNT_MANAGED_BY_TENON", "Sign in with Tenon.", 410)
+
+                if parsed.path == "/api/v1/auth/tenon/start":
+                    self._handle_tenon_start(parse_qs(parsed.query))
                     return
 
-                if parsed.path == "/api/v1/auth/github/callback":
-                    self._handle_github_callback(parse_qs(parsed.query))
+                if parsed.path == "/api/v1/auth/tenon/callback":
+                    self._handle_tenon_callback(parse_qs(parsed.query))
                     return
 
                 if parsed.path in {"/health", "/healthz"}:
@@ -791,8 +804,8 @@ def build_server(
     allowed_origins=None,
     max_body_bytes=DEFAULT_MAX_BODY_BYTES,
     secure_cookies=False,
-    github_client_id=None,
-    github_client_secret=None,
+    tenon_client_id=None,
+    tenon_client_secret=None,
     oauth_client=None,
     account_session_ttl_seconds=ACCOUNT_SESSION_TTL_SECONDS,
     oauth_state_ttl_seconds=OAUTH_STATE_TTL_SECONDS,
@@ -811,8 +824,8 @@ def build_server(
             allowed_origins=allowed_origins,
             max_body_bytes=max_body_bytes,
             secure_cookies=secure_cookies,
-            github_client_id=github_client_id,
-            github_client_secret=github_client_secret,
+            tenon_client_id=tenon_client_id,
+            tenon_client_secret=tenon_client_secret,
             oauth_client=oauth_client,
             account_session_ttl_seconds=account_session_ttl_seconds,
             oauth_state_ttl_seconds=oauth_state_ttl_seconds,
@@ -833,8 +846,8 @@ def run_server(
     allowed_origins=None,
     max_body_bytes=DEFAULT_MAX_BODY_BYTES,
     secure_cookies=False,
-    github_client_id=None,
-    github_client_secret=None,
+    tenon_client_id=None,
+    tenon_client_secret=None,
     oauth_client=None,
     account_session_ttl_seconds=ACCOUNT_SESSION_TTL_SECONDS,
     oauth_state_ttl_seconds=OAUTH_STATE_TTL_SECONDS,
@@ -852,8 +865,8 @@ def run_server(
         allowed_origins=allowed_origins,
         max_body_bytes=max_body_bytes,
         secure_cookies=secure_cookies,
-        github_client_id=github_client_id,
-        github_client_secret=github_client_secret,
+        tenon_client_id=tenon_client_id,
+        tenon_client_secret=tenon_client_secret,
         oauth_client=oauth_client,
         account_session_ttl_seconds=account_session_ttl_seconds,
         oauth_state_ttl_seconds=oauth_state_ttl_seconds,
@@ -893,9 +906,9 @@ def main():
     parser.add_argument("--web-static-dir", default=os.getenv("INTHUB_WEB_STATIC_DIR"))
     args = parser.parse_args()
 
-    github_client_id = _env_or_file("INTHUB_GITHUB_CLIENT_ID")
-    github_client_secret = _env_or_file("INTHUB_GITHUB_CLIENT_SECRET")
-    github_configured = bool(github_client_id or github_client_secret)
+    tenon_client_id = _env_or_file("INTHUB_TENON_CLIENT_ID")
+    tenon_client_secret = _env_or_file("INTHUB_TENON_CLIENT_SECRET")
+    tenon_configured = bool(tenon_client_id or tenon_client_secret)
     allowed_origins = os.getenv("INTHUB_ALLOWED_ORIGINS")
     run_server(
         args.host,
@@ -907,13 +920,13 @@ def main():
         web_static_dir=args.web_static_dir,
         require_auth=_env_flag(
             "INTHUB_REQUIRE_AUTH",
-            github_configured,
+            tenon_configured,
         ),
         allowed_origins=allowed_origins,
         max_body_bytes=int(os.getenv("INTHUB_MAX_BODY_BYTES", str(DEFAULT_MAX_BODY_BYTES))),
         secure_cookies=_env_flag("INTHUB_SECURE_COOKIES", False),
-        github_client_id=github_client_id,
-        github_client_secret=github_client_secret,
+        tenon_client_id=tenon_client_id,
+        tenon_client_secret=tenon_client_secret,
         account_session_ttl_seconds=int(
             os.getenv("INTHUB_SESSION_TTL_SECONDS", str(ACCOUNT_SESSION_TTL_SECONDS))
         ),

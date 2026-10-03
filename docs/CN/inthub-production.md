@@ -46,6 +46,41 @@ bash deploy/inthub/release.sh
 可变 tag 部署或服务器现场修改。Gitee 不可用、SHA 不一致、Builder/依赖不可用时，发布
 失败关闭，当前健康版本继续服务。
 
+## 统一 Tenon 身份与一次性迁移
+
+唯一用户登录入口为 `/api/v1/auth/tenon/start`，回调精确登记为
+`https://inthub.tenon.asia/api/v1/auth/tenon/callback`。中央 issuer 固定为
+`https://account.tenon.asia/api/auth`，端点和签名公钥通过 discovery 获取；Authlib
+验证签名、issuer、audience、期限及 nonce，授权码采用 S256 PKCE，一次性 state
+绑定当前浏览器。回调仅申请 `openid profile email`，核对 UserInfo 的同一 sub、
+已验证邮箱和平台角色后建立 IntHub 独立会话，不保存中央 token。
+
+Schema v3 增加 `(issuer, subject)` 到原 `accounts.id` 的映射及会话授权记录。
+现有项目外键、业务角色、公开发布和 CLI PAT 保持原归属。新 Tenon 用户首次进入时
+建立普通本地业务记录；相同邮箱或称呼不能合并已有账号。平台 admin 只在经验证的
+本地会话中获得管理员角色，不持久修改本地业务角色，也不扩大跨账号项目访问范围。
+本地会话最长15分钟且不超过中央令牌期限；正常中央退出不撤销未到期产品会话，
+中心故障不签发或续期，角色变化最迟在重新授权时生效。
+
+产品客户端由 Tenon `account/clients.mjs` 的受控维护入口一次性登记，使用
+`client_secret_basic`。持有中央发布锁、核对当前已验收容器并备份中央数据库后执行；
+秘密直接保存至服务器 `0600` 配置中的 `INTHUB_TENON_CLIENT_ID` /
+`INTHUB_TENON_CLIENT_SECRET`，不得经过聊天、日志、Git、镜像或浏览器。
+
+旧账号绑定是显式维护操作：先核实原产品账号所有权与精确 ID，再确认中央身份的
+精确 subject，备份 IntHub 数据库后，以保护的 stdin 向
+`python -m apps.inthub_api.bind_tenon` 提供 `account_id`、`subject`，并显式开启
+`INTHUB_IDENTITY_MAINTENANCE=1`。冲突拒绝覆盖；重复相同映射安全幂等。
+本入口不通过 HTTP 开放。迁移完成后旧 GitHub 登录接口返回410，旧 OAuth 客户端代码
+已经移除；以前的浏览器会话须重新通过 Tenon 登录，现有 PAT 按原期限继续有效。
+旧 GitHub 配置在验收后从活动运行配置删除；需要回退时使用受限备份恢复旧配置和镜像，
+不删除已建立的身份映射、不降级数据库。真实本人回调须独立验收，不能以模拟测试替代。
+
+首轮迁移可将上述精确双边映射预先保存在 root / `0600` 的
+`shared/tenon-binding.pending.json`。正常发布器在持有发布锁、完成备份和 schema 迁移后、
+候选接收登录前执行一次绑定；成功后将凭据之外的迁移记录移入本次受限备份目录。
+登录按钮复用 Tenon 主站 `dist/assets/mark.svg`（2026-10-03），品牌色固定为 `#F06B32`。
+
 ## 固定生产边界
 
 | 项目 | 标准值 |

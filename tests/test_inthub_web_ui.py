@@ -118,27 +118,27 @@ def test_login_page_matches_the_continuity_workspace_and_keeps_one_auth_path():
     assert 'class="auth-preview"' in html
     assert "Resume with the" in html
     assert "Continuation brief" in html
-    assert html.count('id="github-login"') == 1
+    assert html.count('id="tenon-login"') == 1
     assert "No repository permissions" in html
-    assert "never stores your GitHub access token" in javascript
+    assert "Your account is managed by Tenon" in javascript
     assert ".auth-assurances" in stylesheet
     assert ".auth-preview-flow::before" in stylesheet
     assert "var(--graphite-950);" not in stylesheet[stylesheet.index(".auth-gate {"):stylesheet.index(".auth-stage {")]
 
 
-def test_github_login_has_immediate_loading_feedback_and_recovers_from_history():
+def test_tenon_login_has_immediate_loading_feedback_and_recovers_from_history():
     html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
     javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
     stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
 
-    assert 'class="github-login-spinner"' in html
+    assert 'class="tenon-login-spinner"' in html
     assert 'aria-live="polite"' in html
-    assert "function setGithubLoginLoading" in javascript
+    assert "function setTenonLoginLoading" in javascript
     assert 'setAttribute("aria-busy", String(loading))' in javascript
-    assert '"Connecting to GitHub\\u2026"' in javascript
+    assert '"Connecting to Tenon\\u2026"' in javascript
     assert 'window.addEventListener("pageshow"' in javascript
     assert 'event.preventDefault()' in javascript
-    assert ".github-login.is-loading" in stylesheet
+    assert ".tenon-login.is-loading" in stylesheet
     assert "animation: spin 700ms linear infinite" in stylesheet
 
 

@@ -2,6 +2,9 @@ import json
 import os
 import subprocess
 import threading
+import time
+import base64
+import hashlib
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -16,36 +19,30 @@ from apps.inthub_api.server import make_handler
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 
-class FakeGitHubOAuthClient:
+class FakeTenonOIDCClient:
     def __init__(self, user=None):
-        self.user = user or {
-            "id": 4242,
-            "login": "dozy",
-            "name": "Dozy",
-            "avatar_url": "https://avatars.example/dozy.png",
-        }
+        self.user = user or {"sub": "tenon-dozy", "name": "Dozy", "platform_role": "user", "expires_at": time.time() + 900}
         self.exchange = None
 
-    def authorization_url(self, redirect_uri, state, code_challenge):
+    def authorization_url(self, redirect_uri, attempt):
+        state = attempt["state"]
+        code_challenge = base64.urlsafe_b64encode(hashlib.sha256(attempt["code_verifier"].encode()).digest()).rstrip(b"=").decode()
         query = parse_qs(
             f"redirect_uri={redirect_uri}&state={state}&code_challenge={code_challenge}"
         )
         assert query["redirect_uri"] == [redirect_uri]
         return (
-            "https://github.example/authorize"
+            "https://account.tenon.asia/api/auth/oauth2/authorize"
             f"?state={state}&code_challenge={code_challenge}"
         )
 
-    def exchange_code(self, code, redirect_uri, code_verifier):
+    def complete_login(self, code, redirect_uri, attempt):
         self.exchange = {
             "code": code,
             "redirect_uri": redirect_uri,
-            "code_verifier": code_verifier,
+            "code_verifier": attempt["code_verifier"],
+            "nonce": attempt["nonce"],
         }
-        return "github-token-used-once"
-
-    def get_user(self, access_token):
-        assert access_token == "github-token-used-once"
         return self.user
 
 
@@ -135,9 +132,10 @@ def test_production_smoke_accepts_order_independent_required_csp(tmp_path):
         make_handler(
             str(tmp_path / "inthub.db"),
             serve_web=True,
-            github_client_id="github-client-id",
-            github_client_secret="github-client-secret",
-            oauth_client=FakeGitHubOAuthClient(),
+            tenon_client_id="github-client-id",
+            tenon_client_secret="github-client-secret",
+            oauth_client=FakeTenonOIDCClient(),
+            public_api_base_url="https://inthub.example",
         ),
     )
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -168,9 +166,10 @@ def test_account_pat_authenticates_cli_reads_and_writes(tmp_path):
         make_handler(
             db_path,
             serve_web=True,
-            github_client_id="github-client-id",
-            github_client_secret="github-client-secret",
-            oauth_client=FakeGitHubOAuthClient(),
+            tenon_client_id="github-client-id",
+            tenon_client_secret="github-client-secret",
+            oauth_client=FakeTenonOIDCClient(),
+            public_api_base_url="https://inthub.example",
         ),
     )
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -216,16 +215,16 @@ def test_account_pat_authenticates_cli_reads_and_writes(tmp_path):
         server.server_close()
 
 
-def test_github_account_login_uses_pkce_database_session_and_logout(tmp_path):
-    oauth = FakeGitHubOAuthClient()
+def test_tenon_account_login_uses_pkce_database_session_and_logout(tmp_path):
+    oauth = FakeTenonOIDCClient()
     server = ThreadingHTTPServer(
         ("127.0.0.1", 0),
         make_handler(
             str(tmp_path / "inthub.db"),
             serve_web=True,
             public_api_base_url="https://inthub.example",
-            github_client_id="github-client-id",
-            github_client_secret="github-client-secret",
+            tenon_client_id="github-client-id",
+            tenon_client_secret="github-client-secret",
             oauth_client=oauth,
             secure_cookies=True,
         ),
@@ -235,7 +234,10 @@ def test_github_account_login_uses_pkce_database_session_and_logout(tmp_path):
     try:
         base = f"http://127.0.0.1:{server.server_port}"
         config = _get_json(f"{base}/config.json")
-        assert config["authMode"] == "github"
+        assert config["authMode"] == "tenon"
+        assert _raw_request(server, "/api/v1/auth/github/start")[0] == 410
+        assert _raw_request(server, "/api/v1/auth/github/callback", method="POST")[0] == 410
+        assert _raw_request(server, "/api/v1/auth/tenon/start", headers={"Sec-Fetch-Site": "cross-site"})[0] == 403
 
         status, root_headers, _ = _raw_request(server, "/")
         assert status == 200
@@ -243,7 +245,7 @@ def test_github_account_login_uses_pkce_database_session_and_logout(tmp_path):
 
         status, headers, _ = _raw_request(
             server,
-            "/api/v1/auth/github/start?return_to=%2Fprojects%2Fdemo%3Ftab%3Dsnaps",
+            "/api/v1/auth/tenon/start?return_to=%2Fprojects%2Fdemo%3Ftab%3Dsnaps",
         )
         assert status == 302
         header_map = dict(headers)
@@ -255,7 +257,7 @@ def test_github_account_login_uses_pkce_database_session_and_logout(tmp_path):
 
         status, callback_headers, _ = _raw_request(
             server,
-            f"/api/v1/auth/github/callback?code=temporary-code&state={state}",
+            f"/api/v1/auth/tenon/callback?code=temporary-code&state={state}",
             headers={"Cookie": state_cookie},
         )
         assert status == 302
@@ -265,16 +267,23 @@ def test_github_account_login_uses_pkce_database_session_and_logout(tmp_path):
         assert "SameSite=Strict" in next(value for value in cookies if "ith_ses_" in value)
         assert oauth.exchange["code"] == "temporary-code"
         assert oauth.exchange["redirect_uri"] == (
-            "https://inthub.example/api/v1/auth/github/callback"
+            "https://inthub.example/api/v1/auth/tenon/callback"
         )
         assert oauth.exchange["code_verifier"]
+        assert oauth.exchange["nonce"]
+        status, replay_headers, _ = _raw_request(
+            server, f"/api/v1/auth/tenon/callback?code=temporary-code&state={state}",
+            headers={"Cookie": state_cookie},
+        )
+        assert status == 302
+        assert dict(replay_headers)["Location"] == "/?auth_error=tenon_failed"
 
         status, _, body = _request_json(
             f"{base}/api/v1/auth/me",
             headers={"Cookie": session_cookie},
         )
         assert status == 200
-        assert body["result"]["account"]["login"] == "dozy"
+        assert body["result"]["account"]["display_name"] == "Dozy"
         assert body["result"]["account"]["role"] == "member"
 
         status, _, body = _request_json(
