@@ -3,9 +3,13 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#f5f6f3">
     <title>IntHub · Tenon</title>
     <link rel="icon" type="image/svg+xml" href="/tenon-mark.svg">
-    <link rel="stylesheet" href="/styles.css?rev=tenon-standard-3">
+    <link rel="preload" href="/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+    <script src="/theme.js?rev=ui-polish-1"></script>
+    <link rel="stylesheet" href="/styles.css?rev=ui-polish-1">
   </head>
   <body class="login-transition">
     <main class="login-transition-card" aria-labelledby="transition-title">
@@ -18,8 +22,9 @@
         <a id="transition-return" href="/">Return to IntHub</a>
       </div>
       <button data-language-switch class="language-button" type="button" aria-label="Switch language">中文</button>
+      <button class="icon-button theme-switch" data-theme-switch type="button" aria-label="Switch theme"></button>
     </main>
-    <script src="/i18n.js?rev=tenon-standard-3"></script>
-    <script src="/auth-redirect.js?rev=tenon-standard-3"></script>
+    <script src="/i18n.js?rev=ui-polish-1"></script>
+    <script src="/auth-redirect.js?rev=ui-polish-1"></script>
   </body>
 </html>

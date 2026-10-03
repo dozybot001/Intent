@@ -1,4 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <path d="M5 22V7a2 2 0 0 1 2-2h16v5H10v12H5Z" fill="#1C211C"/>
-  <path d="M27 10v15a2 2 0 0 1-2 2H9v-5h13V10h5Z" fill="#B85F31"/>
+  <view id="dark" viewBox="32 0 32 32"/>
+  <defs>
+    <path id="fold-a" d="M5 22V7a2 2 0 0 1 2-2h16v5H10v12H5Z"/>
+    <path id="fold-b" d="M27 10v15a2 2 0 0 1-2 2H9v-5h13V10h5Z"/>
+  </defs>
+  <use href="#fold-a" fill="#1C211C"/>
+  <use href="#fold-b" fill="#B85F31"/>
+  <use href="#fold-a" x="32" fill="#EDF1ED"/>
+  <use href="#fold-b" x="32" fill="#B85F31"/>
 </svg>

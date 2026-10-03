@@ -1,6 +1,9 @@
 /* UI copy only. User-authored goals, checkpoints, identifiers and JSON stay intact. */
 window.IntHubI18n = (() => {
   const zh = {
+    "Theme: System": "主题：跟随系统", "Theme: Light": "主题：浅色", "Theme: Dark": "主题：深色", "Switch theme": "切换主题",
+    "All Intents": "全部意图", "Filter timeline by Intent": "按意图筛选时间线", "{count} checkpoints": "{count} 个检查点",
+    "{count} incomplete checkpoints": "{count} 个检查点待补充", "{count} blocked objectives": "{count} 个目标被阻塞", "Ready to continue": "可以继续工作",
     "Overview": "概览", "Intents": "意图", "Timeline": "时间线", "Decisions": "决策", "Search": "搜索",
     "Project": "项目", "Project memory": "项目记忆", "Published memory": "已发布的记忆", "Public collection": "公开项目集",
     "No projects yet": "暂无项目", "Checking sync": "正在检查同步", "Waiting for project": "等待项目", "Continuity status": "接续状态",

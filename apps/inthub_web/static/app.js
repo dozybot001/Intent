@@ -4,6 +4,7 @@ window.IntHubI18n.bindStatic(document.body);
 /* ---- State ---- */
 
 const TABS = ["overview", "intents", "snaps", "decisions", "search"];
+const DETAIL_PATHS = { intent: "intents", decision: "decisions", snap: "snaps" };
 
 const state = {
   config: null,
@@ -188,6 +189,16 @@ function configUrl() {
     : "/config.json";
 }
 
+// A newer action owns its view. Late responses may finish, but cannot replace it.
+function beginViewRequest(view) {
+  state._requestVersions ||= {};
+  return state._requestVersions[view] = (state._requestVersions[view] || 0) + 1;
+}
+
+function ownsViewRequest(view, request) {
+  return state._requestVersions?.[view] === request;
+}
+
 class ApiRequestError extends Error {
   constructor(message, status, code) {
     super(message);
@@ -356,12 +367,24 @@ function setStatus(msg, isError = false) {
 
 async function switchTab(tab) {
   if (!TABS.includes(tab)) return;
+  if (state.activeTab === tab && state.overview) {
+    if (tab !== "overview") returnToList();
+    if (tab === "search") document.getElementById("search-input")?.focus();
+    return;
+  }
+  beginViewRequest("detail");
+  beginViewRequest("search");
+  state._searchBusy = false;
+  state._detailPayload = null;
+  state.selectedDetail = null;
   state.activeTab = tab;
   el.shell.dataset.activeTab = tab;
   el.shell.classList.remove("detail-open");
   closeDrawer();
   for (const btn of el.tabBar.querySelectorAll(".tab")) {
     btn.classList.toggle("is-active", btn.dataset.tab === tab);
+    if (btn.dataset.tab === tab) btn.setAttribute("aria-current", "page");
+    else btn.removeAttribute("aria-current");
   }
   renderSidebar();
   writeRoute();
@@ -386,10 +409,10 @@ async function switchTab(tab) {
     const tabButton = el.tabBar.querySelector(`[data-tab="${tab}"]`);
     if (tabButton) setButtonBusy(tabButton, true);
     try {
-      await openDetail(firstCard.dataset.detailType, firstCard.dataset.remoteId);
+      await openDetail(firstCard.dataset.detailType, firstCard.dataset.remoteId, { reveal: false });
     } catch (error) { setStatus(error.message, true); }
     finally { if (tabButton) setButtonBusy(tabButton, false); }
-  }
+  } else clearDetail(t("No object is available in this view."));
 }
 
 /* ---- Selected card sync ---- */
@@ -403,6 +426,8 @@ function syncSelected() {
       node.dataset.detailType === state.selectedDetail.type &&
       node.dataset.remoteId === state.selectedDetail.remoteId;
     node.classList.toggle("is-selected", Boolean(sel));
+    if (sel) node.setAttribute("aria-current", "true");
+    else node.removeAttribute("aria-current");
   }
 }
 
@@ -738,7 +763,22 @@ function intentForSnap(snap) {
   ];
   return intents.find((intent) =>
     intent.id === snap.intent_id && intent.workspace_id === snap.workspace_id,
-  ) || intents.find((intent) => intent.id === snap.intent_id) || null;
+  ) || (!snap.workspace_id ? intents.find((intent) => intent.id === snap.intent_id) : null) || null;
+}
+
+function timelineIntentKey(snap) {
+  return remoteId(snap.workspace_id || workspaceIdFromRemoteId(snap.remote_id), snap.intent_id || "");
+}
+
+function timelineIntentOptions(snaps) {
+  const options = new Map();
+  for (const snap of snaps) {
+    const key = timelineIntentKey(snap);
+    const entry = options.get(key);
+    if (entry) entry.count++;
+    else options.set(key, { key, count: 1, label: intentForSnap(snap)?.what || snap.intent_id || t("Unlinked Intent") });
+  }
+  return [...options.values()];
 }
 
 function timelineDate(value) {
@@ -844,77 +884,97 @@ function renderTimeline(snaps) {
     + (remaining > 0
       ? `<button type="button" class="load-more-btn" id="load-more-snaps">${esc(t("Load more ({count})", {count: remaining}))}</button>`
       : "");
-
-  const loadMore = document.getElementById("load-more-snaps");
-  if (loadMore) {
-    loadMore.addEventListener("click", () => {
-      state._pageState.snaps = shown + PAGE_SIZE;
-      renderSidebar();
-    });
-  }
 }
 
 function renderSnapsTab() {
-  const snaps = state.overview.recent_snaps || [];
-  if (!snaps.length) {
+  const allSnaps = state.overview.recent_snaps || [];
+  if (!allSnaps.length) {
     el.sidebarBody.innerHTML =
       `<div class="empty-state">${esc(t("No snaps synced yet."))}</div>`;
     return;
   }
+  const options = timelineIntentOptions(allSnaps);
+  if (state._timelineIntentKey && !options.some(option => option.key === state._timelineIntentKey)) state._timelineIntentKey = "";
+  const selected = options.find(option => option.key === state._timelineIntentKey);
+  const snaps = selected ? allSnaps.filter(snap => timelineIntentKey(snap) === selected.key) : allSnaps;
   renderTimeline(snaps);
+  const optionHtml = (key, label, count) => `<button type="button" class="timeline-filter-option${(state._timelineIntentKey || "") === key ? " is-selected" : ""}" data-timeline-intent="${esc(key)}" aria-pressed="${(state._timelineIntentKey || "") === key}"><span>${esc(label)}</span><small>${count}</small></button>`;
+  el.sidebarBody.innerHTML = `
+    <div class="timeline-toolbar">
+      <details class="timeline-filter">
+        <summary class="timeline-filter-trigger" aria-label="${esc(t("Filter timeline by Intent"))}"><span>${esc(selected ? truncate(selected.label, 44) : t("All Intents"))}</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></summary>
+        <div class="timeline-filter-menu">${optionHtml("", t("All Intents"), allSnaps.length)}${options.map(option => optionHtml(option.key, option.label, option.count)).join("")}</div>
+      </details>
+      <span class="timeline-result-count">${esc(t("{count} checkpoints", {count: snaps.length}))}</span>
+    </div>` + el.sidebarBody.innerHTML;
+  // Replacing the toolbar also replaces child nodes; use delegation for pagination.
 }
 
 function renderSearchTab() {
   el.sidebarBody.innerHTML = `
     <h3 class="search-heading heading-with-help">${esc(t("Search"))}<button class="help-trigger" data-help="search" type="button" aria-label="${esc(t("Explanation"))}" aria-expanded="false"><span aria-hidden="true">i</span></button></h3>
     <form class="search-bar" id="search-form">
-      <input type="search" id="search-input" aria-label="${esc(t("Search project memory"))}" placeholder="${esc(t("Goal, boundary, decision…"))}" value="${esc(state.searchQuery)}" autocomplete="off">
+      <input type="search" id="search-input" aria-label="${esc(t("Search project memory"))}" placeholder="${esc(t("Goal, boundary, decision…"))}" value="${esc(state._searchDraft ?? state.searchQuery)}" autocomplete="off">
       <button type="submit">${esc(t("Go"))}</button>
     </form>
     <div id="search-results">
       <div class="empty-state">${esc(t("Type a query and press Go."))}</div>
     </div>`;
 
+  document.getElementById("search-input").addEventListener("input", event => {state._searchDraft = event.target.value;});
+
   document
     .getElementById("search-form")
     .addEventListener("submit", async (e) => {
       e.preventDefault();
       const q = document.getElementById("search-input").value.trim();
-      state.searchQuery = q;
-      writeRoute();
-      if (!q || !state.currentProjectId) return;
-      if (state._searchBusy) return;
-      state._searchBusy = true;
-      const button = e.target.querySelector("button[type=submit]");
-      setButtonBusy(button, true, "Searching…", "Go");
-      try {
-        const result = await fetchJson(
-          apiUrl(
-            `/api/v1/search?project_id=${encodeURIComponent(state.currentProjectId)}&q=${encodeURIComponent(q)}`,
-          ),
-        );
-        renderSearchResults(result);
-      } catch (err) {
-        document.getElementById("search-results").innerHTML =
-          `<div class="empty-state">${esc(err.message)}</div>`;
-      } finally {
-        state._searchBusy = false;
-        setButtonBusy(button, false, "Searching…", "Go");
-      }
+      await runSearch(q, e.target.querySelector("button[type=submit]"));
     });
 
   if (state._localizing) {
     if (state._searchResults) renderSearchResults(state._searchResults);
     return;
   }
-  if (state.searchQuery && state.currentProjectId) {
-    fetchJson(
-      apiUrl(
-        `/api/v1/search?project_id=${encodeURIComponent(state.currentProjectId)}&q=${encodeURIComponent(state.searchQuery)}`,
-      ),
-    )
-      .then(renderSearchResults)
-      .catch(() => {});
+  if (state._searchResults && state._searchResultProject === state.currentProjectId && state._searchResultQuery === state.searchQuery) renderSearchResults(state._searchResults);
+  else if (state.searchQuery && state.currentProjectId) runSearch(state.searchQuery, document.getElementById("search-form").querySelector("button[type=submit]"));
+}
+
+async function runSearch(query, button) {
+  if (state._searchBusy) return;
+  state.searchQuery = query;
+  state._searchDraft = query;
+  writeRoute();
+  const container = document.getElementById("search-results");
+  if (!query || !state.currentProjectId) {
+    state._searchResults = null;
+    if (container) container.innerHTML = `<div class="empty-state">${esc(t("Type a query and press Go."))}</div>`;
+    return;
+  }
+  const projectId = state.currentProjectId;
+  const request = beginViewRequest("search");
+  state._searchBusy = true;
+  if (button) setButtonBusy(button, true, "Searching…", "Go");
+  if (container) {
+    container.setAttribute("aria-busy", "true");
+    container.innerHTML = `<div class="empty-state loading">${esc(t("Searching…"))}</div>`;
+  }
+  const current = () => ownsViewRequest("search", request) && state.activeTab === "search" && state.currentProjectId === projectId;
+  try {
+    const result = await fetchJson(apiUrl(`/api/v1/search?project_id=${encodeURIComponent(projectId)}&q=${encodeURIComponent(query)}`));
+    if (!current()) return;
+    state._searchResultProject = projectId;
+    state._searchResultQuery = query;
+    renderSearchResults(result);
+  } catch (error) {
+    if (!current()) return;
+    state._searchResults = null;
+    if (container) container.innerHTML = `<div class="empty-state"><p>${esc(error.message)}</p><button class="secondary-btn" type="button" data-retry-search>${esc(t("Retry"))}</button></div>`;
+  } finally {
+    if (current()) {
+      state._searchBusy = false;
+      container?.setAttribute("aria-busy", "false");
+      if (button) setButtonBusy(button, false, "Searching…", "Go");
+    }
   }
 }
 
@@ -930,7 +990,8 @@ function renderSearchWelcome() {
 
 function renderSearchResults(result) {
   state._searchResults = result;
-  const container = document.getElementById("search-results") || el.sidebarBody;
+  const container = document.getElementById("search-results");
+  if (!container || state.activeTab !== "search") return;
   if (!result.matches?.length) {
     container.innerHTML =
       `<div class="empty-state">${esc(t("No matches found."))}</div>`;
@@ -957,6 +1018,8 @@ function renderSearchResults(result) {
 /* ---- Detail pane ---- */
 
 function clearDetail(msg = t("Select an object to inspect.")) {
+  beginViewRequest("detail");
+  state._detailPayload = null;
   el.detailContent.innerHTML = `<div class="empty-state">${esc(msg)}</div>`;
   state.selectedDetail = null;
   el.shell.classList.remove("detail-open");
@@ -1108,6 +1171,19 @@ function workspaceRows(workspaces) {
     .join("");
 }
 
+function continuationHealth(intents) {
+  if (!intents.length) return { ready: false, label: t("No active objective") };
+  const checkpoints = intents.map(intent => ({
+    ...extractCheckpointParts(intent.latest_snap?.why).fields,
+    ...extractCheckpointParts(intent.latest_snap?.what).fields,
+  }));
+  const incomplete = checkpoints.filter(checkpoint => !checkpoint.verified || !checkpoint.boundary || !checkpoint.next || !checkpoint.blocker).length;
+  if (incomplete) return { ready: false, label: t("{count} incomplete checkpoints", {count: incomplete}) };
+  const blocked = checkpoints.filter(checkpoint => !isClearBlocker(checkpoint.blocker)).length;
+  if (blocked) return { ready: false, label: t("{count} blocked objectives", {count: blocked}) };
+  return { ready: true, label: t("Ready to continue") };
+}
+
 function renderProjectSummary() {
   const project = state.overview.project;
   const workspaces = state.overview.workspaces || [];
@@ -1118,7 +1194,7 @@ function renderProjectSummary() {
     .filter(Boolean)
     .sort()
     .at(-1);
-  const hasDirtyWorkspace = workspaces.some((workspace) => workspace.dirty);
+  const health = continuationHealth(intents);
   const publicDescription = state.config?.publicMode
     ? state.publicProfile?.description
     : "";
@@ -1149,8 +1225,8 @@ function renderProjectSummary() {
             <span>${esc(t("{count} workspaces", {count: workspaces.length}))}</span>
           </div>
         </div>
-        <div class="hero-health${hasDirtyWorkspace ? " is-warning" : ""}">
-          <strong>${hasDirtyWorkspace ? t("Working tree changes synced") : t("Continuity is in sync")}</strong>
+        <div class="hero-health${health.ready ? "" : " is-warning"}">
+          <strong>${esc(health.label)}</strong>
           <span>${latestSync ? `${esc(t("Updated"))} ${esc(relativeDate(latestSync))}` : t("Waiting for first sync")}</span>
         </div>
       </header>
@@ -1177,30 +1253,64 @@ function renderProjectSummary() {
 }
 
 function openDrawer() {
+  if (!el.drawer.classList.contains("open")) state._drawerTrigger = document.activeElement;
+  el.drawer.inert = false;
   el.drawer.classList.add("open");
   el.drawerOverlay.classList.add("open");
   el.drawer.setAttribute("aria-hidden", "false");
+  el.drawer.setAttribute("role", "dialog");
+  el.drawer.setAttribute("aria-modal", "true");
+  for (const node of document.querySelectorAll(".app-header, .main")) node.inert = true;
+  el.drawerClose.focus();
 }
 
 function closeDrawer() {
+  const wasOpen = el.drawer.classList.contains("open");
+  beginViewRequest("drawer");
+  state._drawerPayload = null;
   el.drawer.classList.remove("open");
   el.drawerOverlay.classList.remove("open");
   el.drawer.setAttribute("aria-hidden", "true");
+  el.drawer.inert = true;
+  el.drawer.removeAttribute("aria-modal");
+  for (const node of document.querySelectorAll(".app-header, .main")) node.inert = false;
   el.drawerContent.innerHTML = "";
+  if (wasOpen) {
+    if (state._drawerTrigger?.isConnected && !state._drawerTrigger.disabled) state._drawerTrigger.focus();
+    else el.detailContent.focus();
+  }
+  state._drawerTrigger = null;
 }
 
 async function openInDrawer(type, rId) {
+  if (!DETAIL_PATHS[type]) return;
+  const request = beginViewRequest("drawer");
+  state._drawerPayload = null;
   el.drawerContent.innerHTML = `<div class="empty-state loading">${esc(t("Loading…"))}</div>`;
   openDrawer();
+  try {
+    const payload = await fetchJson(apiUrl(`/api/v1/${DETAIL_PATHS[type]}/${encodeURIComponent(rId)}`));
+    if (!ownsViewRequest("drawer", request) || !el.drawer.classList.contains("open")) return;
+    state._drawerPayload = {type, payload};
+    const target = el.drawerContent;
+    if (type === "intent") renderIntentDetailTo(target, payload);
+    else if (type === "decision") renderDecisionDetailTo(target, payload);
+    else renderSnapDetailTo(target, payload);
+  } catch (error) {
+    if (!ownsViewRequest("drawer", request)) return;
+    el.drawerContent.innerHTML = detailErrorHtml(error, type, rId, "drawer");
+    throw error;
+  }
+}
 
-  const pathMap = { intent: "intents", decision: "decisions", snap: "snaps" };
-  const payload = await fetchJson(apiUrl(`/api/v1/${pathMap[type]}/${rId}`));
-  state._drawerPayload = {type, payload};
+function detailErrorHtml(error, type, rId, target = "detail") {
+  return `<div class="empty-state"><p>${esc(error.message)}</p><button type="button" class="secondary-btn" data-retry-detail="${esc(target)}" data-detail-type="${esc(type)}" data-remote-id="${esc(rId)}">${esc(t("Retry"))}</button></div>`;
+}
 
-  const target = el.drawerContent;
-  if (type === "intent") renderIntentDetailTo(target, payload);
-  else if (type === "decision") renderDecisionDetailTo(target, payload);
-  else renderSnapDetailTo(target, payload);
+function returnToList() {
+  el.shell.classList.remove("detail-open");
+  const selected = [...el.sidebarBody.querySelectorAll("[data-detail-type][data-remote-id]")].find(node => node.dataset.remoteId === state.selectedDetail?.remoteId && node.dataset.detailType === state.selectedDetail?.type);
+  selected?.focus();
 }
 
 async function resolveProjectIdForRemoteId(rId) {
@@ -1234,31 +1344,49 @@ async function resolveProjectIdForRemoteId(rId) {
   return null;
 }
 
-async function openDetail(type, rId) {
-  const targetProjectId = await resolveProjectIdForRemoteId(rId);
+async function openDetail(type, rId, { reveal = true } = {}) {
+  if (!DETAIL_PATHS[type]) return;
+  const request = beginViewRequest("detail");
+  let targetProjectId;
+  try { targetProjectId = await resolveProjectIdForRemoteId(rId); }
+  catch (error) {
+    if (!ownsViewRequest("detail", request)) return;
+    state.selectedDetail = {type, remoteId: rId};
+    state._detailPayload = null;
+    if (reveal) el.shell.classList.add("detail-open");
+    el.detailContent.innerHTML = detailErrorHtml(error, type, rId);
+    syncSelected();
+    writeRoute();
+    throw error;
+  }
+  if (!ownsViewRequest("detail", request)) return;
   if (targetProjectId && targetProjectId !== state.currentProjectId) {
-    state.selectedDetail = { type, remoteId: rId };
-    await loadProject(targetProjectId);
+    await loadProject(targetProjectId, { detail: { type, remoteId: rId }, reveal });
     return;
   }
 
   state.selectedDetail = { type, remoteId: rId };
-  el.shell.classList.add("detail-open");
+  state._detailPayload = null;
+  if (reveal) el.shell.classList.add("detail-open");
   el.detailContent.innerHTML = `<div class="empty-state loading">${esc(t("Loading…"))}</div>`;
   el.detailPane.scrollTop = 0;
   syncSelected();
 
-  const pathMap = { intent: "intents", decision: "decisions", snap: "snaps" };
-  const payload = await fetchJson(apiUrl(`/api/v1/${pathMap[type]}/${rId}`));
-  if (state.selectedDetail?.remoteId !== rId) return;
-  state._detailPayload = {type, payload};
-
-  if (type === "intent") renderIntentDetail(payload);
-  else if (type === "decision") renderDecisionDetail(payload);
-  else renderSnapDetail(payload);
-
-  syncSelected();
-  writeRoute();
+  try {
+    const payload = await fetchJson(apiUrl(`/api/v1/${DETAIL_PATHS[type]}/${encodeURIComponent(rId)}`));
+    if (!ownsViewRequest("detail", request)) return;
+    state._detailPayload = {type, payload};
+    if (type === "intent") renderIntentDetail(payload);
+    else if (type === "decision") renderDecisionDetail(payload);
+    else renderSnapDetail(payload);
+    syncSelected();
+    writeRoute();
+  } catch (error) {
+    if (!ownsViewRequest("detail", request)) return;
+    el.detailContent.innerHTML = detailErrorHtml(error, type, rId);
+    writeRoute();
+    throw error;
+  }
 }
 
 function allDecisionsMap() {
@@ -1554,7 +1682,31 @@ function toggleProjectPicker(open) {
 
 /* ---- Project loading ---- */
 
-async function loadProject(projectId) {
+async function loadProject(projectId, { detail = null, reveal = false } = {}) {
+  const request = beginViewRequest("project");
+  const previous = {
+    projectId: state._loadedProjectId || state.currentProjectId,
+    overview: state.overview, handoff: state.handoff,
+    selectedDetail: state.selectedDetail, detailPayload: state._detailPayload,
+    pageState: state._pageState, timelineIntentKey: state._timelineIntentKey,
+    searchResults: state._searchResults, detailOpen: el.shell.classList.contains("detail-open"),
+  };
+  const switching = Boolean(state._loadedProjectId && state._loadedProjectId !== projectId);
+  beginViewRequest("detail");
+  beginViewRequest("search");
+  state._searchBusy = false;
+  closeDrawer();
+  if (switching) {
+    state.overview = null;
+    state.handoff = null;
+    state._detailPayload = null;
+    state._searchResults = null;
+    state._timelineIntentKey = "";
+    state._pageState = {};
+    state.selectedDetail = null;
+    el.shell.classList.remove("detail-open");
+  }
+  if (detail) state.selectedDetail = detail;
   state.currentProjectId = projectId;
   renderProjectSelector();
 
@@ -1569,10 +1721,41 @@ async function loadProject(projectId) {
       </div>`;
   }
 
-  const [overview, handoff] = await Promise.all([
-    fetchJson(apiUrl(`/api/v1/projects/${projectId}/overview`)),
-    fetchJson(apiUrl(`/api/v1/projects/${projectId}/handoff`)),
-  ]);
+  let overview;
+  let handoff;
+  try {
+    [overview, handoff] = await Promise.all([
+      fetchJson(apiUrl(`/api/v1/projects/${encodeURIComponent(projectId)}/overview`)),
+      fetchJson(apiUrl(`/api/v1/projects/${encodeURIComponent(projectId)}/handoff`)),
+    ]);
+  } catch (error) {
+    if (!ownsViewRequest("project", request)) return;
+    if (previous.overview) {
+      state.currentProjectId = previous.projectId;
+      state.overview = previous.overview;
+      state.handoff = previous.handoff;
+      state.selectedDetail = previous.selectedDetail;
+      state._detailPayload = previous.detailPayload;
+      state._pageState = previous.pageState;
+      state._timelineIntentKey = previous.timelineIntentKey;
+      state._searchResults = previous.searchResults;
+      el.shell.classList.toggle("detail-open", previous.detailOpen);
+      renderProjectSelector();
+      renderSidebar();
+      if (state.activeTab === "overview") renderProjectSummary();
+      else if (state.activeTab === "search") el.detailContent.innerHTML = renderSearchWelcome();
+      else if (previous.detailPayload) {
+        const {type, payload} = previous.detailPayload;
+        el.detailContent.innerHTML = type === "intent" ? buildIntentDetailHtml(payload) : type === "decision" ? buildDecisionDetailHtml(payload) : buildSnapDetailHtml(payload);
+      } else clearDetail(error.message);
+    } else {
+      el.sidebarBody.innerHTML = `<div class="empty-state">${esc(error.message)}</div>`;
+      el.detailContent.innerHTML = `<div class="empty-state"><p>${esc(error.message)}</p><button type="button" class="secondary-btn" data-retry-project="${esc(projectId)}">${esc(t("Retry"))}</button></div>`;
+    }
+    throw error;
+  }
+  if (!ownsViewRequest("project", request)) return;
+  state._loadedProjectId = projectId;
   state.overview = overview;
   state.handoff = handoff;
   if (!state._workspaceProjectMap) state._workspaceProjectMap = {};
@@ -1614,7 +1797,7 @@ async function loadProject(projectId) {
   if (state.activeTab === "overview") {
     state.selectedDetail = null;
     renderProjectSummary();
-  } else if (state.activeTab === "search") {
+  } else if (state.activeTab === "search" && !state.selectedDetail) {
     state.selectedDetail = null;
     el.detailContent.innerHTML = renderSearchWelcome();
   } else if (state.selectedDetail) {
@@ -1622,15 +1805,13 @@ async function loadProject(projectId) {
       await openDetail(
         state.selectedDetail.type,
         state.selectedDetail.remoteId,
+        { reveal },
       );
-    } catch {
-      state.selectedDetail = null;
-      renderProjectSummary();
-    }
+    } catch (error) { setStatus(error.message, true); }
   } else {
     const firstCard = el.sidebarBody.querySelector("[data-detail-type][data-remote-id]");
     if (firstCard) {
-      await openDetail(firstCard.dataset.detailType, firstCard.dataset.remoteId);
+      await openDetail(firstCard.dataset.detailType, firstCard.dataset.remoteId, { reveal: false });
     } else {
       clearDetail(t("No object is available in this view."));
     }
@@ -1640,7 +1821,9 @@ async function loadProject(projectId) {
 }
 
 async function loadProjects() {
+  const request = beginViewRequest("projects");
   const result = await fetchJson(apiUrl("/api/v1/projects"));
+  if (!ownsViewRequest("projects", request)) return;
   state.projects = result.projects;
 
   const route = readRoute();
@@ -1694,7 +1877,7 @@ function localizeWorkspace() {
     if (state.overview?.workspaces?.length) {
       if (!state._searchBusy) renderSidebar();
       if (state.activeTab === "overview") renderProjectSummary();
-      else if (state.activeTab === "search") el.detailContent.innerHTML = renderSearchWelcome();
+      else if (state.activeTab === "search" && !state.selectedDetail) el.detailContent.innerHTML = renderSearchWelcome();
       else if (state._detailPayload) {
         const {type, payload} = state._detailPayload;
         el.detailContent.innerHTML = type === "intent" ? buildIntentDetailHtml(payload) : type === "decision" ? buildDecisionDetailHtml(payload) : buildSnapDetailHtml(payload);
@@ -1717,6 +1900,7 @@ function localizeWorkspace() {
     for (const button of document.querySelectorAll("[data-idle-copy]")) {
       if (button.dataset.idleCopy) button.textContent = t(button.disabled ? button.dataset.loadingCopy : button.dataset.idleCopy);
     }
+    for (const node of document.querySelectorAll(".empty-state.loading")) node.textContent = t(node.closest("#search-results") ? "Searching…" : "Loading…");
     el.aboutVersion.textContent = t(state.config?.productVersion || "Unavailable");
     el.authError.textContent = t(state._authMessage || "");
     if (state._statusMessage) el.statusLine.textContent = t(state._statusMessage);
@@ -1733,6 +1917,7 @@ function localizeWorkspace() {
 }
 
 function bindEvents() {
+  el.drawer.inert = true;
   const closeAccountMenu = () => {
     el.accountActions.classList.remove("is-open");
     el.accountMenuTrigger.setAttribute("aria-expanded", "false");
@@ -1828,7 +2013,10 @@ function bindEvents() {
       setButtonBusy(el.logoutBtn, false, "Signing out…", "Sign out");
     }
     closeAccountMenu();
+    for (const view of ["projects", "project", "detail", "drawer", "search"]) beginViewRequest(view);
+    closeDrawer();
     state.projects = [];
+    state._loadedProjectId = null;
     state.overview = null;
     state.handoff = null;
     state.account = null;
@@ -1848,15 +2036,13 @@ function bindEvents() {
     state._projectBusy = true;
     setButtonBusy(el.projectPickerTrigger, true);
     try {
-      state.selectedDetail = null;
-      state.overview = null;
-      state.handoff = null;
       await loadProject(id);
     } catch (err) {
       setStatus(err.message, true);
     } finally {
       state._projectBusy = false;
       setButtonBusy(el.projectPickerTrigger, false);
+      el.projectPickerTrigger.focus();
     }
   });
 
@@ -1864,9 +2050,11 @@ function bindEvents() {
     if (!el.projectPicker.contains(e.target)) {
       toggleProjectPicker(false);
     }
+    for (const filter of document.querySelectorAll(".timeline-filter[open]")) if (!filter.contains(e.target)) filter.open = false;
   });
 
   el.refreshBtn.addEventListener("click", async () => {
+    if (el.refreshBtn.disabled) return;
     el.refreshBtn.disabled = true;
     el.refreshBtn.classList.add("is-spinning");
     el.refreshBtn.setAttribute("aria-label", t("Refreshing project data"));
@@ -1886,18 +2074,66 @@ function bindEvents() {
     if (tab && tab.dataset.tab) switchTab(tab.dataset.tab);
   });
 
-  el.backBtn.addEventListener("click", () => {
-    el.shell.classList.remove("detail-open");
-  });
+  el.backBtn.addEventListener("click", returnToList);
 
   document.addEventListener("click", async (e) => {
+    const retryInit = e.target.closest("[data-retry-init]");
+    if (retryInit) {
+      if (retryInit.disabled) return;
+      setButtonBusy(retryInit, true, "Loading…", "Retry");
+      try { await init(false); }
+      finally { setButtonBusy(retryInit, false, "Loading…", "Retry"); }
+      return;
+    }
+    const retrySearch = e.target.closest("[data-retry-search]");
+    if (retrySearch) {
+      await runSearch(state.searchQuery, document.getElementById("search-form")?.querySelector("button[type=submit]"));
+      return;
+    }
+    const retryProject = e.target.closest("[data-retry-project]");
+    if (retryProject) {
+      if (retryProject.disabled) return;
+      setButtonBusy(retryProject, true, "Loading…", "Retry");
+      try { await loadProject(retryProject.dataset.retryProject); }
+      catch (error) { setStatus(error.message, true); }
+      finally { setButtonBusy(retryProject, false, "Loading…", "Retry"); }
+      return;
+    }
+    const filter = e.target.closest("[data-timeline-intent]");
+    if (filter) {
+      state._timelineIntentKey = filter.dataset.timelineIntent;
+      state._pageState ||= {};
+      state._pageState.snaps = PAGE_SIZE;
+      renderSidebar();
+      el.sidebarBody.scrollTop = 0;
+      const selectedStillVisible = [...el.sidebarBody.querySelectorAll("[data-detail-type][data-remote-id]")].some(node => node.dataset.remoteId === state.selectedDetail?.remoteId);
+      if (!selectedStillVisible) {
+        const first = el.sidebarBody.querySelector("[data-detail-type][data-remote-id]");
+        if (first) {
+          try { await openDetail(first.dataset.detailType, first.dataset.remoteId, {reveal: false}); }
+          catch (error) { setStatus(error.message, true); }
+        }
+      }
+      el.sidebarBody.querySelector(".timeline-filter-trigger")?.focus();
+      return;
+    }
+    if (e.target.closest("#load-more-snaps")) {
+      state._pageState ||= {};
+      state._pageState.snaps = (state._pageState.snaps || PAGE_SIZE) + PAGE_SIZE;
+      const scroll = el.sidebarBody.scrollTop;
+      renderSidebar();
+      el.sidebarBody.scrollTop = scroll;
+      return;
+    }
     const card = e.target.closest("[data-detail-type][data-remote-id]");
     if (!card) return;
     if (card.disabled) return;
     setButtonBusy(card, true);
     const inDetailPane = card.closest("#detail-content") || card.closest("#drawer-content");
     try {
-      if (inDetailPane || state.activeTab === "overview") {
+      if (card.dataset.retryDetail === "detail") {
+        await openDetail(card.dataset.detailType, card.dataset.remoteId);
+      } else if (inDetailPane || state.activeTab === "overview") {
         await openInDrawer(card.dataset.detailType, card.dataset.remoteId);
       } else {
         closeDrawer();
@@ -1915,13 +2151,34 @@ function bindEvents() {
 
   document.addEventListener("keydown", (event) => {
     if (el.aboutDialog.open || el.tokenDialog.open) return;
+    if (el.drawer.classList.contains("open")) {
+      if (event.key === "Escape") { event.preventDefault(); closeDrawer(); return; }
+      if (event.key === "Tab") {
+        const controls = [...el.drawer.querySelectorAll("button, a[href], input, summary, [tabindex]")].filter(node => !node.disabled && !node.hidden && node.getAttribute("tabindex") !== "-1" && node.getClientRects().length);
+        const first = controls[0] || el.drawerClose;
+        const last = controls.at(-1) || first;
+        if (event.shiftKey && (document.activeElement === first || !el.drawer.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && (document.activeElement === last || !el.drawer.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+      }
+      return;
+    }
+    const filter = event.target.closest?.(".timeline-filter");
+    if (filter && ["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+      event.preventDefault();
+      filter.open = true;
+      const options = [...filter.querySelectorAll(".timeline-filter-option")];
+      const current = options.indexOf(document.activeElement);
+      const next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : current < 0 ? (event.key === "ArrowUp" ? options.length - 1 : 0) : current + (event.key === "ArrowUp" ? -1 : 1);
+      options[(next + options.length) % options.length]?.focus();
+      return;
+    }
     if (el.projectPicker.contains(event.target) && ["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
       event.preventDefault();
       if (state._projectBusy) return;
       toggleProjectPicker(true);
       const options = [...el.projectPickerDropdown.querySelectorAll("[role=option]")];
       const current = options.indexOf(document.activeElement);
-      const next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : current + (event.key === "ArrowUp" ? -1 : 1);
+      const next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : current < 0 ? (event.key === "ArrowUp" ? options.length - 1 : 0) : current + (event.key === "ArrowUp" ? -1 : 1);
       options[(next + options.length) % options.length]?.focus();
       return;
     }
@@ -1931,8 +2188,9 @@ function bindEvents() {
       return;
     }
     if (event.key === "Escape") {
-      if (el.drawer.classList.contains("open")) closeDrawer();
-      else toggleProjectPicker(false);
+      if (filter?.open) { filter.open = false; filter.querySelector("summary")?.focus(); }
+      else if (el.projectPickerDropdown.classList.contains("is-open")) { toggleProjectPicker(false); el.projectPickerTrigger.focus(); }
+      else if (el.shell.classList.contains("detail-open")) returnToList();
     }
   });
 
@@ -1940,16 +2198,16 @@ function bindEvents() {
 
 /* ---- Init ---- */
 
-async function init() {
+async function init(bind = true) {
   let authError = "";
-  bindEvents();
+  if (bind) bindEvents();
   try {
     state.config = await fetch(configUrl()).then((r) => r.json());
     authError = callbackErrorMessage();
     const route = readRoute();
 
     if (route.tab && TABS.includes(route.tab)) state.activeTab = route.tab;
-    if (route.detail && route.detailType) {
+    if (route.detail && DETAIL_PATHS[route.detailType]) {
       if (state.activeTab === "overview") {
         const detailTab = { intent: "intents", snap: "snaps", decision: "decisions" }[route.detailType];
         if (detailTab) state.activeTab = detailTab;
@@ -1958,6 +2216,7 @@ async function init() {
         remoteId: route.detail,
         type: route.detailType,
       };
+      el.shell.classList.add("detail-open");
     }
     state.searchQuery = route.q;
     if (state.searchQuery && state.activeTab === "overview") state.activeTab = "search";
@@ -1965,6 +2224,8 @@ async function init() {
 
     for (const btn of el.tabBar.querySelectorAll(".tab")) {
       btn.classList.toggle("is-active", btn.dataset.tab === state.activeTab);
+      if (btn.dataset.tab === state.activeTab) btn.setAttribute("aria-current", "page");
+      else btn.removeAttribute("aria-current");
     }
 
     if (state.config.publicMode) await loadPublicProfile();
@@ -1978,7 +2239,7 @@ async function init() {
     }
     setStatus(err.message, true);
     el.detailContent.innerHTML =
-      `<div class="empty-state">${esc(t("Failed to initialize."))}</div>`;
+      `<div class="empty-state"><p>${esc(t("Failed to initialize."))}</p><p>${esc(err.message)}</p><button type="button" class="secondary-btn" data-retry-init>${esc(t("Retry"))}</button></div>`;
   }
 }
 

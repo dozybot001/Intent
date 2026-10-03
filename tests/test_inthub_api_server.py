@@ -125,6 +125,11 @@ def test_api_server_can_serve_web_shell(tmp_path, monkeypatch):
         assert 'id="transition-title"' in transition
         assert 'id="transition-retry"' in transition
         assert 'id="shell"' not in transition
+        font = urlopen(f"{base}/InterVariable.woff2").read()
+        assert font[:4] == b"wOF2"
+        assert len(font) == 352240
+        theme = urlopen(f"{base}/theme.js").read().decode("utf-8")
+        assert "inthub.theme" in theme
 
         html = urlopen(f"{base}/").read().decode("utf-8")
         assert "IntHub" in html

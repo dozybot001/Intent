@@ -3,11 +3,13 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="light">
-    <meta name="theme-color" content="#f4f5f2">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#f5f6f3">
     <title>IntHub</title>
     <link rel="icon" type="image/svg+xml" href="/tenon-mark.svg">
-    <link rel="stylesheet" href="/styles.css?rev=inthub-mark-1">
+    <link rel="preload" href="/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+    <script src="/theme.js?rev=ui-polish-1"></script>
+    <link rel="stylesheet" href="/styles.css?rev=ui-polish-1">
   </head>
   <body>
     <a class="skip-link" href="#detail-content">Skip to project content</a>
@@ -16,7 +18,7 @@
       <header class="app-header">
         <div class="header-context">
           <a class="brand" data-brand-link href="/" aria-label="IntHub, by Tenon, home">
-            <img class="brand-mark" src="/inthub-mark.svg?rev=1" alt="" width="32" height="32">
+            <img class="brand-mark" src="/inthub-mark.svg?rev=2" alt="" width="32" height="32">
             <span class="brand-wordmark">IntHub<img class="product-publisher-mark" src="/tenon-mark.svg" alt="" width="64" height="64"></span>
           </a>
 
@@ -35,6 +37,7 @@
         </div>
 
         <div class="header-actions">
+          <button class="icon-button theme-switch" data-theme-switch type="button" aria-label="Switch theme"></button>
           <button class="language-button" data-language-switch type="button" aria-label="Switch language">中文</button>
           <button class="icon-button" data-about-open type="button" aria-label="About IntHub" title="About IntHub">
             <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 9v5M10 6v.5"/></svg>
@@ -134,7 +137,7 @@
       </div>
 
       <div class="drawer-overlay" id="drawer-overlay"></div>
-      <aside class="drawer" id="drawer" aria-label="Related object detail" aria-hidden="true">
+      <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Related object detail" aria-hidden="true" tabindex="-1" inert>
         <div class="drawer-header">
           <span>Related context</span>
           <button class="drawer-close" id="drawer-close" type="button" aria-label="Close related detail">
@@ -158,10 +161,11 @@
 
         <header class="auth-header">
           <a class="brand brand-on-auth" data-brand-link href="/" aria-label="IntHub, by Tenon, home">
-            <img class="brand-mark" src="/inthub-mark.svg?rev=1" alt="" width="32" height="32">
+            <img class="brand-mark" src="/inthub-mark.svg?rev=2" alt="" width="32" height="32">
             <span class="brand-wordmark">IntHub<img class="product-publisher-mark" src="/tenon-mark.svg" alt="" width="64" height="64"></span>
           </a>
           <div class="auth-header-actions">
+            <button class="icon-button theme-switch" data-theme-switch type="button" aria-label="Switch theme"></button>
             <button class="language-button" data-language-switch type="button" aria-label="Switch language">中文</button>
             <button class="about-link" data-about-open type="button">About IntHub</button>
           </div>
@@ -225,7 +229,7 @@
         </header>
         <div class="dialog-body">
         <div class="brand about-brand" aria-label="IntHub, by Tenon">
-          <img class="brand-mark" src="/inthub-mark.svg?rev=1" alt="" width="32" height="32">
+          <img class="brand-mark" src="/inthub-mark.svg?rev=2" alt="" width="32" height="32">
           <span class="brand-wordmark">IntHub<img class="product-publisher-mark" src="/tenon-mark.svg" alt="" width="64" height="64"></span>
         </div>
         <p class="about-version">Version <span id="about-version">Loading…</span></p>
@@ -257,8 +261,8 @@
     </dialog>
 
     <div id="help-popover" class="help-popover" role="tooltip" popover="manual" tabindex="0" hidden></div>
-    <script src="/i18n.js?rev=tenon-standard-3" defer></script>
-    <script src="/help.js?rev=tenon-standard-3" defer></script>
-    <script src="/app.js?rev=tenon-standard-3" defer></script>
+    <script src="/i18n.js?rev=ui-polish-1" defer></script>
+    <script src="/help.js?rev=ui-polish-1" defer></script>
+    <script src="/app.js?rev=ui-polish-1" defer></script>
   </body>
 </html>

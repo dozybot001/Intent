@@ -6,13 +6,23 @@ const path = require('path');
 const root = path.join(__dirname, '../apps/inthub_web/static');
 const nodes = new Map();
 function node(id) {
-  if (!nodes.has(id)) nodes.set(id, {
+  if (!nodes.has(id)) {
+    const classes = new Set();
+    const attributes = new Map();
+    nodes.set(id, {
     id, value: '', innerHTML: '', textContent: '', dataset: {}, scrollTop: 0,
-    classList: {add() {}, remove() {}, toggle() {}, contains() {return false;}},
-    setAttribute() {}, removeAttribute() {}, addEventListener() {},
+    isConnected: true,
+    classList: {
+      add(...names) {for (const name of names) classes.add(name);},
+      remove(...names) {for (const name of names) classes.delete(name);},
+      toggle(name, force) {const on = force ?? !classes.has(name); if (on) classes.add(name); else classes.delete(name); return on;},
+      contains(name) {return classes.has(name);},
+    },
+    setAttribute(key, value) {attributes.set(key, String(value));}, removeAttribute(key) {attributes.delete(key);}, getAttribute(key) {return attributes.get(key);}, addEventListener() {},
     querySelectorAll() {return [];}, querySelector() {return null;},
     focus() {}, setSelectionRange() {}, matches() {return false;},
   });
+  }
   return nodes.get(id);
 }
 const document = {
@@ -23,7 +33,7 @@ const document = {
 };
 const context = {document, NodeFilter: {SHOW_TEXT: 4}, navigator: {language: 'zh-CN'},
   localStorage: {getItem() {return 'zh-CN';}, setItem() {}},
-  window: {dispatchEvent() {}, setTimeout() {}, clearTimeout() {}},
+  window: {dispatchEvent() {}, setTimeout() {}, clearTimeout() {}, location: {pathname: '/', search: ''}, history: {replaceState() {}}},
   Event, URLSearchParams, Intl, console, assert,
 };
 vm.createContext(context);
@@ -65,8 +75,144 @@ vm.runInContext(`
   setButtonBusy(el.tokenBtn, false, 'Creating token…', 'Access token');
   assert.equal(el.tokenBtn.disabled, false);
   assert.equal(el.tokenBtn.textContent, '访问令牌');
+  assert.equal(continuationHealth([]).ready, false);
+  assert.equal(continuationHealth([{latest_snap: {what: 'Verified: done. Next: work.'}}]).ready, false);
+  assert.equal(continuationHealth([{latest_snap: {what: 'Boundary: UI only. Next: review. Blocker: none.'}}]).ready, false);
+  assert.equal(continuationHealth([{latest_snap: {what: 'Verified: done. Boundary: UI only. Next: review. Blocker: none.'}}]).ready, true);
+  assert.equal(continuationHealth([{latest_snap: {what: 'Verified: done. Boundary: UI only. Next: review. Blocker: waiting for access.'}}]).ready, false);
+  state.overview = {active_intents: [
+    {id:'intent-001', workspace_id:'w1', what:'User goal one'},
+    {id:'intent-001', workspace_id:'w2', what:'User goal two'},
+  ]};
+  const timelineSnaps = [
+    {id:'snap-001', workspace_id:'w1', intent_id:'intent-001', remote_id:'w1__snap-001', what:'first'},
+    {id:'snap-002', workspace_id:'w1', intent_id:'intent-001', remote_id:'w1__snap-002', what:'second'},
+    {id:'snap-001', workspace_id:'w2', intent_id:'intent-001', remote_id:'w2__snap-001', what:'other workspace'},
+  ];
+  const filterOptions = timelineIntentOptions(timelineSnaps);
+  assert.equal(filterOptions.length, 2);
+  assert.equal(filterOptions[0].count, 2);
+  assert.equal(filterOptions[1].label, 'User goal two');
+  state.overview.recent_snaps = timelineSnaps;
+  state._timelineIntentKey = 'w2__intent-001';
+  renderSnapsTab();
+  assert.ok(el.sidebarBody.innerHTML.includes('data-remote-id="w2__snap-001"'));
+  assert.ok(!el.sidebarBody.innerHTML.includes('data-remote-id="w1__snap-001"'));
+  assert.ok(el.sidebarBody.innerHTML.includes('User goal two'));
+  assert.ok(detailErrorHtml(new Error('offline'), 'snap', 'w__snap-001').includes('data-retry-detail="detail"'));
+  assert.ok(detailErrorHtml(new Error('offline'), 'snap', 'w__snap-001', 'drawer').includes('data-retry-detail="drawer"'));
 `, context);
-console.log('Bilingual rendering, user-content preservation and immediate button-state tests passed.');
+console.log('Bilingual rendering, user-content preservation, truthful checkpoint health and scoped timeline filter tests passed.');
+
+async function viewControllerCases() {
+  await vm.runInContext(`(async () => {
+    const savedFetch = fetchJson;
+    const savedRender = renderSnapDetail;
+    const savedRenderTo = renderSnapDetailTo;
+    const savedSidebar = renderSidebar;
+    const savedSelector = renderProjectSelector;
+    const savedSummary = renderProjectSummary;
+    const deferred = () => {let resolve, reject; const promise = new Promise((yes, no) => {resolve=yes; reject=no;}); return {promise, resolve, reject};};
+    state.config = {apiBaseUrl:''};
+    state.currentProjectId = 'p';
+    state.activeTab = 'snaps';
+    state._workspaceProjectMap = {w:'p'};
+    state.overview = {workspaces: [{workspace_id:'w'}]};
+    let responses = new Map();
+    fetchJson = url => responses.get(url).promise;
+    renderSnapDetail = payload => {el.detailContent.innerHTML = payload.name;};
+    renderSnapDetailTo = (target, payload) => {target.innerHTML = payload.name;};
+
+    const first = deferred(), next = deferred();
+    responses.set('/api/v1/snaps/w__snap-001', first);
+    responses.set('/api/v1/snaps/w__snap-002', next);
+    const firstRequest = openDetail('snap','w__snap-001');
+    await Promise.resolve();
+    const nextRequest = openDetail('snap','w__snap-002');
+    await Promise.resolve();
+    next.resolve({name:'newest detail'});
+    await nextRequest;
+    first.resolve({name:'stale detail'});
+    await firstRequest;
+    assert.equal(el.detailContent.innerHTML, 'newest detail');
+    assert.equal(state.selectedDetail.remoteId, 'w__snap-002');
+
+    el.shell.classList.remove('detail-open');
+    responses.set('/api/v1/snaps/w__snap-002', {promise:Promise.resolve({name:'automatic preview'})});
+    await openDetail('snap','w__snap-002',{reveal:false});
+    assert.equal(el.shell.classList.contains('detail-open'), false);
+    assert.equal(el.detailContent.innerHTML, 'automatic preview');
+
+    const drawerPending = deferred();
+    responses.set('/api/v1/snaps/w__snap-001', drawerPending);
+    const drawerRequest = openInDrawer('snap','w__snap-001');
+    assert.equal(el.drawer.inert, false);
+    assert.equal(el.drawer.getAttribute('aria-modal'), 'true');
+    closeDrawer();
+    drawerPending.resolve({name:'closed drawer must stay empty'});
+    await drawerRequest;
+    assert.equal(el.drawer.inert, true);
+    assert.equal(el.drawerContent.innerHTML, '');
+    assert.equal(state._drawerPayload, null);
+
+    state.activeTab = 'search';
+    state._searchBusy = false;
+    const searchPending = deferred();
+    responses.set('/api/v1/search?project_id=p&q=goal', searchPending);
+    const searchRequest = runSearch('goal', el.tokenBtn);
+    assert.equal(el.tokenBtn.disabled, true);
+    state.activeTab = 'snaps';
+    beginViewRequest('search');
+    state._searchBusy = false;
+    el.sidebarBody.innerHTML = 'timeline stays intact';
+    searchPending.resolve({matches:[{what:'late search result'}]});
+    await searchRequest;
+    assert.equal(el.sidebarBody.innerHTML, 'timeline stays intact');
+    assert.equal(state._searchResults?.matches?.[0]?.what, undefined);
+
+    state.activeTab = 'overview';
+    state._loadedProjectId = 'p';
+    state.overview = {project:{id:'p'}, workspaces:[{workspace_id:'w'}]};
+    state.handoff = {intents:[]};
+    renderSidebar = () => {};
+    renderProjectSelector = () => {};
+    renderProjectSummary = () => {el.detailContent.innerHTML = state.overview.project.id;};
+    const oneOverview = deferred(), oneHandoff = deferred(), twoOverview = deferred(), twoHandoff = deferred();
+    responses.set('/api/v1/projects/p1/overview', oneOverview);
+    responses.set('/api/v1/projects/p1/handoff', oneHandoff);
+    responses.set('/api/v1/projects/p2/overview', twoOverview);
+    responses.set('/api/v1/projects/p2/handoff', twoHandoff);
+    const loadOne = loadProject('p1');
+    const loadTwo = loadProject('p2');
+    twoOverview.resolve({project:{id:'p2',name:'second'},workspaces:[{workspace_id:'w2'}]});
+    twoHandoff.resolve({intents:[]});
+    await loadTwo;
+    oneOverview.resolve({project:{id:'p1',name:'first'},workspaces:[{workspace_id:'w1'}]});
+    oneHandoff.resolve({intents:[]});
+    await loadOne;
+    assert.equal(state.currentProjectId, 'p2');
+    assert.equal(state.overview.project.id, 'p2');
+    assert.equal(el.detailContent.innerHTML, 'p2');
+
+    responses.set('/api/v1/projects/failing/overview', {promise:Promise.reject(new Error('offline'))});
+    responses.set('/api/v1/projects/failing/handoff', {promise:Promise.resolve({intents:[]})});
+    await assert.rejects(() => loadProject('failing'), /offline/);
+    assert.equal(state.currentProjectId, 'p2');
+    assert.equal(state.overview.project.id, 'p2');
+
+    state.activeTab = 'search';
+    state._searchBusy = false;
+    responses.set('/api/v1/search?project_id=p2&q=goal', {promise:Promise.reject(new Error('offline'))});
+    await runSearch('goal', el.tokenBtn);
+    assert.equal(state._searchBusy, false);
+    assert.equal(el.tokenBtn.disabled, false);
+    assert.ok(document.getElementById('search-results').innerHTML.includes('data-retry-search'));
+
+    fetchJson=savedFetch; renderSnapDetail=savedRender; renderSnapDetailTo=savedRenderTo;
+    renderSidebar=savedSidebar; renderProjectSelector=savedSelector; renderProjectSummary=savedSummary;
+  })()`, context);
+  console.log('Latest-action ownership, closed-drawer cancellation, mobile preview, project rollback and search recovery tests passed.');
+}
 
 async function redirectCase(destination, failure = false) {
   const elements = new Map();
@@ -115,6 +261,7 @@ async function redirectCase(destination, failure = false) {
   assert.equal(get('transition-return').href, '/');
 }
 (async () => {
+  await viewControllerCases();
   await redirectCase('https://account.tenon.asia/api/auth/oauth2/authorize?state=fresh');
   await redirectCase('https://evil.example/authorize');
   await redirectCase('', true);
