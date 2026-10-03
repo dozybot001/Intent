@@ -44,6 +44,10 @@ def make_handler(api_base_url, default_project_id=None, static_dir=None):
 
         def do_GET(self):
             parsed = urlparse(self.path)
+            if parsed.path == "/auth/redirect":
+                self.path = "/auth-redirect.html"
+                super().do_GET()
+                return
             if parsed.path == "/config.json":
                 self._send_json(config)
                 return

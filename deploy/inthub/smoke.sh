@@ -35,11 +35,27 @@ check_surface() {
 
     oauth_status="$(
         curl --silent --show-error --max-time 10 \
-            --output /dev/null --write-out '%{http_code}' \
-            "${base_url}/api/v1/auth/tenon/start"
+            --request POST --header 'Content-Type: application/json' --data '{"return_to":"/"}' \
+            --output "${TMP_DIRECTORY}/${label}.authorization.json" --write-out '%{http_code}' \
+            "${base_url}/api/v1/auth/tenon/prepare"
     )"
-    [[ "${oauth_status}" == 302 || "${oauth_status}" == 303 ]] \
-        || { echo "Expected Tenon OIDC start to redirect, got ${oauth_status}." >&2; return 1; }
+    [[ "${oauth_status}" == 200 ]] \
+        || { echo "Expected Tenon OIDC preparation to succeed, got ${oauth_status}." >&2; return 1; }
+    python3 - "${TMP_DIRECTORY}/${label}.authorization.json" <<'PY'
+import json
+import sys
+from urllib.parse import urlparse
+with open(sys.argv[1]) as source:
+    payload = json.load(source)
+target = urlparse(payload["result"]["authorizationUrl"])
+assert payload["ok"] is True
+assert target.scheme == "https" and target.netloc == "account.tenon.asia"
+assert target.path == "/api/auth/oauth2/authorize" and not target.fragment
+PY
+    curl --fail --silent --show-error --max-time 10 "${base_url}/auth/redirect" \
+        > "${TMP_DIRECTORY}/${label}.transition.html"
+    grep -q 'id="transition-title"' "${TMP_DIRECTORY}/${label}.transition.html" \
+        || { echo "Fixed login transition page was not served." >&2; return 1; }
     [[ "$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${base_url}/api/v1/auth/github/start")" == 410 ]] \
         || { echo "Legacy GitHub login must be retired." >&2; return 1; }
 

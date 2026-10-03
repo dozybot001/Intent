@@ -48,7 +48,7 @@ bash deploy/inthub/release.sh
 
 ## 统一 Tenon 身份与一次性迁移
 
-唯一用户登录入口为 `/api/v1/auth/tenon/start`，回调精确登记为
+唯一用户登录入口为同源固定页面 `/auth/redirect`。页面先显示本地等待界面，再通过 `POST /api/v1/auth/tenon/prepare` 获取后端验证的中央授权地址；失败或15秒超时后提供重试与返回，不接受任意 URL 跳转参数。旧的直跳 start 接口已移除。回调精确登记为
 `https://inthub.tenon.asia/api/v1/auth/tenon/callback`。中央 issuer 固定为
 `https://account.tenon.asia/api/auth`，端点和签名公钥通过 discovery 获取；Authlib
 验证签名、issuer、audience、期限及 nonce，授权码采用 S256 PKCE，一次性 state

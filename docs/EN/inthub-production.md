@@ -50,7 +50,7 @@ and the current healthy release keeps serving.
 
 ## Sole Tenon account entry and one-time migration
 
-The only sign-in entry is `/api/v1/auth/tenon/start`, with the exact registered callback
+The sole sign-in entry is the same-origin `/auth/redirect` page. It paints a local waiting screen before calling `POST /api/v1/auth/tenon/prepare` for a backend-validated authorization URL. Failure or a 15-second timeout exposes retry and return actions; arbitrary destination parameters are not accepted. The direct start endpoint has been removed. The exact registered callback is
 `https://inthub.tenon.asia/api/v1/auth/tenon/callback`. The issuer is fixed to
 `https://account.tenon.asia/api/auth`; discovery supplies endpoints and signing keys.
 Authlib validates signed ID Tokens, issuer, audience, expiration and nonce. Every attempt

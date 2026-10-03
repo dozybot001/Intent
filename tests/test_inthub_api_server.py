@@ -119,6 +119,10 @@ def test_api_server_can_serve_web_shell(tmp_path, monkeypatch):
 
         mark = urlopen(f"{base}/tenon-mark.svg").read().decode("utf-8")
         assert 'fill="#f06b32"' in mark
+        transition = urlopen(f"{base}/auth/redirect").read().decode("utf-8")
+        assert 'id="transition-title"' in transition
+        assert 'id="transition-retry"' in transition
+        assert 'id="shell"' not in transition
 
         html = urlopen(f"{base}/").read().decode("utf-8")
         assert "IntHub" in html
@@ -126,6 +130,41 @@ def test_api_server_can_serve_web_shell(tmp_path, monkeypatch):
         assert "IntHub" in deep_link
         js = urlopen(f"{base}/app.js").read().decode("utf-8")
         assert "itt push" in js
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+def test_fixed_login_prepare_is_same_origin_fresh_and_validates_destination(tmp_path):
+    provider = FakeTenonOIDCClient()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(
+        str(tmp_path / "inthub.db"), serve_web=True,
+        tenon_client_id="test", tenon_client_secret="test",
+        oauth_client=provider, public_api_base_url="https://inthub.example",
+        allowed_origins=["https://inthub.example"], secure_cookies=True,
+    ))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = f"http://127.0.0.1:{server.server_port}"
+        states = []
+        for _ in range(2):
+            status, headers, body = _request_json(base + "/api/v1/auth/tenon/prepare", "POST", {"return_to": "/?tab=snaps"})
+            assert status == 200 and body["ok"] is True
+            url = body["result"]["authorizationUrl"]
+            assert url.startswith("https://account.tenon.asia/api/auth/oauth2/authorize?")
+            states.append(parse_qs(urlparse(url).query)["state"][0])
+            assert "HttpOnly" in headers["Set-Cookie"] and "Secure" in headers["Set-Cookie"]
+            assert headers["Cache-Control"] == "no-store"
+        assert states[0] != states[1]
+        status, _, _ = _request_json(base + "/api/v1/auth/tenon/prepare", "POST", {}, {"Origin": "https://evil.example"})
+        assert status == 403
+        status, _, _ = _request_json(base + "/api/v1/auth/tenon/prepare", "POST", {}, {"Sec-Fetch-Site": "cross-site"})
+        assert status == 403
+        provider.authorization_url = lambda *_: "https://evil.example/authorize"
+        status, _, body = _request_json(base + "/api/v1/auth/tenon/prepare", "POST", {})
+        assert status == 503 and body["error"]["code"] == "AUTH_FLOW_UNAVAILABLE"
     finally:
         server.shutdown()
         thread.join()
@@ -243,19 +282,21 @@ def test_tenon_account_login_uses_pkce_database_session_and_logout(tmp_path):
         assert config["authMode"] == "tenon"
         assert _raw_request(server, "/api/v1/auth/github/start")[0] == 410
         assert _raw_request(server, "/api/v1/auth/github/callback", method="POST")[0] == 410
-        assert _raw_request(server, "/api/v1/auth/tenon/start", headers={"Sec-Fetch-Site": "cross-site"})[0] == 403
+        assert _raw_request(server, "/api/v1/auth/tenon/prepare", method="POST", headers={"Sec-Fetch-Site": "cross-site"})[0] == 403
 
         status, root_headers, _ = _raw_request(server, "/")
         assert status == 200
         assert "default-src 'self'" in dict(root_headers)["Content-Security-Policy"]
 
-        status, headers, _ = _raw_request(
+        status, headers, body = _raw_request(
             server,
-            "/api/v1/auth/tenon/start?return_to=%2Fprojects%2Fdemo%3Ftab%3Dsnaps",
+            "/api/v1/auth/tenon/prepare", method="POST",
+            headers={"Content-Type": "application/json"},
+            body=json.dumps({"return_to": "/projects/demo?tab=snaps"}),
         )
-        assert status == 302
+        assert status == 200
         header_map = dict(headers)
-        authorize = header_map["Location"]
+        authorize = json.loads(body)["result"]["authorizationUrl"]
         state = parse_qs(urlparse(authorize).query)["state"][0]
         state_cookie = header_map["Set-Cookie"].split(";", 1)[0]
         assert "HttpOnly" in header_map["Set-Cookie"]

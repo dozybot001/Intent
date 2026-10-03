@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>IntHub · Tenon</title>
+    <link rel="icon" type="image/svg+xml" href="/tenon-mark.svg">
+    <link rel="stylesheet" href="/styles.css?rev=tenon-standard-2">
+  </head>
+  <body class="login-transition">
+    <main class="login-transition-card" aria-labelledby="transition-title">
+      <img src="/tenon-mark.svg" alt="Tenon" width="64" height="64">
+      <h1 id="transition-title">Connecting to Tenon…</h1>
+      <span id="transition-spinner" class="button-spinner" aria-hidden="true"></span>
+      <p id="transition-error" class="is-hidden" role="alert"></p>
+      <div class="transition-actions">
+        <button id="transition-retry" class="is-hidden" type="button">Retry</button>
+        <a id="transition-return" href="/">Return to IntHub</a>
+      </div>
+      <button data-language-switch class="language-button" type="button" aria-label="Switch language">中文</button>
+    </main>
+    <script src="/i18n.js?rev=tenon-standard-2"></script>
+    <script src="/auth-redirect.js?rev=tenon-standard-2"></script>
+  </body>
+</html>

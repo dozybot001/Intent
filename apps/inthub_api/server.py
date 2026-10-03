@@ -9,7 +9,7 @@ import os
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse, urlunparse
 from apps.inthub_web import product_version
 
 from apps.inthub_api.auth import (
@@ -55,6 +55,13 @@ LOGGER = logging.getLogger("inthub.api")
 
 def _json_success(result):
     return {"ok": True, "result": result}
+
+
+def _login_error_return(return_to, code):
+    target = urlparse(safe_return_to(return_to))
+    query = [(key, value) for key, value in parse_qsl(target.query, keep_blank_values=True) if key != "auth_error"]
+    query.append(("auth_error", code))
+    return urlunparse(target._replace(query=urlencode(query)))
 
 
 def _json_error(code, message, details=None):
@@ -224,6 +231,9 @@ def make_handler(
             self._send_file(root / "index.html")
 
         def _serve_web(self, path):
+            if path == "/auth/redirect":
+                self._send_file(root / "auth-redirect.html")
+                return True
             if path in {"/config.json", "/showcase/config.json"}:
                 public_mode = path == "/showcase/config.json"
                 self._send_json(
@@ -421,7 +431,7 @@ def make_handler(
             revoke_account_access_token(db_path, account["id"], token_id)
             self._send_json(200, _json_success({"revoked": True, "id": token_id}))
 
-        def _begin_tenon_login(self, return_to="/"):
+        def _prepare_tenon_login(self, return_to="/"):
             self._check_origin()
             if self.headers.get("Sec-Fetch-Site") == "cross-site":
                 raise APIError("ORIGIN_DENIED", "Start sign-in from IntHub.", 403)
@@ -432,18 +442,17 @@ def make_handler(
                 return_to=safe_return_to(return_to),
                 ttl_seconds=oauth_state_ttl_seconds,
             )
-            location = provider_client.authorization_url(
-                self._oauth_callback_url(),
-                attempt,
-            )
-            self._send_redirect(
-                location,
-                [self._oauth_state_cookie(attempt["state"], oauth_state_ttl_seconds)],
-            )
-
-        def _handle_tenon_start(self, query):
-            return_to = safe_return_to(query.get("return_to", ["/"])[0])
-            self._begin_tenon_login(return_to=return_to)
+            try:
+                location = provider_client.authorization_url(self._oauth_callback_url(), attempt)
+            except Exception:
+                consume_attempt(db_path, attempt["state"])
+                raise
+            target = urlparse(location)
+            if (target.scheme != "https" or target.netloc != "account.tenon.asia"
+                    or target.path != "/api/auth/oauth2/authorize" or target.fragment):
+                consume_attempt(db_path, attempt["state"])
+                raise APIError("AUTH_FLOW_UNAVAILABLE", "Tenon authorization is unavailable.", 503)
+            return location, self._oauth_state_cookie(attempt["state"], oauth_state_ttl_seconds)
 
         def _handle_tenon_callback(self, query):
             clear_state = self._oauth_state_cookie("", 0)
@@ -453,10 +462,11 @@ def make_handler(
                 self._send_redirect("/?auth_error=invalid_state", [clear_state])
                 return
 
+            attempt = None
             try:
                 attempt = consume_attempt(db_path, state)
                 if query.get("error"):
-                    self._send_redirect("/?auth_error=tenon_denied", [clear_state])
+                    self._send_redirect(_login_error_return(attempt["return_to"], "tenon_denied"), [clear_state])
                     return
                 code = query.get("code", [""])[0]
                 if not code:
@@ -477,7 +487,7 @@ def make_handler(
                 )
             except APIError as exc:
                 LOGGER.warning("Tenon sign-in failed: %s", exc.code)
-                self._send_redirect("/?auth_error=tenon_failed", [clear_state])
+                self._send_redirect(_login_error_return(attempt["return_to"] if attempt else "/", "tenon_failed"), [clear_state])
                 return
 
             self._send_redirect(
@@ -666,6 +676,11 @@ def make_handler(
             parsed = urlparse(self.path)
             try:
                 self._check_origin()
+                if parsed.path == "/api/v1/auth/tenon/prepare":
+                    body = self._read_json_body()
+                    location, cookie = self._prepare_tenon_login(body.get("return_to", "/"))
+                    self._send_json(200, _json_success({"authorizationUrl": location}), {"Set-Cookie": cookie})
+                    return
                 if parsed.path.startswith("/api/v1/auth/github/"):
                     raise APIError("ACCOUNT_MANAGED_BY_TENON", "Sign in with Tenon.", 410)
                 if parsed.path == "/api/v1/auth/logout":
@@ -704,10 +719,6 @@ def make_handler(
             try:
                 if parsed.path.startswith("/api/v1/auth/github/"):
                     raise APIError("ACCOUNT_MANAGED_BY_TENON", "Sign in with Tenon.", 410)
-
-                if parsed.path == "/api/v1/auth/tenon/start":
-                    self._handle_tenon_start(parse_qs(parsed.query))
-                    return
 
                 if parsed.path == "/api/v1/auth/tenon/callback":
                     self._handle_tenon_callback(parse_qs(parsed.query))

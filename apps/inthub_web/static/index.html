@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#f4f5f2">
     <title>IntHub</title>
     <link rel="icon" type="image/svg+xml" href="/tenon-mark.svg">
-    <link rel="stylesheet" href="/styles.css?rev=tenon-product-1">
+    <link rel="stylesheet" href="/styles.css?rev=tenon-standard-2">
   </head>
   <body>
     <a class="skip-link" href="#detail-content">Skip to project content</a>
@@ -40,6 +40,7 @@
         </div>
 
         <div class="header-actions">
+          <button class="language-button" data-language-switch type="button" aria-label="Switch language">中文</button>
           <button class="icon-button" data-about-open type="button" aria-label="About IntHub" title="About IntHub">
             <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 9v5M10 6v.5"/></svg>
           </button>
@@ -60,11 +61,15 @@
           </button>
 
           <div id="account-control" class="account-control is-hidden">
+            <button id="account-menu-trigger" class="account-menu-trigger" type="button" aria-label="Account" aria-expanded="false" aria-controls="account-actions">
             <span id="account-avatar" class="account-avatar" aria-hidden="true">IH</span>
+            </button>
             <span id="account-label" class="account-label">Account</span>
             <span id="account-mode" class="account-mode is-hidden">Public view</span>
-            <button id="token-btn" class="account-action" type="button">Access token</button>
-            <button id="logout-btn" class="account-action account-action-muted" type="button">Sign out</button>
+            <div id="account-actions" class="account-actions">
+              <button id="token-btn" class="account-action" type="button">Access token</button>
+              <button id="logout-btn" class="account-action account-action-muted" type="button">Sign out</button>
+            </div>
           </div>
         </div>
       </header>
@@ -166,7 +171,10 @@
             </svg>
             <span class="brand-wordmark">IntHub<img class="product-publisher-mark" src="/tenon-mark.svg" alt="" width="64" height="64"></span>
           </a>
-          <button class="about-link" data-about-open type="button">About IntHub</button>
+          <div class="auth-header-actions">
+            <button class="language-button" data-language-switch type="button" aria-label="Switch language">中文</button>
+            <button class="about-link" data-about-open type="button">About IntHub</button>
+          </div>
         </header>
 
         <div class="auth-layout">
@@ -201,9 +209,8 @@
           <div class="auth-panel">
             <div class="auth-content">
               <span class="auth-mark">Your workspace</span>
-              <h2>Continue to IntHub.</h2>
-              <p id="auth-description">Use your Tenon account to continue to your workspace.</p>
-              <a class="tenon-login is-hidden" id="tenon-login" href="/api/v1/auth/tenon/start">
+              <h2 class="heading-with-help">Continue to IntHub.<button class="help-trigger" data-help="auth" type="button" aria-label="Explanation" aria-expanded="false"><span aria-hidden="true">i</span></button></h2>
+              <a class="tenon-login is-hidden" id="tenon-login" href="/auth/redirect">
                 <span class="tenon-login-visual" aria-hidden="true">
                   <img src="/tenon-mark.svg" alt="" width="64" height="64">
                   <i class="tenon-login-spinner"></i>
@@ -212,11 +219,6 @@
                 <span class="tenon-login-arrow" aria-hidden="true">→</span>
               </a>
               <p class="auth-error is-hidden" id="auth-error" role="alert"></p>
-              <div class="auth-assurances" aria-label="Authentication assurances">
-                <span><i aria-hidden="true">✓</i>One Tenon account</span>
-                <span><i aria-hidden="true">✓</i>No repository permissions</span>
-              </div>
-              <small id="auth-footnote">Your account is managed by Tenon. IntHub keeps a separate, revocable session.</small>
             </div>
           </div>
         </div>
@@ -224,13 +226,14 @@
     </div>
 
     <dialog class="about-dialog" id="about-dialog" aria-labelledby="about-title">
-      <div class="about-card">
+      <div class="about-card dialog-layout">
         <header class="about-heading">
           <h2 id="about-title">About IntHub</h2>
           <button class="icon-button" id="about-close" type="button" aria-label="Close About IntHub" autofocus>
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg>
           </button>
         </header>
+        <div class="dialog-body">
         <div class="brand about-brand" aria-label="IntHub, by Tenon">
           <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
             <path class="brand-mark-rail brand-mark-rail-a" d="M8 6.5V16a8 8 0 0 0 16 0V6.5"/>
@@ -245,20 +248,22 @@
           <p>IntHub is a project continuity workspace for developers and Agents. It brings together Intent goals, Snap checkpoints and durable Decisions so work can resume with its context intact.</p>
           <p>Sync semantic history from the Intent CLI, review the current continuation brief, explore the timeline and search project history. Explicitly published projects can also be shared in a read-only showcase.</p>
         </div>
-        <footer class="about-publisher">
+        <div class="about-publisher">
           <span class="about-publisher-label">Publisher</span>
           <span class="about-publisher-name"><img src="/tenon-mark.svg" alt="" width="24" height="24">榫卯 Tenon AI</span>
           <a href="https://tenon.asia/" target="_blank" rel="noopener noreferrer">tenon.asia</a>
-        </footer>
+        </div>
+        </div>
       </div>
     </dialog>
 
     <dialog class="token-dialog" id="token-dialog" aria-labelledby="token-dialog-title">
-      <form method="dialog" class="token-dialog-card">
-        <span class="auth-mark">IntHub / developer access</span>
-        <h2 id="token-dialog-title">New access token</h2>
+      <form method="dialog" class="token-dialog-card dialog-layout">
+        <header class="dialog-heading"><h2 id="token-dialog-title" class="heading-with-help">New access token<button class="help-trigger" data-help="token" type="button" aria-label="Explanation" aria-expanded="false"><span aria-hidden="true">i</span></button></h2></header>
+        <div class="dialog-body">
         <p>This secret is shown once. Paste it into <code>itt auth login</code>; IntHub will not display it again.</p>
         <input id="token-output" type="text" readonly aria-label="New CLI token">
+        </div>
         <div class="token-dialog-actions">
           <button id="token-copy" type="button">Copy token</button>
           <button id="token-close" value="close">Done</button>
@@ -266,6 +271,9 @@
       </form>
     </dialog>
 
-    <script src="/app.js?rev=tenon-product-1" defer></script>
+    <div id="help-popover" class="help-popover" role="tooltip" popover="manual" hidden></div>
+    <script src="/i18n.js?rev=tenon-standard-2" defer></script>
+    <script src="/help.js?rev=tenon-standard-2" defer></script>
+    <script src="/app.js?rev=tenon-standard-2" defer></script>
   </body>
 </html>
