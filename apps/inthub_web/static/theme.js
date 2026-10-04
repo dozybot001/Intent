@@ -20,15 +20,20 @@ window.IntHubTheme = (() => {
       button.dataset.preference = preference;
       button.innerHTML = `<svg viewBox="0 0 20 20" aria-hidden="true">${icons[preference]}</svg>`;
     }
+    for (const button of document.querySelectorAll("[data-theme-setting]")) {
+      const selected = button.dataset.themeSetting === preference;
+      button.setAttribute("aria-pressed", String(selected));
+      button.classList.toggle("is-selected", selected);
+    }
     for (const mark of document.querySelectorAll('img.brand-mark')) {
-      mark.setAttribute("src", `/inthub-mark.svg?rev=2${document.documentElement.dataset.theme === "dark" ? "#dark" : ""}`);
+      mark.setAttribute("src", `/inthub-mark.svg?rev=3${document.documentElement.dataset.theme === "dark" ? "#dark" : ""}`);
     }
   }
   function apply() {
     const theme = preference === "system" ? (media.matches ? "dark" : "light") : preference;
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#171E19" : "#F5F6F3");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#171717" : "#F6F6F6");
     refreshControls();
   }
   function setPreference(next) {
@@ -42,7 +47,9 @@ window.IntHubTheme = (() => {
   document.addEventListener("DOMContentLoaded", () => {
     refreshControls();
     document.addEventListener("click", (event) => {
-      if (event.target.closest("[data-theme-switch]")) setPreference(modes[(modes.indexOf(preference) + 1) % modes.length]);
+      const setting = event.target.closest("[data-theme-setting]");
+      if (setting) setPreference(setting.dataset.themeSetting);
+      else if (event.target.closest("[data-theme-switch]")) setPreference(modes[(modes.indexOf(preference) + 1) % modes.length]);
     });
   });
   window.addEventListener("inthub:language", refreshControls);

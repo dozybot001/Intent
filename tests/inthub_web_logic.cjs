@@ -18,23 +18,30 @@ function node(id) {
       toggle(name, force) {const on = force ?? !classes.has(name); if (on) classes.add(name); else classes.delete(name); return on;},
       contains(name) {return classes.has(name);},
     },
-    setAttribute(key, value) {attributes.set(key, String(value));}, removeAttribute(key) {attributes.delete(key);}, getAttribute(key) {return attributes.get(key);}, addEventListener() {},
+    events: new Map(),
+    setAttribute(key, value) {attributes.set(key, String(value));}, removeAttribute(key) {attributes.delete(key);}, getAttribute(key) {return attributes.get(key);},
+    addEventListener(type, fn) {this.events.set(type, [...(this.events.get(type) || []), fn]);},
     querySelectorAll() {return [];}, querySelector() {return null;},
-    focus() {}, setSelectionRange() {}, matches() {return false;},
+    focus() {document.activeElement = this;}, setSelectionRange() {}, matches() {return false;},
+    contains(other) {return other === this;}, closest() {return null;},
+    getClientRects() {return this.hidden || classes.has('is-hidden') ? [] : [{}];},
+    showModal() {this.open=true; document.activeElement=this;},
+    close() {this.open=false; for(const handler of this.events.get('close') || []) handler();},
   });
   }
   return nodes.get(id);
 }
 const document = {
-  body: {querySelectorAll() {return [];}}, documentElement: {},
+  body: {querySelectorAll() {return [];}}, documentElement: {style: {setProperty() {}}},
   getElementById: node, querySelectorAll() {return [];},
   querySelector: node, createTreeWalker() {return {nextNode() {return null;}};},
   activeElement: node('focus'),
+  events: new Map(), addEventListener(type, fn) {this.events.set(type, [...(this.events.get(type) || []), fn]);},
 };
 const context = {document, NodeFilter: {SHOW_TEXT: 4}, navigator: {language: 'zh-CN'},
   localStorage: {getItem() {return 'zh-CN';}, setItem() {}},
-  window: {dispatchEvent() {}, setTimeout() {}, clearTimeout() {}, location: {pathname: '/', search: ''}, history: {replaceState() {}}},
-  Event, URLSearchParams, Intl, console, assert,
+  window: {dispatchEvent() {}, addEventListener() {}, setTimeout() {}, clearTimeout() {}, location: {pathname: '/', search: ''}, history: {replaceState() {}}},
+  innerHeight: 900, innerWidth: 1440, Event, URLSearchParams, Intl, console, assert,
 };
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(root, 'i18n.js'), 'utf8'), context);
@@ -70,6 +77,7 @@ vm.runInContext(`
   assert.equal(el.tokenOutput.value, 'sensitive clipboard value');
   setButtonBusy(el.tokenBtn, true, 'Creating token…', 'Access token');
   assert.equal(el.tokenBtn.disabled, true);
+  assert.equal(el.tokenBtn.classList.contains('action-busy'), true);
   assert.equal(el.tokenBtn.textContent, 'Creating token…');
   window.IntHubI18n.setLanguage('zh-CN');
   setButtonBusy(el.tokenBtn, false, 'Creating token…', 'Access token');
@@ -101,8 +109,168 @@ vm.runInContext(`
   assert.ok(el.sidebarBody.innerHTML.includes('User goal two'));
   assert.ok(detailErrorHtml(new Error('offline'), 'snap', 'w__snap-001').includes('data-retry-detail="detail"'));
   assert.ok(detailErrorHtml(new Error('offline'), 'snap', 'w__snap-001', 'drawer').includes('data-retry-detail="drawer"'));
+  const navigation = document.getElementById('navigation-card');
+  navigation.matches = selector => selector.includes('.card');
+  setButtonBusy(navigation, true);
+  assert.notEqual(navigation.disabled, true);
+  assert.equal(navigation.classList.contains('action-busy'), false);
+  assert.equal(navigation.getAttribute('aria-busy'), undefined);
+  setProjectPickerBusy(true);
+  assert.equal(el.projectPickerTrigger.getAttribute('aria-busy'), 'true');
+  assert.equal(el.projectPickerTrigger.classList.contains('action-busy'), false);
+  setProjectPickerBusy(false);
+  const waitingMarkup = viewLoadingHtml();
+  assert.ok(waitingMarkup.includes('class="view-loading" role="status"'));
+  assert.ok(waitingMarkup.includes('class="view-loading-spinner" aria-hidden="true"'));
+  assert.ok(waitingMarkup.includes('<p data-view-loading-copy>正在加载…</p>'));
+  const originalLoadingQuery = document.querySelectorAll;
+  const loadingCaption = document.getElementById('loading-caption');
+  document.querySelectorAll = selector => selector === '[data-view-loading-copy]' ? [loadingCaption] : originalLoadingQuery(selector);
+  el.detailContent.innerHTML = waitingMarkup;
+  window.IntHubI18n.setLanguage('en');
+  localizeViewLoadingCopy();
+  assert.equal(loadingCaption.textContent,'Loading…');
+  assert.ok(el.detailContent.innerHTML.includes('view-loading-spinner'));
+  window.IntHubI18n.setLanguage('zh-CN');
+  document.querySelectorAll = originalLoadingQuery;
 `, context);
 console.log('Bilingual rendering, user-content preservation, truthful checkpoint health and scoped timeline filter tests passed.');
+
+async function headerMenuCases() {
+  await vm.runInContext(`(async () => {
+    const originalQueryAll = document.querySelectorAll;
+    const settingsTrigger = document.getElementById('settings-menu-trigger');
+    const settingsPanel = document.getElementById('settings-menu');
+    const authSettingsTrigger = document.getElementById('auth-settings-menu-trigger');
+    const authSettingsPanel = document.getElementById('auth-settings-menu');
+    const languageChinese = document.getElementById('language-chinese');
+    const languageEnglish = document.getElementById('language-english');
+    const publicSignIn = document.getElementById('public-sign-in');
+    const aboutButton = document.getElementById('menu-about-button');
+    languageChinese.dataset.languageSelect = 'zh-CN';
+    languageEnglish.dataset.languageSelect = 'en';
+    settingsTrigger.setAttribute('aria-controls','settings-menu');
+    authSettingsTrigger.setAttribute('aria-controls','auth-settings-menu');
+    settingsPanel.querySelectorAll = () => [languageChinese, languageEnglish, aboutButton];
+    settingsPanel.contains = target => target === settingsPanel || target === languageChinese || target === languageEnglish || target === aboutButton;
+    authSettingsPanel.querySelectorAll = () => [languageEnglish];
+    document.querySelectorAll = selector => selector === '[data-settings-trigger]' ? [settingsTrigger, authSettingsTrigger] : selector === '[data-language-select]' ? [languageChinese, languageEnglish] : selector === '[data-account-sign-in]' ? [publicSignIn] : selector === '[data-about-open]' ? [aboutButton] : originalQueryAll(selector);
+    bindEvents();
+    const dispatch = (type, target, key, extra={}) => {
+      let stopped=false;
+      const event={target,key,preventDefault(){},stopImmediatePropagation(){stopped=true;},...extra};
+      for(const listener of document.events.get(type) || []) {listener(event);if(stopped)break;}
+    };
+    toggleHeaderMenu(settingsTrigger);
+    assert.equal(settingsPanel.classList.contains('is-open'),true);
+    assert.equal(settingsPanel.inert,false);
+    toggleHeaderMenu(el.accountMenuTrigger);
+    assert.equal(settingsPanel.classList.contains('is-open'),false);
+    assert.equal(settingsPanel.inert,true);
+    assert.equal(el.accountActions.classList.contains('is-open'),true);
+    toggleHeaderMenu(authSettingsTrigger);
+    assert.equal(el.accountActions.classList.contains('is-open'),false);
+    assert.equal(authSettingsPanel.classList.contains('is-open'),true);
+    toggleProjectPicker(true);
+    assert.equal(authSettingsPanel.classList.contains('is-open'),false);
+    assert.equal(el.projectPickerDropdown.classList.contains('is-open'),true);
+
+    closeHeaderMenus();
+    dispatch('keydown',settingsTrigger,'ArrowDown');
+    assert.equal(settingsPanel.classList.contains('is-open'),true);
+    assert.equal(document.activeElement,languageChinese);
+    assert.equal(el.projectPickerDropdown.classList.contains('is-open'),false);
+    dispatch('keydown',languageChinese,'ArrowDown');
+    assert.equal(document.activeElement,languageEnglish);
+    dispatch('keydown',languageEnglish,'Escape');
+    assert.equal(settingsPanel.classList.contains('is-open'),false);
+    assert.equal(document.activeElement,settingsTrigger);
+    toggleHeaderMenu(settingsTrigger,{focus:'first'});
+    dispatch('keydown',languageChinese,'Tab',{shiftKey:true});
+    assert.equal(settingsPanel.classList.contains('is-open'),true);
+    document.activeElement=settingsTrigger;
+    dispatch('focusin',settingsTrigger);
+    assert.equal(settingsPanel.classList.contains('is-open'),true);
+    dispatch('keydown',settingsTrigger,'Tab',{shiftKey:true});
+    assert.equal(settingsPanel.inert,false);
+    document.activeElement=el.searchTrigger;
+    dispatch('focusin',el.searchTrigger);
+    assert.equal(settingsPanel.classList.contains('is-open'),false);
+    toggleHeaderMenu(settingsTrigger);
+    dispatch('keydown',document.getElementById('outside-menu'),'Escape');
+    assert.equal(settingsPanel.classList.contains('is-open'),false);
+    assert.equal(document.activeElement,settingsTrigger);
+    toggleHeaderMenu(settingsTrigger);
+    document.activeElement=aboutButton;
+    dispatch('keydown',aboutButton,'Tab');
+    assert.equal(settingsPanel.inert,false);
+    document.activeElement=el.accountMenuTrigger;
+    dispatch('focusin',el.accountMenuTrigger);
+    assert.equal(settingsPanel.inert,true);
+    toggleHeaderMenu(settingsTrigger);
+    dispatch('click',document.getElementById('outside-menu'));
+    assert.equal(settingsPanel.classList.contains('is-open'),false);
+    toggleHeaderMenu(settingsTrigger);
+    aboutButton.events.get('click')[0]();
+    assert.equal(el.aboutDialog.open,true);
+    assert.equal(settingsPanel.inert,true);
+    el.aboutDialog.close();
+    assert.equal(document.activeElement,settingsTrigger);
+    el.tokenDialog.showModal();
+    el.tokenDialog.close();
+    assert.equal(document.activeElement,el.accountMenuTrigger);
+
+    window.IntHubI18n.setLanguage('en');
+    assert.equal(languageEnglish.getAttribute('aria-pressed'),'true');
+    assert.equal(languageChinese.getAttribute('aria-pressed'),'false');
+    window.IntHubI18n.setLanguage('zh-CN');
+    assert.equal(languageChinese.classList.contains('is-selected'),true);
+
+    state.config={publicMode:true, authRequired:false};
+    state.account={display_name:'Showcase owner, not the visitor'};
+    hideAuthGate();
+    assert.equal(el.accountLabel.textContent,'公开展示');
+    assert.equal(el.accountMode.textContent,'只读');
+    assert.equal(el.accountMenuTrigger.disabled,false);
+    assert.equal(el.tokenBtn.classList.contains('is-hidden'),true);
+    assert.equal(el.logoutBtn.classList.contains('is-hidden'),true);
+    assert.equal(publicSignIn.classList.contains('is-hidden'),false);
+    state.config={publicMode:false,authRequired:true};
+    state.account={display_name:'Actual signed-in user'};
+    hideAuthGate();
+    assert.equal(el.accountLabel.textContent,'Actual signed-in user');
+    assert.equal(el.tokenBtn.classList.contains('is-hidden'),false);
+    assert.equal(publicSignIn.classList.contains('is-hidden'),true);
+    el.drawer.classList.add('open');
+    showAuthGate();
+    assert.equal(el.shell.inert,true);
+    assert.equal(el.drawer.inert,true);
+    assert.equal(el.drawer.classList.contains('open'),false);
+    const gatedTab=state.activeTab;
+    dispatch('keydown',document.getElementById('outside-menu'),'k',{ctrlKey:true});
+    assert.equal(state.activeTab,gatedTab);
+    dispatch('keydown',authSettingsTrigger,'ArrowDown');
+    assert.equal(authSettingsPanel.classList.contains('is-open'),true);
+    hideAuthGate();
+    assert.equal(el.shell.inert,false);
+    closeHeaderMenus();
+
+    const originalLoadProjects=loadProjects;
+    let finishRefresh;
+    loadProjects=() => new Promise(resolve=>{finishRefresh=resolve;});
+    const refreshRequest=el.refreshBtn.events.get('click')[0]();
+    assert.equal(el.refreshBtn.disabled,true);
+    assert.equal(el.refreshBtn.textContent,'正在刷新项目数据');
+    assert.equal(el.refreshBtn.classList.contains('action-busy'),true);
+    finishRefresh();
+    await refreshRequest;
+    assert.equal(el.refreshBtn.disabled,false);
+    assert.equal(el.refreshBtn.textContent,'刷新项目数据');
+    loadProjects=originalLoadProjects;
+    document.querySelectorAll=originalQueryAll;
+  })()`, context);
+  console.log('Mutually exclusive settings/account/project menus, keyboard/outside dismissal, language selection and public read-only context tests passed.');
+}
 
 async function viewControllerCases() {
   await vm.runInContext(`(async () => {
@@ -127,6 +295,10 @@ async function viewControllerCases() {
     responses.set('/api/v1/snaps/w__snap-001', first);
     responses.set('/api/v1/snaps/w__snap-002', next);
     const firstRequest = openDetail('snap','w__snap-001');
+    assert.equal(el.detailPane.getAttribute('aria-busy'), 'true');
+    assert.ok(el.detailContent.innerHTML.includes('view-loading-spinner'));
+    assert.equal(state.selectedDetail.remoteId, 'w__snap-001');
+    assert.equal(el.shell.classList.contains('detail-open'), true);
     await Promise.resolve();
     const nextRequest = openDetail('snap','w__snap-002');
     await Promise.resolve();
@@ -136,6 +308,27 @@ async function viewControllerCases() {
     await firstRequest;
     assert.equal(el.detailContent.innerHTML, 'newest detail');
     assert.equal(state.selectedDetail.remoteId, 'w__snap-002');
+    assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
+
+    const stale = deferred(), pending = deferred();
+    responses.set('/api/v1/snaps/w__snap-003', stale);
+    responses.set('/api/v1/snaps/w__snap-004', pending);
+    const staleRequest = openDetail('snap','w__snap-003');
+    await Promise.resolve();
+    const pendingRequest = openDetail('snap','w__snap-004');
+    await Promise.resolve();
+    stale.resolve({name:'old response finishes first'});
+    await staleRequest;
+    assert.equal(el.detailPane.getAttribute('aria-busy'), 'true');
+    assert.ok(el.detailContent.innerHTML.includes('loading'));
+    pending.resolve({name:'latest finished'});
+    await pendingRequest;
+    assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
+
+    responses.set('/api/v1/snaps/w__snap-004', {promise:Promise.reject(new Error('offline'))});
+    await assert.rejects(() => openDetail('snap','w__snap-004'), /offline/);
+    assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
+    assert.ok(el.detailContent.innerHTML.includes('data-retry-detail="detail"'));
 
     el.shell.classList.remove('detail-open');
     responses.set('/api/v1/snaps/w__snap-002', {promise:Promise.resolve({name:'automatic preview'})});
@@ -146,12 +339,15 @@ async function viewControllerCases() {
     const drawerPending = deferred();
     responses.set('/api/v1/snaps/w__snap-001', drawerPending);
     const drawerRequest = openInDrawer('snap','w__snap-001');
+    assert.equal(el.drawerContent.getAttribute('aria-busy'), 'true');
+    assert.ok(el.drawerContent.innerHTML.includes('view-loading-spinner'));
     assert.equal(el.drawer.inert, false);
     assert.equal(el.drawer.getAttribute('aria-modal'), 'true');
     closeDrawer();
     drawerPending.resolve({name:'closed drawer must stay empty'});
     await drawerRequest;
     assert.equal(el.drawer.inert, true);
+    assert.equal(el.drawerContent.getAttribute('aria-busy'), 'false');
     assert.equal(el.drawerContent.innerHTML, '');
     assert.equal(state._drawerPayload, null);
 
@@ -184,6 +380,12 @@ async function viewControllerCases() {
     responses.set('/api/v1/projects/p2/handoff', twoHandoff);
     const loadOne = loadProject('p1');
     const loadTwo = loadProject('p2');
+    assert.equal(el.detailPane.getAttribute('aria-busy'), 'true');
+    state.authenticated=true;
+    const pendingProjectMarkup=el.detailContent.innerHTML;
+    localizeWorkspace();
+    assert.equal(el.detailContent.innerHTML,pendingProjectMarkup);
+    assert.ok(el.detailContent.innerHTML.includes('overview-skeleton'));
     twoOverview.resolve({project:{id:'p2',name:'second'},workspaces:[{workspace_id:'w2'}]});
     twoHandoff.resolve({intents:[]});
     await loadTwo;
@@ -193,12 +395,28 @@ async function viewControllerCases() {
     assert.equal(state.currentProjectId, 'p2');
     assert.equal(state.overview.project.id, 'p2');
     assert.equal(el.detailContent.innerHTML, 'p2');
+    assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
+    state.overview={project:{id:'p2'},workspaces:[{workspace_id:'w2'}]};
+    el.detailContent.innerHTML=viewLoadingHtml();
+    const pendingDetailMarkup=el.detailContent.innerHTML;
+    setViewBusy('detail',true);
+    localizeWorkspace();
+    assert.equal(el.detailContent.innerHTML,pendingDetailMarkup);
+    assert.ok(el.detailContent.innerHTML.includes('view-loading-spinner'));
+    setViewBusy('detail',false);
 
     responses.set('/api/v1/projects/failing/overview', {promise:Promise.reject(new Error('offline'))});
     responses.set('/api/v1/projects/failing/handoff', {promise:Promise.resolve({intents:[]})});
     await assert.rejects(() => loadProject('failing'), /offline/);
     assert.equal(state.currentProjectId, 'p2');
     assert.equal(state.overview.project.id, 'p2');
+    assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
+
+    responses.set('/api/v1/projects/empty/overview', {promise:Promise.resolve({project:{id:'empty',name:'empty'},workspaces:[]})});
+    responses.set('/api/v1/projects/empty/handoff', {promise:Promise.resolve({intents:[]})});
+    await loadProject('empty');
+    assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
+    state.currentProjectId='p2';
 
     state.activeTab = 'search';
     state._searchBusy = false;
@@ -261,6 +479,7 @@ async function redirectCase(destination, failure = false) {
   assert.equal(get('transition-return').href, '/');
 }
 (async () => {
+  await headerMenuCases();
   await viewControllerCases();
   await redirectCase('https://account.tenon.asia/api/auth/oauth2/authorize?state=fresh');
   await redirectCase('https://evil.example/authorize');

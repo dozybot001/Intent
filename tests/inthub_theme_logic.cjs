@@ -8,12 +8,17 @@ function setup(saved, darkSystem = false, blockedStorage = false) {
   const attributes = new Map();
   const button = {dataset: {}, innerHTML: '', setAttribute(key, value) {attributes.set(key, value);}};
   const mark = {src: '', setAttribute(_, value) {this.src = value;}};
+  const settings = ['system', 'light', 'dark'].map(mode => ({
+    dataset: {themeSetting: mode}, textContent: mode, selected: false, pressed: '',
+    setAttribute(_, value) {this.pressed = value;},
+    classList: {toggle(_, value) {settings.find(x => x.dataset.themeSetting === mode).selected = value;}},
+  }));
   const media = {matches: darkSystem, addEventListener(_, fn) {this.changed = fn;}};
   const handlers = new Map();
   const document = {
     documentElement: {dataset: {}, style: {}},
     querySelector() {return null;},
-    querySelectorAll(selector) {return selector === '[data-theme-switch]' ? [button] : [mark];},
+    querySelectorAll(selector) {return selector === '[data-theme-switch]' ? [button] : selector === '[data-theme-setting]' ? settings : [mark];},
     addEventListener(event, fn) {handlers.set(event, fn);},
   };
   const cx = {
@@ -30,12 +35,14 @@ function setup(saved, darkSystem = false, blockedStorage = false) {
   };
   vm.runInNewContext(source, cx);
   handlers.get('DOMContentLoaded')();
-  return {cx, document, media, handlers, button, mark, attributes};
+  return {cx, document, media, handlers, button, mark, attributes, settings};
 }
 const dark = setup('dark');
 assert.equal(dark.document.documentElement.dataset.theme, 'dark');
 assert.ok(dark.mark.src.endsWith('#dark'));
 assert.equal(dark.attributes.get('aria-label'), 'localized:Theme: Dark');
+assert.equal(dark.settings[2].pressed, 'true');
+assert.equal(dark.settings[2].textContent, 'dark');
 dark.cx.window.IntHubTheme.setPreference('light');
 assert.equal(dark.document.documentElement.dataset.theme, 'light');
 assert.ok(!dark.mark.src.includes('#dark'));
@@ -47,12 +54,16 @@ assert.equal(dark.document.documentElement.dataset.theme, 'dark');
 dark.media.matches = false;
 dark.media.changed();
 assert.equal(dark.document.documentElement.dataset.theme, 'light');
-dark.handlers.get('click')({target: {closest() {return true;}}});
+dark.handlers.get('click')({target: {closest(selector) {return selector === '[data-theme-switch]';}}});
 assert.equal(dark.cx.window.IntHubTheme.preference, 'light');
-dark.handlers.get('click')({target: {closest() {return true;}}});
+dark.handlers.get('click')({target: {closest(selector) {return selector === '[data-theme-switch]';}}});
 assert.equal(dark.cx.window.IntHubTheme.preference, 'dark');
+dark.handlers.get('click')({target: {closest(selector) {return selector === '[data-theme-setting]' ? dark.settings[1] : null;}}});
+assert.equal(dark.cx.window.IntHubTheme.preference, 'light');
+assert.equal(dark.settings[1].pressed, 'true');
+assert.equal(dark.settings[2].pressed, 'false');
 dark.cx.window.IntHubTheme.setPreference('invalid');
-assert.equal(dark.cx.window.IntHubTheme.preference, 'dark');
+assert.equal(dark.cx.window.IntHubTheme.preference, 'light');
 const blocked = setup(null, true, true);
 assert.equal(blocked.document.documentElement.dataset.theme, 'dark');
 blocked.cx.window.IntHubTheme.setPreference('light');

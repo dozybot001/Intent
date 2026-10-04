@@ -4,12 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="theme-color" content="#f5f6f3">
+    <meta name="theme-color" content="#f6f6f6">
     <title>IntHub</title>
     <link rel="icon" type="image/svg+xml" href="/tenon-mark.svg">
     <link rel="preload" href="/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <script src="/theme.js?rev=ui-polish-1"></script>
-    <link rel="stylesheet" href="/styles.css?rev=ui-polish-1">
+    <script src="/theme.js?rev=header-mono-1"></script>
+    <link rel="stylesheet" href="/styles.css?rev=header-mono-1">
   </head>
   <body>
     <a class="skip-link" href="#detail-content">Skip to project content</a>
@@ -18,7 +18,7 @@
       <header class="app-header">
         <div class="header-context">
           <a class="brand" data-brand-link href="/" aria-label="IntHub, by Tenon, home">
-            <img class="brand-mark" src="/inthub-mark.svg?rev=2" alt="" width="32" height="32">
+            <img class="brand-mark" src="/inthub-mark.svg?rev=3" alt="" width="32" height="32">
             <span class="brand-wordmark">IntHub<img class="product-publisher-mark" src="/tenon-mark.svg" alt="" width="64" height="64"></span>
           </a>
 
@@ -37,11 +37,6 @@
         </div>
 
         <div class="header-actions">
-          <button class="icon-button theme-switch" data-theme-switch type="button" aria-label="Switch theme"></button>
-          <button class="language-button" data-language-switch type="button" aria-label="Switch language">中文</button>
-          <button class="icon-button" data-about-open type="button" aria-label="About IntHub" title="About IntHub">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 9v5M10 6v.5"/></svg>
-          </button>
           <button class="command-trigger" id="search-trigger" type="button" aria-label="Search project">
             <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
             <span>Search</span>
@@ -54,19 +49,47 @@
           </div>
           <span class="is-hidden" id="api-chip"></span>
 
-          <button class="icon-button" id="refresh-btn" type="button" aria-label="Refresh project data" title="Refresh project data">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.2 6.2A7 7 0 1 0 17 11"/><path d="M16.2 2.8v3.8h-3.8"/></svg>
-          </button>
+          <div class="header-menu-control settings-control">
+            <button class="icon-button" id="settings-menu-trigger" data-settings-trigger type="button" aria-label="Settings" aria-expanded="false" aria-controls="settings-menu">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 2-.5 2-1.5.9-2-.6-2 3.4 1.5 1.4v1.8L2 12.3l2 3.4 2-.6 1.5.9.5 2h4l.5-2 1.5-.9 2 .6 2-3.4-1.5-1.4V9.1L18 7.7l-2-3.4-2 .6-1.5-.9-.5-2Z"/><circle cx="10" cy="10" r="2.5"/></svg>
+            </button>
+            <div class="header-menu settings-menu" id="settings-menu" data-settings-menu role="group" aria-label="Settings" inert>
+              <section class="menu-section">
+                <span class="menu-title">Appearance</span>
+                <div class="segmented-control" role="group" aria-label="Appearance">
+                  <button data-theme-setting="system" type="button" aria-pressed="true">System</button>
+                  <button data-theme-setting="light" type="button" aria-pressed="false">Light</button>
+                  <button data-theme-setting="dark" type="button" aria-pressed="false">Dark</button>
+                </div>
+              </section>
+              <section class="menu-section">
+                <span class="menu-title">Language</span>
+                <div class="segmented-control" role="group" aria-label="Language">
+                  <button data-language-select="zh-CN" type="button" aria-pressed="false">中文</button>
+                  <button data-language-select="en" type="button" aria-pressed="false">English</button>
+                </div>
+              </section>
+              <div class="menu-section menu-actions">
+                <button class="menu-action" id="refresh-btn" type="button">Refresh project data</button>
+                <button class="menu-action" data-about-open type="button">About IntHub</button>
+              </div>
+            </div>
+          </div>
 
           <div id="account-control" class="account-control is-hidden">
-            <button id="account-menu-trigger" class="account-menu-trigger" type="button" aria-label="Account" aria-expanded="false" aria-controls="account-actions">
-            <span id="account-avatar" class="account-avatar" aria-hidden="true">IH</span>
+            <button id="account-menu-trigger" class="icon-button account-menu-trigger" type="button" aria-label="Account" aria-expanded="false" aria-controls="account-actions">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="6.5" r="3"/><path d="M3.5 17v-1a6.5 6.5 0 0 1 13 0v1"/></svg>
             </button>
-            <span id="account-label" class="account-label">Account</span>
-            <span id="account-mode" class="account-mode is-hidden">Public view</span>
-            <div id="account-actions" class="account-actions">
-              <button id="token-btn" class="account-action" type="button">Access token</button>
-              <button id="logout-btn" class="account-action account-action-muted" type="button">Sign out</button>
+            <div id="account-actions" class="header-menu account-actions" role="group" aria-label="Account" inert>
+              <div class="account-identity menu-section">
+                <strong id="account-label" class="account-label">Account</strong>
+                <span id="account-mode" class="account-mode">Private session</span>
+              </div>
+              <div class="menu-section menu-actions">
+                <a class="menu-action is-hidden" data-account-sign-in href="/auth/redirect?return_to=%2F">Sign in with Tenon</a>
+                <button id="token-btn" class="menu-action account-action" type="button">Access token</button>
+                <button id="logout-btn" class="menu-action account-action account-action-muted" type="button">Sign out</button>
+              </div>
             </div>
           </div>
         </div>
@@ -161,13 +184,33 @@
 
         <header class="auth-header">
           <a class="brand brand-on-auth" data-brand-link href="/" aria-label="IntHub, by Tenon, home">
-            <img class="brand-mark" src="/inthub-mark.svg?rev=2" alt="" width="32" height="32">
+            <img class="brand-mark" src="/inthub-mark.svg?rev=3" alt="" width="32" height="32">
             <span class="brand-wordmark">IntHub<img class="product-publisher-mark" src="/tenon-mark.svg" alt="" width="64" height="64"></span>
           </a>
           <div class="auth-header-actions">
-            <button class="icon-button theme-switch" data-theme-switch type="button" aria-label="Switch theme"></button>
-            <button class="language-button" data-language-switch type="button" aria-label="Switch language">中文</button>
-            <button class="about-link" data-about-open type="button">About IntHub</button>
+            <div class="header-menu-control settings-control">
+              <button class="icon-button" id="auth-settings-menu-trigger" data-settings-trigger type="button" aria-label="Settings" aria-expanded="false" aria-controls="auth-settings-menu">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 2-.5 2-1.5.9-2-.6-2 3.4 1.5 1.4v1.8L2 12.3l2 3.4 2-.6 1.5.9.5 2h4l.5-2 1.5-.9 2 .6 2-3.4-1.5-1.4V9.1L18 7.7l-2-3.4-2 .6-1.5-.9-.5-2Z"/><circle cx="10" cy="10" r="2.5"/></svg>
+              </button>
+              <div class="header-menu settings-menu" id="auth-settings-menu" data-settings-menu role="group" aria-label="Settings" inert>
+                <section class="menu-section">
+                  <span class="menu-title">Appearance</span>
+                  <div class="segmented-control" role="group" aria-label="Appearance">
+                    <button data-theme-setting="system" type="button" aria-pressed="true">System</button>
+                    <button data-theme-setting="light" type="button" aria-pressed="false">Light</button>
+                    <button data-theme-setting="dark" type="button" aria-pressed="false">Dark</button>
+                  </div>
+                </section>
+                <section class="menu-section">
+                  <span class="menu-title">Language</span>
+                  <div class="segmented-control" role="group" aria-label="Language">
+                    <button data-language-select="zh-CN" type="button" aria-pressed="false">中文</button>
+                    <button data-language-select="en" type="button" aria-pressed="false">English</button>
+                  </div>
+                </section>
+                <div class="menu-section menu-actions"><button class="menu-action" data-about-open type="button">About IntHub</button></div>
+              </div>
+            </div>
           </div>
         </header>
 
@@ -229,7 +272,7 @@
         </header>
         <div class="dialog-body">
         <div class="brand about-brand" aria-label="IntHub, by Tenon">
-          <img class="brand-mark" src="/inthub-mark.svg?rev=2" alt="" width="32" height="32">
+          <img class="brand-mark" src="/inthub-mark.svg?rev=3" alt="" width="32" height="32">
           <span class="brand-wordmark">IntHub<img class="product-publisher-mark" src="/tenon-mark.svg" alt="" width="64" height="64"></span>
         </div>
         <p class="about-version">Version <span id="about-version">Loading…</span></p>
@@ -261,8 +304,8 @@
     </dialog>
 
     <div id="help-popover" class="help-popover" role="tooltip" popover="manual" tabindex="0" hidden></div>
-    <script src="/i18n.js?rev=ui-polish-1" defer></script>
-    <script src="/help.js?rev=ui-polish-1" defer></script>
-    <script src="/app.js?rev=ui-polish-1" defer></script>
+    <script src="/i18n.js?rev=header-mono-1" defer></script>
+    <script src="/help.js?rev=header-mono-1" defer></script>
+    <script src="/app.js?rev=header-mono-1" defer></script>
   </body>
 </html>

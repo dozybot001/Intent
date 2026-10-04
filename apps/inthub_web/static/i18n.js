@@ -1,6 +1,7 @@
 /* UI copy only. User-authored goals, checkpoints, identifiers and JSON stay intact. */
 window.IntHubI18n = (() => {
   const zh = {
+    "Settings": "设置", "Appearance": "外观", "Language": "语言", "System": "跟随系统", "Light": "浅色", "Dark": "深色", "Read-only": "只读",
     "Theme: System": "主题：跟随系统", "Theme: Light": "主题：浅色", "Theme: Dark": "主题：深色", "Switch theme": "切换主题",
     "All Intents": "全部意图", "Filter timeline by Intent": "按意图筛选时间线", "{count} checkpoints": "{count} 个检查点",
     "{count} incomplete checkpoints": "{count} 个检查点待补充", "{count} blocked objectives": "{count} 个目标被阻塞", "Ready to continue": "可以继续工作",
@@ -114,6 +115,11 @@ window.IntHubI18n = (() => {
     for (const button of document.querySelectorAll("[data-language-switch]")) {
       button.textContent = language === "zh-CN" ? "EN" : "中文";
       button.setAttribute("aria-label", language === "zh-CN" ? "Switch to English" : "切换为中文");
+    }
+    for (const button of document.querySelectorAll("[data-language-select]")) {
+      const selected = button.dataset.languageSelect === language;
+      button.classList.toggle("is-selected", selected);
+      button.setAttribute("aria-pressed", String(selected));
     }
   }
   function setLanguage(value) {

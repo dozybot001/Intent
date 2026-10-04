@@ -11,6 +11,44 @@ from apps.inthub_web import product_version
 STATIC_DIR = Path(__file__).resolve().parents[1] / "apps" / "inthub_web" / "static"
 
 
+def test_header_groups_preferences_and_account_actions_in_separate_menus():
+    html = (STATIC_DIR / "index.html").read_text()
+    header = html.split('<header class="app-header">', 1)[1].split('</header>', 1)[0]
+    assert 'id="settings-menu-trigger"' in header
+    assert 'id="account-menu-trigger"' in header
+    assert 'data-theme-switch' not in header and 'data-language-switch' not in header
+    settings = header.split('id="settings-menu"', 1)[1].split('id="account-control"', 1)[0]
+    assert 'data-theme-setting' in settings and 'data-language-select' in settings
+    assert 'id="refresh-btn"' in settings and 'data-about-open' in settings
+    account = header.split('id="account-actions"', 1)[1]
+    assert 'id="account-label"' in account and 'id="token-btn"' in account and 'id="logout-btn"' in account
+    assert 'data-account-sign-in' in account
+    assert 'id="auth-settings-menu"' in html
+
+
+def test_navigation_loading_does_not_insert_spinners_into_card_layout():
+    javascript = (STATIC_DIR / "app.js").read_text()
+    css = (STATIC_DIR / "styles.css").read_text()
+    for target in ('card', 'tabButton', 'el.projectPickerTrigger'):
+        assert f'setButtonBusy({target},' not in javascript
+    assert 'view-loading' in javascript and 'view-loading' in css
+    assert '.is-busy::before' not in css
+    assert '.action-busy' in css
+
+
+def test_ui_palette_is_monochrome_without_changing_official_tenon_asset():
+    css = (STATIC_DIR / 'styles.css').read_text()
+    for color in re.findall(r'#([0-9a-fA-F]{3,8})(?![\w-])', css):
+        assert len(color) in (3, 4, 6, 8), color
+        rgb = ''.join(channel * 2 for channel in color[:3]) if len(color) < 6 else color[:6]
+        assert rgb[0:2].lower() == rgb[2:4].lower() == rgb[4:6].lower(), color
+    for channels in re.findall(r'rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)', css):
+        assert len(set(channels)) == 1, channels
+    for channels in re.findall(r'--[\w-]+-rgb:\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)', css):
+        assert len(set(channels)) == 1, channels
+    assert 'fill="#f06b32"' in (STATIC_DIR / 'tenon-mark.svg').read_text()
+
+
 def test_primary_theme_text_and_status_color_pairs_have_readable_contrast():
     css = (STATIC_DIR / "styles.css").read_text()
     def luminance(color):
@@ -29,9 +67,9 @@ def test_theme_and_local_font_cover_all_entry_pages_without_external_loading():
     for name in ("index.html", "auth-redirect.html"):
         html = (STATIC_DIR / name).read_text()
         assert 'content="light dark"' in html
-        assert 'src="/theme.js?rev=ui-polish-1"' in html
+        assert 'src="/theme.js?rev=header-mono-1"' in html
         assert html.index('/theme.js?') < html.index('/styles.css?')
-        assert 'data-theme-switch' in html
+        assert 'data-theme-switch' in html or 'data-theme-setting' in html
         assert 'href="/InterVariable.woff2"' in html
     css = (STATIC_DIR / "styles.css").read_text()
     assert '@font-face' in css and 'font-display: swap' in css
@@ -68,7 +106,7 @@ def test_updated_standard_uses_fixed_redirect_help_and_shared_dialog_layout():
     assert css.count('height: var(--dialog-height)') == 2
     assert 'grid-template-rows: auto minmax(0, 1fr) auto' in css
     assert 'class="dialog-body"' in html
-    assert 'data-language-switch' in html and 'localizeWorkspace' in javascript
+    assert 'data-language-select' in html and 'localizeWorkspace' in javascript
     assert '/api/v1/auth/tenon/prepare' in redirect
     assert 'url.origin !== "https://account.tenon.asia"' in redirect
     assert '15000' in redirect and 'requestAnimationFrame' in redirect
@@ -123,7 +161,7 @@ def test_web_shell_uses_soft_cards_without_console_style_color_rails():
     javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
     stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
 
-    assert "ui-polish-1" in html
+    assert "header-mono-1" in html
     assert "--shadow-card:" in stylesheet
     assert ".checkpoint-blocker.is-clear" in stylesheet
     assert 'clearBlocker ? " is-clear"' in javascript
@@ -142,13 +180,13 @@ def test_continuation_brief_does_not_repeat_snap_context_footer():
     assert '<strong>${esc(t("Constraints:"))}</strong>' in javascript
 
 
-def test_web_shell_uses_continuity_logo_and_local_default_avatar():
+def test_web_shell_uses_monochrome_continuity_logo_and_explicit_account_icon():
     html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
     javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
     stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
 
     assert html.count('class="brand-mark"') == 3
-    assert html.count('src="/inthub-mark.svg?rev=2"') == 3
+    assert html.count('src="/inthub-mark.svg?rev=3"') == 3
     assert "brand-mark-rail" not in html + stylesheet
     import xml.etree.ElementTree as ET
     mark = ET.parse(STATIC_DIR / "inthub-mark.svg").getroot()
@@ -156,16 +194,15 @@ def test_web_shell_uses_continuity_logo_and_local_default_avatar():
     paths = mark.findall(".//{http://www.w3.org/2000/svg}path")
     assert len(paths) == 2
     uses = mark.findall("{http://www.w3.org/2000/svg}use")
-    assert {entry.attrib["fill"] for entry in uses} == {"#1C211C", "#B85F31", "#EDF1ED"}
+    assert {entry.attrib["fill"] for entry in uses} == {"#181818", "#858585", "#F3F3F3"}
     assert mark.find("{http://www.w3.org/2000/svg}view").attrib["id"] == "dark"
     assert mark.find("{http://www.w3.org/2000/svg}style") is None
     assert "brand-glyph" not in html
     assert "brand-glyph" not in stylesheet
-    assert '<span id="account-avatar" class="account-avatar"' in html
-    assert "function accountInitials" in javascript
-    assert "function accountAvatarTone" in javascript
+    account_button = html.split('id="account-menu-trigger"', 1)[1].split('</button>', 1)[0]
+    assert '<svg' in account_button and 'account-avatar' not in account_button
+    assert 'aria-controls="account-actions"' in account_button
     assert "account?.avatar_url" not in javascript
-    assert '.account-avatar[data-tone="1"]' in stylesheet
 
 
 def test_timeline_uses_concise_snap_titles_and_structured_event_rows():

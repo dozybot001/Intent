@@ -53,11 +53,12 @@ const el = {
   tokenOutput: document.getElementById("token-output"),
   tokenCopy: document.getElementById("token-copy"),
   accountControl: document.getElementById("account-control"),
-  accountAvatar: document.getElementById("account-avatar"),
   accountLabel: document.getElementById("account-label"),
   accountMode: document.getElementById("account-mode"),
   accountMenuTrigger: document.getElementById("account-menu-trigger"),
   accountActions: document.getElementById("account-actions"),
+  settingsMenuTrigger: document.getElementById("settings-menu-trigger"),
+  settingsMenu: document.getElementById("settings-menu"),
   authGate: document.getElementById("auth-gate"),
   authError: document.getElementById("auth-error"),
   tenonLogin: document.getElementById("tenon-login"),
@@ -110,24 +111,6 @@ function shortCommit(v) {
 function truncate(v, n = 140) {
   if (!v || v.length <= n) return v || "";
   return v.slice(0, n).trimEnd() + "\u2026";
-}
-
-function accountInitials(account) {
-  const label = String(account?.display_name || account?.login || "IntHub").trim();
-  const compact = label.replace(/\s+/g, "");
-  if (!compact) return "IH";
-  if (/[^\u0000-\u00ff]/.test(compact)) return Array.from(compact).slice(0, 2).join("");
-  const words = label.split(/\s+/).filter(Boolean);
-  if (words.length > 1) {
-    return `${words[0][0]}${words.at(-1)[0]}`.toUpperCase();
-  }
-  return compact.slice(0, 2).toUpperCase();
-}
-
-function accountAvatarTone(account) {
-  const seed = String(account?.login || account?.display_name || "inthub");
-  const hash = Array.from(seed).reduce((total, char) => total + char.codePointAt(0), 0);
-  return String(hash % 4);
 }
 
 function formatText(v) {
@@ -192,11 +175,25 @@ function configUrl() {
 // A newer action owns its view. Late responses may finish, but cannot replace it.
 function beginViewRequest(view) {
   state._requestVersions ||= {};
+  if (view === "detail" || view === "drawer") setViewBusy(view, false);
   return state._requestVersions[view] = (state._requestVersions[view] || 0) + 1;
 }
 
 function ownsViewRequest(view, request) {
   return state._requestVersions?.[view] === request;
+}
+
+function setViewBusy(view, busy) {
+  const target = view === "drawer" ? el.drawerContent : el.detailPane;
+  target.setAttribute("aria-busy", String(busy));
+}
+
+function viewLoadingHtml() {
+  return `<div class="view-loading" role="status"><span class="view-loading-spinner" aria-hidden="true"></span><p data-view-loading-copy>${esc(t("Loading…"))}</p></div>`;
+}
+
+function localizeViewLoadingCopy() {
+  for (const node of document.querySelectorAll("[data-view-loading-copy]")) node.textContent = t("Loading…");
 }
 
 class ApiRequestError extends Error {
@@ -246,6 +243,9 @@ function setTenonLoginLoading(loading) {
 }
 
 function showAuthGate(message = "") {
+  closeHeaderMenus();
+  closeDrawer();
+  el.shell.inert = true;
   state._authMessage = window.IntHubI18n.keyFor(message);
   state.authenticated = false;
   el.shell.classList.add("is-locked");
@@ -261,6 +261,7 @@ function showAuthGate(message = "") {
 }
 
 function hideAuthGate() {
+  el.shell.inert = false;
   state.authenticated = true;
   el.shell.classList.remove("is-locked");
   el.authGate.classList.add("is-hidden");
@@ -270,16 +271,14 @@ function hideAuthGate() {
     "is-hidden",
     !(state.config?.authRequired || publicMode),
   );
-  el.accountMode.classList.toggle("is-hidden", !publicMode);
+  el.accountMode.classList.remove("is-hidden");
+  el.accountMode.textContent = t(publicMode ? "Read-only" : "Private session");
   el.tokenBtn.classList.toggle("is-hidden", publicMode);
   el.logoutBtn.classList.toggle("is-hidden", publicMode);
-  el.accountMenuTrigger.disabled = publicMode;
+  el.accountMenuTrigger.disabled = false;
+  for (const link of document.querySelectorAll("[data-account-sign-in]")) link.classList.toggle("is-hidden", !publicMode);
   const account = state.account;
-  el.accountLabel.textContent = account
-    ? state.publicProfile?.title || account.display_name || `@${account.login}`
-    : t("Private session");
-  el.accountAvatar.textContent = accountInitials(account);
-  el.accountAvatar.dataset.tone = accountAvatarTone(account);
+  el.accountLabel.textContent = publicMode ? t("Public view") : account ? account.display_name || `@${account.login}` : t("Private session");
   el.authError.textContent = "";
   el.authError.classList.add("is-hidden");
 }
@@ -406,12 +405,9 @@ async function switchTab(tab) {
   // Keep list and detail in sync for object views.
   const firstCard = el.sidebarBody.querySelector("[data-detail-type][data-remote-id]");
   if (firstCard) {
-    const tabButton = el.tabBar.querySelector(`[data-tab="${tab}"]`);
-    if (tabButton) setButtonBusy(tabButton, true);
     try {
       await openDetail(firstCard.dataset.detailType, firstCard.dataset.remoteId, { reveal: false });
     } catch (error) { setStatus(error.message, true); }
-    finally { if (tabButton) setButtonBusy(tabButton, false); }
   } else clearDetail(t("No object is available in this view."));
 }
 
@@ -1253,6 +1249,7 @@ function renderProjectSummary() {
 }
 
 function openDrawer() {
+  closeHeaderMenus();
   if (!el.drawer.classList.contains("open")) state._drawerTrigger = document.activeElement;
   el.drawer.inert = false;
   el.drawer.classList.add("open");
@@ -1286,7 +1283,8 @@ async function openInDrawer(type, rId) {
   if (!DETAIL_PATHS[type]) return;
   const request = beginViewRequest("drawer");
   state._drawerPayload = null;
-  el.drawerContent.innerHTML = `<div class="empty-state loading">${esc(t("Loading…"))}</div>`;
+  el.drawerContent.innerHTML = viewLoadingHtml();
+  setViewBusy("drawer", true);
   openDrawer();
   try {
     const payload = await fetchJson(apiUrl(`/api/v1/${DETAIL_PATHS[type]}/${encodeURIComponent(rId)}`));
@@ -1300,7 +1298,7 @@ async function openInDrawer(type, rId) {
     if (!ownsViewRequest("drawer", request)) return;
     el.drawerContent.innerHTML = detailErrorHtml(error, type, rId, "drawer");
     throw error;
-  }
+  } finally { if (ownsViewRequest("drawer", request)) setViewBusy("drawer", false); }
 }
 
 function detailErrorHtml(error, type, rId, target = "detail") {
@@ -1347,32 +1345,22 @@ async function resolveProjectIdForRemoteId(rId) {
 async function openDetail(type, rId, { reveal = true } = {}) {
   if (!DETAIL_PATHS[type]) return;
   const request = beginViewRequest("detail");
-  let targetProjectId;
-  try { targetProjectId = await resolveProjectIdForRemoteId(rId); }
-  catch (error) {
-    if (!ownsViewRequest("detail", request)) return;
-    state.selectedDetail = {type, remoteId: rId};
-    state._detailPayload = null;
-    if (reveal) el.shell.classList.add("detail-open");
-    el.detailContent.innerHTML = detailErrorHtml(error, type, rId);
-    syncSelected();
-    writeRoute();
-    throw error;
-  }
-  if (!ownsViewRequest("detail", request)) return;
-  if (targetProjectId && targetProjectId !== state.currentProjectId) {
-    await loadProject(targetProjectId, { detail: { type, remoteId: rId }, reveal });
-    return;
-  }
-
   state.selectedDetail = { type, remoteId: rId };
   state._detailPayload = null;
   if (reveal) el.shell.classList.add("detail-open");
-  el.detailContent.innerHTML = `<div class="empty-state loading">${esc(t("Loading…"))}</div>`;
+  el.detailContent.innerHTML = viewLoadingHtml();
+  setViewBusy("detail", true);
   el.detailPane.scrollTop = 0;
   syncSelected();
+  writeRoute();
 
   try {
+    const targetProjectId = await resolveProjectIdForRemoteId(rId);
+    if (!ownsViewRequest("detail", request)) return;
+    if (targetProjectId && targetProjectId !== state.currentProjectId) {
+      await loadProject(targetProjectId, { detail: { type, remoteId: rId }, reveal });
+      return;
+    }
     const payload = await fetchJson(apiUrl(`/api/v1/${DETAIL_PATHS[type]}/${encodeURIComponent(rId)}`));
     if (!ownsViewRequest("detail", request)) return;
     state._detailPayload = {type, payload};
@@ -1386,7 +1374,7 @@ async function openDetail(type, rId, { reveal = true } = {}) {
     el.detailContent.innerHTML = detailErrorHtml(error, type, rId);
     writeRoute();
     throw error;
-  }
+  } finally { if (ownsViewRequest("detail", request)) setViewBusy("detail", false); }
 }
 
 function allDecisionsMap() {
@@ -1675,6 +1663,7 @@ function renderProjectSelector() {
 
 function toggleProjectPicker(open) {
   const isOpen = open ?? !el.projectPickerDropdown.classList.contains("is-open");
+  if (isOpen) closeHeaderMenus();
   el.projectPickerDropdown.classList.toggle("is-open", isOpen);
   el.projectPickerTrigger.classList.toggle("is-open", isOpen);
   el.projectPickerTrigger.setAttribute("aria-expanded", String(isOpen));
@@ -1684,6 +1673,7 @@ function toggleProjectPicker(open) {
 
 async function loadProject(projectId, { detail = null, reveal = false } = {}) {
   const request = beginViewRequest("project");
+  state._projectPending = request;
   const previous = {
     projectId: state._loadedProjectId || state.currentProjectId,
     overview: state.overview, handoff: state.handoff,
@@ -1692,7 +1682,7 @@ async function loadProject(projectId, { detail = null, reveal = false } = {}) {
     searchResults: state._searchResults, detailOpen: el.shell.classList.contains("detail-open"),
   };
   const switching = Boolean(state._loadedProjectId && state._loadedProjectId !== projectId);
-  beginViewRequest("detail");
+  const detailRequest = beginViewRequest("detail");
   beginViewRequest("search");
   state._searchBusy = false;
   closeDrawer();
@@ -1704,11 +1694,12 @@ async function loadProject(projectId, { detail = null, reveal = false } = {}) {
     state._timelineIntentKey = "";
     state._pageState = {};
     state.selectedDetail = null;
-    el.shell.classList.remove("detail-open");
+    el.shell.classList.toggle("detail-open", Boolean(detail && reveal));
   }
   if (detail) state.selectedDetail = detail;
   state.currentProjectId = projectId;
   renderProjectSelector();
+  setViewBusy("detail", true);
 
   if (!state.overview) {
     el.sidebarBody.innerHTML = `
@@ -1730,6 +1721,7 @@ async function loadProject(projectId, { detail = null, reveal = false } = {}) {
     ]);
   } catch (error) {
     if (!ownsViewRequest("project", request)) return;
+    state._projectPending = null;
     if (previous.overview) {
       state.currentProjectId = previous.projectId;
       state.overview = previous.overview;
@@ -1742,7 +1734,12 @@ async function loadProject(projectId, { detail = null, reveal = false } = {}) {
       el.shell.classList.toggle("detail-open", previous.detailOpen);
       renderProjectSelector();
       renderSidebar();
-      if (state.activeTab === "overview") renderProjectSummary();
+      if (detail) {
+        state.selectedDetail = detail;
+        state._detailPayload = null;
+        if (reveal) el.shell.classList.add("detail-open");
+        el.detailContent.innerHTML = detailErrorHtml(error, detail.type, detail.remoteId);
+      } else if (state.activeTab === "overview") renderProjectSummary();
       else if (state.activeTab === "search") el.detailContent.innerHTML = renderSearchWelcome();
       else if (previous.detailPayload) {
         const {type, payload} = previous.detailPayload;
@@ -1752,9 +1749,11 @@ async function loadProject(projectId, { detail = null, reveal = false } = {}) {
       el.sidebarBody.innerHTML = `<div class="empty-state">${esc(error.message)}</div>`;
       el.detailContent.innerHTML = `<div class="empty-state"><p>${esc(error.message)}</p><button type="button" class="secondary-btn" data-retry-project="${esc(projectId)}">${esc(t("Retry"))}</button></div>`;
     }
+    if (ownsViewRequest("detail", detailRequest)) setViewBusy("detail", false);
     throw error;
   }
   if (!ownsViewRequest("project", request)) return;
+  state._projectPending = null;
   state._loadedProjectId = projectId;
   state.overview = overview;
   state.handoff = handoff;
@@ -1818,6 +1817,7 @@ async function loadProject(projectId, { detail = null, reveal = false } = {}) {
   }
 
   writeRoute();
+  if (ownsViewRequest("detail", detailRequest)) setViewBusy("detail", false);
 }
 
 async function loadProjects() {
@@ -1854,12 +1854,65 @@ async function loadProjects() {
 /* ---- Events ---- */
 
 function setButtonBusy(button, busy, loadingCopy = "", idleCopy = "") {
+  if (button.matches(".card, .queue-item, .intent-entry, .decision-constraint, .timeline-entry, .relation-item, .detail-link, .decision-row, .brief-open, .tab, .project-picker-trigger")) return;
   button.disabled = busy;
-  button.classList.toggle("is-busy", busy);
+  button.classList.toggle("action-busy", busy);
   button.setAttribute("aria-busy", String(busy));
   button.dataset.loadingCopy = loadingCopy;
   button.dataset.idleCopy = idleCopy;
   if (loadingCopy) button.textContent = t(busy ? loadingCopy : idleCopy);
+}
+
+function setProjectPickerBusy(busy) {
+  el.projectPickerTrigger.disabled = busy;
+  el.projectPickerTrigger.setAttribute("aria-busy", String(busy));
+}
+
+function setAccountSignInLoading(link, loading) {
+  link.classList.toggle("is-loading", loading);
+  link.setAttribute("aria-busy", String(loading));
+  if (loading) link.setAttribute("aria-disabled", "true");
+  else link.removeAttribute("aria-disabled");
+  link.textContent = t(loading ? "Connecting to Tenon…" : "Sign in with Tenon");
+}
+
+function headerMenus() {
+  const settings = [...document.querySelectorAll("[data-settings-trigger]")].map(trigger => ({
+    trigger, panel: document.getElementById(trigger.getAttribute("aria-controls")),
+  })).filter(menu => menu.panel);
+  return [...settings, { trigger: el.accountMenuTrigger, panel: el.accountActions }];
+}
+
+function headerMenuControls(menu) {
+  return [...menu.panel.querySelectorAll("button, a[href]")].filter(node => !node.disabled && !node.hidden && node.getClientRects().length);
+}
+
+function closeHeaderMenu(menu, restoreFocus = false) {
+  const wasOpen = menu.panel.classList.contains("is-open");
+  menu.panel.classList.remove("is-open");
+  menu.panel.inert = true;
+  menu.trigger.setAttribute("aria-expanded", "false");
+  if (wasOpen && restoreFocus) menu.trigger.focus();
+}
+
+function closeHeaderMenus(restoreFocus = false) {
+  for (const menu of headerMenus()) closeHeaderMenu(menu, restoreFocus);
+}
+
+function toggleHeaderMenu(trigger, { focus = null } = {}) {
+  const menu = headerMenus().find(entry => entry.trigger === trigger);
+  if (!menu || trigger.disabled) return;
+  const opening = !menu.panel.classList.contains("is-open");
+  closeHeaderMenus();
+  toggleProjectPicker(false);
+  if (!opening) return;
+  menu.panel.inert = false;
+  menu.panel.classList.add("is-open");
+  trigger.setAttribute("aria-expanded", "true");
+  if (focus) {
+    const controls = headerMenuControls(menu);
+    (focus === "last" ? controls.at(-1) : controls[0])?.focus();
+  }
 }
 
 function localizeWorkspace() {
@@ -1873,12 +1926,20 @@ function localizeWorkspace() {
   const expanded = [...document.querySelectorAll("details[open]")].map(node => node.className);
   state._localizing = true;
   try {
+    if (state._projectPending && ownsViewRequest("project", state._projectPending)) {
+      localizeViewLoadingCopy();
+      el.sidebarBody.querySelector(".skeleton-list")?.setAttribute("aria-label", t("Loading project data"));
+      el.detailContent.querySelector(".overview-skeleton")?.setAttribute("aria-label", t("Loading continuation brief"));
+      for (const button of document.querySelectorAll("[data-idle-copy]")) if (button.dataset.idleCopy) button.textContent = t(button.disabled ? button.dataset.loadingCopy : button.dataset.idleCopy);
+      return;
+    }
+    const detailPending = el.detailPane.getAttribute("aria-busy") === "true";
     renderProjectSelector();
     if (state.overview?.workspaces?.length) {
       if (!state._searchBusy) renderSidebar();
-      if (state.activeTab === "overview") renderProjectSummary();
-      else if (state.activeTab === "search" && !state.selectedDetail) el.detailContent.innerHTML = renderSearchWelcome();
-      else if (state._detailPayload) {
+      if (!detailPending && state.activeTab === "overview") renderProjectSummary();
+      else if (!detailPending && state.activeTab === "search" && !state.selectedDetail) el.detailContent.innerHTML = renderSearchWelcome();
+      else if (!detailPending && state._detailPayload) {
         const {type, payload} = state._detailPayload;
         el.detailContent.innerHTML = type === "intent" ? buildIntentDetailHtml(payload) : type === "decision" ? buildDecisionDetailHtml(payload) : buildSnapDetailHtml(payload);
       }
@@ -1886,7 +1947,7 @@ function localizeWorkspace() {
         const {type, payload} = state._drawerPayload;
         el.drawerContent.innerHTML = type === "intent" ? buildIntentDetailHtml(payload) : type === "decision" ? buildDecisionDetailHtml(payload) : buildSnapDetailHtml(payload);
       }
-    } else if (state.authenticated) renderSetupGuide(state.projects.length ? "unsynced" : "unlinked");
+    } else if (state.authenticated && !detailPending) renderSetupGuide(state.projects.length ? "unsynced" : "unlinked");
     const input = document.getElementById("search-input");
     if (input && draft !== undefined) input.value = draft;
     for (const node of document.querySelectorAll("details")) if (expanded.includes(node.className)) node.open = true;
@@ -1901,8 +1962,11 @@ function localizeWorkspace() {
       if (button.dataset.idleCopy) button.textContent = t(button.disabled ? button.dataset.loadingCopy : button.dataset.idleCopy);
     }
     for (const node of document.querySelectorAll(".empty-state.loading")) node.textContent = t(node.closest("#search-results") ? "Searching…" : "Loading…");
+    localizeViewLoadingCopy();
     el.aboutVersion.textContent = t(state.config?.productVersion || "Unavailable");
     el.authError.textContent = t(state._authMessage || "");
+    if (state.config?.publicMode) el.accountLabel.textContent = t("Public view");
+    el.accountMode.textContent = t(state.config?.publicMode ? "Read-only" : "Private session");
     if (state._statusMessage) el.statusLine.textContent = t(state._statusMessage);
     if (state.config?.publicMode) {
       el.projectPickerEyebrow.textContent = t("Public collection");
@@ -1913,22 +1977,42 @@ function localizeWorkspace() {
     const active = state.handoff?.intents || [];
     el.navHealth.textContent = active.length ? t("{count} active · {missing} missing next", {count: active.length, missing: active.filter(intent => !parseCheckpoint(intent.latest_snap).next).length}) : t("No active objective");
     setTenonLoginLoading(el.tenonLogin.classList.contains("is-loading"));
+    for (const link of document.querySelectorAll("[data-account-sign-in]")) setAccountSignInLoading(link, link.getAttribute("aria-busy") === "true");
   } finally { state._localizing = false; }
 }
 
 function bindEvents() {
   el.drawer.inert = true;
-  const closeAccountMenu = () => {
-    el.accountActions.classList.remove("is-open");
-    el.accountMenuTrigger.setAttribute("aria-expanded", "false");
-  };
-  el.accountMenuTrigger.addEventListener("click", () => {
-    const open = !el.accountActions.classList.contains("is-open");
-    el.accountActions.classList.toggle("is-open", open);
-    el.accountMenuTrigger.setAttribute("aria-expanded", String(open));
+  closeHeaderMenus();
+  for (const menu of headerMenus()) menu.trigger.addEventListener("click", event => toggleHeaderMenu(menu.trigger, {focus: event.detail === 0 ? "first" : null}));
+  document.addEventListener("click", event => {
+    for (const menu of headerMenus()) if (!menu.panel.contains(event.target) && !menu.trigger.contains(event.target)) closeHeaderMenu(menu);
   });
-  document.addEventListener("click", event => { if (!el.accountControl.contains(event.target)) closeAccountMenu(); });
-  document.addEventListener("keydown", event => { if (event.key === "Escape" && el.accountActions.classList.contains("is-open")) { closeAccountMenu(); el.accountMenuTrigger.focus(); } });
+  document.addEventListener("focusin", event => {
+    for (const menu of headerMenus()) if (!menu.panel.contains(event.target) && !menu.trigger.contains(event.target)) closeHeaderMenu(menu);
+  });
+  document.addEventListener("keydown", event => {
+    const openMenu = headerMenus().find(entry => entry.panel.classList.contains("is-open"));
+    if (event.key === "Escape" && openMenu) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closeHeaderMenu(openMenu, true);
+      return;
+    }
+    const menu = headerMenus().find(entry => entry.trigger.contains(event.target) || entry.panel.contains(event.target));
+    if (!menu) return;
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (!menu.panel.classList.contains("is-open")) {
+      toggleHeaderMenu(menu.trigger, {focus: event.key === "ArrowUp" || event.key === "End" ? "last" : "first"});
+      return;
+    }
+    const controls = headerMenuControls(menu);
+    const current = controls.indexOf(document.activeElement);
+    const next = event.key === "Home" ? 0 : event.key === "End" ? controls.length - 1 : current < 0 ? (event.key === "ArrowUp" ? controls.length - 1 : 0) : current + (event.key === "ArrowUp" ? -1 : 1);
+    controls[(next + controls.length) % controls.length]?.focus();
+  });
   const resizeDialogs = () => {
     document.documentElement.style.setProperty("--available-height", `${window.visualViewport?.height || innerHeight}px`);
     document.documentElement.style.setProperty("--available-width", `${window.visualViewport?.width || innerWidth}px`);
@@ -1939,14 +2023,21 @@ function bindEvents() {
   for (const button of document.querySelectorAll("[data-language-switch]")) {
     button.addEventListener("click", () => window.IntHubI18n.setLanguage(window.IntHubI18n.language === "en" ? "zh-CN" : "en"));
   }
+  for (const button of document.querySelectorAll("[data-language-select]")) button.addEventListener("click", () => window.IntHubI18n.setLanguage(button.dataset.languageSelect));
   window.addEventListener("inthub:language", localizeWorkspace);
   for (const trigger of document.querySelectorAll("[data-about-open]")) {
     trigger.addEventListener("click", () => {
+      state._aboutReturnTrigger = headerMenus().find(menu => menu.panel.contains(trigger))?.trigger || trigger;
+      closeHeaderMenus(true);
       el.aboutVersion.textContent = state.config?.productVersion || t("Unavailable");
       el.aboutDialog.showModal();
     });
   }
   el.aboutClose.addEventListener("click", () => el.aboutDialog.close());
+  el.aboutDialog.addEventListener("close", () => {
+    if (state._aboutReturnTrigger?.isConnected) state._aboutReturnTrigger.focus();
+    state._aboutReturnTrigger = null;
+  });
   el.searchTrigger.addEventListener("click", () => switchTab("search"));
 
   el.tenonLogin.addEventListener("click", (event) => {
@@ -1960,10 +2051,17 @@ function bindEvents() {
 
   window.addEventListener("pageshow", () => {
     setTenonLoginLoading(false);
+    for (const link of document.querySelectorAll("[data-account-sign-in]")) setAccountSignInLoading(link, false);
+  });
+
+  for (const link of document.querySelectorAll("[data-account-sign-in]")) link.addEventListener("click", event => {
+    if (link.getAttribute("aria-busy") === "true") {event.preventDefault(); return;}
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    setAccountSignInLoading(link, true);
   });
 
   el.tokenBtn.addEventListener("click", async () => {
-    if (el.tokenBtn.disabled) return;
+    if (el.tokenBtn.disabled || state.config?.publicMode) return;
     setButtonBusy(el.tokenBtn, true, "Creating token…", "Access token");
     try {
       const issued = await fetchJson(apiUrl("/api/v1/auth/tokens"), {
@@ -1972,7 +2070,7 @@ function bindEvents() {
         body: JSON.stringify({ name: "CLI token", ttl_seconds: 7776000 }),
       });
       el.tokenOutput.value = issued.token;
-      closeAccountMenu();
+      closeHeaderMenus(true);
       el.tokenDialog.showModal();
       el.tokenOutput.select();
     } catch (err) {
@@ -1999,10 +2097,11 @@ function bindEvents() {
   el.tokenDialog.addEventListener("close", () => {
     el.tokenOutput.value = "";
     el.tokenCopy.textContent = t("Copy token");
+    if (el.accountMenuTrigger.isConnected) el.accountMenuTrigger.focus();
   });
 
   el.logoutBtn.addEventListener("click", async () => {
-    if (el.logoutBtn.disabled) return;
+    if (el.logoutBtn.disabled || state.config?.publicMode) return;
     setButtonBusy(el.logoutBtn, true, "Signing out…", "Sign out");
     try {
       await fetchJson(apiUrl("/api/v1/auth/logout"), { method: "POST" });
@@ -2012,7 +2111,7 @@ function bindEvents() {
     } finally {
       setButtonBusy(el.logoutBtn, false, "Signing out…", "Sign out");
     }
-    closeAccountMenu();
+    closeHeaderMenus();
     for (const view of ["projects", "project", "detail", "drawer", "search"]) beginViewRequest(view);
     closeDrawer();
     state.projects = [];
@@ -2034,14 +2133,14 @@ function bindEvents() {
     const id = option.dataset.id;
     if (!id || id === state.currentProjectId) return;
     state._projectBusy = true;
-    setButtonBusy(el.projectPickerTrigger, true);
+    setProjectPickerBusy(true);
     try {
       await loadProject(id);
     } catch (err) {
       setStatus(err.message, true);
     } finally {
       state._projectBusy = false;
-      setButtonBusy(el.projectPickerTrigger, false);
+      setProjectPickerBusy(false);
       el.projectPickerTrigger.focus();
     }
   });
@@ -2055,16 +2154,15 @@ function bindEvents() {
 
   el.refreshBtn.addEventListener("click", async () => {
     if (el.refreshBtn.disabled) return;
-    el.refreshBtn.disabled = true;
-    el.refreshBtn.classList.add("is-spinning");
+    setButtonBusy(el.refreshBtn, true, "Refreshing project data", "Refresh project data");
     el.refreshBtn.setAttribute("aria-label", t("Refreshing project data"));
     try {
       await loadProjects();
+      closeHeaderMenus(true);
     } catch (err) {
       setStatus(err.message, true);
     } finally {
-      el.refreshBtn.disabled = false;
-      el.refreshBtn.classList.remove("is-spinning");
+      setButtonBusy(el.refreshBtn, false, "Refreshing project data", "Refresh project data");
       el.refreshBtn.setAttribute("aria-label", t("Refresh project data"));
     }
   });
@@ -2127,8 +2225,6 @@ function bindEvents() {
     }
     const card = e.target.closest("[data-detail-type][data-remote-id]");
     if (!card) return;
-    if (card.disabled) return;
-    setButtonBusy(card, true);
     const inDetailPane = card.closest("#detail-content") || card.closest("#drawer-content");
     try {
       if (card.dataset.retryDetail === "detail") {
@@ -2141,8 +2237,6 @@ function bindEvents() {
       }
     } catch (err) {
       setStatus(err.message, true);
-    } finally {
-      setButtonBusy(card, false);
     }
   });
 
@@ -2150,6 +2244,7 @@ function bindEvents() {
   el.drawerOverlay.addEventListener("click", closeDrawer);
 
   document.addEventListener("keydown", (event) => {
+    if (el.shell.inert) return;
     if (el.aboutDialog.open || el.tokenDialog.open) return;
     if (el.drawer.classList.contains("open")) {
       if (event.key === "Escape") { event.preventDefault(); closeDrawer(); return; }
