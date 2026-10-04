@@ -17,7 +17,6 @@ const state = {
   handoff: null,
   authenticated: false,
   account: null,
-  publicProfile: null,
 };
 
 const el = {
@@ -65,7 +64,6 @@ const el = {
   tenonLoginLabel: document.getElementById("tenon-login-label"),
   navHealth: document.getElementById("nav-health"),
   navContextLabel: document.getElementById("nav-context-label"),
-  brandLinks: document.querySelectorAll("[data-brand-link]"),
   aboutDialog: document.getElementById("about-dialog"),
   aboutClose: document.getElementById("about-close"),
   aboutVersion: document.getElementById("about-version"),
@@ -155,21 +153,11 @@ function workspaceIdFromRemoteId(rId) {
 }
 
 function apiUrl(path) {
-  if (state.config?.publicMode) {
-    const slug = encodeURIComponent(state.config.publicProfileSlug);
-    const publicPrefix = `/api/v1/public-profiles/${slug}`;
-    if (path === "/api/v1") return `${state.config.apiBaseUrl}${publicPrefix}`;
-    if (path.startsWith("/api/v1/")) {
-      return `${state.config.apiBaseUrl}${publicPrefix}${path.slice("/api/v1".length)}`;
-    }
-  }
   return `${state.config.apiBaseUrl}${path}`;
 }
 
 function configUrl() {
-  return window.location.pathname === "/showcase" || window.location.pathname.startsWith("/showcase/")
-    ? "/showcase/config.json"
-    : "/config.json";
+  return "/config.json";
 }
 
 // A newer action owns its view. Late responses may finish, but cannot replace it.
@@ -265,20 +253,14 @@ function hideAuthGate() {
   state.authenticated = true;
   el.shell.classList.remove("is-locked");
   el.authGate.classList.add("is-hidden");
-  const publicMode = Boolean(state.config?.publicMode);
-  el.shell.classList.toggle("is-public-view", publicMode);
-  el.accountControl.classList.toggle(
-    "is-hidden",
-    !(state.config?.authRequired || publicMode),
-  );
+  el.accountControl.classList.toggle("is-hidden", !state.config?.authRequired);
   el.accountMode.classList.remove("is-hidden");
-  el.accountMode.textContent = t(publicMode ? "Read-only" : "Private session");
-  el.tokenBtn.classList.toggle("is-hidden", publicMode);
-  el.logoutBtn.classList.toggle("is-hidden", publicMode);
+  el.accountMode.textContent = t("Private session");
+  el.tokenBtn.classList.remove("is-hidden");
+  el.logoutBtn.classList.remove("is-hidden");
   el.accountMenuTrigger.disabled = false;
-  for (const link of document.querySelectorAll("[data-account-sign-in]")) link.classList.toggle("is-hidden", !publicMode);
   const account = state.account;
-  el.accountLabel.textContent = publicMode ? t("Public view") : account ? account.display_name || `@${account.login}` : t("Private session");
+  el.accountLabel.textContent = account ? account.display_name || `@${account.login}` : t("Private session");
   el.authError.textContent = "";
   el.authError.classList.add("is-hidden");
 }
@@ -287,16 +269,6 @@ async function loadCurrentAccount() {
   if (state.config?.authMode !== "tenon") return;
   const result = await fetchJson(apiUrl("/api/v1/auth/me"));
   state.account = result.account;
-}
-
-async function loadPublicProfile() {
-  const result = await fetchJson(apiUrl("/api/v1"));
-  state.publicProfile = result.profile;
-  state.account = result.profile.account;
-  el.projectPickerEyebrow.textContent = t("Public collection");
-  el.navContextLabel.textContent = t("Published memory");
-  for (const link of el.brandLinks) link.href = "/showcase";
-  document.title = `${result.profile.title} · IntHub`;
 }
 
 function callbackErrorMessage() {
@@ -1191,9 +1163,6 @@ function renderProjectSummary() {
     .sort()
     .at(-1);
   const health = continuationHealth(intents);
-  const publicDescription = state.config?.publicMode
-    ? state.publicProfile?.description
-    : "";
 
   const brief = intents.length
     ? `<div class="brief-stack">${intents.map(continuationCard).join("")}</div>`
@@ -1210,9 +1179,8 @@ function renderProjectSummary() {
     <div class="continuation-page">
       <header class="continuation-hero">
         <div>
-          <span class="overview-eyebrow">${state.config?.publicMode ? t("Public semantic history") : t("Continuation brief")}</span>
+          <span class="overview-eyebrow">${t("Continuation brief")}</span>
           <h1 class="continuation-title">${esc(project.name)}</h1>
-          ${publicDescription ? `<p class="public-profile-description">${esc(publicDescription)}</p>` : ""}
           <div class="project-repo">
             <span>${esc(project.repo.provider || "git")}</span>
             <span>·</span>
@@ -1581,14 +1549,6 @@ function renderSnapDetailTo(target, payload) {
 /* ---- Setup guide ---- */
 
 function renderSetupGuide(mode) {
-  if (state.config?.publicMode) {
-    el.sidebarBody.innerHTML = `
-      <div class="setup-guide public-empty-state">
-        <h3>${esc(t("No published project yet"))}</h3>
-        <p>${esc(t("This profile exists, but no project is currently included in its public collection."))}</p>
-      </div>`;
-    return;
-  }
   const linkCmd = state.config.authRequired
     ? "itt hub link"
     : `itt hub link --api-base-url ${state.config.apiBaseUrl}`;
@@ -1769,7 +1729,7 @@ async function loadProject(projectId, { detail = null, reveal = false } = {}) {
   const ws = [...(overview.workspaces || [])]
     .sort((left, right) => String(right.last_synced_at || "").localeCompare(String(left.last_synced_at || "")))[0];
   el.syncChip.textContent = ws
-    ? `${state.config?.publicMode ? t("Updated") : t("Synced")} ${relativeDate(ws.last_synced_at)}`
+    ? `${t("Synced")} ${relativeDate(ws.last_synced_at)}`
     : t("Not synced");
   el.syncChip.title = ws ? fmtDate(ws.last_synced_at) : "";
   el.syncIndicator.classList.toggle("is-unsynced", !ws);
@@ -1787,11 +1747,7 @@ async function loadProject(projectId, { detail = null, reveal = false } = {}) {
   }
 
   renderSidebar();
-  setStatus(
-    state.config?.publicMode
-      ? t("{name} · public read-only view", {name: overview.project.name})
-      : t("{name} is up to date", {name: overview.project.name}),
-  );
+  setStatus(t("{name} is up to date", {name: overview.project.name}));
 
   if (state.activeTab === "overview") {
     state.selectedDetail = null;
@@ -1868,13 +1824,6 @@ function setProjectPickerBusy(busy) {
   el.projectPickerTrigger.setAttribute("aria-busy", String(busy));
 }
 
-function setAccountSignInLoading(link, loading) {
-  link.classList.toggle("is-loading", loading);
-  link.setAttribute("aria-busy", String(loading));
-  if (loading) link.setAttribute("aria-disabled", "true");
-  else link.removeAttribute("aria-disabled");
-  link.textContent = t(loading ? "Connecting to Tenon…" : "Sign in with Tenon");
-}
 
 function headerMenus() {
   const settings = [...document.querySelectorAll("[data-settings-trigger]")].map(trigger => ({
@@ -1965,19 +1914,13 @@ function localizeWorkspace() {
     localizeViewLoadingCopy();
     el.aboutVersion.textContent = t(state.config?.productVersion || "Unavailable");
     el.authError.textContent = t(state._authMessage || "");
-    if (state.config?.publicMode) el.accountLabel.textContent = t("Public view");
-    el.accountMode.textContent = t(state.config?.publicMode ? "Read-only" : "Private session");
+    el.accountMode.textContent = t("Private session");
     if (state._statusMessage) el.statusLine.textContent = t(state._statusMessage);
-    if (state.config?.publicMode) {
-      el.projectPickerEyebrow.textContent = t("Public collection");
-      el.navContextLabel.textContent = t("Published memory");
-    }
     const ws = [...(state.overview?.workspaces || [])].sort((a, b) => String(b.last_synced_at || "").localeCompare(String(a.last_synced_at || "")))[0];
-    el.syncChip.textContent = ws ? `${t(state.config?.publicMode ? "Updated" : "Synced")} ${relativeDate(ws.last_synced_at)}` : t("Not synced");
+    el.syncChip.textContent = ws ? `${t("Synced")} ${relativeDate(ws.last_synced_at)}` : t("Not synced");
     const active = state.handoff?.intents || [];
     el.navHealth.textContent = active.length ? t("{count} active · {missing} missing next", {count: active.length, missing: active.filter(intent => !parseCheckpoint(intent.latest_snap).next).length}) : t("No active objective");
     setTenonLoginLoading(el.tenonLogin.classList.contains("is-loading"));
-    for (const link of document.querySelectorAll("[data-account-sign-in]")) setAccountSignInLoading(link, link.getAttribute("aria-busy") === "true");
   } finally { state._localizing = false; }
 }
 
@@ -2051,17 +1994,11 @@ function bindEvents() {
 
   window.addEventListener("pageshow", () => {
     setTenonLoginLoading(false);
-    for (const link of document.querySelectorAll("[data-account-sign-in]")) setAccountSignInLoading(link, false);
   });
 
-  for (const link of document.querySelectorAll("[data-account-sign-in]")) link.addEventListener("click", event => {
-    if (link.getAttribute("aria-busy") === "true") {event.preventDefault(); return;}
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    setAccountSignInLoading(link, true);
-  });
 
   el.tokenBtn.addEventListener("click", async () => {
-    if (el.tokenBtn.disabled || state.config?.publicMode) return;
+    if (el.tokenBtn.disabled) return;
     setButtonBusy(el.tokenBtn, true, "Creating token…", "Access token");
     try {
       const issued = await fetchJson(apiUrl("/api/v1/auth/tokens"), {
@@ -2101,7 +2038,7 @@ function bindEvents() {
   });
 
   el.logoutBtn.addEventListener("click", async () => {
-    if (el.logoutBtn.disabled || state.config?.publicMode) return;
+    if (el.logoutBtn.disabled) return;
     setButtonBusy(el.logoutBtn, true, "Signing out…", "Sign out");
     try {
       await fetchJson(apiUrl("/api/v1/auth/logout"), { method: "POST" });
@@ -2323,8 +2260,7 @@ async function init(bind = true) {
       else btn.removeAttribute("aria-current");
     }
 
-    if (state.config.publicMode) await loadPublicProfile();
-    else await loadCurrentAccount();
+    await loadCurrentAccount();
     await loadProjects();
     hideAuthGate();
   } catch (err) {

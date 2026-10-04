@@ -169,14 +169,6 @@ Internet deployments use one account path: Tenon sign-in, database-backed Web se
 
 > **Tips:** Be explicit: “Use Intent to record this work in `.intent/`” authorizes one recording, while “Maintain Intent automatically for this repository” enables the opt-in agent contract above. “Resume this project through Intent” enters local recovery mode. `itt pull` is a separate, explicit network restoration request; automatic maintenance never implies it. Automatic maintenance is not an `itt` command and is not currently enforced by a Codex hook.
 
-## Showcase
-
-Browse the maintainer's live, read-only IntHub profile:
-
-**[IntHub Showcase](https://inthub.tenon.asia/showcase)** — selected projects and their current Intents, timeline, and Decisions. Publication is an explicit project allowlist; later projects stay private until separately added.
-
-The earlier static snapshot remains available through the repository's historical Pages data, or run `itt hub start` locally.
-
 ## Docs
 
 - [Vision](docs/EN/vision.md) — why semantic history matters

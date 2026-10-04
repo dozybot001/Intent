@@ -22,7 +22,6 @@ def test_header_groups_preferences_and_account_actions_in_separate_menus():
     assert 'id="refresh-btn"' in settings and 'data-about-open' in settings
     account = header.split('id="account-actions"', 1)[1]
     assert 'id="account-label"' in account and 'id="token-btn"' in account and 'id="logout-btn"' in account
-    assert 'data-account-sign-in' in account
     assert 'id="auth-settings-menu"' in html
 
 
@@ -279,22 +278,6 @@ def test_tenon_login_has_immediate_loading_feedback_and_recovers_from_history():
     assert 'event.preventDefault()' in javascript
     assert ".tenon-login.is-loading" in stylesheet
     assert "animation: spin 700ms linear infinite" in stylesheet
-
-
-def test_showcase_mode_reuses_the_product_shell_without_private_account_actions():
-    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
-    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
-    stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
-
-    assert 'id="account-mode"' in html
-    assert 'data-brand-link' in html
-    assert '"/showcase/config.json"' in javascript
-    assert "/api/v1/public-profiles/" in javascript
-    assert 'el.tokenBtn.classList.toggle("is-hidden", publicMode)' in javascript
-    assert 'el.logoutBtn.classList.toggle("is-hidden", publicMode)' in javascript
-    assert 'el.projectPickerEyebrow.textContent = t("Public collection")' in javascript
-    assert ".shell.is-public-view .account-control" in stylesheet
-    assert ".account-mode" in stylesheet
 
 
 def test_product_brand_and_about_follow_tenon_standard():

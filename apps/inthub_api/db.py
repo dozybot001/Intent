@@ -452,6 +452,7 @@ def _create_postgresql_schema(conn):
 
 
 def _create_sqlite_public_profiles_schema(conn):
+    # Retain schema migration 0002 for existing databases; public routes are retired.
     conn.raw.executescript(
         """
         CREATE TABLE IF NOT EXISTS public_profiles (

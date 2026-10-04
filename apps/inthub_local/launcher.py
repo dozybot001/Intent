@@ -3,11 +3,9 @@
 import argparse
 from contextlib import contextmanager
 from importlib import resources
-import json
 from pathlib import Path
 import webbrowser
 
-from apps.inthub_api.ingest import link_project, store_sync_batch
 from apps.inthub_api.server import build_server
 
 DEFAULT_HOST = "127.0.0.1"
@@ -43,67 +41,6 @@ def build_local_server(host, port, db_path, default_project_id=None, web_static_
     )
 
 
-def _load_showcase(db_path, showcase_dir):
-    """Import showcase projects into IntHub on startup."""
-    for project_dir in sorted(showcase_dir.iterdir()):
-        if not project_dir.is_dir() or project_dir.name.startswith("."):
-            continue
-        config_path = project_dir / "config.json"
-        if not config_path.exists():
-            continue
-
-        project_name = project_dir.name
-        repo_id = f"showcase/{project_name}"
-        repo = {
-            "provider": "github",
-            "repo_id": repo_id,
-            "owner": "showcase",
-            "name": project_name,
-        }
-
-        result = link_project(
-            db_path=str(db_path),
-            project_name=project_name,
-            repo=repo,
-            workspace_id=f"wks_showcase_{project_name}",
-        )
-
-        config = json.loads(config_path.read_text(encoding="utf-8"))
-        intents = []
-        snaps = []
-        decisions = []
-
-        for subdir, target in [("intents", intents), ("snaps", snaps), ("decisions", decisions)]:
-            obj_dir = project_dir / subdir
-            if obj_dir.is_dir():
-                for f in sorted(obj_dir.iterdir()):
-                    if f.suffix == ".json":
-                        target.append(json.loads(f.read_text(encoding="utf-8")))
-
-        # Use the latest object timestamp as generated_at
-        all_objects = intents + snaps + decisions
-        latest_ts = max((o.get("created_at", "") for o in all_objects), default="")
-
-        payload = {
-            "sync_batch_id": f"sync_showcase_{project_name}",
-            "generated_at": latest_ts,
-            "client": {"name": "showcase", "version": "0"},
-            "project_id": result["project_id"],
-            "repo": repo,
-            "workspace": {"workspace_id": result["workspace_id"]},
-            "git": {"branch": "main", "head_commit": "", "dirty": False, "remote_url": ""},
-            "snapshot": {
-                "intents": intents,
-                "snaps": snaps,
-                "decisions": decisions,
-            },
-        }
-
-        batch = store_sync_batch(db_path=str(db_path), payload=payload)
-        if not batch.get("duplicate"):
-            print(f"  Showcase loaded: {project_name} ({len(intents)} intents, {len(snaps)} snaps, {len(decisions)} decisions)")
-
-
 def run_local(
     host=DEFAULT_HOST,
     port=DEFAULT_PORT,
@@ -114,13 +51,6 @@ def run_local(
 ):
     database_path = Path(db_path).expanduser() if db_path is not None else default_db_path()
     database_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Try package-relative showcase first, then cwd fallback
-    package_showcase = Path(__file__).resolve().parents[2] / "showcase"
-    cwd_showcase = Path.cwd() / "showcase"
-    showcase_dir = package_showcase if package_showcase.is_dir() else cwd_showcase
-    if showcase_dir.is_dir():
-        _load_showcase(database_path, showcase_dir)
 
     with resolve_static_dir() as static_dir:
         server = build_local_server(

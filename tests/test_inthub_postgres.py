@@ -10,8 +10,7 @@ from apps.inthub_api.auth import (
     upsert_github_account,
 )
 from apps.inthub_api.ingest import link_project, store_sync_batch
-from apps.inthub_api.public_profiles import configure_public_profile
-from apps.inthub_api.queries import list_projects, project_overview, public_profile
+from apps.inthub_api.queries import list_projects, project_overview
 from apps.inthub_api.snapshots import export_snapshot
 from apps.inthub_api.tenon import (
     account_for_identity, account_for_session as tenon_account_for_session,
@@ -111,42 +110,3 @@ def test_postgresql_account_and_session_round_trip():
     )
     recovered_for_cli = account_for_access_token(POSTGRES_URL, access_token["token"])
     assert recovered_for_cli["id"] == account["id"]
-
-
-@pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")
-def test_postgresql_public_profile_uses_explicit_project_grants():
-    suffix = os.urandom(6).hex()
-    account = upsert_github_account(
-        POSTGRES_URL,
-        {
-            "id": f"public-{suffix}",
-            "login": f"public-{suffix}",
-            "name": "Public Integration Account",
-        },
-    )
-    repo = {
-        "provider": "github",
-        "repo_id": f"public/{suffix}",
-        "owner": "public",
-        "name": suffix,
-    }
-    linked = link_project(
-        POSTGRES_URL,
-        f"Public {suffix}",
-        repo,
-        f"wks_public_{suffix}",
-        account_id=account["id"],
-    )
-    slug = f"integration-{suffix}"
-
-    configured = configure_public_profile(
-        POSTGRES_URL,
-        slug=slug,
-        provider="github",
-        provider_user_id=f"public-{suffix}",
-        project_ids=[linked["project_id"]],
-    )
-    result = public_profile(POSTGRES_URL, slug)
-
-    assert configured["project_count"] == 1
-    assert [project["id"] for project in result["projects"]] == [linked["project_id"]]

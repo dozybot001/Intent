@@ -145,7 +145,6 @@ async function headerMenuCases() {
     const authSettingsPanel = document.getElementById('auth-settings-menu');
     const languageChinese = document.getElementById('language-chinese');
     const languageEnglish = document.getElementById('language-english');
-    const publicSignIn = document.getElementById('public-sign-in');
     const aboutButton = document.getElementById('menu-about-button');
     languageChinese.dataset.languageSelect = 'zh-CN';
     languageEnglish.dataset.languageSelect = 'en';
@@ -154,7 +153,7 @@ async function headerMenuCases() {
     settingsPanel.querySelectorAll = () => [languageChinese, languageEnglish, aboutButton];
     settingsPanel.contains = target => target === settingsPanel || target === languageChinese || target === languageEnglish || target === aboutButton;
     authSettingsPanel.querySelectorAll = () => [languageEnglish];
-    document.querySelectorAll = selector => selector === '[data-settings-trigger]' ? [settingsTrigger, authSettingsTrigger] : selector === '[data-language-select]' ? [languageChinese, languageEnglish] : selector === '[data-account-sign-in]' ? [publicSignIn] : selector === '[data-about-open]' ? [aboutButton] : originalQueryAll(selector);
+    document.querySelectorAll = selector => selector === '[data-settings-trigger]' ? [settingsTrigger, authSettingsTrigger] : selector === '[data-language-select]' ? [languageChinese, languageEnglish] : selector === '[data-about-open]' ? [aboutButton] : originalQueryAll(selector);
     bindEvents();
     const dispatch = (type, target, key, extra={}) => {
       let stopped=false;
@@ -226,21 +225,11 @@ async function headerMenuCases() {
     window.IntHubI18n.setLanguage('zh-CN');
     assert.equal(languageChinese.classList.contains('is-selected'),true);
 
-    state.config={publicMode:true, authRequired:false};
-    state.account={display_name:'Showcase owner, not the visitor'};
-    hideAuthGate();
-    assert.equal(el.accountLabel.textContent,'公开展示');
-    assert.equal(el.accountMode.textContent,'只读');
-    assert.equal(el.accountMenuTrigger.disabled,false);
-    assert.equal(el.tokenBtn.classList.contains('is-hidden'),true);
-    assert.equal(el.logoutBtn.classList.contains('is-hidden'),true);
-    assert.equal(publicSignIn.classList.contains('is-hidden'),false);
-    state.config={publicMode:false,authRequired:true};
+    state.config={authRequired:true};
     state.account={display_name:'Actual signed-in user'};
     hideAuthGate();
     assert.equal(el.accountLabel.textContent,'Actual signed-in user');
     assert.equal(el.tokenBtn.classList.contains('is-hidden'),false);
-    assert.equal(publicSignIn.classList.contains('is-hidden'),true);
     el.drawer.classList.add('open');
     showAuthGate();
     assert.equal(el.shell.inert,true);
@@ -269,7 +258,7 @@ async function headerMenuCases() {
     loadProjects=originalLoadProjects;
     document.querySelectorAll=originalQueryAll;
   })()`, context);
-  console.log('Mutually exclusive settings/account/project menus, keyboard/outside dismissal, language selection and public read-only context tests passed.');
+  console.log('Mutually exclusive settings/account/project menus, keyboard/outside dismissal and language selection tests passed.');
 }
 
 async function viewControllerCases() {

@@ -115,7 +115,6 @@ def test_api_server_can_serve_web_shell(tmp_path, monkeypatch):
         assert config["defaultProjectId"] == "proj_demo123"
         assert config["authRequired"] is False
         assert config["productVersion"] == "6.0.1.dev36+gtest123"
-        assert _get_json(f"{base}/showcase/config.json")["productVersion"] == config["productVersion"]
 
         mark = urlopen(f"{base}/tenon-mark.svg").read().decode("utf-8")
         assert 'fill="#f06b32"' in mark
@@ -137,6 +136,29 @@ def test_api_server_can_serve_web_shell(tmp_path, monkeypatch):
         assert "IntHub" in deep_link
         js = urlopen(f"{base}/app.js").read().decode("utf-8")
         assert "itt push" in js
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+def test_retired_showcase_routes_do_not_fall_through_to_private_shell(tmp_path):
+    server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(
+        str(tmp_path / "inthub.db"), serve_web=True, require_auth=True,
+        tenon_client_id="test", tenon_client_secret="test", oauth_client=FakeTenonOIDCClient(),
+        public_api_base_url="https://inthub.example",
+    ))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        for path in ("/showcase", "/showcase/", "/showcase/config.json",
+                     "/api/v1/public-profiles/showcase",
+                     "/api/v1/public-profiles/showcase/projects"):
+            status, _, payload = _raw_request(server, path)
+            assert status == 410
+            assert json.loads(payload)["error"]["code"] == "FEATURE_RETIRED"
+        assert _raw_request(server, "/api/v1/projects")[0] == 401
+        assert _raw_request(server, "/")[0] == 200
     finally:
         server.shutdown()
         thread.join()

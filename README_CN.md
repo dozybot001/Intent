@@ -169,14 +169,6 @@ IntHub Local 默认只绑定 `127.0.0.1`。当前本地 API 不强制校验 Bear
 
 > **Tips：** 请明确表达：“用 Intent 把这轮工作写入 `.intent/`”授权一次记录；“为这个仓库自动维护 Intent”启用上述 Agent 执行契约；“通过 Intent 恢复这个项目”进入本地接续模式。`itt pull` 是另一次明确的网络恢复请求，自动维护不会隐含授权它。自动维护不是 `itt` 命令，当前也没有 Codex hook 强制执行。
 
-## Showcase
-
-浏览维护者持续更新、只读的个人 IntHub：
-
-**[IntHub Showcase](https://inthub.tenon.asia/showcase)** — 展示显式选中的项目及其当前 Intent、时间线和 Decision。公开范围是项目白名单；以后新增的项目在单独加入前仍保持私有。
-
-早期静态快照仍保留在仓库的历史 Pages 数据中，也可运行 `itt hub start` 在本地浏览。
-
 ## 文档
 
 - [愿景](docs/CN/vision.md) — 为什么需要语义历史

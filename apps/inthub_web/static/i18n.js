@@ -1,15 +1,15 @@
 /* UI copy only. User-authored goals, checkpoints, identifiers and JSON stay intact. */
 window.IntHubI18n = (() => {
   const zh = {
-    "Settings": "设置", "Appearance": "外观", "Language": "语言", "System": "跟随系统", "Light": "浅色", "Dark": "深色", "Read-only": "只读",
+    "Settings": "设置", "Appearance": "外观", "Language": "语言", "System": "跟随系统", "Light": "浅色", "Dark": "深色",
     "Theme: System": "主题：跟随系统", "Theme: Light": "主题：浅色", "Theme: Dark": "主题：深色", "Switch theme": "切换主题",
     "All Intents": "全部意图", "Filter timeline by Intent": "按意图筛选时间线", "{count} checkpoints": "{count} 个检查点",
     "{count} incomplete checkpoints": "{count} 个检查点待补充", "{count} blocked objectives": "{count} 个目标被阻塞", "Ready to continue": "可以继续工作",
     "Overview": "概览", "Intents": "意图", "Timeline": "时间线", "Decisions": "决策", "Search": "搜索",
-    "Project": "项目", "Project memory": "项目记忆", "Published memory": "已发布的记忆", "Public collection": "公开项目集",
+    "Project": "项目", "Project memory": "项目记忆",
     "No projects yet": "暂无项目", "Checking sync": "正在检查同步", "Waiting for project": "等待项目", "Continuity status": "接续状态",
     "Current work": "当前工作", "Continuation queue": "接续队列", "Related context": "关联上下文", "Back to list": "返回列表",
-    "Account": "账号", "Public view": "公开展示", "Private session": "私有会话", "Access token": "访问令牌", "Sign out": "退出 IntHub",
+    "Account": "账号", "Private session": "私有会话", "Access token": "访问令牌", "Sign out": "退出 IntHub",
     "About IntHub": "关于 IntHub", "Close About IntHub": "关闭关于 IntHub", "Version": "版本", "Publisher": "出品方",
     "IntHub, by Tenon, home": "IntHub，Tenon 出品，首页", "IntHub, by Tenon": "IntHub，Tenon 出品",
     "Skip to project content": "跳至项目内容", "Project navigation": "项目导航", "Project index": "项目索引",
@@ -28,7 +28,7 @@ window.IntHubI18n = (() => {
     "One Tenon account": "统一 Tenon 账号", "No repository permissions": "无需仓库权限", "Authentication assurances": "认证说明",
     "Your account is managed by Tenon. IntHub keeps a separate, revocable session.": "账号由 Tenon 管理。IntHub 使用独立、可撤销的产品会话。",
     "IntHub is a project continuity workspace for developers and Agents. It brings together Intent goals, Snap checkpoints and durable Decisions so work can resume with its context intact.": "IntHub 是面向开发者与 Agent 的项目接续工作台。它汇集 Intent 目标、Snap 检查点与长期 Decision，让工作在保留上下文的情况下继续。",
-    "Sync semantic history from the Intent CLI, review the current continuation brief, explore the timeline and search project history. Explicitly published projects can also be shared in a read-only showcase.": "你可以通过 Intent CLI 同步语义历史，查看当前接续简报、浏览时间线与搜索项目历史。明确发布的项目还可以通过只读展示页分享。",
+    "Sync semantic history from the Intent CLI, review the current continuation brief, explore the timeline and search project history.": "你可以通过 Intent CLI 同步语义历史，查看当前接续简报、浏览时间线与搜索项目历史。",
     "IntHub / developer access": "IntHub / 开发者访问", "New access token": "新建访问令牌", "New CLI token": "新的 CLI 令牌",
     "This secret is shown once. Paste it into": "令牌只显示一次。将它粘贴到", "; IntHub will not display it again.": "；IntHub 不会再次显示。",
     "Copy token": "复制令牌", "Copied": "已复制", "Done": "完成", "Creating token…": "正在创建令牌…", "Copying…": "正在复制…", "Signing out…": "正在退出…",
@@ -52,7 +52,7 @@ window.IntHubI18n = (() => {
     "from anywhere to return here.": "可从任意位置回到此处。", "No matches found.": "没有匹配结果。", "Select an object to inspect.": "选择对象以查看详情。",
     "Not explicitly recorded in the latest Snap.": "最新 Snap 中没有明确记录。", "Open Intent ↗": "打开意图 ↗",
     "N/A — no active Decision constrains future work.": "不适用：没有约束后续工作的有效决策。", "No workspace has completed a first sync.": "尚无工作区完成首次同步。",
-    "Detached workspace": "游离工作区", "Public semantic history": "公开语义历史", "Working tree changes synced": "已同步工作区变更", "Continuity is in sync": "接续信息已同步",
+    "Detached workspace": "游离工作区", "Working tree changes synced": "已同步工作区变更", "Continuity is in sync": "接续信息已同步",
     "Waiting for first sync": "等待首次同步", "Workspace health": "工作区状态", "Active decisions": "有效决策", "Raw JSON": "原始 JSON",
     "No active Intent defines the next move.": "尚无活跃意图明确下一步。",
     "History is available, but IntHub cannot name the current goal until an active Intent and a self-contained checkpoint are synced.": "历史记录可用；同步活跃意图与自包含检查点后，IntHub 才能明确当前目标。",
@@ -60,8 +60,8 @@ window.IntHubI18n = (() => {
     "more decision(s)": "条更多决策", "more intent(s)": "个更多意图", "older snap(s)": "条更早的 Snap", "Current cross-Intent constraint": "当前跨意图约束",
     "Deprecated constraint history": "已废弃约束历史", "No Intent scope is recorded.": "未记录意图范围。", "No why provided.": "未提供原因。",
     "an unlinked Intent": "未关联的意图", "Unlinked Intent": "未关联的意图", "Semantic checkpoint for": "语义检查点所属目标：", "Continuation checkpoint": "接续检查点",
-    "Constraints:": "约束：", "Parent Intent": "所属意图", "No published project yet": "尚无公开项目",
-    "This profile exists, but no project is currently included in its public collection.": "此展示页存在，但尚未包含公开项目。",
+    "Constraints:": "约束：", "Parent Intent": "所属意图",
+
     "1. Initialize": "1. 初始化", "Run once per repo.": "每个仓库只需执行一次。", "2. Link & Sync": "2. 绑定并同步", "1. Link & Sync": "1. 绑定并同步",
     "Point CLI here, create binding, push snapshot.": "将 CLI 指向此服务，创建绑定并推送快照。", "Ensure CLI points here, then push the next snapshot.": "确认 CLI 指向此服务，再推送新快照。",
     "2. Sync Again Later": "2. 后续同步", "Push new semantic history after more work.": "完成后续工作后推送新的语义历史。",
@@ -79,7 +79,7 @@ window.IntHubI18n = (() => {
     "A token grants CLI access to your own projects. It is shown once; keep it secret and revoke it when no longer needed.": "令牌供 CLI 访问你自己的项目，只显示一次。请妥善保管，不再使用时撤销。",
     "{count} decisions": "{count} 条决策", "{count} linked Intents": "{count} 个关联意图", "Applies to {count} linked Intents.": "适用于 {count} 个关联意图。",
     "Load more ({count})": "加载更多（{count}）", "{count} workspaces": "{count} 个工作区", "{count} constraints": "{count} 条约束", "{count} sources": "{count} 个来源",
-    "{count} active · {missing} missing next": "{count} 个活跃目标 · {missing} 个缺少下一步", "{name} is up to date": "{name} 已更新", "{name} · public read-only view": "{name} · 公开只读展示",
+    "{count} active · {missing} missing next": "{count} 个活跃目标 · {missing} 个缺少下一步", "{name} is up to date": "{name} 已更新",
     "{id} checkpoint": "{id} 检查点", "Checkpoint {id}": "检查点 {id}", "dirty": "有变更", "clean": "无变更",
   };
   let language;

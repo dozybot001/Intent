@@ -33,13 +33,6 @@ from apps.inthub_api.queries import (
     get_intent_detail,
     get_snap_detail,
     list_projects,
-    public_decision_detail,
-    public_intent_detail,
-    public_profile,
-    public_project_handoff,
-    public_project_overview,
-    public_project_search,
-    public_snap_detail,
     project_handoff,
     project_overview,
     search_project,
@@ -116,7 +109,6 @@ def make_handler(
     oauth_client=None,
     account_session_ttl_seconds=ACCOUNT_SESSION_TTL_SECONDS,
     oauth_state_ttl_seconds=OAUTH_STATE_TTL_SECONDS,
-    showcase_profile_slug="showcase",
 ):
     root = Path(web_static_dir or STATIC_DIR).resolve()
     tenon_configured = bool(tenon_client_id or tenon_client_secret)
@@ -240,17 +232,14 @@ def make_handler(
             if path == "/auth/redirect":
                 self._send_file(root / "auth-redirect.html")
                 return True
-            if path in {"/config.json", "/showcase/config.json"}:
-                public_mode = path == "/showcase/config.json"
+            if path == "/config.json":
                 self._send_json(
                     200,
                     {
                         "apiBaseUrl": self._request_base_url(),
                         "defaultProjectId": default_project_id,
-                        "authRequired": False if public_mode else auth_required,
-                        "authMode": "public" if public_mode else auth_mode,
-                        "publicMode": public_mode,
-                        "publicProfileSlug": showcase_profile_slug if public_mode else None,
+                        "authRequired": auth_required,
+                        "authMode": auth_mode,
                         "productVersion": product_version(),
                     },
                 )
@@ -642,66 +631,6 @@ def make_handler(
 
             raise APIError("OBJECT_NOT_FOUND", f"Endpoint {path} not found.", status=404)
 
-        def _route_public_get(self, path, query):
-            prefix = "/api/v1/public-profiles/"
-            parts = path[len(prefix):].split("/")
-            if not parts or not parts[0] or any(not part for part in parts):
-                raise APIError("OBJECT_NOT_FOUND", f"Endpoint {path} not found.", status=404)
-            slug = parts[0]
-
-            if len(parts) == 1:
-                self._send_json(200, _json_success(public_profile(db_path, slug)))
-                return
-
-            if len(parts) == 2 and parts[1] == "projects":
-                result = public_profile(db_path, slug)
-                self._send_json(200, _json_success({"projects": result["projects"]}))
-                return
-
-            if len(parts) == 4 and parts[1] == "projects":
-                project_id = parts[2]
-                if parts[3] == "overview":
-                    result = public_project_overview(db_path, slug, project_id)
-                elif parts[3] == "handoff":
-                    result = public_project_handoff(db_path, slug, project_id)
-                else:
-                    raise APIError(
-                        "OBJECT_NOT_FOUND",
-                        f"Endpoint {path} not found.",
-                        status=404,
-                    )
-                self._send_json(200, _json_success(result))
-                return
-
-            detail_queries = {
-                "intents": public_intent_detail,
-                "decisions": public_decision_detail,
-                "snaps": public_snap_detail,
-            }
-            if len(parts) == 3 and parts[1] in detail_queries:
-                result = detail_queries[parts[1]](db_path, slug, parts[2])
-                self._send_json(200, _json_success(result))
-                return
-
-            if len(parts) == 2 and parts[1] == "search":
-                project_id = query.get("project_id", [None])[0]
-                if not project_id:
-                    raise APIError(
-                        "INVALID_INPUT",
-                        "Missing query parameter 'project_id'.",
-                        status=400,
-                    )
-                result = public_project_search(
-                    db_path,
-                    slug,
-                    project_id,
-                    query.get("q", [""])[0],
-                )
-                self._send_json(200, _json_success(result))
-                return
-
-            raise APIError("OBJECT_NOT_FOUND", f"Endpoint {path} not found.", status=404)
-
         def do_POST(self):
             parsed = urlparse(self.path)
             try:
@@ -747,6 +676,8 @@ def make_handler(
         def do_GET(self):
             parsed = urlparse(self.path)
             try:
+                if parsed.path == "/showcase" or parsed.path.startswith(("/showcase/", "/api/v1/public-profiles/")):
+                    raise APIError("FEATURE_RETIRED", "Public showcase has been removed.", status=410)
                 if parsed.path.startswith("/api/v1/auth/github/"):
                     raise APIError("ACCOUNT_MANAGED_BY_TENON", "Sign in with Tenon.", 410)
 
@@ -777,11 +708,6 @@ def make_handler(
                 if parsed.path == "/api/v1/auth/tokens":
                     self._check_origin()
                     self._handle_list_account_tokens()
-                    return
-
-                if parsed.path.startswith("/api/v1/public-profiles/"):
-                    self._check_origin()
-                    self._route_public_get(parsed.path, parse_qs(parsed.query))
                     return
 
                 if parsed.path.startswith("/api/"):
@@ -852,7 +778,6 @@ def build_server(
     oauth_client=None,
     account_session_ttl_seconds=ACCOUNT_SESSION_TTL_SECONDS,
     oauth_state_ttl_seconds=OAUTH_STATE_TTL_SECONDS,
-    showcase_profile_slug="showcase",
 ):
     check_database(db_path)
     return ThreadingHTTPServer(
@@ -872,7 +797,6 @@ def build_server(
             oauth_client=oauth_client,
             account_session_ttl_seconds=account_session_ttl_seconds,
             oauth_state_ttl_seconds=oauth_state_ttl_seconds,
-            showcase_profile_slug=showcase_profile_slug,
         ),
     )
 
@@ -894,7 +818,6 @@ def run_server(
     oauth_client=None,
     account_session_ttl_seconds=ACCOUNT_SESSION_TTL_SECONDS,
     oauth_state_ttl_seconds=OAUTH_STATE_TTL_SECONDS,
-    showcase_profile_slug="showcase",
 ):
     server = build_server(
         host,
@@ -913,7 +836,6 @@ def run_server(
         oauth_client=oauth_client,
         account_session_ttl_seconds=account_session_ttl_seconds,
         oauth_state_ttl_seconds=oauth_state_ttl_seconds,
-        showcase_profile_slug=showcase_profile_slug,
     )
     web_status = " + Web" if serve_web else ""
     print(
@@ -973,7 +895,6 @@ def main():
         account_session_ttl_seconds=int(
             os.getenv("INTHUB_SESSION_TTL_SECONDS", str(ACCOUNT_SESSION_TTL_SECONDS))
         ),
-        showcase_profile_slug=os.getenv("INTHUB_SHOWCASE_PROFILE_SLUG", "showcase"),
     )
 
 
