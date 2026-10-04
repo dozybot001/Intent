@@ -20,6 +20,7 @@ SAFE_PAYLOAD = re.compile(r"[A-Za-z0-9._~%\-]+")
 MUTATING_COMMANDS = {
     ("init",),
     ("push",),
+    ("pull",),
     ("auth", "login"),
     ("auth", "logout"),
     ("hub", "link"),

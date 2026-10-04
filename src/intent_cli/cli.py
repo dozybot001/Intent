@@ -16,6 +16,8 @@ from intent_cli.store import (
 )
 from intent_cli.hub.credentials import CredentialStoreError, GlobalHubConfigError
 from intent_cli.commands.auth import cmd_auth_login, cmd_auth_logout, cmd_auth_status
+from intent_cli.commands.pull import cmd_pull
+from intent_cli.hub.restore import PullApplyError
 from intent_cli.commands.core import (
     cmd_decision_create,
     cmd_decision_deprecate,
@@ -43,6 +45,11 @@ def _invoke(command, args):
     """Run one command and keep storage-safety failures in the JSON contract."""
     try:
         command(args)
+    except PullApplyError as exc:
+        error(
+            "PULL_APPLY_FAILED", str(exc),
+            details={"recovery_required": exc.recovery_required, "committed": exc.committed},
+        )
     except InvalidObjectIdError as exc:
         error(
             "INVALID_OBJECT_ID",
@@ -170,6 +177,12 @@ def main():
     p.add_argument("--token", default=None)
     p.add_argument("--dry-run", action="store_true")
 
+    p = sub.add_parser("pull")
+    p.add_argument("--api-base-url", default=None)
+    p.add_argument("--token", default=None)
+    p.add_argument("--workspace", default=None, metavar="ID")
+    p.add_argument("--dry-run", action="store_true")
+
     # --- hub ---
     p_hub = sub.add_parser("hub")
     s_hub = p_hub.add_subparsers(dest="sub")
@@ -251,6 +264,7 @@ def main():
         "inspect": cmd_inspect,
         "doctor": cmd_doctor,
         "push": cmd_push,
+        "pull": cmd_pull,
     }
     if args.command in dispatch_global:
         _invoke(dispatch_global[args.command], args)

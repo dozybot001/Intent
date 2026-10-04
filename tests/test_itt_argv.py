@@ -124,3 +124,5 @@ def test_runner_timeout_is_json_and_classifies_mutation(monkeypatch, tmp_path, c
     assert output["error"]["code"] == "PROCESS_TIMEOUT"
     assert output["error"]["details"]["completion_unknown"] is True
     assert runner.command_may_mutate(["inspect"]) is False
+    assert runner.command_may_mutate(["pull"]) is True
+    assert runner.command_may_mutate(["pull", "--dry-run"]) is True

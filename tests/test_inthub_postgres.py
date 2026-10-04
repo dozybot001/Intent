@@ -12,6 +12,7 @@ from apps.inthub_api.auth import (
 from apps.inthub_api.ingest import link_project, store_sync_batch
 from apps.inthub_api.public_profiles import configure_public_profile
 from apps.inthub_api.queries import list_projects, project_overview, public_profile
+from apps.inthub_api.snapshots import export_snapshot
 from apps.inthub_api.tenon import (
     account_for_identity, account_for_session as tenon_account_for_session,
     bind_existing_account, consume_attempt, create_attempt, create_session,
@@ -79,6 +80,11 @@ def test_postgresql_link_sync_and_read_round_trip():
     assert overview["active_intents"][0]["what"] == "Verify PostgreSQL"
     projects = list_projects(POSTGRES_URL)["projects"]
     assert any(project["id"] == linked["project_id"] for project in projects)
+    exported = export_snapshot(POSTGRES_URL, "github", repo["repo_id"], workspace_id=workspace_id)
+    assert exported["project_id"] == linked["project_id"]
+    assert exported["source_workspace_id"] == workspace_id
+    assert exported["batch"]["sync_batch_id"] == f"sync_{suffix}"
+    assert exported["snapshot"]["intents"][0]["what"] == "Verify PostgreSQL"
 
 
 @pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")

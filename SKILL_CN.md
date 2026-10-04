@@ -2,10 +2,10 @@
 name: intent-cli
 description: >-
   在用户已明确为指定仓库或任务启用 Intent 自动维护时，贯穿工作过程维护语义历史
-  （.intent/）；也处理明确的一次性 Intent 记录、接续和 IntHub 同步请求。
+  （.intent/）；也处理明确的一次性 Intent 记录、接续和 IntHub 推送/拉取请求。
   自动维护在每轮开头读取、结束前判定闭环，仅记录已验证的语义变化。
   安装 Skill、已有历史、普通笔记或提到 Intent 均不代表启用。
-  网络同步始终需要独立的明确请求。
+  网络推送或拉取始终需要独立的明确请求。
 ---
 
 # Intent CLI
@@ -18,6 +18,7 @@ description: >-
 - **一次性记录：**明确要求通过 Intent 或 `.intent/` 写入，仅授权这次记录流程。普通总结、笔记或状态汇报不是授权。
 - **接续：**明确要求通过 Intent 恢复时，先只读。继续工作不代表持续记录授权，除非已启用自动维护。
 - **同步：**只有明确要求把 Intent 数据推到 IntHub 才授权网络同步。执行前读 [references/sync.md](references/sync.md)。Git push、记录授权和自动维护都不授权同步、登录或公开发布。
+- **拉取：**只有明确要求从 IntHub 拉取 Intent 历史才授权私有快照下载与校验后的本地恢复。执行前读 [references/pull.md](references/pull.md)。接续和自动维护不隐含 pull；pull 不授权记录、推送、登录或公开发布。
 
 用户要求只读、本轮不记录或关闭维护时优先遵守。仓库存在、已有历史和 Skill 安装都不代表启用。授权不跨仓库。没有已授权模式时，不运行 `itt`。
 
@@ -52,7 +53,7 @@ Query 边界不改变 Intent 生命周期。仍在推进的目标保持 active�
 
 第一条命令前读 [references/execution.md](references/execution.md)，使用安全 argv 执行与失败处理。固定不变量：绝对仓库 cwd、逐条等待命令结束、解析 JSON 并要求 `ok: true`、捕获显式 ID、不直接编辑 `.intent/`。
 
-常规 turn 不自动初始化。首次 `NOT_INITIALIZED` 仅在明确包含初始化授权的设置/启用流程或一次性记录中允许继续 `itt init`，之后重新 inspect。接续与常规自动维护则报告历史不可用。`inspect` 的对象图 warning 要运行 `itt doctor` 并停止写入，不自动修复。其他命令的提示性 warning 不自动等于图损坏，应判断其含义。
+常规 turn 不自动初始化。首次 `NOT_INITIALIZED` 仅在明确包含初始化授权的设置/启用流程、一次性记录，或明确拉取到空目标时允许继续 `itt init`，之后重新 inspect。接续与常规自动维护则报告历史不可用。`inspect` 的对象图 warning 要运行 `itt doctor` 并停止写入，不自动修复。其他命令的提示性 warning 不自动等于图损坏，应判断其含义。
 
 不盲目执行 `suggested_fix`、不暴露凭据、不修改 Git remote、不自动运行认证、hub 服务或同步命令。
 

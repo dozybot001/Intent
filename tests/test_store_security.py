@@ -165,6 +165,21 @@ def test_read_object_rejects_identity_mismatch(storage):
         store.read_object(storage, "intent", "intent-001")
 
 
+@pytest.mark.parametrize("failure", [ValueError("integer limit"), RecursionError("depth limit")])
+def test_json_decoder_limits_remain_structured_storage_errors(storage, monkeypatch, failure):
+    (storage / "intents/intent-001.json").write_text("{}")
+    (storage / "hub.json").write_text("{}")
+    def decoder_failure(_raw):
+        raise failure
+    monkeypatch.setattr(store.json, "loads", decoder_failure)
+    with pytest.raises(store.StoredObjectParseError, match="decoder limits"):
+        store.list_objects(storage, "intent")
+    report = store.validate_graph(store.load_graph_once(storage, tolerant=True))
+    assert not report["healthy"]
+    with pytest.raises(store.StoredObjectParseError):
+        store.read_hub_config(storage)
+
+
 def test_create_object_rejects_identity_mismatch_before_creating_file(storage):
     path = storage / "intents" / "intent-001.json"
 

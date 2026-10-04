@@ -77,7 +77,7 @@ By default, recording remains explicit: you ask the agent to record or update a 
 
 **Opt-in automatic maintenance:** after a user explicitly enables local automatic maintenance for a specific repository or task once, the agent should begin each turn with `itt inspect`, record verified important milestones during the work, and close the turn as `recorded`, `no-op`, or `failed`. That per-turn closure is an accountability boundary, not a requirement to create a Snap. The normal result for a turn with no continuation-critical semantic change is `no-op`.
 
-This is an agent operating contract after explicit user authorization, not a claim of platform-enforced automation. The current CLI has no automatic-enable or turn-receipt command, and Codex hook integration for this flow is not implemented or enabled yet. Repositories that have not been explicitly enabled still require a direct recording request before `.intent/` can change. Automatic maintenance must not initialize a repository unless enablement separately authorizes initialization. It never authorizes signing in or syncing to IntHub, manufacturing a Decision, or automatically suspending or completing an Intent at query end.
+This is an agent operating contract after explicit user authorization, not a claim of platform-enforced automation. The current CLI has no automatic-enable or turn-receipt command, and Codex hook integration for this flow is not implemented or enabled yet. Repositories that have not been explicitly enabled still require a direct recording request before `.intent/` can change. Automatic maintenance must not initialize a repository unless enablement separately authorizes initialization. It never authorizes signing in, pulling from or syncing to IntHub, manufacturing a Decision, or automatically suspending or completing an Intent at query end.
 
 Whenever an open goal is recorded, its latest Snap should remain a self-contained checkpoint: verified state, current boundary, next step, and blockers or local constraints. Zero writes is valid, and there is no per-turn object quota. Decision candidates should be confirmed together when needed rather than interrupting every turn.
 
@@ -130,7 +130,25 @@ itt hub link
 itt push
 ```
 
-`itt auth login` uses `https://inthub.tenon.asia` by default. It stores the non-secret endpoint in the user config and delegates the account token to Git's configured credential helper, such as macOS Keychain, Git Credential Manager, or libsecret. The same account credential is reused across repositories; each repository keeps its own non-secret `project_id`, `workspace_id`, and `repo_binding` in `.intent/hub.json`. `itt hub status` reports that local state without calling the IntHub API. GitHub and Gitee origins are supported, while Tenon OIDC identifies the IntHub account. The CLI never needs to rewrite `origin`, and `itt push` rejects an origin that no longer matches the saved binding. `--token` and `INTHUB_TOKEN` remain one-command or environment overrides and are never written to repository config. `itt hub sync` remains a compatible alias for `itt push`.
+`itt auth login` uses `https://inthub.tenon.asia` by default. It stores the non-secret endpoint in the user config and delegates the account token to Git's configured credential helper, such as macOS Keychain, Git Credential Manager, or libsecret. The same account credential is reused across repositories; each repository keeps its own non-secret `project_id`, `workspace_id`, and `repo_binding` in `.intent/hub.json`. `itt hub status` reports that local state, including `pull_source` provenance and `last_pulled_at`, without calling the IntHub API. GitHub and Gitee origins are supported, while Tenon OIDC identifies the IntHub account. The CLI never needs to rewrite `origin`, and `itt push` rejects an origin that no longer matches the saved binding. `--token` and `INTHUB_TOKEN` remain one-command or environment overrides and are never written to repository config. `itt hub sync` remains a compatible alias for `itt push`.
+
+To restore one account-private IntHub workspace into another checkout, initialize local storage first and reuse the Tenon account credential saved by `itt auth login`:
+
+```bash
+cd another-checkout
+itt init
+itt pull
+
+# Optional preview without applying changes
+itt pull --dry-run
+
+# Select a source explicitly when no saved or linked source is available
+itt pull --workspace wks_...
+```
+
+`itt pull [--api-base-url URL] [--token TOKEN] [--workspace ID] [--dry-run]` restores one complete source-workspace snapshot. At runtime, the endpoint comes from an explicit `--api-base-url`, the repository-local binding, the user-level config, or the official endpoint, in that order. The source workspace comes from an explicit `--workspace`, saved `pull_source` provenance, or the linked checkout's own workspace, in that order; only when none applies does the service select the sole synced source, and it requires an explicit choice if several candidates remain. Pull preserves the destination checkout's identity: a new checkout is not linked automatically and must run `itt hub link` before its first later `itt push`, which creates its own workspace rather than reusing the source ID. Updates are restricted fast-forwards. If local Intent data changed while the source stayed unchanged, pull performs no write; if local and remote histories diverged, it refuses without a force or merge mode.
+
+Pull requires an IntHub service version that provides the account-private snapshot endpoint. Passing isolated or test-environment checks does not by itself validate restoration of real account history.
 
 To browse semantic history in a browser, start **IntHub Local** (works from any directory):
 
@@ -149,7 +167,7 @@ IntHub Local binds to `127.0.0.1` by default. Its current local API does not enf
 
 Internet deployments use one account path: Tenon sign-in, database-backed Web sessions, account-scoped CLI access tokens, account-isolated projects, PostgreSQL, a loopback app port, and Caddy TLS. See [IntHub Production Deployment](docs/EN/inthub-production.md).
 
-> **Tips:** Be explicit: “Use Intent to record this work in `.intent/`” authorizes one recording, while “Maintain Intent automatically for this repository” enables the opt-in agent contract above. “Resume this project through Intent” enters recovery mode. Automatic maintenance is not an `itt` command and is not currently enforced by a Codex hook.
+> **Tips:** Be explicit: “Use Intent to record this work in `.intent/`” authorizes one recording, while “Maintain Intent automatically for this repository” enables the opt-in agent contract above. “Resume this project through Intent” enters local recovery mode. `itt pull` is a separate, explicit network restoration request; automatic maintenance never implies it. Automatic maintenance is not an `itt` command and is not currently enforced by a Codex hook.
 
 ## Showcase
 

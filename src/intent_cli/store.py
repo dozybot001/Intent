@@ -284,6 +284,8 @@ def _load_and_validate_object(path, object_type, expected_id):
             path,
             f"invalid JSON at line {exc.lineno}, column {exc.colno}",
         ) from exc
+    except (ValueError, RecursionError) as exc:
+        raise StoredObjectParseError(path, "JSON exceeds decoder limits") from exc
     return _validate_object_schema(obj, path, object_type, expected_id)
 
 
@@ -311,6 +313,12 @@ def ensure_init():
     if d is None or (not d.exists() and not d.is_symlink()):
         return None
     _safe_storage_root(d)
+    journal = d / ".pull-journal.json"
+    if journal.exists() or journal.is_symlink():
+        # Interrupted directory swaps may temporarily leave object directories
+        # absent. Recover under the stable root lock before validating them.
+        with workspace_write_lock(d, operation="pull.recover"):
+            pass
     for object_type in SUBDIRS:
         _safe_object_dir(d, object_type)
     return d
@@ -440,6 +448,10 @@ def workspace_write_lock(base, timeout=10.0, operation=None):
                     )
                 time.sleep(0.05)
         _write_lock_owner(lock_file, operation)
+        # Lazy import avoids the storage/installer dependency cycle. Recovery
+        # needs only the root and lock, not complete live object directories.
+        from intent_cli.hub.restore import recover_pending_snapshot
+        recover_pending_snapshot(base)
         yield
     finally:
         if acquired:
@@ -734,7 +746,7 @@ def read_hub_config(base):
         raise UnsafeStoragePathError(path, "Hub config must be a regular file")
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, ValueError, RecursionError) as exc:
         raise StoredObjectParseError(path, str(exc)) from exc
     if not isinstance(data, dict):
         raise StoredObjectSchemaError(path, "top-level JSON must be an object")

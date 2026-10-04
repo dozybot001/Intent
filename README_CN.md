@@ -77,7 +77,7 @@ flowchart LR
 
 **显式启用的自动维护：**当用户一次性明确为指定仓库或任务启用本地自动维护后，agent 应在每轮开头运行 `itt inspect`，在工作过程中记录已验证的重要里程碑，并在结束时将本轮收口为 `recorded`、`no-op` 或 `failed`。每轮闭环是责任边界，不等于每轮必须新建 Snap；没有对接续有意义的语义变化时，正常结果就是 `no-op`。
 
-这是用户明确授权后的 Agent 执行契约，不代表平台已经强制自动化。当前 CLI 不存在自动启用或 turn receipt 命令，Codex hooks 接入也尚未实现或启用。未被明确启用的仓库仍需要当次直接的记录请求，才能修改 `.intent/`。自动维护不得在启用时未另行授权的情况下初始化仓库，不得登录或同步 IntHub，不得臆造 Decision，也不得在 query 结束时自动 suspend 或 done Intent。
+这是用户明确授权后的 Agent 执行契约，不代表平台已经强制自动化。当前 CLI 不存在自动启用或 turn receipt 命令，Codex hooks 接入也尚未实现或启用。未被明确启用的仓库仍需要当次直接的记录请求，才能修改 `.intent/`。自动维护不得在启用时未另行授权的情况下初始化仓库，不得登录、拉取或同步 IntHub，不得臆造 Decision，也不得在 query 结束时自动 suspend 或 done Intent。
 
 只要未结束目标确实发生了记录，它的最新 Snap 就应保持为自包含检查点：已验证状态、当前边界、下一步，以及 blocker 或局部约束。零写入是正确结果，每轮也没有对象数量配额。Decision 候选应在必要时一次批量确认，不能每轮打断用户。
 
@@ -130,7 +130,25 @@ itt hub link
 itt push
 ```
 
-`itt auth login` 默认使用 `https://inthub.tenon.asia`。非敏感服务地址保存在用户级配置中，账户 token 则交给 Git 已配置的 credential helper，例如 macOS Keychain、Git Credential Manager 或 libsecret。同一账户凭据可跨仓库复用；每个仓库仍在自己的 `.intent/hub.json` 中保存非敏感的 `project_id`、`workspace_id` 和 `repo_binding`。`itt hub status` 可以在不调用 IntHub API 的情况下报告这些本地状态。GitHub 和 Gitee origin 都受支持，Tenon OIDC 用于识别 IntHub 账户。CLI 不需要改写 `origin`；如果当前 origin 与保存的绑定不一致，`itt push` 会拒绝执行。`--token` 与 `INTHUB_TOKEN` 继续作为单次命令或环境覆盖，绝不会写入仓库配置。`itt hub sync` 保留为 `itt push` 的兼容别名。
+`itt auth login` 默认使用 `https://inthub.tenon.asia`。非敏感服务地址保存在用户级配置中，账户 token 则交给 Git 已配置的 credential helper，例如 macOS Keychain、Git Credential Manager 或 libsecret。同一账户凭据可跨仓库复用；每个仓库仍在自己的 `.intent/hub.json` 中保存非敏感的 `project_id`、`workspace_id` 和 `repo_binding`。`itt hub status` 可以在不调用 IntHub API 的情况下报告这些本地状态，包括 `pull_source` 来源记录和 `last_pulled_at`。GitHub 和 Gitee origin 都受支持，Tenon OIDC 用于识别 IntHub 账户。CLI 不需要改写 `origin`；如果当前 origin 与保存的绑定不一致，`itt push` 会拒绝执行。`--token` 与 `INTHUB_TOKEN` 继续作为单次命令或环境覆盖，绝不会写入仓库配置。`itt hub sync` 保留为 `itt push` 的兼容别名。
+
+要把一个账户私有 IntHub workspace 完整恢复到另一份 checkout，先初始化本地存储，并复用 `itt auth login` 已保存的 Tenon 账户凭据：
+
+```bash
+cd another-checkout
+itt init
+itt pull
+
+# 可选：仅预览，不应用变化
+itt pull --dry-run
+
+# 没有已保存或已绑定来源时，显式选择一个来源
+itt pull --workspace wks_...
+```
+
+`itt pull [--api-base-url URL] [--token TOKEN] [--workspace ID] [--dry-run]` 每次只恢复一个来源 workspace 的完整快照。运行时服务地址依次取自显式 `--api-base-url`、仓库级绑定、用户级配置和官方地址。来源 workspace 则依次取自显式 `--workspace`、已保存的 `pull_source` 来源记录和已绑定目的 checkout 自己的 workspace；只有这些都不适用时，服务才会自动选择唯一已同步来源，若仍有多个候选则要求显式选择。Pull 会保留目的 checkout 的身份：新 checkout 不会自动绑定，之后第一次 `itt push` 前仍需运行 `itt hub link`，为自己创建新的 workspace，而不是复用来源 ID。更新只允许受限快进；本地 Intent 已变化而来源未变化时保持零写入，本地与远端历史分歧时直接拒绝，不提供 force 或 merge 模式。
+
+Pull 要求所连接的 IntHub 服务版本提供账户私有 snapshot 接口。隔离环境或测试环境中的检查通过，并不等同于真实账户历史已经完成恢复验收。
 
 想在浏览器中查看语义历史，启动 **IntHub Local**（任意目录可用）：
 
@@ -149,7 +167,7 @@ IntHub Local 默认只绑定 `127.0.0.1`。当前本地 API 不强制校验 Bear
 
 公网部署使用统一账户路径：Tenon 统一登录、数据库 Web 会话、账户级 CLI access token、账户隔离的项目、PostgreSQL、回环应用端口和 Caddy TLS。参见 [IntHub 生产部署](docs/CN/inthub-production.md)。
 
-> **Tips：** 请明确表达：“用 Intent 把这轮工作写入 `.intent/`”授权一次记录；“为这个仓库自动维护 Intent”启用上述 Agent 执行契约；“通过 Intent 恢复这个项目”进入接续模式。自动维护不是 `itt` 命令，当前也没有 Codex hook 强制执行。
+> **Tips：** 请明确表达：“用 Intent 把这轮工作写入 `.intent/`”授权一次记录；“为这个仓库自动维护 Intent”启用上述 Agent 执行契约；“通过 Intent 恢复这个项目”进入本地接续模式。`itt pull` 是另一次明确的网络恢复请求，自动维护不会隐含授权它。自动维护不是 `itt` 命令，当前也没有 Codex hook 强制执行。
 
 ## Showcase
 

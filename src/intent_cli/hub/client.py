@@ -11,8 +11,24 @@ from intent_cli.output import error
 
 DEFAULT_TIMEOUT_SECONDS = 15.0
 DEFAULT_ATTEMPTS = 2
-MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+# A complete accepted 16 MiB sync snapshot plus its compact export envelope.
+MAX_RESPONSE_BYTES = 16 * 1024 * 1024 + 64 * 1024
 RETRYABLE_HTTP_STATUSES = {408, 425, 429, 500, 502, 503, 504}
+
+
+class _NoAPIRedirects(urllib.request.HTTPRedirectHandler):
+    """API endpoints must respond directly, never forward account credentials."""
+
+    def redirect_request(self, request, response, code, message, headers, new_url):
+        # Even a same-origin redirect is rejected: authentication and endpoint
+        # binding must not depend on an implicit browser-style navigation.
+        return None
+
+
+def _open_request(request, *, timeout):
+    """Open one API request with explicit, non-redirecting transport policy."""
+    opener = urllib.request.build_opener(_NoAPIRedirects())
+    return opener.open(request, timeout=timeout)
 
 
 def _bounded_text(raw):
@@ -22,6 +38,15 @@ def _bounded_text(raw):
         "raw": raw[:limit],
         "truncated": len(raw) > limit,
     }
+
+
+def _strict_json_decode(raw):
+    """Reject Python's permissive non-finite numbers and unpaired surrogates."""
+    body = json.loads(raw)
+    json.dumps(
+        body, ensure_ascii=False, allow_nan=False, separators=(",", ":"),
+    ).encode("utf-8")
+    return body
 
 
 def _transport_failure(method, url, exc, attempts, timeout):
@@ -65,8 +90,8 @@ def _decode_response(raw_bytes, url):
             details={"url": url},
         )
     try:
-        body = json.loads(raw)
-    except json.JSONDecodeError:
+        body = _strict_json_decode(raw)
+    except (ValueError, RecursionError, TypeError):
         error(
             "SERVER_ERROR",
             "IntHub returned invalid JSON.",
@@ -87,8 +112,8 @@ def _decode_error_response(raw_bytes):
         return {"response_too_large": True, "limit_bytes": MAX_RESPONSE_BYTES}
     raw = raw_bytes.decode("utf-8", errors="replace")
     try:
-        body = json.loads(raw)
-    except json.JSONDecodeError:
+        body = _strict_json_decode(raw)
+    except (ValueError, RecursionError, TypeError):
         return _bounded_text(raw)
     if isinstance(body, dict):
         return body
@@ -123,7 +148,7 @@ def http_json(
     body = None
     for attempt in range(1, attempts + 1):
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
+            with _open_request(request, timeout=timeout) as response:
                 raw_bytes = response.read(MAX_RESPONSE_BYTES + 1)
             body = _decode_response(raw_bytes, url)
             break

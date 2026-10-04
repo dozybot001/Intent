@@ -27,6 +27,7 @@ from apps.inthub_api.tenon import (
 from apps.inthub_api.common import APIError
 from apps.inthub_api.db import check_database, describe_database
 from apps.inthub_api.ingest import link_project, store_sync_batch
+from apps.inthub_api.snapshots import export_snapshot
 from apps.inthub_api.queries import (
     get_decision_detail,
     get_intent_detail,
@@ -142,8 +143,13 @@ def make_handler(
     class IntHubHandler(BaseHTTPRequestHandler):
         server_version = "IntHubAPI/0.3"
 
-        def _send_json(self, status, payload, extra_headers=None):
-            body = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
+        def _send_json(self, status, payload, extra_headers=None, compact=False):
+            options = (
+                {"ensure_ascii": False, "separators": (",", ":")}
+                if compact
+                else {"indent": 2, "ensure_ascii": False}
+            )
+            body = json.dumps(payload, **options).encode("utf-8")
             self._send_bytes(
                 status,
                 body,
@@ -531,6 +537,30 @@ def make_handler(
             raise APIError("OBJECT_NOT_FOUND", f"Endpoint {path} not found.", status=404)
 
         def _route_get(self, path, query, account_id=None):
+            if path == "/api/v1/hub/snapshot":
+                provider = query.get("provider", [None])[0]
+                repo_id = query.get("repo_id", [None])[0]
+                if not provider or not repo_id:
+                    raise APIError(
+                        "INVALID_INPUT",
+                        "Missing query parameters 'provider' and 'repo_id'.",
+                        status=400,
+                    )
+                self._send_json(
+                    200,
+                    _json_success(
+                        export_snapshot(
+                            db_path,
+                            provider,
+                            repo_id,
+                            account_id=account_id,
+                            workspace_id=query.get("workspace_id", [None])[0],
+                        )
+                    ),
+                    compact=True,
+                )
+                return
+
             if path == "/api/v1/projects":
                 self._send_json(
                     200,

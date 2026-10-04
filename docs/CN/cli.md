@@ -56,12 +56,25 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 | `itt auth status [--api-base-url URL] [--token TOKEN]` | 检查所选全局账户凭据是否有效，绝不输出 token。 |
 | `itt auth logout [--api-base-url URL]` | 删除本机 credential-helper 条目，不撤销服务端 token。 |
 | `itt push [--api-base-url URL] [--token TOKEN] [--dry-run]` | 推送当前仓库的完整 Intent 快照，作为主要 Git 风格命令。 |
+| `itt pull [--api-base-url URL] [--token TOKEN] [--workspace ID] [--dry-run]` | 通过受限快进，恢复一个账户私有来源 workspace 的完整快照。 |
 | `itt hub start [--port PORT] [--no-open]` | 启动 IntHub Local |
-| `itt hub status [--api-base-url URL]` | 在不调用 IntHub API 的情况下读取有效服务地址、本地仓库绑定、同步时间、pending link/sync 操作和可复用凭据是否存在。 |
+| `itt hub status [--api-base-url URL]` | 在不调用 IntHub API 的情况下读取有效服务地址、本地仓库绑定、同步时间、`pull_source` 来源记录、`last_pulled_at`、pending link/sync 操作和可复用凭据是否存在。 |
 | `itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]` | 将当前仓库绑定到 IntHub。默认使用全局地址和账户凭据，只把非敏感绑定信息写入 `.intent/hub.json`。 |
 | `itt hub sync [--api-base-url URL] [--token TOKEN] [--dry-run]` | `itt push` 的兼容别名。 |
 
-鉴权采用类似 Git 的“全局凭据、仓库级 remote”分层。`itt auth login` 把服务地址写入用户级 Intent 配置，并让 Git 已配置的 credential helper 保存账户 token。建议使用 macOS Keychain、Git Credential Manager 或 libsecret 等安全 helper；Git 的 `store` helper 会以明文保存凭据。每个仓库仍需运行一次 `itt hub link`，因为项目和 workspace 绑定属于仓库。GitHub 和 Gitee origin 都受支持；GitHub OAuth 只用于识别 IntHub 账户，不限制仓库 provider。CLI 绝不修改 `origin`，且每次 push 都会校验当前 provider 与仓库 ID 仍和保存的绑定一致。link 与 push 会在网络 I/O 前持久化非敏感 pending 操作 ID；有界重试或之后再次执行时，可以收敛丢失响应，并避免对未变化状态创建第二个操作。CLI 的凭据优先级依次为显式 `--token`、`INTHUB_TOKEN`、按有效 API 地址查找的 credential helper。
+鉴权采用类似 Git 的“全局凭据、仓库级 remote”分层。`itt auth login` 把服务地址写入用户级 Intent 配置，并让 Git 已配置的 credential helper 保存账户 token。建议使用 macOS Keychain、Git Credential Manager 或 libsecret 等安全 helper；Git 的 `store` helper 会以明文保存凭据。每个仓库仍需运行一次 `itt hub link`，因为项目和 workspace 绑定属于仓库。GitHub 和 Gitee origin 都受支持；Tenon OIDC 只用于识别 IntHub 账户，不限制仓库 provider。CLI 绝不修改 `origin`，且每次 push 都会校验当前 provider 与仓库 ID 仍和保存的绑定一致。link 与 push 会在网络 I/O 前持久化非敏感 pending 操作 ID；有界重试或之后再次执行时，可以收敛丢失响应，并避免对未变化状态创建第二个操作。CLI 的凭据优先级依次为显式 `--token`、`INTHUB_TOKEN`、按有效 API 地址查找的 credential helper。
+
+### Pull 安全与 workspace 身份
+
+拉取前先在目的 checkout 运行 `itt init`。运行时，`itt pull` 的服务地址依次取自显式 `--api-base-url`、仓库级绑定、用户级配置和官方地址；凭据依次取自 `--token`、`INTHUB_TOKEN` 和 `itt auth login` 已保存的 Tenon 账户凭据。它会精确匹配当前 GitHub 或 Gitee `origin`，只恢复该账户拥有的一个 workspace 完整快照。
+
+来源选择顺序为：显式 `--workspace ID`、已保存的 `pull_source` 来源记录、已绑定目的 checkout 自己的 workspace，最后才是在仓库恰好只有一个已同步来源时由服务自动选择。只有在最后一步仍有多个候选时才不会合并历史，而是返回候选项，需用 `--workspace ID` 重试。首次成功拉取会把来源记录为 provenance，后续 pull 复用同一来源；非空 checkout 不能静默切换来源。
+
+来源与目的身份始终分离。Pull 不会把来源 workspace ID 复制为目的绑定。新 checkout 恢复后仍未 link；之后第一次推送前，应先运行 `itt hub link` 创建独立的目的 workspace，再运行 `itt push`。
+
+Pull 不是通用双向同步器。它只接受通过验证的受限快进：远端可追加对象和关系、推进允许的非终态，但不能删除或改写已有历史，也不能改变终态对象。本地 Intent 历史已变化而远端来源未变化时，pull 会成功但零写入；双方都变化、本地非空但没有可信 baseline，或远端倒退、改写历史时，pull 直接拒绝，不提供 `--force` 或 merge 模式。`--dry-run` 会完成来源发现与校验，但不应用快照。
+
+显式启用的 Intent 自动维护不会授权 `itt pull`；网络恢复仍需单独明确请求。客户端必须连接到提供账户私有 snapshot 接口的 IntHub 服务版本。隔离环境或测试环境中的检查通过，并不等同于真实账户历史已经完成恢复验收。
 
 ## 对象模型
 
@@ -297,8 +310,18 @@ stateDiagram-v2
 | `LINK_PENDING` | 之前的仓库绑定请求必须先通过 `itt hub link` 收敛，才能 push |
 | `PENDING_LINK_CONFLICT` | pending link 指向不同的服务地址或仓库 |
 | `HUB_STATE_INVALID` | 仓库级 pending Hub 状态格式损坏 |
+| `HUB_OPERATION_PENDING` | pull 前必须先收敛 pending link 或 push |
 | `PROVIDER_UNSUPPORTED` | 当前 Git remote 不受支持 |
 | `REPO_BINDING_MISMATCH` | 当前 `origin` 指向的 provider 或仓库与已保存的 IntHub 绑定不一致 |
+| `INVALID_LOCAL_SNAPSHOT` | 本地 Intent 历史不是合法完整图；pull 前应运行 `itt doctor` |
+| `INVALID_REMOTE_SNAPSHOT` | 下载快照的身份、版本、schema 或对象图不合法 |
+| `PULL_SOURCE_MISMATCH` | pull 将静默切换已保存的服务地址，或切换非空 checkout 的来源 workspace |
+| `LOCAL_STATE_CHANGED` | 下载期间本地历史、绑定或 origin 发生变化；未应用任何内容 |
+| `LOCAL_HISTORY_CONFLICT` | 非空本地历史没有所选来源的可信 baseline |
+| `LOCAL_CHANGES` | 本地与远端历史都已变化；pull 不会合并或覆盖 |
+| `REMOTE_HISTORY_REWOUND` | 所选来源返回了更早的服务端接收 revision |
+| `REMOTE_HISTORY_CONFLICT` | 远端历史删除、改写或不一致地改变了已记录数据 |
+| `PULL_APPLY_FAILED` | 持有 workspace 锁的 journal 可恢复快照安装或恢复失败；`details.committed` 表示安装是否已到达 committed 状态，`details.recovery_required` 表示是否还需再次恢复 |
 | `NETWORK_ERROR` | 无法连接 IntHub |
 | `NETWORK_TIMEOUT` | IntHub 未在有界请求时间内响应；变更是否完成可能未知 |
 | `SERVER_ERROR` | IntHub 返回错误或非法 JSON |
@@ -309,6 +332,7 @@ stateDiagram-v2
 - 账户鉴权是全局的：默认服务地址属于用户级配置，token 交给 Git credential helper，仓库级 `hub.json` 只保存非敏感的 project/workspace 绑定信息
 - 仓库绑定支持精确的 `github.com` 与 `gitee.com` origin；不要为 IntHub 临时改写 `origin`，应使用 `itt hub status` 而不是直接读取 `hub.json`
 - 显式 `--token` 和 `INTHUB_TOKEN` 会覆盖已保存凭据，且绝不会持久化到 `hub.json`
+- Pull 只恢复一个明确来源 workspace，并保留目的 checkout 身份；Intent 自动维护不会隐含 pull 授权
 - IntHub Local 默认绑定 `127.0.0.1`，但当前 API 不强制校验 Bearer Token，且使用宽松 CORS；不要将它暴露到局域网或公网
 - IntHub 生产配置使用 Tenon 统一登录和有时限的只读 HttpOnly Web 会话；CLI 写入使用当前账户签发的 access token（HTTP `Bearer`），项目读取和写入均按账户隔离，生产数据库使用 PostgreSQL，详见 [IntHub 生产部署](inthub-production.md)
 - 对象和 Hub 配置通过原子替换写入，变更命令使用带有界 owner 诊断的工作区级跨进程写锁；这会串行化 Intent CLI 写入，但不会把 `.intent/` 变成多用户数据库

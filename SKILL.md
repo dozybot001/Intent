@@ -3,11 +3,11 @@ name: intent-cli
 description: >-
   Maintain Intent semantic history (.intent/) throughout work in a repository or
   task where the user explicitly enabled automatic Intent maintenance; also
-  handle explicit one-off Intent recording, recovery, and IntHub sync requests.
+  handle explicit one-off Intent recording, recovery, and IntHub push/pull requests.
   Automatic maintenance reads at turn start and assesses closure before the final
   response, recording only verified semantic changes. Installation, existing
   history, generic notes, and mentioning Intent do not enable it.
-  Network sync always requires a separate explicit request.
+  Network push or pull always requires a separate explicit request.
 ---
 
 # Intent CLI
@@ -20,6 +20,7 @@ Preserve enough verified meaning for another agent to continue, without turning 
 - **One-off recording:** An explicit request to write with Intent or `.intent/` authorizes that recording workflow only. Generic summaries, notes, and status requests are not permission.
 - **Recovery:** An explicit Intent recovery request starts read-only. Continuing work does not grant ongoing recording unless automatic maintenance is already enabled.
 - **Sync:** Only an explicit request to push Intent data to IntHub authorizes network synchronization. Read [references/sync.md](references/sync.md) before doing it. Git pushes, recording permission, and automatic maintenance never authorize sync, login, or publication.
+- **Pull:** Only an explicit request to pull Intent history from IntHub authorizes a private snapshot download and validated local restoration. Read [references/pull.md](references/pull.md). Recovery and automatic maintenance do not imply pull; pull does not authorize recording, push, login, or publication.
 
 A request to stay read-only, skip recording this turn, or disable maintenance wins. Repository existence, prior history, and Skill installation are not opt-in. Permission does not cross repository boundaries. Without an authorized mode, do not run `itt`.
 
@@ -54,7 +55,7 @@ For explicit recovery, inspect first without old chat or rediscovering facts in 
 
 Before the first command, read [references/execution.md](references/execution.md) for safe argv execution and failure handling. Invariants: fixed absolute repository cwd, one completed command at a time, parsed JSON with `ok: true`, captured explicit IDs, no direct `.intent/` edits.
 
-Never auto-initialize during a routine turn. Initial `NOT_INITIALIZED` may lead to `itt init` only during setup/enable that explicitly includes initialization permission, or one-off recording; inspect again afterward. In recovery or routine automatic maintenance, report unavailable history instead. Object-graph warnings from `inspect` require `itt doctor` and stopping writes, not automatic repair. Other command warnings are not automatically graph damage; assess their meaning.
+Never auto-initialize during a routine turn. Initial `NOT_INITIALIZED` may lead to `itt init` only during setup/enable that explicitly includes initialization permission, one-off recording, or explicit pull into an empty destination; inspect again afterward. In recovery or routine automatic maintenance, report unavailable history instead. Object-graph warnings from `inspect` require `itt doctor` and stopping writes, not automatic repair. Other command warnings are not automatically graph damage; assess their meaning.
 
 Do not blindly execute `suggested_fix`, expose credentials, change Git remotes, or automatically run authentication, hub service, or sync commands.
 

@@ -6,6 +6,7 @@ import json
 from intent_cli.commands.common import now_utc, require_init, workspace_mutation
 from intent_cli.hub.client import http_json
 from intent_cli.hub.payload import build_sync_payload, current_repository
+from intent_cli.hub.snapshots import snapshot_sha256
 from intent_cli.hub.runtime import (
     config_without_auth_token,
     hub_api_base,
@@ -201,6 +202,8 @@ def cmd_hub_status(args):
         "repo_binding": hub.get("repo_binding"),
         "last_sync_batch_id": hub.get("last_sync_batch_id"),
         "last_synced_at": hub.get("last_synced_at"),
+        "last_pulled_at": hub.get("last_pulled_at"),
+        "pull_source": hub.get("pull_source"),
         "link_pending": pending is not None,
         "sync_pending": pending_sync is not None,
         "missing_fields": missing,
@@ -267,14 +270,16 @@ def cmd_hub_link(args):
     result = http_json("POST", f"{api_base_url}/api/v1/hub/link", payload, token)
     _validate_link_result(result, workspace_id, repo)
 
-    updated = {
+    updated = dict(config_without_auth_token(hub))
+    updated.update({
         "api_base_url": api_base_url,
         "workspace_id": result["workspace_id"],
         "project_id": result["project_id"],
         "repo_binding": result["repo_binding"],
         "last_sync_batch_id": hub.get("last_sync_batch_id"),
         "last_synced_at": hub.get("last_synced_at"),
-    }
+    })
+    updated.pop("pending_link", None)
     if hub.get("pending_sync") is not None:
         updated["pending_sync"] = hub["pending_sync"]
     persisted = config_without_auth_token(updated)
@@ -350,6 +355,7 @@ def _sync(args, action):
     persisted.pop("pending_sync", None)
     persisted["last_sync_batch_id"] = payload["sync_batch_id"]
     persisted["last_synced_at"] = result.get("accepted_at", payload["generated_at"])
+    persisted["last_snapshot_sha256"] = snapshot_sha256(payload["snapshot"])
     write_hub_config(base, persisted)
     success(
         action,
