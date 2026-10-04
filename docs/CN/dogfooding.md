@@ -4,14 +4,14 @@
 
 这套协议用于验证 Intent 在“显式记录请求”或“本地已启用自动维护”契约下，能否以低打扰方式提供关键接续信息。历史演示，以及后来从代码重新发现的事实，都不能算成当前版本的恢复证据。
 
-自动维护是用户一次明确授权后的 Agent 执行契约，不是平台强制执行的证明。仓库尚未提供自动启用 CLI 命令、turn receipt 或已启用的 Codex hooks 接入。因此，自动模式案例必须保留授权证据，并记录实际执行它的 Skill 或 Agent 指令修订版本；不得将这类证据表述为 hook 强制执行。
+项目级维护开关、回执和 Codex hooks 适配器已实现，但已配置不等于宿主已执行。自动案例需保留初始化/启用证据、CLI/Skill 修订版本，并注明 hooks 是否已审核信任、是否实际产生开头上下文和 Stop 检查；只验证适配器或使用软契约不能算成宿主强制执行。
 
 ## 案例设置
 
 连续使用接下来自然发生的开发接续，不制造 benchmark 任务。每组案例开始前先记录适用的授权路径：
 
 - **显式记录：**在自然停点，用户要求当前 agent 用 Intent 记录。若首次 `itt inspect` 返回 `NOT_INITIALIZED`，这项显式记录请求允许先运行 `itt init`，然后再次 inspect。
-- **本地已启用自动维护：**用户已通过当前 Skill 或其他被记录的本地 Agent 指令，一次性明确为一个指定仓库或任务启用。每轮以 `itt inspect` 开始；过程中只记录已验证的重要里程碑；结束时判定 `recorded`、`no-op` 或 `failed`，常规成功与 no-op 不必向用户播报。每轮边界不要求新建 Snap，query、文件、命令、commit 或工具调用也不是 Intent 边界。对未初始化仓库启用时，必须另行包含初始化授权。
+- **本地已启用自动维护：**新项目 `itt init` 默认开启，已有历史 `itt maintenance on` 开启；只限此语义根目录。每轮复用 hook 开头快照或运行一次 inspect，记录已验证重要里程碑，以 `recorded/no-op/failed` 收尾。有 token 时保存真实回执；无 token 时只记录 Agent 判定，不虚构宿主执行证据。正常成功/no-op 静默，无每轮 Snap 配额，不按 query、文件或命令拆 Intent。
 
 然后执行案例：
 
@@ -20,7 +20,7 @@
 3. 恢复前冻结一份不向接手 agent 展示的 ground truth，列出预期的目标与原因、边界、下一步或 blocker、Decision，以及本次是否本应记录、预期记录结果是 `recorded`、`no-op` 还是 `failed`。之后不得按恢复结果反改 ground truth。
 4. 新开 session 或换一个看不到旧聊天和 ground truth 的 agent。
 5. 在读取代码、测试或其他笔记前，只允许先运行 `itt inspect`。如果目标显示 `has_more: true` 且最新检查点仍不足，再允许 `itt inspect --intent ID --history 3`。
-6. 保存原始 inspect JSON 和接手 agent 的首次恢复陈述；自动模式案例还要保存每轮开头的原始 inspect 输出与本轮收口结果。在第一次修改代码前，陈述目标与原因、当前工作边界、下一步或 blocker，以及现行 Decision。
+6. 保存原始 inspect JSON 和接手 agent 的首次恢复陈述；自动模式案例还要保存每轮开头的原始 inspect/hook 输出与收口回执（含实际 hook 配置/信任状态）；宿主未执行或闭环缺失也要保留为失败证据。在第一次修改代码前，陈述目标与原因、当前工作边界、下一步或 blocker，以及现行 Decision。
 7. 给每项恢复信息标注来源。
 
 | 标记 | 含义 |

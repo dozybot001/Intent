@@ -126,3 +126,6 @@ def test_runner_timeout_is_json_and_classifies_mutation(monkeypatch, tmp_path, c
     assert runner.command_may_mutate(["inspect"]) is False
     assert runner.command_may_mutate(["pull"]) is True
     assert runner.command_may_mutate(["pull", "--dry-run"]) is True
+    assert runner.command_may_mutate(["maintenance", "status"]) is False
+    for command in ("on", "off", "close"):
+        assert runner.command_may_mutate(["maintenance", command]) is True

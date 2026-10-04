@@ -21,9 +21,22 @@ The CLI is intentionally small:
 | Command | What it does |
 |---|---|
 | `itt version` | Print CLI version |
-| `itt init` | Initialize `.intent/` in a project directory; Git is optional |
+| `itt init` | Initialize `.intent/`, enable project-local continuous maintenance, and install local Codex hooks; Git is optional |
 | `itt inspect [--intent ID] [--history N]` | Recovery view with each goal's rationale, latest snap, optional bounded history, active decisions, and full graph warnings |
 | `itt doctor` | Return the same full object-graph diagnosis with an explicit `healthy` result |
+
+### Project-local continuous maintenance
+
+| Command | Behavior |
+|---|---|
+| `itt maintenance status` | Read this project's flag/hook configuration without initializing; configuration does not attest execution. |
+| `itt maintenance on / off` | Enable/disable only this project. Legacy histories need on once; new init defaults on. No global setting changes. |
+| `itt maintenance close recorded --turn TOKEN [--objects ID ...]` | Agent acknowledges verified changed objects; IDs may be derived from the entry baseline. |
+| `itt maintenance close no-op / failed --turn TOKEN --reason TEXT` | Acknowledge zero writes or failure without manufacturing a Snap. |
+
+The normal loop is read once → preserve important verified milestones → close before responding. Success/no-op are quiet; safely recoverable errors permit continuing after verification, unresolved errors pause only affected history operations. User read-only/skip instructions win. Split independent goals into Intents and verified conclusions into Snaps; no object quota.
+
+`.intent/maintenance.json` contains bounded local flag/receipt metadata, not semantic objects or IntHub snapshot content. Newly generated `.codex/hooks.json` is locally Git-excluded; unrelated hooks remain intact. Review/trust it in Codex `/hooks`. Stop allows one closure-only retry, not a guarantee against crashes/cancellation or semantic omissions. Hosts without hooks retain a soft Skill contract. See [implementation and limits](../../references/codex-hooks.md) and [tests](../../tests/test_maintenance.py).
 
 ### Intent
 
@@ -103,7 +116,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-  Q["User asks to record"] --> C{Meaningful milestone?}
+  Q["Enabled maintenance / explicit recording"] --> C{Meaningful milestone?}
   C -->|Yes| B["✅ Snap\nwhat = what was done\nwhy = reasoning"]
   C -->|No| A["⏭️ No snap\ntoo granular"]
 ```
@@ -168,7 +181,7 @@ Priority: explicit `--origin LABEL` > `ITT_ORIGIN` / `INTENT_ORIGIN` > built-in 
 
 ### Standard success envelope
 
-All successful commands except `inspect` use:
+All successful commands except `inspect` and host-only `maintenance hook` use:
 
 ```json
 {
@@ -278,6 +291,14 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 | Code | Meaning |
 | --- | --- |
 | `NOT_INITIALIZED` | `.intent/` does not exist |
+| `MAINTENANCE_STATE_INVALID` | Local maintenance metadata is invalid; no successful closure is claimed |
+| `MAINTENANCE_STATE_TOO_LARGE` | Bounded receipt metadata exceeds its size limit |
+| `MAINTENANCE_WRITE_FAILED` | Could not persist the flag or receipt |
+| `HOOK_CONFIG_INVALID` | Existing hooks are malformed and remain untouched |
+| `HOOK_CONFIG_WRITE_FAILED` | Project hooks could not be written; installation is not claimed |
+| `TURN_NOT_ACTIVE` | Token is not a valid turn in this enabled project |
+| `HISTORY_UNHEALTHY` | Closure found graph issues; diagnose with doctor |
+| `RECORDING_UNVERIFIED` | recorded did not reference verifiable objects changed this turn |
 | `ALREADY_EXISTS` | `.intent/` already exists when running `init` |
 | `STATE_CONFLICT` | Illegal state transition |
 | `OBJECT_NOT_FOUND` | Object ID not found |

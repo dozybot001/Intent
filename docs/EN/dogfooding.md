@@ -4,14 +4,14 @@
 
 This protocol tests whether Intent provides critical continuation context with low disruption under either an explicit recording request or a locally enabled automatic-maintenance contract. Historical demos and facts rediscovered from code do not count as current-version recovery evidence.
 
-Automatic maintenance is an agent operating contract after one explicit user authorization, not proof of platform enforcement. The repository does not yet provide an automatic-enable CLI command, turn receipt, or enabled Codex hook integration. An automatic-mode case must therefore preserve the authorization plus the exact Skill or agent-instruction revision that performed it; do not describe that evidence as hook-enforced.
+Project-local enablement, receipts, and Codex hook adapters are implemented, but configuration does not attest host execution. Automatic cases must preserve init/enablement evidence, exact CLI/Skill revisions, and whether hooks were reviewed/trusted and actually supplied entry context and a Stop check. Adapter tests or a soft contract are not proof of host enforcement.
 
 ## Case setup
 
 Use the next naturally occurring development continuations; do not manufacture benchmark tasks. Record which authorization path applies before each case set:
 
 - **Explicit recording:** at a natural stopping point, the user asks the current agent to record with Intent. If the first `itt inspect` returns `NOT_INITIALIZED`, this explicit recording request permits `itt init` before inspecting again.
-- **Locally enabled automatic maintenance:** the user has explicitly enabled one named repository or task once through the active Skill or other recorded local agent instruction. Each turn begins with `itt inspect`; during the work the agent records only verified important milestones; at turn end it assesses `recorded`, `no-op`, or `failed`, without announcing routine success or no-op to the user. A turn boundary does not require a new Snap, and a query, file, command, commit, or tool call is not an Intent boundary. Enabling an uninitialized repository must separately include permission to initialize it.
+- **Locally enabled automatic maintenance:** new projects default on with `itt init`; existing histories use `itt maintenance on`. Scope is one semantic root. Reuse current-turn hook context or inspect once, preserve verified important milestones, then close recorded/no-op/failed. Save an actual receipt when a token exists; otherwise save only the Agent's assessment, not invented host evidence. Normal success/no-op remain quiet; no per-turn Snap quota or query/file/command Intent boundary.
 
 Then run the case:
 
@@ -20,7 +20,7 @@ Then run the case:
 3. Before recovery, freeze ground truth that is hidden from the receiving agent. Record the expected goal and reason, boundary, next step or blocker, Decisions, whether this case should have been recorded, and whether the expected recording outcome was `recorded`, `no-op`, or `failed`. Do not revise ground truth to match the recovery result.
 4. Start a new session or use another agent with no access to the old chat or ground truth.
 5. Before reading code, tests, or other notes, allow only `itt inspect`. If the selected Intent reports `has_more: true` and its latest checkpoint is insufficient, allow `itt inspect --intent ID --history 3`.
-6. Save the raw inspect JSON and the receiving agent's first recovery statement. For automatic-mode cases, also save the raw turn-opening inspect output and turn-close outcome. Before the first code change, state the goal and reason, current work boundary, next step or blocker, and standing Decisions.
+6. Save the raw inspect JSON and the receiving agent's first recovery statement. For automatic-mode cases, also save raw turn-opening inspect/hook output and the closure receipt, including actual hook configuration/trust status. Missing host execution or closure is preserved as failure evidence. Before the first code change, state the goal and reason, current work boundary, next step or blocker, and standing Decisions.
 7. Label each recovered fact by source.
 
 | Label | Meaning |

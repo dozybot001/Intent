@@ -107,6 +107,21 @@ def test_noop_preview_empty_and_offline_do_not_create_remote_history(clients):
     assert list_projects(db)["projects"] == []
 
 
+def test_maintenance_is_local_metadata_not_shared_history(clients):
+    source, target, db, _ = clients
+    seed(source)
+    assert run(target, "maintenance", "off")["ok"]
+    local_state = target / ".intent" / "maintenance.json"
+    before = local_state.read_bytes()
+    assert run(target, "pull")["ok"]
+    assert local_state.read_bytes() == before
+    assert not run(target, "maintenance", "status")["result"]["enabled"]
+    assert run(source, "maintenance", "off")["ok"]
+    assert run(source, "status")["result"]["state"] == "up_to_date"
+    assert run(source, "push")["result"]["changed"] is False
+    assert set(read_history(db, "demo")["snapshot"]) == {"intents", "snaps", "decisions"}
+
+
 @pytest.mark.parametrize("option", ["--workspace", "--source-repo"])
 def test_removed_workspace_options_are_structured_input_errors(clients, option):
     source, _, _, _ = clients

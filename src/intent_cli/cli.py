@@ -16,6 +16,8 @@ from intent_cli.store import (
 )
 from intent_cli.hub.credentials import CredentialStoreError, GlobalHubConfigError
 from intent_cli.commands.auth import cmd_auth_login, cmd_auth_logout, cmd_auth_status
+from intent_cli.commands.maintenance import cmd_maintenance
+from intent_cli.maintenance import MaintenanceError
 from intent_cli.hub.restore import PullApplyError
 from intent_cli.commands.core import (
     cmd_decision_create,
@@ -39,6 +41,8 @@ def _invoke(command, args):
     """Run one command and keep storage-safety failures in the JSON contract."""
     try:
         command(args)
+    except MaintenanceError as exc:
+        error(exc.code, str(exc))
     except PullApplyError as exc:
         error(
             "PULL_APPLY_FAILED", str(exc),
@@ -163,6 +167,18 @@ def main():
     p.add_argument("url")
     p.add_argument("--project", default=None)
 
+    p_maintenance = sub.add_parser("maintenance")
+    s_maintenance = p_maintenance.add_subparsers(dest="sub")
+    for name in ("status", "on", "off"):
+        s_maintenance.add_parser(name)
+    p = s_maintenance.add_parser("close")
+    p.add_argument("outcome", choices=("recorded", "no-op", "failed"))
+    p.add_argument("--turn", required=True)
+    p.add_argument("--reason", default="")
+    p.add_argument("--objects", nargs="+", default=None)
+    p = s_maintenance.add_parser("hook")
+    p.add_argument("--root", default=None)
+
     # --- account auth / Git-style push ---
     p_auth = sub.add_parser("auth")
     s_auth = p_auth.add_subparsers(dest="sub")
@@ -286,6 +302,7 @@ def main():
             "intent": p_intent,
             "snap": p_snap,
             "decision": p_decision,
+            "maintenance": p_maintenance,
         }[args.command]
         error(
             "INVALID_INPUT",
@@ -310,4 +327,7 @@ def main():
         ("decision", "create"):        cmd_decision_create,
         ("decision", "deprecate"):     cmd_decision_deprecate,
     }
+    if args.command == "maintenance":
+        _invoke(cmd_maintenance, args)
+        return
     _invoke(dispatch[(args.command, args.sub)], args)

@@ -1,82 +1,54 @@
 ---
 name: intent-cli
 description: >-
-  Maintain Intent semantic history (.intent/) throughout work in a repository or
-  task where the user explicitly enabled automatic Intent maintenance; also
-  handle explicit one-off Intent recording, recovery, and IntHub push/pull requests.
-  Automatic maintenance reads at turn start and assesses closure before the final
-  response, recording only verified semantic changes. Installation, existing
-  history, generic notes, and mentioning Intent do not enable it.
-  Network push or pull always requires a separate explicit request.
+  Continuously maintain verified Intent semantic history in projects with local
+  maintenance enabled; itt init enables it by default. Read context at turn start,
+  preserve meaningful changes, and close hooked turns as recorded, no-op, or failed.
+  Also handle explicit Intent recording/recovery and IntHub push/pull requests.
+  Disabled or legacy projects are not automatically enabled. Network sync needs
+  a separate explicit request.
 ---
 
 # Intent CLI
 
-Preserve enough verified meaning for another agent to continue, without turning conversation into a log. Every authorized maintenance/recording turn needs a closure assessment, not a new object. Outside an authorized workflow, closure classification is not applicable.
+Preserve enough verified meaning for another agent to continue, not a conversation log. Continuous maintenance is the normal mode; every turn needs assessment, not a new Snap.
 
-## Scope and permission
+## Project scope
 
-- **Automatic maintenance:** The user explicitly enables it for a named repository or task, directly or through a trusted user-approved project instruction. That grants ongoing local inspect/record permission until revoked; do not ask again each turn. Resolve its scope first. This Skill revision alone does not enable it anywhere.
-- **One-off recording:** An explicit request to write with Intent or `.intent/` authorizes that recording workflow only. Generic summaries, notes, and status requests are not permission.
-- **Recovery:** An explicit Intent recovery request starts read-only. Continuing work does not grant ongoing recording unless automatic maintenance is already enabled.
-- **Sync:** Only an explicit request to push Intent data to IntHub authorizes network synchronization. Read [references/sync.md](references/sync.md) before doing it. Git pushes, recording permission, and automatic maintenance never authorize sync, login, or publication.
-- **Pull:** Only an explicit request to pull Intent history from IntHub authorizes a private snapshot download and validated local restoration. Read [references/pull.md](references/pull.md). Recovery and automatic maintenance do not imply pull; pull does not authorize recording, push, login, or publication.
+- Resolve the canonical semantic root; Git is optional. A trusted hook context for this root and turn supplies the opening snapshot. Otherwise check `itt maintenance status`. Read [execution.md](references/execution.md) before executing commands.
+- `itt init` enables maintenance and installs project-local Codex hooks for a new history. Existing histories need `itt maintenance on` once. `itt maintenance off` disables only this project. Skill installation does not enable other projects.
+- Hook configuration is not proof of execution: Codex must review/trust it. Read [codex-hooks.md](references/codex-hooks.md) only for setup, missing hooks, or host integration.
+- Disabled/uninitialized projects do not get automatic semantic writes. Explicit one-off recording remains available; initialize only when requested setup, recording, or restoration needs it. Recovery starts read-only.
+- User read-only, skip-this-turn, and disable instructions take precedence. Never automatically sync, log in, publish, or change Git remotes. Explicit push/pull requests use [sync.md](references/sync.md) / [pull.md](references/pull.md). Follow the requested sequence; planned later uploads are not current authorization.
 
-A request to stay read-only, skip recording this turn, or disable maintenance wins. Repository existence, prior history, and Skill installation are not opt-in. Permission does not cross repository boundaries. Without an authorized mode, do not run `itt`.
+## Quiet work loop
 
-Follow the requested sequence. “Download and delete online; reorganize/upload later” ends after verified download and deletion. Future plans do not authorize current uploads, temporary online projects, or changes to other local repositories.
-
-## The automatic work loop
-
-1. **Start — read context.** Resolve the authorized semantic root (Git is optional) and run `itt inspect`, or reuse a trusted successful hook result for this root and turn. If it fails, diagnose and recover using [execution.md](references/execution.md); a recovered, verified state permits continuing this turn. Use relevant checkpoints and active Decisions. Read bounded history for the selected Intent when its latest checkpoint is insufficient. Do not guess missing facts.
-2. **During work — preserve meaningful changes.** Reuse the matching Intent. Once a goal or independently verified milestone is clear, record it while context is fresh, especially before a long or risky next phase. Do not record plans as completed facts, every tool call, or intermediate edits. Only the coordinating agent writes; subagents return verified facts to it.
-3. **Before the final response — assess closure.** For each materially changed objective, preserve its verified outcome or accurate continuation checkpoint and verify final state. Classify the turn as **recorded**, **no-op** (no new continuation-critical semantics, or recording explicitly skipped), or **failed** (recording unavailable, incomplete, or unverified). Already-recorded milestones plus an accurate latest checkpoint need no duplicate end-of-turn Snap.
-
-Routine success and no-op stay quiet. Report unresolved or partial recording briefly, including successful object IDs, without misrepresenting the main task as failed. An unresolved Intent failure pauses affected history operations, not otherwise authorized project work.
-
-Closure here is an agent obligation, not an implemented receipt command. Read [references/codex-hooks.md](references/codex-hooks.md) only when integrating Codex hooks. Do not invent a receipt, enable command, or claim hooks are installed.
-
-## Choose meaning, not a count
-
-- One **Intent** is a coherent objective with its own outcome and lifecycle. Separate independently resumable goals; do not merge them to fit a one-Intent quota. Reuse a matching active Intent; activate a matching suspended one by explicit ID only when actually resuming work or adding a Snap. Create only genuinely new objectives. Do not split by session, query, file, commit, command, or implementation layer.
-- One **Snap** is an append-only milestone, verified conclusion, correction, or checkpoint within exactly one Intent. Split independently verifiable or supersedable conclusions; combine evidence for the same conclusion. Cross-Intent work requires separate Snaps. Skip logs and routine mechanical edits. Intent and Snap counts have no quota.
-- A changed Intent that remains open must end with a self-contained checkpoint: **Verified / Boundary / Next / Blocker / Constraints**. State what is established, what remains unfinished or out of scope, the next concrete action, blockers (`none` if absent), and local constraints. Encode compactly in `what` and `why`; prerequisite results may be summarized. An unchanged, accurate checkpoint needs no rewrite.
-- A **Decision** is a rule that would bind a future Intent on a different problem. An explicit durable user rule is already confirmed; inferred implementation choices are not. Keep unconfirmed candidates local in a Snap or omit them. If confirmation is essential, combine all necessary questions into at most one short batch for the workflow; do not interrupt merely to collect Decisions.
-
-Intent `what` names the objective; `why` explains motivation. Snap `what` states the verified change/checkpoint; `why` carries reasoning and constraints. Correct history with a later Snap; never rewrite old objects.
-
-Query boundaries do not change Intent lifecycle. Leave ongoing goals active. Mark done only after verified resolution, cancel only when deliberately abandoned with a reason, and suspend only when genuinely paused, after preserving its checkpoint. Before done, ensure completion evidence and deliberately deferred boundaries are recorded.
-
-## One-off recording and explicit recovery
-
-One-off recording uses the same inspect, semantic selection, and verified closure rules. Record only work verified in current context; do not claim to know everything since the last recording. Zero writes is valid. Unlike quiet automatic maintenance, briefly report what was recorded or why nothing was written.
-
-For explicit recovery, inspect first without old chat or rediscovering facts in code. Before acting, state the goal and reason, verified boundary, next action/blocker, and applicable Decisions from Intent alone. Mark gaps honestly; code/test rediscovery and user explanations are not Intent recovery evidence. Use bounded history only for the selected Intent; if three recent Snaps are insufficient, report the gap rather than fetching unlimited history. Activate a suspended Intent only when asked to continue it, not merely inspect it.
-
-## Execution guardrails
-
-Read [references/execution.md](references/execution.md) for argv execution and error recovery. Use the target repository cwd, parse JSON results, capture explicit object IDs, and make semantic changes through the CLI.
-
-Initialize when the requested setup, recording, or restoration needs a new history. Read-only recovery does not initialize. Diagnose graph warnings with `itt doctor`; resume affected writes after the problem is resolved and verified. Other warnings require judgment, not an automatic stop.
-
-Do not blindly execute `suggested_fix`, expose credentials, change Git remotes, or automatically run authentication, hub service, or sync commands.
-
-## Local command surface
+1. **Read once.** Reuse current-turn hook context; otherwise inspect the enabled root. For missing facts, inspect only the selected Intent with `--history 3`. Treat truncated context as incomplete. Code rediscovery and user explanations are not Intent recovery evidence.
+2. **Preserve meaningful progress.** Reuse the matching goal; record verified milestones while fresh, particularly before long/risky phases. Only the coordinating agent writes. Do not record each tool call, intermediate edit, or plan as a completed fact.
+3. **Close before responding.** Changed open goals need accurate continuation checkpoints. With a hook token, submit one receipt below; without a token, assess closure without inventing one or claiming enforcement.
 
 ```text
-itt init
-itt inspect
-itt inspect --intent ID --history 3
-itt doctor
-itt status [--local]
-itt remote
-itt remote add origin URL --project NAME
-itt intent create WHAT [--why WHY]
-itt intent activate ID
-itt intent suspend ID
-itt intent done ID
-itt intent cancel ID [--reason REASON]
-itt snap create WHAT --intent ID [--why WHY]
-itt decision create WHAT [--why WHY]
-itt decision deprecate ID [--reason REASON]
+itt maintenance close recorded --turn TOKEN [--objects ID ...]
+itt maintenance close no-op --turn TOKEN --reason REASON
+itt maintenance close failed --turn TOKEN --reason REASON
 ```
+
+`recorded` verifies actually changed objects (IDs may be derived automatically). `no-op` is normal when there is no continuation-critical change or the user skips recording: give a brief reason, not a filler Snap. `failed` acknowledges unavailable or unverified recording. Receipts are local turn metadata, not semantic objects. A Stop retry finishes closure only; it never authorizes repeating sync or task side effects.
+
+Routine success and no-op stay silent. Briefly disclose unresolved/partial recording with successful IDs. Diagnose recoverable errors and continue after verification; do not blindly retry creates or suggested fixes. An unresolved history error pauses affected history operations, not unrelated authorized work.
+
+## Semantic boundaries
+
+- **Intent:** one coherent objective with its own outcome/lifecycle. Split independently resumable goals; reuse matching active/suspended goals when actually continuing them. No quota; do not split by query, session, file, command, commit, or implementation layer.
+- **Snap:** one append-only verified milestone, conclusion, correction, or checkpoint within one Intent. Split independently verifiable/supersedable conclusions; combine evidence for the same conclusion. Cross-Intent work needs separate Snaps. Skip routine logs; correct with a later Snap.
+- **Decision:** a rare rule binding future Intents on different problems. Explicit durable user rules are confirmed; inferred implementation choices stay local or omitted. Essential clarification is at most one short batch per workflow, not an interruption per candidate.
+
+Intent `what` names the goal, `why` its motivation. Snap fields preserve the verified change and reasoning. A changed open or paused Intent's latest Snap must independently answer **Verified / Boundary / Next / Blocker / Constraints** (blocker `none` when absent). An unchanged accurate checkpoint needs no rewrite.
+
+A query ending does not end the Intent. Mark done only after verified resolution and recorded completion/deferred boundaries; cancel deliberate abandonment with a reason; suspend a real pause after its checkpoint.
+
+## Explicit recording / recovery
+
+Record only work verified in current context, not “everything since last time”; zero writes is valid. Briefly report a one-off recording result, unlike quiet ongoing maintenance.
+
+For recovery, inspect before old chat/code, then state goal/reason, boundary, next/blocker, and Decisions from Intent alone. Mark gaps honestly; three recent Snaps still insufficient means report the gap, not unlimited history. Merely viewing a suspended goal does not activate it.

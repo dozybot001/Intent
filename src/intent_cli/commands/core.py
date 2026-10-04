@@ -20,6 +20,7 @@ from intent_cli.store import (
     validate_object_id,
     validate_graph,
     workspace_write_lock,
+    StorageSecurityError,
 )
 
 
@@ -42,7 +43,17 @@ def cmd_init(_args):
         warnings.append(
             "Could not add .intent/ to Git's local exclude file; exclude it manually before recording private semantics."
         )
-    success("init", {"path": str(path)}, warnings)
+    from intent_cli.commands.maintenance import configure
+    from intent_cli.maintenance import MaintenanceError, set_enabled
+
+    try:
+        maintenance = configure(path, True)
+        warnings.append("Review/trust this project's Intent hooks in Codex /hooks; installation does not grant host trust.")
+    except (MaintenanceError, StorageSecurityError, OSError) as exc:
+        set_enabled(path, True)
+        maintenance = {"enabled": True, "hooks": {"configured": False, "enforcement": "not_attested"}}
+        warnings.append(f"Local maintenance is enabled but hooks were not installed: {type(exc).__name__}.")
+    success("init", {"path": str(path), "maintenance": maintenance}, warnings)
 
 
 def cmd_inspect(args):

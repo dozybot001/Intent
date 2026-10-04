@@ -1,4 +1,4 @@
 interface:
   display_name: "Intent CLI"
-  short_description: "Record, resume, or sync Intent semantics"
-  default_prompt: "Use $intent-cli to record, resume, or explicitly sync this project’s verified Intent semantics."
+  short_description: "Quiet, continuous project semantic maintenance"
+  default_prompt: "Use $intent-cli to maintain this project’s verified semantic history quietly and close the current turn without requiring a new Snap."

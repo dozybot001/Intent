@@ -1,75 +1,52 @@
 ---
 name: intent-cli
 description: >-
-  在用户已明确为指定仓库或任务启用 Intent 自动维护时，贯穿工作过程维护语义历史
-  （.intent/）；也处理明确的一次性 Intent 记录、接续和 IntHub 推送/拉取请求。
-  自动维护在每轮开头读取、结束前判定闭环，仅记录已验证的语义变化。
-  安装 Skill、已有历史、普通笔记或提到 Intent 均不代表启用。
-  网络推送或拉取始终需要独立的明确请求。
+  在已启用项目级维护的项目内持续维护已验证的 Intent 语义历史；itt init 默认启用。
+  每轮开头读取、过程中保存关键变化、结束前以 recorded/no-op/failed 回执闭环。
+  也处理明确的 Intent 一次性记录、接续和 IntHub 推送/拉取请求。
+  已关闭或旧版项目不自动启用；网络同步需要独立明确请求。
 ---
 
 # Intent CLI
 
-保存足够让另一个 Agent 接续的已验证语义，不把对话变成日志。已授权维护或记录的每轮都要判定闭环，不是每轮都要创建对象。没有进入授权流程时，闭环分类不适用。
+保存足够让另一个 Agent 接续的已验证语义，不把对话变成日志。持续维护是常规模式；每轮判定闭环，不是每轮新增 Snap。
 
-## 范围与授权
+## 项目范围
 
-- **自动维护：**用户直接、或通过可信且经用户批准的项目指令，明确为指定仓库或任务启用。此后持续授权本地 inspect 与记录，直到撤销；不要每轮再次询问。先确定范围。修改本 Skill 本身不代表在任何仓库启用。
-- **一次性记录：**明确要求通过 Intent 或 `.intent/` 写入，仅授权这次记录流程。普通总结、笔记或状态汇报不是授权。
-- **接续：**明确要求通过 Intent 恢复时，先只读。继续工作不代表持续记录授权，除非已启用自动维护。
-- **同步：**只有明确要求把 Intent 数据推到 IntHub 才授权网络同步。执行前读 [references/sync.md](references/sync.md)。Git push、记录授权和自动维护都不授权同步、登录或公开发布。
-- **拉取：**只有明确要求从 IntHub 拉取 Intent 历史才授权私有快照下载与校验后的本地恢复。执行前读 [references/pull.md](references/pull.md)。接续和自动维护不隐含 pull；pull 不授权记录、推送、登录或公开发布。
+- 确定规范化的语义根目录；Git 可选。可信且对应本项目、当前轮的 hook 上下文就是开头快照，否则检查 `itt maintenance status`。执行命令前读 [execution.md](references/execution.md)。
+- 新历史的 `itt init` 默认开启维护并安装项目级 Codex hooks；已有历史只需一次 `itt maintenance on`。 `itt maintenance off` 只关闭当前项目。安装 Skill 不会开启其他项目。
+- 已配置不等于已执行：Codex 需要审核并信任 hooks。仅设置、缺失 hooks 或宿主适配时读 [codex-hooks.md](references/codex-hooks.md)。
+- 已关闭或未初始化的项目不自动写语义。仍可明确要求一次性记录；仅请求的设置、记录或恢复确实需要时初始化。接续先只读。
+- 用户要求只读、本轮跳过或关闭维护时优先遵守。不自动同步、登录、公开发布或改 Git remote。明确推送/拉取时分别读 [sync.md](references/sync.md) / [pull.md](references/pull.md)。遵守请求顺序；未来上传计划不是当前授权。
 
-用户要求只读、本轮不记录或关闭维护时优先遵守。仓库存在、已有历史和 Skill 安装都不代表启用。授权不跨仓库。没有已授权模式时，不运行 `itt`。
+## 静默工作闭环
 
-## 自动工作闭环
-
-1. **开头——读一次。**确定已授权的 Git 根目录。没有 hook 结果时运行一次 `itt inspect`；可信 hook 的成功、无 warning 且对应此根目录与当前 turn 的结果可复用。已提供的失败、超时、图 warning 或身份不匹配会禁用本轮历史写入；不要把它当作缺失上下文，再 inspect 来恢复写权限。图 warning 用 doctor 诊断，主任务继续。使用相关检查点与 active Decision，不逐条播报历史。仅当目标 Intent 最新检查点不足时读取 `itt inspect --intent ID --history 3`。缺失事实不猜测。
-2. **过程中——保存关键变化。**优先复用匹配 Intent。目标或可独立验证的里程碑明确后，趁上下文新鲜记录，尤其在进入漫长或高风险的下一阶段前。不把计划写成完成事实，不记录每条工具调用或中间编辑。只有协调 Agent 写入，子 Agent 向它提供已验证事实。
-3. **最终回复前——判定闭环。**为每个发生实质变化的目标保存已验证结果或准确接续检查点，并验证最终状态。整轮归为 **recorded**（已记录）、**no-op**（没有接续关键的新语义，或用户明确跳过记录）、**failed**（记录不可用、未完成或未验证）。里程碑已记录且最新检查点准确时，不重复追加结束 Snap。
-
-常规成功和 no-op 静默完成；不要求用户额外执行检查仪式或再次确认。失败或部分写入时简短报告，并列出成功对象 ID，不把主任务冒充为失败。Intent 失败停止历史写入，不妨碍其他已授权的项目工作。中断或崩溃不算成功闭环；过程里程碑只能减少损失，不能保证最终检查点。
-
-这里的闭环是 Agent 义务，不是已实现的回执命令。只有接入 Codex hooks 时才读 [references/codex-hooks.md](references/codex-hooks.md)。不要虚构回执、启用命令，或声称 hooks 已安装。
-
-## 按语义选择，不按数量选择
-
-- 一个 **Intent** 是有独立结果与生命周期的连贯目标。可独立接续的目标应分开，不为“一个 Intent 配额”合并。复用匹配的 active Intent；只有实际恢复工作或追加 Snap 时才用显式 ID 激活匹配的 suspended Intent。只为真正的新目标创建对象。不按 session、query、文件、提交、命令或实现层拆分。
-- 一个 **Snap** 是且仅是一个 Intent 内只追加的里程碑、已验证结论、纠正或检查点。能独立验证或取代的结论应拆开，同一结论的证据合并。跨 Intent 分别写 Snap。跳过日志和常规机械编辑；Intent、Snap 均无数量配额。
-- 发生变化且仍未结束的 Intent，最新 Snap 必须自包含：**Verified / Boundary / Next / Blocker / Constraints**。写清已验证状态、未完成或不在范围内的边界、下一具体动作、blocker（没有时写 `none`）及局部约束。紧凑编码进 `what` 与 `why`；前置结果可摘要。未变化且已准确的检查点不重写。
-- **Decision** 是未来处理不同问题的 Intent 仍要遵守的规则。用户明确给出的持久规则已经确认；自行推断的实现选择不是。未确认候选留在 Snap 的局部约束里或省略。确需确认时，整个流程至多合并成一次简短批量询问；不要仅为收集 Decision 打断用户。
-
-Intent `what` 命名目标，`why` 解释动机。Snap `what` 写已验证变化或检查点，`why` 写推理与约束。纠错追加后续 Snap，不重写旧对象。
-
-Query 边界不改变 Intent 生命周期。仍在推进的目标保持 active。只有验证目标解决才 done；主动放弃时带原因 cancel；真正暂停时先保存检查点再 suspend。done 前确保已保留完成证据与有意延期的边界。
-
-## 一次性记录与显式接续
-
-一次性记录遵守同样的 inspect、语义筛选和验证闭环。只记录当前上下文中已验证的工作，不声称知道上次记录以来的一切。零写入合法。区别于静默自动维护，简短报告记录了什么或为何没有写入。
-
-显式接续先 inspect，不先读旧聊天或从代码重新发现事实。行动前仅根据 Intent 陈述目标与原因、已验证边界、下一步或 blocker、适用 Decision。缺口如实标明；代码和测试重发现、用户重解释不算 Intent 恢复证据。只为目标 Intent 读取受限历史；最近三条仍不足时报告缺口，不无限读取。只有用户要求实际继续，才激活 suspended Intent；仅查看不激活。
-
-## 执行边界
-
-第一条命令前读 [references/execution.md](references/execution.md)，使用安全 argv 执行与失败处理。固定不变量：绝对仓库 cwd、逐条等待命令结束、解析 JSON 并要求 `ok: true`、捕获显式 ID、不直接编辑 `.intent/`。
-
-常规 turn 不自动初始化。首次 `NOT_INITIALIZED` 仅在明确包含初始化授权的设置/启用流程、一次性记录，或明确拉取到空目标时允许继续 `itt init`，之后重新 inspect。接续与常规自动维护则报告历史不可用。`inspect` 的对象图 warning 要运行 `itt doctor` 并停止写入，不自动修复。其他命令的提示性 warning 不自动等于图损坏，应判断其含义。
-
-不盲目执行 `suggested_fix`、不暴露凭据、不修改 Git remote、不自动运行认证、hub 服务或同步命令。
-
-## 本地命令范围
+1. **读一次。**复用本轮 hook 上下文，否则 inspect 已启用的根目录。缺少事实时只读目标 Intent 的 `--history 3`；被截断的上下文不是完整历史。代码重发现和用户解释不算 Intent 恢复证据。
+2. **保存关键进展。**复用匹配目标，趁上下文新鲜保存已验证里程碑，尤其在漫长或高风险阶段之前。只有协调 Agent 写入。不记录每条工具调用、中间编辑，不把计划写成完成事实。
+3. **回复前收尾。**变化且未结束的目标需要准确接续检查点。有 hook token 时提交以下回执；没有 token 时判定闭环，不虚构 token 或声称硬性保障。
 
 ```text
-itt init
-itt inspect
-itt inspect --intent ID --history 3
-itt doctor
-itt intent create WHAT [--why WHY]
-itt intent activate ID
-itt intent suspend ID
-itt intent done ID
-itt intent cancel ID [--reason REASON]
-itt snap create WHAT --intent ID [--why WHY]
-itt decision create WHAT [--why WHY]
-itt decision deprecate ID [--reason REASON]
+itt maintenance close recorded --turn TOKEN [--objects ID ...]
+itt maintenance close no-op --turn TOKEN --reason REASON
+itt maintenance close failed --turn TOKEN --reason REASON
 ```
+
+`recorded` 校验真正变化的对象，ID 可自动推导。`no-op` 是没有接续关键变化或用户跳过记录的正常结果：给简短原因，不制造凑数 Snap。`failed` 如实确认记录不可用或未验证。回执是本地每轮元数据，不是语义对象。Stop 重试只补收尾，不授权重复同步或任务副作用。
+
+正常成功与 no-op 静默完成；未解决或部分记录失败时简短披露成功 ID。可恢复错误经诊断、验证后继续，不盲目重试创建或执行 suggested_fix。未解决的历史错误只暂停受影响历史操作，不妨碍其他已授权工作。
+
+## 语义边界
+
+- **Intent：**有独立结果与生命周期的连贯目标。可独立接续的目标拆开；实际继续时复用匹配的 active/suspended 目标。无配额，不按 query、session、文件、命令、提交或实现层拆分。
+- **Snap：**仅一个 Intent 内只追加的已验证里程碑、结论、纠正或检查点。可独立验证/取代的结论拆开，同一结论的证据合并，跨 Intent 分别写 Snap。跳过日常日志，纠正追加后续 Snap。
+- **Decision：**未来处理不同问题的 Intent 仍须遵守的稀缺规则。用户明确的持久规则已确认；推断的实现选择保留在局部或省略。必要澄清整个流程最多一次简短批量询问，不逐候选打断。
+
+Intent `what` 命名目标，`why` 解释动机；Snap 字段保留已验证变化及推理。变化且仍开放或即将暂停的 Intent，最新 Snap 应独立回答 **Verified / Boundary / Next / Blocker / Constraints**，没有 blocker 写 `none`。未变化且准确的检查点不重写。
+
+一轮问答结束不代表 Intent 结束。验证目标解决且保留完成证据/延期边界才 done；主动放弃带原因 cancel；真正暂停先保存检查点再 suspend。
+
+## 显式记录 / 接续
+
+只记录当前上下文验证的工作，不声称知道“上次以来的一切”；零写入合法。一次性记录简短报告结果，持续维护则静默。
+
+接续先 inspect，不先读旧聊天或代码；行动前仅根据 Intent 陈述目标/原因、边界、下一步/blocker 与 Decision。缺口如实标明；最近三条 Snap 仍不足时报告缺口，不无限读历史。仅查看 suspended 目标不激活它。

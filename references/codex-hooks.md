@@ -1,49 +1,39 @@
-# Codex integration: capability and closure design
+# Project-local Codex maintenance
 
-Status: **design, not an installed hook or implemented CLI feature**. Checked against local Codex CLI 0.160.0 and the [official hooks documentation](https://learn.chatgpt.com/docs/hooks) on 2026-10-04. Skill installation alone does not enforce this contract.
+Implemented in [maintenance.py](../src/intent_cli/maintenance.py), [maintenance_hooks.py](../src/intent_cli/maintenance_hooks.py), and [commands/maintenance.py](../src/intent_cli/commands/maintenance.py); adapter coverage lives in [test_maintenance.py](../tests/test_maintenance.py). No external model or server is needed.
 
-## Available host mechanisms
+## Setup and scope
 
-Codex supports synchronous `UserPromptSubmit` command hooks that can run inspect and inject bounded `additionalContext`, and `Stop` hooks that can return `{"decision":"block","reason":"..."}` to request continuation. Command hooks execute programs; they are not semantic recorders. Prompt/agent hook handlers are currently parsed but skipped. Cloud orchestration does not provide the same local command-hook execution.
+- A new `itt init` enables continuous maintenance and installs two project-local command hooks. An existing history uses `itt maintenance on` once; absence of the flag means disabled, not inferred authorization.
+- `itt maintenance off` revokes only this semantic root, including an in-flight turn. `itt maintenance status` reports local state without initializing anything. Independently initialized nested roots do not inherit their parent's flag.
+- No global Codex configuration or trust state is edited. Existing unrelated hooks are preserved. A newly generated machine-specific `.codex/hooks.json` is locally Git-excluded; pre-existing configurations remain user-owned.
+- `.intent/maintenance.json` holds the project flag and bounded local receipts/context. It is separate from semantic objects and excluded from IntHub snapshots. Pull preserves destination metadata. No raw prompts, transcripts, or source diffs are stored.
 
-Repository hooks belong in `.codex/hooks.json` or `.codex/config.toml`; user hooks live under `~/.codex/`. Sources merge, so installing both can run duplicate handlers. Non-managed definitions require review/trust of their exact definition hash; edits require renewed trust. Preserve unrelated hooks and notification configuration. Do not install or grant trust during ordinary recording.
+Codex requires human review/trust of non-managed definitions through `/hooks`; exact-definition changes need renewed review. Configuration does not attest actual execution. Project/user/plugin hooks merge, so do not install a duplicate global handler. See the [official hooks documentation](https://learn.chatgpt.com/docs/hooks).
 
-## Proposed closed loop
-
-One explicit enablement scopes local maintenance to a Git checkout/task. Hooks check that scope, not infer permission from `.intent/`. Revocation or a turn-level read-only/skip instruction takes precedence. Cross-repository work requires separate enablement.
-
-```text
-UserPromptSubmit → bounded inspect → context tied to repository + session + turn
-                → normal Agent work + verified milestone writes
-                → closure: recorded | no-op | failed
-Stop            → check closure identity/evidence → allow or one bounded continuation
-```
-
-The following components are required **before installing an enforcing Stop hook**; they do not exist in the current CLI:
-
-1. **Entry context adapter.** Resolve the authorized semantic root (Git optional), use the normal locked inspect, parse JSON/`ok` and warnings, and inject relevant latest checkpoints plus active Decisions within strict time/output budgets. Include root, `session_id`, and `turn_id`. No repeated agent inspect when current-turn context is valid. On failure/timeout, expose unavailable history and preserve the main task. Agent-led diagnosis and a successful fresh inspect may restore affected recording this turn; never run init, repair, or sync from a hook.
-2. **Turn closure receipt.** A local metadata facility separate from semantic objects, keyed by canonical repository, session, and original turn. Store outcome, reason, affected object IDs, verification status, and partial failures. Store no raw prompt, transcript, token, or source diff. `recorded` requires successful post-write inspection; `no-op` needs a reason, not a garbage Snap; `failed` acknowledges a real failure rather than disguising it as success.
-3. **Stop gate.** Verify receipt identity and referenced local objects. An absent/incomplete receipt may request one continuation solely to finish authorized local closure. Valid no-op passes without objects. Acknowledged failure passes with user-visible disclosure; stopping the main task forever is not recovery. A syntactically valid receipt cannot prove semantic completeness or truth; dogfood must still test those.
-4. **Replay and loop guard.** Consume host turn identity; map a Stop-generated continuation to the original obligation because the host resumes through a new user prompt. Do not reset retry budget or entry context on that continuation. Check `stop_hook_active` and durable retry state. One retry maximum; repeated failure is reported and released, never coerced into fabricated history. Concurrent/replayed hooks must not duplicate writes or receipts; workspace locking alone is not turn idempotency.
-
-Test ordinary work, no-op, multiple Intents, read-only opt-out, damaged history, lost responses, concurrent/replayed events, untrusted/disabled hooks, timeouts, Stop continuation, and manual interruption before enabling enforcement. No transcript scraping: Codex's transcript format is not a stable integration API.
-
-## Guarantees and limits
-
-A hook can require a closure check on the normal end-of-turn path, not force a correct semantic Snap. Disabled/untrusted hooks, host failure, cancellation, and crashes can bypass the path. Interrupt hooks cannot guarantee an agent-authored final checkpoint or restart a cancelled turn. Recording verified milestones during work is useful even with a Stop gate.
-
-Do not run an external LLM or duplicate task reasoning in a hook. The Agent selects semantics; the CLI stores/validates objects; the hook handles entry and closure evidence. Measure real latency and noise rather than asserting low overhead from design alone.
-
-## AGENTS fallback (soft contract)
-
-For hosts without usable hooks, the user can explicitly approve this instruction in the target repository/task:
+## Normal flow
 
 ```text
-Intent automatic local maintenance is enabled for this repository.
-Use the intent-cli Skill: inspect once at turn start; preserve verified semantic
-changes during work; assess recorded/no-op/failed closure before responding.
-No per-turn object quota, automatic sync, login, or cross-repository writes.
-Respect read-only, skip-recording, and disable requests. Report partial failures.
+UserPromptSubmit → project flag → one locked graph snapshot + bounded context/token
+                → Agent work + meaningful verified semantic writes
+                → close recorded | no-op | failed
+Stop            → verify receipt → allow, or one bounded closure-only continuation
 ```
 
-This is an opt-in template, not an instruction that enables this repository by being read. It is soft guidance, not proof of hook execution or a durable closure receipt. The current Skill can guide automatic maintenance with it; implementing and installing the receipt adapter is a separate change.
+The entry adapter caches one graph/context per original turn; replay does not re-read or reset its baseline. Context is capped at 12 KB and explicitly marks truncation, directing the Agent to inspect missing selected facts. Root, session, and original turn identify a hashed receipt token; it is not an authentication credential.
+
+- `recorded`: healthy graph and verified changed objects; optional explicit IDs must actually have changed. After recovery from an unavailable entry graph, only newly created objects with verifiable timestamps can be attributed automatically.
+- `no-op`: healthy graph and a brief reason. No synthetic Snap is required. This records the Agent's assessment; it cannot prove that no meaningful fact was omitted.
+- `failed`: brief acknowledgement, valid even when history is damaged. Stop releases with a warning instead of inventing successful verification.
+
+Receipts are idempotent. Stop verifies referenced object fingerprints again. An absent or invalid receipt consumes its durable one-retry budget before returning a block. The exact issued continuation maps the host's new turn back to the original obligation, never creating a fresh retry budget. Repeated failures or `stop_hook_active` release with an incomplete-closure warning.
+
+Local metadata is bounded to 32 turn entries and 4 MiB, not an unlimited audit archive. Simultaneous/replayed events are serialized by the workspace lock. Hooks never initialize history, select semantics, run suggested repairs, authenticate, or synchronize.
+
+## What is and is not guaranteed
+
+With trusted, enabled hooks on the normal host path, closure is checked and either verified, acknowledged as failed, or reported incomplete after one retry. Hook execution itself must be confirmed in the host; adapter tests and “configured” status are not that proof.
+
+Semantic quality, completeness, and correct Intent/Snap boundaries still depend on the Agent and real dogfood. Untrusted/unsupported/disabled hooks, lock/time/output failures, missing host identity, cancellation, crashes, and force-stop can bypass closure. The adapter fails open with a warning rather than hanging the main task or falsely claiming success. Preserve verified milestones before risky phases to reduce lost context.
+
+For hosts without usable hooks, the same project flag and Skill provide a soft read → preserve → assess contract. Without an injected token, do not invent a receipt or scrape host transcripts.

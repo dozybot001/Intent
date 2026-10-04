@@ -345,8 +345,8 @@ def init_workspace():
     return d, None
 
 
-def ensure_local_git_exclude(root):
-    """Exclude .intent/ through Git's repository-local info/exclude file."""
+def ensure_local_git_exclude(root, patterns=(f"{INTENT_DIR}/",)):
+    """Exclude private local metadata through repository-local info/exclude."""
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--git-path", "info/exclude"],
@@ -360,12 +360,14 @@ def ensure_local_git_exclude(root):
             path = root / path
         path.parent.mkdir(parents=True, exist_ok=True)
         existing = path.read_text(encoding="utf-8") if path.exists() else ""
-        if any(line.strip() in {INTENT_DIR, f"{INTENT_DIR}/"} for line in existing.splitlines()):
+        present = {line.strip().rstrip("/") for line in existing.splitlines()}
+        missing = [pattern for pattern in patterns if pattern.rstrip("/") not in present]
+        if not missing:
             return True
         with path.open("a", encoding="utf-8") as exclude_file:
             if existing and not existing.endswith("\n"):
                 exclude_file.write("\n")
-            exclude_file.write(f"{INTENT_DIR}/\n")
+            exclude_file.write("\n".join(missing) + "\n")
         return True
     except (OSError, subprocess.CalledProcessError):
         return False

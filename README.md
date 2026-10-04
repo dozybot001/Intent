@@ -73,11 +73,11 @@ flowchart LR
 
 Early versions used a **Snap–Query** model where the agent autonomously captured a snapshot after each interaction. In self-use, that produced too many low-value records and interrupted the natural flow of work. Intent therefore treats semantic change—not a query, file, command, commit, or tool call—as the recording boundary.
 
-By default, recording remains explicit: you ask the agent to record or update a repository with Intent, it first inspects existing state, reuses matching active or suspended Intents, and writes only verified, high-signal changes. Independent objectives remain separate Intents, while implementation details that share one outcome and lifecycle stay together.
+Continuous local maintenance is the normal mode. `itt init` enables it for a new project; existing histories use `itt maintenance on` once. `itt maintenance off` disables only that project. Installation does not enable unrelated or legacy projects.
 
-**Opt-in automatic maintenance:** after a user explicitly enables local automatic maintenance for a specific repository or task once, the agent should begin each turn with `itt inspect`, record verified important milestones during the work, and close the turn as `recorded`, `no-op`, or `failed`. That per-turn closure is an accountability boundary, not a requirement to create a Snap. The normal result for a turn with no continuation-critical semantic change is `no-op`.
+The agent reads once at turn start, preserves verified important milestones, and closes with `recorded`, `no-op`, or `failed`. Independent objectives remain separate Intents. No continuation-critical change means a silent no-op, not a new Snap or a repeated permission request.
 
-This is an agent operating contract after explicit user authorization, not a claim of platform-enforced automation. The current CLI has no automatic-enable or turn-receipt command, and Codex hook integration for this flow is not implemented or enabled yet. Repositories that have not been explicitly enabled still require a direct recording request before `.intent/` can change. Automatic maintenance must not initialize a repository unless enablement separately authorizes initialization. It never authorizes signing in, pulling from or syncing to IntHub, manufacturing a Decision, or automatically suspending or completing an Intent at query end.
+Project-local Codex entry/Stop hooks and durable turn receipts implement the normal-path closure check. Review/trust the generated definitions in Codex `/hooks`; configuration alone does not prove host execution. The gate allows one closure-only retry, then reports incomplete recording and releases the task. It cannot guarantee semantic quality, crash/cancellation recovery, or operation in unsupported hosts. See [hook integration and limits](references/codex-hooks.md). Automatic maintenance never grants login, push/pull, publication, or cross-project permission.
 
 Whenever an open goal is recorded, its latest Snap should remain a self-contained checkpoint: verified state, current boundary, next step, and blockers or local constraints. Zero writes is valid, and there is no per-turn object quota. Decision candidates should be confirmed together when needed rather than interrupting every turn.
 
@@ -108,7 +108,7 @@ git clone https://github.com/dozybot001/Intent.git
 npx skills add dozybot001/Intent -g --all
 ```
 
-Requires Python 3.9+ and Git. The install script handles pipx automatically.
+Requires Python 3.9+. Git is used by source installation and secure credential helpers, not by local semantic history. The install script handles pipx automatically.
 Re-run the installer anytime to upgrade or repair an existing `itt` install.
 
 Initialize Intent in the project directory you want to record (Git is optional):
@@ -116,7 +116,14 @@ Initialize Intent in the project directory you want to record (Git is optional):
 ```bash
 cd your-project
 itt init
+# Existing history: enable once
+itt maintenance on
+# Project-local control
+itt maintenance status
+itt maintenance off
 ```
+
+`itt init` also enables continuous maintenance and creates project-local hooks. Review them in Codex `/hooks` before relying on the Stop gate. Normal turns need no extra user ceremony.
 
 `itt init` creates `.intent/` and adds it to this clone's Git-local `.git/info/exclude`; it does **not** edit the shared `.gitignore`. The command returns a warning if the local exclude cannot be updated. Review the files before intentionally sharing them, and add `.intent/` to `.gitignore` separately if the whole team should inherit that rule.
 
@@ -167,7 +174,7 @@ IntHub Local binds to `127.0.0.1` by default. Its current local API does not enf
 
 Internet deployments use one account path: Tenon sign-in, database-backed Web sessions, account-scoped CLI access tokens, account-isolated projects, PostgreSQL, a loopback app port, and Caddy TLS. See [IntHub Production Deployment](docs/EN/inthub-production.md).
 
-> **Tips:** Be explicit: “Use Intent to record this work in `.intent/`” authorizes one recording, while “Maintain Intent automatically for this repository” enables the opt-in agent contract above. “Resume this project through Intent” enters local recovery mode. `itt pull` is a separate, explicit network restoration request; automatic maintenance never implies it. Automatic maintenance is not an `itt` command and is not currently enforced by a Codex hook.
+> **Tips:** Continuous maintenance is project-local and quiet. “Use Intent to record this work in `.intent/`” remains available for one-off recording; “Resume this project through Intent” starts read-only recovery. IntHub push/pull always needs a separate explicit request. A trusted Stop hook checks closure, not semantic completeness.
 
 ## Docs
 
