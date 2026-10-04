@@ -9,7 +9,7 @@
     <link rel="icon" type="image/svg+xml" href="/tenon-mark.svg">
     <link rel="preload" href="/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
     <script src="/theme.js?rev=header-mono-1"></script>
-    <link rel="stylesheet" href="/styles.css?rev=shared-history-2">
+    <link rel="stylesheet" href="/styles.css?rev=fluid-workspace-1">
   </head>
   <body>
     <a class="skip-link" href="#detail-content">Skip to project content</a>
@@ -135,8 +135,8 @@
 
         <aside class="sidebar" id="sidebar" aria-label="Project index">
           <header class="index-header">
-            <span class="index-kicker" id="sidebar-kicker">Current work</span>
             <h1 class="index-title" id="sidebar-title">Continuation queue</h1>
+            <span class="index-kicker" id="sidebar-kicker">Current work</span>
           </header>
           <div class="sidebar-body" id="sidebar-body">
             <div class="skeleton-list" aria-label="Loading project data">
@@ -174,13 +174,6 @@
 
     <div class="auth-gate is-hidden" id="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-title">
       <section class="auth-stage">
-        <svg class="auth-trajectory" viewBox="0 0 960 720" preserveAspectRatio="none" aria-hidden="true">
-          <path class="auth-trajectory-rail auth-trajectory-rail-a" d="M-40 610C165 610 144 342 353 342S545 126 758 126s180 204 282 204"/>
-          <path class="auth-trajectory-rail auth-trajectory-rail-b" d="M-62 666c234 0 246-226 418-226 190 0 202 154 370 154 145 0 191-108 300-108"/>
-          <circle class="auth-trajectory-node" cx="353" cy="342" r="7"/>
-          <circle class="auth-trajectory-node auth-trajectory-node-end" cx="758" cy="126" r="7"/>
-        </svg>
-
         <header class="auth-header">
           <a class="brand brand-on-auth" data-brand-link href="/" aria-label="IntHub, by Tenon, home">
             <img class="brand-mark" src="/inthub-mark.svg?rev=3" alt="" width="32" height="32">
@@ -214,45 +207,18 @@
         </header>
 
         <div class="auth-layout">
-          <div class="auth-story">
-            <div class="auth-story-copy">
-              <span class="auth-eyebrow">The memory layer for ongoing work</span>
-              <h1 id="auth-title">Resume with the<br>why intact.</h1>
-              <p>IntHub preserves goals, checkpoints and durable decisions so the next person—or Agent—can continue from the right boundary.</p>
-            </div>
-
-            <div class="auth-preview" aria-hidden="true">
-              <header class="auth-preview-head">
-                <span>Continuation brief</span>
-                <span class="auth-preview-ready"><i></i>Ready to resume</span>
-              </header>
-              <div class="auth-preview-goal">
-                <span>Active Intent</span>
-                <strong>Carry the project forward without reconstructing its context.</strong>
-              </div>
-              <div class="auth-preview-flow">
-                <span><i></i><small>Verified</small><strong>Current state is explicit</strong></span>
-                <span><i></i><small>Boundary</small><strong>Work stays correctly scoped</strong></span>
-                <span><i></i><small>Next</small><strong>The next move is visible</strong></span>
-              </div>
-              <footer class="auth-preview-decision">
-                <span>Decision</span>
-                <strong>Preserve explicit Intent boundaries.</strong>
-              </footer>
-            </div>
-          </div>
-
           <div class="auth-panel">
             <div class="auth-content">
-              <span class="auth-mark">Your workspace</span>
-              <h2 class="heading-with-help">Continue to IntHub.<button class="help-trigger" data-help="auth" type="button" aria-label="Explanation" aria-expanded="false"><span aria-hidden="true">i</span></button></h2>
+              <div class="auth-introduction">
+                <h1 id="auth-title" class="heading-with-help">Sign in to IntHub<button class="help-trigger" data-help="auth" type="button" aria-label="Explanation" aria-expanded="false"><span aria-hidden="true">i</span></button></h1>
+                <p>Continue with your project context intact.</p>
+              </div>
               <a class="tenon-login is-hidden" id="tenon-login" href="/auth/redirect">
                 <span class="tenon-login-visual" aria-hidden="true">
                   <img src="/tenon-mark.svg" alt="" width="64" height="64">
                   <i class="tenon-login-spinner"></i>
                 </span>
                 <span id="tenon-login-label" aria-live="polite">Sign in with Tenon</span>
-                <span class="tenon-login-arrow" aria-hidden="true">→</span>
               </a>
               <p class="auth-error is-hidden" id="auth-error" role="alert"></p>
             </div>
@@ -303,7 +269,7 @@
     </dialog>
 
     <div id="help-popover" class="help-popover" role="tooltip" popover="manual" tabindex="0" hidden></div>
-    <script src="/i18n.js?rev=shared-history-2" defer></script>
+    <script src="/i18n.js?rev=fluid-workspace-1" defer></script>
     <script src="/help.js?rev=private-workspace-1" defer></script>
     <script src="/app.js?rev=shared-history-2" defer></script>
   </body>

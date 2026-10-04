@@ -25,6 +25,57 @@ def test_header_groups_preferences_and_account_actions_in_separate_menus():
     assert 'id="auth-settings-menu"' in html
 
 
+def test_project_context_and_options_use_horizontal_flexible_rows():
+    css = (STATIC_DIR / "styles.css").read_text()
+    for selector in (".project-picker-copy", ".project-picker-option"):
+        block = re.search(re.escape(selector) + r"\s*\{([^}]+)", css).group(1)
+        assert "display: flex" in block
+        assert "align-items: center" in block
+    trigger = re.search(r"\.project-picker-trigger\s*\{([^}]+)", css).group(1)
+    assert "min-width: 0" in trigger
+    label = re.search(r"\.project-picker-label\s*\{([^}]+)", css).group(1)
+    assert "min-width: 0" in label and "text-overflow: ellipsis" in label
+    name = re.search(r"\.project-picker-option-name\s*\{([^}]+)", css).group(1)
+    assert "min-width: 0" in name
+    assert "text-overflow: ellipsis" in name
+    assert "white-space: nowrap" in name
+    description = re.search(r"\.project-picker-option-repo\s*\{([^}]+)", css).group(1)
+    assert "flex: 0 0 auto" in description
+    assert "white-space: nowrap" in description
+
+
+def test_index_heading_is_one_row_and_list_height_follows_its_content():
+    html = (STATIC_DIR / "index.html").read_text()
+    css = (STATIC_DIR / "styles.css").read_text()
+    header = re.search(r"\.index-header\s*\{([^}]+)", css).group(1)
+    assert "display: flex" in header and "align-items: center" in header
+    sidebar = re.search(r"\.sidebar\s*\{([^}]+)", css).group(1)
+    assert "grid-template-rows: auto minmax(0, 1fr)" in sidebar
+    title = re.search(r"\.index-title\s*\{([^}]+)", css).group(1)
+    assert "min-width: 0" in title and "margin: 0" in title
+    assert "white-space: nowrap" in title and "text-overflow: ellipsis" in title
+    assert "order:" not in title
+    assert html.index('id="sidebar-title"') < html.index('id="sidebar-kicker"')
+    for body in re.findall(r"\.sidebar-body\s*\{([^}]+)", css):
+        assert "height: calc(" not in body
+
+
+def test_detail_canvas_does_not_keep_fixed_desktop_width_caps():
+    css = (STATIC_DIR / "styles.css").read_text()
+    content = re.search(r"\.detail-content\s*\{([^}]+)", css).group(1)
+    assert "width: 100%" in content
+    assert "1120px" not in content and "margin: 0 auto" not in content
+    for selector in (".detail-header", ".detail-header-snap", ".detail-section"):
+        block = re.search(re.escape(selector) + r"\s*\{([^}]+)", css).group(1)
+        assert "max-width: none" in block
+    title = re.search(r"\.detail-title\s*\{([^}]+)", css).group(1)
+    assert "max-width: 100%" in title
+    assert "28ch" not in title
+    # A fluid canvas should not turn paragraphs into unbounded reading lines.
+    paragraph = re.search(r"\.detail-section p\s*\{([^}]+)", css).group(1)
+    assert "max-width: 74ch" in paragraph
+
+
 def test_navigation_loading_does_not_insert_spinners_into_card_layout():
     javascript = (STATIC_DIR / "app.js").read_text()
     css = (STATIC_DIR / "styles.css").read_text()
@@ -253,15 +304,33 @@ def test_login_page_matches_the_continuity_workspace_and_keeps_one_auth_path():
     javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
     stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
 
-    assert 'class="auth-trajectory"' in html
-    assert 'class="auth-preview"' in html
-    assert "Resume with the" in html
-    assert "Continuation brief" in html
+    auth = html.split('id="auth-gate"', 1)[1].split('<dialog class="about-dialog"', 1)[0]
+    assert 'class="auth-introduction"' in auth
+    assert '<h1 id="auth-title" class="heading-with-help">Sign in to IntHub' in auth
+    assert "Continue with your project context intact." in auth
+    assert 'id="auth-settings-menu-trigger"' in auth
+    assert 'data-theme-setting' in auth and 'data-language-select' in auth
+    assert 'data-about-open' in auth
+    assert 'class="brand brand-on-auth"' in auth
     assert html.count('id="tenon-login"') == 1
-    assert 'data-help="auth"' in html
+    assert 'id="tenon-login" href="/auth/redirect"' in auth
+    assert 'id="tenon-login-label" aria-live="polite"' in auth
+    assert 'class="tenon-login-spinner"' in auth
+    assert 'id="auth-error" role="alert"' in auth
+    assert 'data-help="auth"' in auth
+    assert '<form' not in auth and '<input' not in auth
+    assert "auth-trajectory" not in auth + stylesheet
+    assert "auth-preview" not in auth + stylesheet
+    assert "auth-assurances" not in auth + stylesheet
     assert "No repository access is requested" in (STATIC_DIR / "help.js").read_text()
-    assert ".auth-preview-flow::before" in stylesheet
-    assert "var(--graphite-950);" not in stylesheet[stylesheet.index(".auth-gate {"):stylesheet.index(".auth-stage {")]
+    assert '.auth-stage {' in stylesheet and 'width: min(448px, 100%)' in stylesheet
+    assert 'align-items: safe center' in stylesheet
+    assert 'grid-template-columns: 22px minmax(0, 1fr)' in stylesheet
+    assert '.tenon-login.is-loading .tenon-login-spinner' in stylesheet
+    assert 'setTenonLoginLoading(true)' in javascript
+    translations = (STATIC_DIR / "i18n.js").read_text()
+    assert '"Sign in to IntHub": "登录 IntHub"' in translations
+    assert '"Continue with your project context intact.": "保留项目上下文，继续工作。"' in translations
 
 
 def test_tenon_login_has_immediate_loading_feedback_and_recovers_from_history():

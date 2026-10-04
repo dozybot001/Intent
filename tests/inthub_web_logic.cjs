@@ -119,6 +119,19 @@ vm.runInContext(`
   assert.equal(el.projectPickerTrigger.getAttribute('aria-busy'), 'true');
   assert.equal(el.projectPickerTrigger.classList.contains('action-busy'), false);
   setProjectPickerBusy(false);
+  state.projects = [
+    {id:'project-one', name:'项目 <draft> & "review" ' + 'very-long-name-'.repeat(20)},
+    {id:'project-two', name:'Resume'},
+  ];
+  state.currentProjectId = 'project-one';
+  renderProjectSelector();
+  assert.equal(el.projectPickerLabel.textContent, state.projects[0].name);
+  const projectOptions = el.projectPickerDropdown.innerHTML;
+  assert.ok(projectOptions.includes('&lt;draft&gt; &amp; &quot;review&quot;'));
+  assert.ok(!projectOptions.includes('<draft>'));
+  assert.equal((projectOptions.match(/aria-selected="true"/g) || []).length, 1);
+  assert.equal((projectOptions.match(/role="option"/g) || []).length, 2);
+  assert.ok(projectOptions.includes('共享语义历史'));
   const waitingMarkup = viewLoadingHtml();
   assert.ok(waitingMarkup.includes('class="view-loading" role="status"'));
   assert.ok(waitingMarkup.includes('class="view-loading-spinner" aria-hidden="true"'));
@@ -173,6 +186,28 @@ async function headerMenuCases() {
     toggleProjectPicker(true);
     assert.equal(authSettingsPanel.classList.contains('is-open'),false);
     assert.equal(el.projectPickerDropdown.classList.contains('is-open'),true);
+
+    const projectOptions = [document.getElementById('project-option-first'), document.getElementById('project-option-last')];
+    const originalProjectContains = el.projectPicker.contains;
+    const originalProjectOptions = el.projectPickerDropdown.querySelectorAll;
+    el.projectPicker.contains = target => target === el.projectPickerTrigger || projectOptions.includes(target);
+    el.projectPickerDropdown.querySelectorAll = () => projectOptions;
+    el.projectPickerTrigger.focus();
+    dispatch('keydown',el.projectPickerTrigger,'ArrowDown');
+    assert.equal(document.activeElement,projectOptions[0]);
+    dispatch('keydown',projectOptions[0],'ArrowDown');
+    assert.equal(document.activeElement,projectOptions[1]);
+    dispatch('keydown',projectOptions[1],'Home');
+    assert.equal(document.activeElement,projectOptions[0]);
+    dispatch('keydown',projectOptions[0],'End');
+    assert.equal(document.activeElement,projectOptions[1]);
+    dispatch('keydown',projectOptions[1],'ArrowUp');
+    assert.equal(document.activeElement,projectOptions[0]);
+    dispatch('keydown',projectOptions[0],'Escape');
+    assert.equal(el.projectPickerDropdown.classList.contains('is-open'),false);
+    assert.equal(document.activeElement,el.projectPickerTrigger);
+    el.projectPicker.contains = originalProjectContains;
+    el.projectPickerDropdown.querySelectorAll = originalProjectOptions;
 
     closeHeaderMenus();
     dispatch('keydown',settingsTrigger,'ArrowDown');
