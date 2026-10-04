@@ -56,7 +56,7 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 | `itt auth status [--api-base-url URL] [--token TOKEN]` | 检查所选全局账户凭据是否有效，绝不输出 token。 |
 | `itt auth logout [--api-base-url URL]` | 删除本机 credential-helper 条目，不撤销服务端 token。 |
 | `itt push [--api-base-url URL] [--token TOKEN] [--dry-run]` | 推送当前仓库的完整 Intent 快照，作为主要 Git 风格命令。 |
-| `itt pull [--api-base-url URL] [--token TOKEN] [--workspace ID] [--dry-run]` | 通过受限快进，恢复一个账户私有来源 workspace 的完整快照。 |
+| `itt pull [--api-base-url URL] [--token TOKEN] [--workspace ID] [--source-repo URL] [--dry-run]` | 通过受限快进，恢复一个账户私有来源 workspace 的完整快照。 |
 | `itt hub start [--port PORT] [--no-open]` | 启动 IntHub Local |
 | `itt hub status [--api-base-url URL]` | 在不调用 IntHub API 的情况下读取有效服务地址、本地仓库绑定、同步时间、`pull_source` 来源记录、`last_pulled_at`、pending link/sync 操作和可复用凭据是否存在。 |
 | `itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]` | 将当前仓库绑定到 IntHub。默认使用全局地址和账户凭据，只把非敏感绑定信息写入 `.intent/hub.json`。 |
@@ -67,6 +67,10 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 ### Pull 安全与 workspace 身份
 
 拉取前先在目的 checkout 运行 `itt init`。运行时，`itt pull` 的服务地址依次取自显式 `--api-base-url`、仓库级绑定、用户级配置和官方地址；凭据依次取自 `--token`、`INTHUB_TOKEN` 和 `itt auth login` 已保存的 Tenon 账户凭据。它会精确匹配当前 GitHub 或 Gitee `origin`，只恢复该账户拥有的一个 workspace 完整快照。
+
+仓库迁移或继承时，可用 `itt pull --source-repo https://github.com/OWNER/REPO.git` 明确指定原仓库。来源身份保存在 pull provenance，后续 pull 继续跟踪该来源；当前 origin 和目标绑定保持不变，push 使用目标仓库自己的 workspace。非空历史不能切换已保存的来源仓库，存在多个来源 workspace 时仍须显式选择。
+
+迁移完成并成功 push 后，可显式指定当前 origin 为 `--source-repo`，改为跟踪目标仓库自己的已绑定 workspace。只有服务端接受的快照与本地历史完全相同时才允许切换，随后可停止依赖原来源。
 
 来源选择顺序为：显式 `--workspace ID`、已保存的 `pull_source` 来源记录、已绑定目的 checkout 自己的 workspace，最后才是在仓库恰好只有一个已同步来源时由服务自动选择。只有在最后一步仍有多个候选时才不会合并历史，而是返回候选项，需用 `--workspace ID` 重试。首次成功拉取会把来源记录为 provenance，后续 pull 复用同一来源；非空 checkout 不能静默切换来源。
 

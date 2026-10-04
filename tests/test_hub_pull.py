@@ -96,6 +96,35 @@ def test_pull_fast_forward_and_terminal_objects(pair):
     assert run(target, "doctor")["result"]["healthy"]
 
 
+def test_pull_inherits_github_history_without_changing_gitee_identity(pair):
+    source, target, url, _ = pair
+    github = "https://github.com/example/demo.git"
+    subprocess.run(["git", "-C", str(source), "remote", "set-url", "origin", github], check=True)
+    (source / ".intent/hub.json").unlink()  # Set up an independently linked GitHub source.
+    linked = run(source, "hub", "link", "--api-base-url", url)
+    assert linked["ok"]
+    assert run(source, "push")["ok"]
+    result = run(target, "pull", "--api-base-url", url, "--source-repo", github)
+    assert result["ok"] and result["result"]["changed"]
+    assert run(target, "inspect")["active_intents"] == run(source, "inspect")["active_intents"]
+    assert subprocess.check_output(["git", "-C", str(target), "remote", "get-url", "origin"], text=True).strip() == "https://gitee.com/example/demo.git"
+    assert run(target, "hub", "link")["ok"]
+    assert run(target, "push")["ok"]
+    assert run(target, "pull")["ok"]
+    assert run(source, "snap", "create", "new source checkpoint", "--intent", "intent-001")["ok"]
+    assert run(source, "push")["ok"]
+    assert run(target, "pull")["result"]["counts"]["snaps"] == 2
+    before = semantic_bytes(target)
+    switched = run(target, "pull", "--source-repo", "https://gitee.com/example/demo.git")
+    assert switched["error"]["code"] == "PULL_SOURCE_MISMATCH"
+    assert semantic_bytes(target) == before
+    assert run(target, "push")["ok"]
+    switched = run(target, "pull", "--source-repo", "https://gitee.com/example/demo.git")
+    assert switched["ok"] and not switched["result"]["changed"]
+    assert switched["result"]["source_workspace_id"] != linked["result"]["workspace_id"]
+    assert run(target, "pull")["ok"]
+
+
 def test_pull_local_changes_noop_if_remote_unchanged_then_refuses_divergence(pair):
     source, target, url, _ = pair
     assert run(target, "pull", "--api-base-url", url)["ok"]

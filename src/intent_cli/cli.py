@@ -181,6 +181,7 @@ def main():
     p.add_argument("--api-base-url", default=None)
     p.add_argument("--token", default=None)
     p.add_argument("--workspace", default=None, metavar="ID")
+    p.add_argument("--source-repo", default=None, metavar="URL")
     p.add_argument("--dry-run", action="store_true")
 
     # --- hub ---

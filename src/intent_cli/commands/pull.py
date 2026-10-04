@@ -12,7 +12,7 @@ from intent_cli.hub.restore import PullApplyError, install_snapshot
 from intent_cli.hub.runtime import config_without_auth_token, hub_api_base, hub_auth_token, load_hub
 from intent_cli.hub.snapshots import SnapshotError, require_fast_forward, snapshot_sha256, validate_snapshot
 from intent_cli.output import error, success
-from intent_cli.store import SUBDIRS, load_graph_once, workspace_write_lock
+from intent_cli.store import SUBDIRS, load_graph_once, parse_repository_remote, workspace_write_lock
 
 
 def _nonempty_text(value):
@@ -101,23 +101,40 @@ def cmd_pull(args):
         if hub.get("repo_binding") and _repo_identity(hub["repo_binding"]) != _repo_identity(repo):
             error("REPO_BINDING_MISMATCH", "Git origin does not match this checkout's binding.")
         source = _source(hub)
+        explicit_source = getattr(args, "source_repo", None)
+        source_repo = parse_repository_remote(explicit_source) if explicit_source else (source or {}).get("repo_binding", repo)
+        if not isinstance(source_repo, dict) or source_repo.get("provider") not in {"github", "gitee"} or not _nonempty_text(source_repo.get("repo_id")):
+            error("INVALID_INPUT", "Pull source must be a supported GitHub or Gitee repository URL.")
+        follow_destination = bool(
+            explicit_source and source and hub.get("project_id") and hub.get("workspace_id")
+            and _repo_identity(source_repo) == _repo_identity(repo)
+            and (not args.workspace or args.workspace == hub["workspace_id"])
+            and (source["workspace_id"] != hub["workspace_id"]
+                 or _repo_identity(source.get("repo_binding", repo)) != _repo_identity(repo))
+        )
+        if source and _repo_identity(source.get("repo_binding", repo)) != _repo_identity(source_repo) and any(local.values()) and not follow_destination:
+            error("PULL_SOURCE_MISMATCH", "A nonempty checkout cannot switch its pull repository.")
+        cross_repo = _repo_identity(source_repo) != _repo_identity(repo)
         api_base_url = hub_api_base(base, args, hub)
         if (hub.get("project_id") or source) and hub.get("api_base_url") and (
             normalize_api_base_url(hub["api_base_url"]) != api_base_url
         ):
             error("PULL_SOURCE_MISMATCH", "Pull cannot silently switch the bound IntHub endpoint.")
-        workspace_id = args.workspace or (source or {}).get("workspace_id") or hub.get("workspace_id")
-        if source and workspace_id != source["workspace_id"] and any(local.values()):
+        workspace_id = args.workspace or (hub.get("workspace_id") if follow_destination else (source or {}).get("workspace_id")) or (None if cross_repo else hub.get("workspace_id"))
+        if source and workspace_id != source["workspace_id"] and any(local.values()) and not follow_destination:
             error("PULL_SOURCE_MISMATCH", "A nonempty checkout cannot switch its pull source.")
         token = hub_auth_token(base, args, api_base_url)
 
     # Network latency never holds the local writer lock. Recheck everything below.
-    query = {"provider": repo["provider"], "repo_id": repo["repo_id"]}
+    query = {"provider": source_repo["provider"], "repo_id": source_repo["repo_id"]}
     if workspace_id:
         query["workspace_id"] = workspace_id
     result = http_json("GET", f"{api_base_url}/api/v1/hub/snapshot?{urlencode(query)}", token=token)
-    remote = _validate_result(result, repo, hub.get("project_id") or (source or {}).get("project_id"), workspace_id)
+    source_project = hub.get("project_id") if follow_destination else ((source or {}).get("project_id") or (None if cross_repo else hub.get("project_id")))
+    remote = _validate_result(result, source_repo, source_project, workspace_id)
     remote_hash = snapshot_sha256(remote)
+    if follow_destination and remote_hash != local_hash:
+        error("PULL_SOURCE_MISMATCH", "Following the destination requires its accepted snapshot to exactly match local history.")
     batch = result["batch"]
 
     with workspace_write_lock(base, operation="pull.apply"):
@@ -174,6 +191,8 @@ def cmd_pull(args):
             "sync_batch_id": batch["sync_batch_id"], "sequence_id": batch["sequence_id"],
             "snapshot_sha256": remote_hash,
         }
+        if cross_repo or (source or {}).get("repo_binding"):
+            provenance["repo_binding"] = source_repo
         if identical and hub.get("pull_source") == provenance:
             success("pull", output)
             return

@@ -56,7 +56,7 @@ The CLI is intentionally small:
 | `itt auth status [--api-base-url URL] [--token TOKEN]` | Check whether the selected global account credential is valid. Never prints the token. |
 | `itt auth logout [--api-base-url URL]` | Remove the local credential-helper entry. Does not revoke the server-side token. |
 | `itt push [--api-base-url URL] [--token TOKEN] [--dry-run]` | Push the current repository's complete Intent snapshot. Primary Git-style command. |
-| `itt pull [--api-base-url URL] [--token TOKEN] [--workspace ID] [--dry-run]` | Restore one complete, account-private source-workspace snapshot through a restricted fast-forward. |
+| `itt pull [--api-base-url URL] [--token TOKEN] [--workspace ID] [--source-repo URL] [--dry-run]` | Restore one complete, account-private source-workspace snapshot through a restricted fast-forward. |
 | `itt hub start [--port PORT] [--no-open]` | Launch IntHub Local |
 | `itt hub status [--api-base-url URL]` | Read the effective endpoint, local repository binding, sync timestamps, `pull_source` provenance, `last_pulled_at`, pending link/sync operations, and reusable-credential availability without calling the IntHub API. |
 | `itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]` | Link this repository to IntHub. Uses the global endpoint and account credential by default; writes only non-secret binding data to `.intent/hub.json`. |
@@ -67,6 +67,10 @@ Authentication follows Git's split between global credentials and repository-loc
 ### Pull safety and workspace identity
 
 Run `itt init` in the destination checkout before pulling. At runtime, `itt pull` resolves the endpoint from an explicit `--api-base-url`, the repository-local binding, the user-level config, or the official endpoint, in that order. It resolves credentials from `--token`, `INTHUB_TOKEN`, or the Tenon account credential previously saved by `itt auth login`, in that order. It queries the exact GitHub or Gitee `origin` and restores one complete snapshot from a workspace owned by that account.
+
+For repository migration or inheritance, use `itt pull --source-repo https://github.com/OWNER/REPO.git`. Pull provenance retains the source repository for later pulls, while origin and the destination binding remain unchanged. Push uses the destination's own workspace. Nonempty history cannot switch its saved source repository; multiple source workspaces still require an explicit selection.
+
+After migration and a successful push, explicitly select the current origin with `--source-repo` to follow the destination's own bound workspace. This switch requires the accepted remote snapshot to exactly match local history, allowing the original source to be retired.
 
 Source selection follows this order: explicit `--workspace ID`, saved `pull_source` provenance, the linked destination checkout's own workspace, then server auto-selection when the repository has exactly one synced source. If several candidates remain only at that final step, no histories are merged: inspect the returned candidates and rerun with `--workspace ID`. The first successful pull records the source as provenance, and subsequent pulls reuse that source. A nonempty checkout cannot silently switch sources.
 
