@@ -3,6 +3,9 @@ import importlib.util
 import io
 import json
 import os
+import re
+import subprocess
+import sys
 import tarfile
 from pathlib import Path
 
@@ -175,6 +178,23 @@ def test_production_image_declares_gitee_source_and_exact_revision():
     assert 'io.inthub.database-schema-version="${INTHUB_SCHEMA_VERSION}"' in dockerfile
     assert "ARG INTHUB_SCHEMA_VERSION=4" in dockerfile
     assert "github.com/dozybot001/Intent" not in dockerfile
+
+
+def test_production_entry_can_import_shared_history_from_container_pythonpath():
+    dockerfile = (REPOSITORY_ROOT / "Dockerfile").read_text(encoding="utf-8")
+    match = re.search(r"(?m)^\s*PYTHONPATH=(\S+)", dockerfile)
+    assert match is not None
+    paths = [Path(value).relative_to("/app") for value in match.group(1).split(":")]
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = os.pathsep.join(str(REPOSITORY_ROOT / path) for path in paths)
+    subprocess.run(
+        [sys.executable, "-c", "from apps.inthub_api.server import build_server; assert callable(build_server)"],
+        cwd=REPOSITORY_ROOT,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
 
 def test_compose_uses_explicit_immutable_images_and_disables_auto_migration():
