@@ -6,11 +6,9 @@ import re
 import subprocess
 import tempfile
 import time
-import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlsplit
 
 INTENT_DIR = ".intent"
 SUBDIRS = {"intent": "intents", "snap": "snaps", "decision": "decisions"}
@@ -302,9 +300,15 @@ def git_root():
 
 
 def intent_dir():
-    """Return Path to .intent/, or None if not in a git repo."""
-    root = git_root()
-    return root / INTENT_DIR if root else None
+    """Find semantic storage independently; Git only supplies a default root."""
+    current = Path.cwd()
+    for parent in (current, *current.parents):
+        candidate = parent / INTENT_DIR
+        if candidate.exists() or candidate.is_symlink():
+            return candidate
+        if (parent / ".git").exists():
+            break
+    return (git_root() or current) / INTENT_DIR
 
 
 def ensure_init():
@@ -326,9 +330,7 @@ def ensure_init():
 
 def init_workspace():
     """Create .intent/ structure. Returns (path, error_code)."""
-    root = git_root()
-    if root is None:
-        return None, "GIT_STATE_INVALID"
+    root = git_root() or Path.cwd()
     d = root / INTENT_DIR
     if d.is_symlink():
         raise UnsafeStoragePathError(d, ".intent storage must not be a symlink")
@@ -462,11 +464,6 @@ def workspace_write_lock(base, timeout=10.0, operation=None):
                 lock_file.flush()
             unlock()
         lock_file.close()
-
-
-def make_runtime_id(prefix):
-    """Generate a runtime-scoped ID for local hub state."""
-    return f"{prefix}_{uuid.uuid4().hex[:12]}"
 
 
 def _object_entry_groups(base, object_type):
@@ -762,117 +759,6 @@ def write_hub_config(base, data):
     if not isinstance(data, dict):
         raise StoredObjectSchemaError(path, "top-level JSON must be an object")
     _write_json_atomic(path, data)
-
-
-def git_current_branch():
-    """Return current branch name, or None."""
-    try:
-        out = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True, check=True,
-        )
-        return out.stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-
-
-def git_head_commit():
-    """Return HEAD commit SHA, or None."""
-    try:
-        out = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, check=True,
-        )
-        return out.stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-
-
-def git_is_dirty():
-    """Return True when the working tree has tracked or untracked changes."""
-    try:
-        out = subprocess.run(
-            ["git", "status", "--porcelain"],
-            capture_output=True, text=True, check=True,
-        )
-        return bool(out.stdout.strip())
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-
-
-def git_remote_url(name="origin"):
-    """Return the configured git remote URL, or None."""
-    try:
-        out = subprocess.run(
-            ["git", "remote", "get-url", name],
-            capture_output=True, text=True, check=True,
-        )
-        return out.stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-
-
-SUPPORTED_GIT_PROVIDERS = {
-    "github.com": "github",
-    "gitee.com": "gitee",
-}
-
-
-def parse_repository_remote(remote_url):
-    """Parse an exact supported Git host URL into provider/repository metadata."""
-    if not isinstance(remote_url, str) or not remote_url.strip():
-        return None
-
-    cleaned = remote_url.strip()
-    if any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in cleaned):
-        return None
-
-    host = None
-    path = None
-    if "://" in cleaned:
-        try:
-            parsed = urlsplit(cleaned)
-            _ = parsed.port
-        except ValueError:
-            return None
-        if (
-            parsed.scheme.lower() not in {"http", "https", "ssh", "git"}
-            or not parsed.hostname
-            or parsed.password
-            or parsed.query
-            or parsed.fragment
-        ):
-            return None
-        if parsed.scheme.lower() in {"http", "https", "git"} and parsed.username:
-            return None
-        host = parsed.hostname.casefold()
-        path = parsed.path.lstrip("/")
-    else:
-        match = re.fullmatch(
-            r"(?:(?P<user>[^@/:]+)@)?(?P<host>[^@/:]+):(?P<path>.+)",
-            cleaned,
-        )
-        if match is None:
-            return None
-        host = match.group("host").casefold()
-        path = match.group("path")
-
-    provider = SUPPORTED_GIT_PROVIDERS.get(host)
-    if provider is None:
-        return None
-    if path.endswith(".git"):
-        path = path[:-4]
-    parts = path.split("/")
-    if len(parts) != 2 or any(not part or part in {".", ".."} for part in parts):
-        return None
-
-    owner, name = parts
-    return {
-        "provider": provider,
-        "repo_id": f"{owner}/{name}",
-        "owner": owner,
-        "name": name,
-    }
 
 
 def validate_graph(graph):

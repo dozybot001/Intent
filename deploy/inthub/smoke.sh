@@ -32,6 +32,11 @@ check_surface() {
     [[ "${project_status}" == 401 ]] \
         || { echo "Expected anonymous projects to return 401, got ${project_status}." >&2; return 1; }
 
+    [[ "$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${base_url}/api/v2/history?project=smoke")" == 401 ]] \
+        || { echo "Shared semantic history must require authentication." >&2; return 1; }
+    [[ "$(curl --silent --show-error --max-time 10 --request POST --header 'Content-Type: application/json' --data '{\"project_name\":\"smoke\"}' --output /dev/null --write-out '%{http_code}' "${base_url}/api/v2/link")" == 401 ]] \
+        || { echo "Shared project writes must require a CLI account token." >&2; return 1; }
+
     oauth_status="$(
         curl --silent --show-error --max-time 10 \
             --request POST --header 'Content-Type: application/json' --data '{"return_to":"/"}' \

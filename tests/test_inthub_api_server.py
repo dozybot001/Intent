@@ -265,24 +265,21 @@ def test_account_pat_authenticates_cli_reads_and_writes(tmp_path):
         assert status == 200
         assert body["result"]["projects"] == []
 
-        link_payload = {
-            "project_name": "Demo",
-            "repo": {
-                "provider": "github",
-                "repo_id": "example/demo",
-                "owner": "example",
-                "name": "demo",
-            },
-            "workspace": {"workspace_id": "wks_demo"},
-        }
+        link_payload = {"project_name": "Demo"}
         status, _, body = _request_json(
-            f"{base}/api/v1/hub/link",
+            f"{base}/api/v2/link",
             method="POST",
             payload=link_payload,
             headers={"Authorization": f"Bearer {token}"},
         )
         assert status == 200
         assert body["result"]["project_id"].startswith("proj_")
+        status, _, body = _request_json(
+            f"{base}/api/v1/hub/link", method="POST", payload=link_payload,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert status == 404
+        assert body["error"]["code"] == "OBJECT_NOT_FOUND"
     finally:
         server.shutdown()
         thread.join()
@@ -370,17 +367,10 @@ def test_tenon_account_login_uses_pkce_database_session_and_logout(tmp_path):
         assert body["result"]["projects"] == []
 
         status, _, body = _request_json(
-            f"{base}/api/v1/hub/link",
+            f"{base}/api/v2/link",
             method="POST",
             payload={
                 "project_name": "Must stay read-only",
-                "repo": {
-                    "provider": "github",
-                    "repo_id": "example/read-only",
-                    "owner": "example",
-                    "name": "read-only",
-                },
-                "workspace": {"workspace_id": "wks_read_only"},
             },
             headers={"Cookie": session_cookie},
         )
@@ -407,17 +397,10 @@ def test_tenon_account_login_uses_pkce_database_session_and_logout(tmp_path):
         assert "token" not in body["result"]["tokens"][0]
 
         status, _, body = _request_json(
-            f"{base}/api/v1/hub/link",
+            f"{base}/api/v2/link",
             method="POST",
             payload={
                 "project_name": "Account-owned project",
-                "repo": {
-                    "provider": "github",
-                    "repo_id": "example/account-owned",
-                    "owner": "example",
-                    "name": "account-owned",
-                },
-                "workspace": {"workspace_id": "wks_account_owned"},
             },
             headers={"Authorization": f"Bearer {account_token}"},
         )

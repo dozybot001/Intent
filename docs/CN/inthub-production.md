@@ -81,6 +81,24 @@ Schema v3 增加 `(issuer, subject)` 到原 `accounts.id` 的映射及会话授�
 候选接收登录前执行一次绑定；成功后将凭据之外的迁移记录移入本次受限备份目录。
 登录按钮复用 Tenon 主站 `dist/assets/mark.svg`（2026-10-03），品牌色固定为 `#F06B32`。
 
+## 共享语义历史与兼容迁移
+
+语义同步独立于代码 Git。Schema v4 只增添 `semantic_heads` 和 `semantic_versions`，
+不删除或改写旧 workspace 数据。每个账户内按明确项目名共享一条历史；版本由 parent
+和规范化完整快照的 SHA-256 推导。服务端在同一事务中锁住项目 head、验证追加/生命周期
+变化并推进版本；SQLite 使用 `BEGIN IMMEDIATE`，PostgreSQL 使用行锁。
+
+`POST /api/v2/link` 幂等关联；`GET /api/v2/history?project=NAME` 只读获取 head；
+`POST /api/v2/history` 只接受 fast-forward，相同内容重试不生成版本。鉴权继续使用原账户 PAT，
+Web 会话不能写入。旧 workspace 的 link/sync/snapshot 接口、恢复参数和兼容分支均已删除。
+旧表仅保留历史 migration 校验及旧镜像回退所需的数据库兼容，不再有产品入口。
+此次上线不迁移、不重上传本地导出数据。
+
+实现与验证：[history.py](../../apps/inthub_api/history.py)、
+[shared.py](../../src/intent_cli/commands/shared.py)、
+[跨客户端测试](../../tests/test_shared_history.py)、
+[PostgreSQL 并发测试](../../tests/test_inthub_postgres.py)。
+
 ## 固定生产边界
 
 | 项目 | 标准值 |

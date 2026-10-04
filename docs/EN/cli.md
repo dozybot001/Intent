@@ -21,7 +21,7 @@ The CLI is intentionally small:
 | Command | What it does |
 |---|---|
 | `itt version` | Print CLI version |
-| `itt init` | Initialize `.intent/` in current Git repo |
+| `itt init` | Initialize `.intent/` in a project directory; Git is optional |
 | `itt inspect [--intent ID] [--history N]` | Recovery view with each goal's rationale, latest snap, optional bounded history, active decisions, and full graph warnings |
 | `itt doctor` | Return the same full object-graph diagnosis with an explicit `healthy` result |
 
@@ -48,37 +48,27 @@ The CLI is intentionally small:
 | `itt decision create WHAT [--why W]` | Create a long-lived constraint. Auto-attaches all active intents. |
 | `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` (terminal). Preserves history; stops future auto-attach. |
 
-### Hub
+### Shared semantic history
 
-| Command | What it does |
+Git is optional. Intent owns semantic history independently of the source repository's Git origin.
+
+| Command | Behavior |
 |---|---|
-| `itt auth login [--api-base-url URL] [--token TOKEN]` | Validate an account token, save the global endpoint, and delegate the token to Git's credential helper. Defaults to the official IntHub service. |
-| `itt auth status [--api-base-url URL] [--token TOKEN]` | Check whether the selected global account credential is valid. Never prints the token. |
-| `itt auth logout [--api-base-url URL]` | Remove the local credential-helper entry. Does not revoke the server-side token. |
-| `itt push [--api-base-url URL] [--token TOKEN] [--dry-run]` | Push the current repository's complete Intent snapshot. Primary Git-style command. |
-| `itt pull [--api-base-url URL] [--token TOKEN] [--workspace ID] [--source-repo URL] [--dry-run]` | Restore one complete, account-private source-workspace snapshot through a restricted fast-forward. |
-| `itt hub start [--port PORT] [--no-open]` | Launch IntHub Local |
-| `itt hub status [--api-base-url URL]` | Read the effective endpoint, local repository binding, sync timestamps, `pull_source` provenance, `last_pulled_at`, pending link/sync operations, and reusable-credential availability without calling the IntHub API. |
-| `itt hub link [--project-name NAME] [--api-base-url URL] [--token TOKEN]` | Link this repository to IntHub. Uses the global endpoint and account credential by default; writes only non-secret binding data to `.intent/hub.json`. |
-| `itt hub sync [--api-base-url URL] [--token TOKEN] [--dry-run]` | Compatibility alias for `itt push`. |
+| `itt status [--local]` | Report empty / up_to_date / ahead / behind / diverged; --local works offline. |
+| `itt remote [-v]` | Show IntHub endpoint and project. |
+| `itt remote add origin URL --project NAME` | Configure the shared project; default name is the semantic root directory name. |
+| `itt push [--project NAME] [--api-base-url URL] [--dry-run]` | Link when needed, then save a revision. Identical content creates no version; preview has no remote writes. |
+| `itt pull [--project NAME] [--api-base-url URL] [--dry-run]` | Advance unchanged local history, preserve local-only changes, reject divergence without overwriting either side. |
+| `itt auth login / status / logout` | Account credentials are shared across projects through the credential helper. |
+| `itt hub start` | Browse IntHub Local. |
 
-Authentication follows Git's split between global credentials and repository-local remotes. `itt auth login` stores the endpoint in the user-level Intent config and asks Git's configured credential helper to store the account token. A secure helper such as macOS Keychain, Git Credential Manager, or libsecret is recommended; Git's `store` helper keeps credentials in plaintext. Each repository must still run `itt hub link` once because its project and workspace binding is repository-specific. GitHub and Gitee origins are supported. Tenon OIDC identifies the IntHub account; it does not constrain the repository provider. The CLI never changes `origin`, and each push verifies that the current provider and repository ID still match the saved binding. Link and push persist non-secret pending operation IDs before network I/O; bounded retries and later reruns therefore reconcile a lost response without inventing a second operation for unchanged state. The CLI precedence is explicit `--token`, `INTHUB_TOKEN`, then the credential helper selected for the effective API base URL.
+Configure copies with the same remote/project: they share one history instead of separate workspaces. Intent/Snap/Decision remain objects within versions. No staging, manual commit, branch, rebase, force mode, or automatic merge is needed.
 
-### Pull safety and workspace identity
+Revision IDs hash parent and canonical snapshot checksum. Transactional project-head locking rejects competing changes. Lost push responses converge by content without duplicate revisions. Existing append-only and lifecycle constraints still apply.
 
-Run `itt init` in the destination checkout before pulling. At runtime, `itt pull` resolves the endpoint from an explicit `--api-base-url`, the repository-local binding, the user-level config, or the official endpoint, in that order. It resolves credentials from `--token`, `INTHUB_TOKEN`, or the Tenon account credential previously saved by `itt auth login`, in that order. It queries the exact GitHub or Gitee `origin` and restores one complete snapshot from a workspace owned by that account.
+Workspace sync/export/import protocols have been removed. Copies share the same remote/project independently of Git origin. Hub aliases delegate to the same shared-history implementation.
 
-For repository migration or inheritance, use `itt pull --source-repo https://github.com/OWNER/REPO.git`. Pull provenance retains the source repository for later pulls, while origin and the destination binding remain unchanged. Push uses the destination's own workspace. Nonempty history cannot switch its saved source repository; multiple source workspaces still require an explicit selection.
-
-After migration and a successful push, explicitly select the current origin with `--source-repo` to follow the destination's own bound workspace. This switch requires the accepted remote snapshot to exactly match local history, allowing the original source to be retired.
-
-Source selection follows this order: explicit `--workspace ID`, saved `pull_source` provenance, the linked destination checkout's own workspace, then server auto-selection when the repository has exactly one synced source. If several candidates remain only at that final step, no histories are merged: inspect the returned candidates and rerun with `--workspace ID`. The first successful pull records the source as provenance, and subsequent pulls reuse that source. A nonempty checkout cannot silently switch sources.
-
-Source and destination identities remain separate. Pull never copies the source workspace ID into the destination binding. A new checkout therefore remains unlinked after restoration; before its first later push, run `itt hub link` to create a distinct destination workspace, then run `itt push`.
-
-Pull is not a general two-way synchronizer. It accepts only a validated, restricted fast-forward: remote history may extend existing objects and advance permitted nonterminal state, but it may not delete or rewrite recorded history or change terminal objects. If local Intent history changed while the remote source stayed unchanged, pull is a no-write success. If both sides changed, the local checkout has no verified baseline, or the remote rewound or rewrote history, pull refuses without a `--force` or merge mode. `--dry-run` performs discovery and validation without applying the snapshot.
-
-Opt-in automatic Intent maintenance never authorizes `itt pull`; network restoration remains a separate explicit request. The client must connect to an IntHub service version that provides the account-private snapshot endpoint. Passing isolated or test-environment checks does not by itself validate restoration of real account history.
+Implementation: [CLI](../../src/intent_cli/commands/shared.py), [server](../../apps/inthub_api/history.py), [two-client tests](../../tests/test_shared_history.py).
 
 ## Object Model
 
@@ -289,7 +279,6 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 | --- | --- |
 | `NOT_INITIALIZED` | `.intent/` does not exist |
 | `ALREADY_EXISTS` | `.intent/` already exists when running `init` |
-| `GIT_STATE_INVALID` | Not inside a Git worktree |
 | `STATE_CONFLICT` | Illegal state transition |
 | `OBJECT_NOT_FOUND` | Object ID not found |
 | `INVALID_INPUT` | Invalid arguments or missing required input |
@@ -310,20 +299,14 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 | `GLOBAL_CONFIG_ERROR` | The user-level IntHub endpoint config is invalid or cannot be written |
 | `CREDENTIAL_STORE_ERROR` | Git's configured credential helper could not persist or remove the account token |
 | `HUB_NOT_CONFIGURED` | IntHub API base URL is missing |
-| `NOT_LINKED` | Current workspace has not been linked to IntHub |
-| `LINK_PENDING` | A previous repository-link request must be reconciled with `itt hub link` before pushing |
-| `PENDING_LINK_CONFLICT` | Pending link state targets a different endpoint or repository |
-| `HUB_STATE_INVALID` | Repository-local pending Hub state is malformed |
-| `HUB_OPERATION_PENDING` | A pending link or push must be reconciled before pulling |
-| `PROVIDER_UNSUPPORTED` | Current Git remote is not supported |
-| `REPO_BINDING_MISMATCH` | Current `origin` identifies a different provider or repository than the saved IntHub binding |
+| `NOT_LINKED` | Remote shared project is not linked; normal push links it as needed |
+| `REMOTE_CHANGED` | Endpoint or project identity changed; select explicitly with remote add |
+| `NON_FAST_FORWARD` | Remote changed; push preserved it. Pull first; resolve divergence explicitly |
+| `HISTORY_DIVERGED` | Both local and remote changed; neither history was overwritten |
+| `HUB_STATE_INVALID` | Local remote or baseline state is malformed |
 | `INVALID_LOCAL_SNAPSHOT` | Local Intent history is not a valid complete graph; run `itt doctor` before pulling |
 | `INVALID_REMOTE_SNAPSHOT` | The downloaded snapshot identity, version, schema, or graph is invalid |
-| `PULL_SOURCE_MISMATCH` | Pull would silently switch the saved endpoint or a nonempty checkout's source workspace |
-| `LOCAL_STATE_CHANGED` | Local history, binding, or origin changed during the download; nothing was applied |
-| `LOCAL_HISTORY_CONFLICT` | Nonempty local history has no verified baseline for the selected source |
-| `LOCAL_CHANGES` | Local and remote histories both changed; pull does not merge or overwrite them |
-| `REMOTE_HISTORY_REWOUND` | The selected source returned an older server-accepted revision |
+| `LOCAL_STATE_CHANGED` | Local history or remote configuration changed during synchronization; no overwrite was applied |
 | `REMOTE_HISTORY_CONFLICT` | Remote history rewrote, removed, or inconsistently changed recorded data |
 | `PULL_APPLY_FAILED` | Workspace-lock-held, journaled snapshot installation or recovery failed; `details.committed` reports whether installation reached committed state, and `details.recovery_required` reports whether another recovery pass is required |
 | `NETWORK_ERROR` | IntHub could not be reached |
@@ -332,11 +315,11 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 
 ## Operational Notes
 
-- `itt init` adds `.intent/` to the current clone's `.git/info/exclude` without editing the shared `.gitignore`; it returns a warning if the local exclude cannot be updated
-- Account authentication is global: the default endpoint is user-level, the token is delegated to Git's credential helper, and repository-local `hub.json` contains only non-secret project/workspace binding data
-- Repository binding supports exact `github.com` and `gitee.com` origins; do not temporarily rewrite `origin` for IntHub, and use `itt hub status` instead of reading `hub.json` directly
+- Git is optional. Inside Git repositories, init excludes `.intent/` via clone-local `.git/info/exclude` without editing the shared `.gitignore`; failure returns a warning
+- Authentication is global: the default endpoint is user-level, the token uses a credential helper, and project-local hub.json stores only endpoint, shared identity and synchronization baseline
+- Intent remote is independent of Git origin. Copies share history by using the same endpoint/project. Workspace-specific protocols have been removed
 - Explicit `--token` and `INTHUB_TOKEN` override the stored credential and are never persisted to `hub.json`
-- Pull restores one explicit source workspace and preserves the destination checkout's identity; automatic Intent maintenance does not imply pull authorization
+- Pull validates and atomically restores shared history, rejecting divergent overwrites; automatic maintenance does not imply pull authorization
 - IntHub Local binds to `127.0.0.1` by default, but its current API does not enforce bearer-token authentication and uses permissive CORS; do not expose it to a LAN or the public internet
 - The IntHub production profile uses Tenon sign-in and bounded read-only HttpOnly Web sessions; CLI writes use an access token issued by the current account (sent as HTTP `Bearer`), all project reads and writes are account-scoped, and production uses PostgreSQL; see [IntHub Production Deployment](inthub-production.md)
 - Object and Hub-config replacements are atomic, and mutating object commands use a workspace-level cross-process lock with bounded owner diagnostics; this serializes Intent CLI writers but does not turn `.intent/` into a multi-user database

@@ -1,4 +1,4 @@
-"""HTTP server for the IntHub V1 API and optional Web shell."""
+"""Shared semantic-history API and Web shell."""
 
 import argparse
 import hmac
@@ -26,8 +26,7 @@ from apps.inthub_api.tenon import (
 )
 from apps.inthub_api.common import APIError
 from apps.inthub_api.db import check_database, describe_database
-from apps.inthub_api.ingest import link_project, store_sync_batch
-from apps.inthub_api.snapshots import export_snapshot
+from apps.inthub_api.history import link_history, push_history, read_history
 from apps.inthub_api.queries import (
     get_decision_detail,
     get_intent_detail,
@@ -503,53 +502,18 @@ def make_handler(
 
         def _route_post(self, path, account_id=None):
             payload = self._read_json_body()
-            if path == "/api/v1/hub/link":
-                result = link_project(
-                    db_path=db_path,
-                    project_name=payload.get("project_name"),
-                    repo=payload.get("repo", {}),
-                    workspace_id=payload.get("workspace", {}).get("workspace_id"),
-                    account_id=account_id,
-                )
-                self._send_json(200, _json_success(result))
+            if path == "/api/v2/link":
+                self._send_json(200, _json_success(link_history(db_path, payload.get("project_name"), account_id)))
                 return
-
-            if path == "/api/v1/sync-batches":
-                result = store_sync_batch(
-                    db_path=db_path,
-                    payload=payload,
-                    account_id=account_id,
-                )
-                self._send_json(200, _json_success(result))
+            if path == "/api/v2/history":
+                self._send_json(200, _json_success(push_history(db_path, payload, account_id)))
                 return
-
             raise APIError("OBJECT_NOT_FOUND", f"Endpoint {path} not found.", status=404)
 
         def _route_get(self, path, query, account_id=None):
-            if path == "/api/v1/hub/snapshot":
-                provider = query.get("provider", [None])[0]
-                repo_id = query.get("repo_id", [None])[0]
-                if not provider or not repo_id:
-                    raise APIError(
-                        "INVALID_INPUT",
-                        "Missing query parameters 'provider' and 'repo_id'.",
-                        status=400,
-                    )
-                self._send_json(
-                    200,
-                    _json_success(
-                        export_snapshot(
-                            db_path,
-                            provider,
-                            repo_id,
-                            account_id=account_id,
-                            workspace_id=query.get("workspace_id", [None])[0],
-                        )
-                    ),
-                    compact=True,
-                )
+            if path == "/api/v2/history":
+                self._send_json(200, _json_success(read_history(db_path, query.get("project", [None])[0], account_id)), compact=True)
                 return
-
             if path == "/api/v1/projects":
                 self._send_json(
                     200,

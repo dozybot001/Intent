@@ -89,6 +89,25 @@ after database backup and migration but before candidate login, then moves the a
 into that release's protected backup directory. The login button reuses Tenon's
 `dist/assets/mark.svg` (2026-10-03), with fixed brand color `#F06B32`.
 
+## Shared semantic history and compatible migration
+
+Semantic synchronization is independent of source Git. Schema v4 adds only `semantic_heads`
+and `semantic_versions`, preserving all legacy workspace data. A named project has one
+account-private shared history. Revisions hash the parent and canonical full snapshot.
+Head validation and advancement share one transaction: SQLite uses BEGIN IMMEDIATE,
+PostgreSQL a row lock. Identical content is idempotent; divergent pushes never overwrite.
+
+POST `/api/v2/link` links idempotently, GET `/api/v2/history?project=NAME` reads the head,
+and POST `/api/v2/history` accepts fast-forward revisions. Existing PAT authentication
+remains; browser sessions cannot write. Workspace link/sync/snapshot endpoints, import options and compatibility paths are removed.
+Historical table definitions remain only for migration integrity and old-image rollback,
+without product entry points. This release does not migrate or reupload local exports.
+
+Sources: [server history](../../apps/inthub_api/history.py),
+[CLI synchronization](../../src/intent_cli/commands/shared.py),
+[multi-client tests](../../tests/test_shared_history.py),
+[PostgreSQL concurrency tests](../../tests/test_inthub_postgres.py).
+
 ## Fixed production boundary
 
 | Surface | Standard value |

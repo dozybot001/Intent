@@ -2,203 +2,58 @@ import pytest
 
 from apps.inthub_api.auth import upsert_github_account
 from apps.inthub_api.common import APIError, make_remote_object_id
-from apps.inthub_api.ingest import link_project, store_sync_batch
-from apps.inthub_api.queries import get_intent_detail, list_projects, project_handoff
+from apps.inthub_api.history import link_history, push_history
+from apps.inthub_api.queries import (
+    get_intent_detail, get_snap_detail, get_decision_detail, list_projects,
+    project_handoff, project_overview, search_project,
+)
+from intent_cli.hub.versions import revision_id
 
 
-def test_handoff_and_intent_detail_include_decision_semantics(tmp_path):
-    db_path = str(tmp_path / "inthub.db")
-    repo = {
-        "provider": "github",
-        "repo_id": "example/demo",
-        "owner": "example",
-        "name": "demo",
-    }
-    linked = link_project(db_path, "Demo", repo, "wks_demo")
-    intent = {
-        "id": "intent-001",
-        "object": "intent",
-        "status": "active",
-        "what": "Resume the work",
-        "why": "The goal is unfinished",
-        "snap_ids": ["snap-001"],
-        "decision_ids": ["decision-001"],
-    }
-    snap = {
-        "id": "snap-001",
-        "object": "snap",
-        "intent_id": "intent-001",
-        "what": "Reached a stable boundary",
-        "why": "The next session can continue here",
-    }
-    decision = {
-        "id": "decision-001",
-        "object": "decision",
-        "status": "active",
-        "what": "Keep the public API compatible",
-        "why": "Existing clients depend on its response shape",
-        "intent_ids": ["intent-001", "intent-002"],
-    }
-    suspended_intent = {
-        "id": "intent-002",
-        "object": "intent",
-        "status": "suspend",
-        "what": "Continue the paused migration",
-        "why": "The external dependency was temporarily unavailable",
-        "snap_ids": ["snap-002"],
-        "decision_ids": ["decision-001"],
-    }
-    suspended_snap = {
-        "id": "snap-002",
-        "object": "snap",
-        "intent_id": "intent-002",
-        "what": "Isolated the remaining provider boundary",
-        "why": "The next session can retry once the provider recovers",
-    }
-    store_sync_batch(db_path, {
-        "sync_batch_id": "sync_demo",
-        "generated_at": "2026-07-30T00:00:00+00:00",
-        "project_id": linked["project_id"],
-        "repo": repo,
-        "workspace": {"workspace_id": linked["workspace_id"]},
-        "git": {"branch": "main", "head_commit": "abc123", "dirty": False},
-        "snapshot": {
-            "intents": [intent, suspended_intent],
-            "snaps": [snap, suspended_snap],
-            "decisions": [decision],
-        },
-    })
-
-    handoff = project_handoff(db_path, linked["project_id"])
-    handoff_decision = handoff["active_decisions"][0]
-    assert handoff_decision["id"] == "decision-001"
-    assert handoff_decision["what"] == decision["what"]
-    assert handoff_decision["why"] == decision["why"]
-    assert handoff_decision["status"] == "active"
-    assert handoff["intents"][0]["id"] == "intent-001"
-    assert handoff["suspended_intents"][0]["id"] == "intent-002"
-    assert handoff["suspended_intents"][0]["why"] == suspended_intent["why"]
-    assert handoff["suspended_intents"][0]["latest_snap"] == suspended_snap
-
-    detail = get_intent_detail(
-        db_path,
-        make_remote_object_id(linked["workspace_id"], intent["id"]),
-    )
-    assert detail["intent"] == intent
-    assert detail["snaps"] == [snap]
+def test_shared_read_views_preserve_relations_and_decision_semantics(tmp_path):
+    db = str(tmp_path / "hub.db")
+    linked = link_history(db, "Demo")
+    pid = linked["project_id"]
+    common = {"created_at": "2026-10-04T00:00:00+00:00", "origin": "test", "why": "reason"}
+    intents = [
+        {**common, "id": f"intent-00{i}", "object": "intent", "status": status,
+         "what": f"Goal {i}", "snap_ids": [f"snap-00{i}"], "decision_ids": ["decision-001"]}
+        for i, status in [(1, "active"), (2, "suspend")]
+    ]
+    snaps = [{**common, "id": f"snap-00{i}", "object": "snap", "intent_id": f"intent-00{i}",
+              "what": "Verified checkpoint"} for i in [1, 2]]
+    decision = {**common, "id": "decision-001", "object": "decision", "status": "active",
+                "what": "Preserve semantic boundaries", "intent_ids": [obj["id"] for obj in intents]}
+    snapshot = {"intents": intents, "snaps": snaps, "decisions": [decision]}
+    push_history(db, {"project_name": "Demo", "project_id": pid, "parent": None,
+                     "snapshot": snapshot, "revision": revision_id(None, snapshot)})
+    handoff = project_handoff(db, pid)
+    assert handoff["intents"][0]["latest_snap"] == snaps[0]
+    assert handoff["suspended_intents"][0]["latest_snap"] == snaps[1]
+    assert handoff["active_decisions"][0]["why"] == decision["why"]
+    detail = get_intent_detail(db, make_remote_object_id(pid, "intent-001"))
+    assert detail["intent"] == intents[0]
+    assert detail["snaps"] == [snaps[0]]
     assert detail["decisions"] == [decision]
-    assert detail["git"]["head_commit"] == "abc123"
+    assert detail["project_id"] == pid
+    assert get_snap_detail(db, make_remote_object_id(pid, "snap-001"))["intent"] == intents[0]
+    assert get_decision_detail(db, make_remote_object_id(pid, "decision-001"))["intents"] == intents
+    assert len(search_project(db, pid, "reason")["matches"]) == 5
+    assert project_overview(db, pid)["total_snaps"] == 2
 
 
-def test_accounts_can_link_the_same_repo_without_seeing_each_others_projects(tmp_path):
-    db_path = str(tmp_path / "inthub.db")
-    first = upsert_github_account(db_path, {"id": 1, "login": "first"})
-    second = upsert_github_account(db_path, {"id": 2, "login": "second"})
-    repo = {
-        "provider": "github",
-        "repo_id": "example/shared-name",
-        "owner": "example",
-        "name": "shared-name",
-    }
-
-    first_project = link_project(
-        db_path,
-        "First copy",
-        repo,
-        "wks_first",
-        account_id=first["id"],
-    )
-    second_project = link_project(
-        db_path,
-        "Second copy",
-        repo,
-        "wks_second",
-        account_id=second["id"],
-    )
-
-    assert first_project["project_id"] != second_project["project_id"]
-    assert [item["id"] for item in list_projects(db_path, first["id"])["projects"]] == [
-        first_project["project_id"]
-    ]
-    assert [item["id"] for item in list_projects(db_path, second["id"])["projects"]] == [
-        second_project["project_id"]
-    ]
-    with pytest.raises(APIError) as exc_info:
-        project_handoff(
-            db_path,
-            first_project["project_id"],
-            account_id=second["id"],
-        )
-    assert exc_info.value.code == "OBJECT_NOT_FOUND"
-
-
-def test_link_reuses_the_same_project_and_workspace_operation(tmp_path):
-    db_path = str(tmp_path / "inthub.db")
-    account = upsert_github_account(db_path, {"id": 7, "login": "retry-user"})
-    repo = {
-        "provider": "gitee",
-        "repo_id": "example/retried",
-        "owner": "example",
-        "name": "retried",
-    }
-
-    first = link_project(
-        db_path, "Retried link", repo, "wks_stable", account_id=account["id"],
-    )
-    second = link_project(
-        db_path, "Retried link", repo, "wks_stable", account_id=account["id"],
-    )
-
-    assert second == first
-
-
-def test_repo_provider_is_part_of_the_project_identity(tmp_path):
-    db_path = str(tmp_path / "inthub.db")
-    account = upsert_github_account(db_path, {"id": 3, "login": "provider-user"})
-    common = {
-        "repo_id": "example/shared-name",
-        "owner": "example",
-        "name": "shared-name",
-    }
-
-    github_project = link_project(
-        db_path,
-        "GitHub copy",
-        {"provider": "github", **common},
-        "wks_github",
-        account_id=account["id"],
-    )
-    gitee_project = link_project(
-        db_path,
-        "Gitee copy",
-        {"provider": "gitee", **common},
-        "wks_gitee",
-        account_id=account["id"],
-    )
-
-    assert github_project["project_id"] != gitee_project["project_id"]
-    projects = list_projects(db_path, account["id"])["projects"]
-    assert {
-        (item["repo"]["provider"], item["repo"]["repo_id"])
-        for item in projects
-    } == {
-        ("github", "example/shared-name"),
-        ("gitee", "example/shared-name"),
-    }
-
-
-def test_link_rejects_unknown_repo_provider(tmp_path):
-    with pytest.raises(APIError) as exc_info:
-        link_project(
-            str(tmp_path / "inthub.db"),
-            "Unsupported",
-            {
-                "provider": "bitbucket",
-                "repo_id": "example/demo",
-                "owner": "example",
-                "name": "demo",
-            },
-            "wks_unsupported",
-        )
-
-    assert exc_info.value.code == "PROVIDER_UNSUPPORTED"
+def test_accounts_share_names_but_not_histories(tmp_path):
+    db = str(tmp_path / "hub.db")
+    first = upsert_github_account(db, {"id": 1, "login": "first"})
+    second = upsert_github_account(db, {"id": 2, "login": "second"})
+    a = link_history(db, "Same project", first["id"])
+    b = link_history(db, "Same project", second["id"])
+    assert a["project_id"] != b["project_id"]
+    assert a == link_history(db, "Same project", first["id"])
+    assert [obj["id"] for obj in list_projects(db, first["id"])["projects"]] == [a["project_id"]]
+    assert [obj["id"] for obj in list_projects(db, second["id"])["projects"]] == [b["project_id"]]
+    with pytest.raises(APIError) as failure:
+        project_handoff(db, a["project_id"], second["id"])
+    assert failure.value.code == "OBJECT_NOT_FOUND"
+    with pytest.raises(APIError):
+        get_intent_detail(db, make_remote_object_id(a["project_id"], "intent-001"), second["id"])

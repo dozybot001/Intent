@@ -17,7 +17,9 @@ from urllib.parse import urlsplit, urlunsplit
 _INITIALIZED = set()
 _INIT_LOCK = threading.Lock()
 
-LATEST_SCHEMA_VERSION = 3
+LATEST_SCHEMA_VERSION = 4
+_HISTORY_SCHEMA_NAME = "shared-semantic-history"
+_HISTORY_SCHEMA_CHECKSUM = hashlib.sha256(b"0004:project-head:immutable-parent-revisions").hexdigest()
 _INITIAL_SCHEMA_NAME = "initial-account-scoped-schema"
 _INITIAL_SCHEMA_CHECKSUM = hashlib.sha256(
     b"0001:initial-account-scoped-schema:projects-account:tokens:sync-sequence"
@@ -116,6 +118,11 @@ _EXPECTED_SCHEMA_COLUMNS = {
         "session_id", "issuer", "subject", "platform_role", "verified_at",
     },
 }
+_EXPECTED_SCHEMA_COLUMNS_V3 = dict(_EXPECTED_SCHEMA_COLUMNS)
+_EXPECTED_SCHEMA_COLUMNS.update({
+    "semantic_heads": {"project_id", "revision"},
+    "semantic_versions": {"project_id", "revision", "parent", "snapshot_json", "created_at"},
+})
 
 
 def _backend_for(target):
@@ -631,6 +638,8 @@ def _validate_migration_ledger(rows):
             "checksum": _TENON_SCHEMA_CHECKSUM,
             "backward_compatible": 1,
         },
+        4: {"name": _HISTORY_SCHEMA_NAME, "checksum": _HISTORY_SCHEMA_CHECKSUM,
+            "backward_compatible": 1},
     }
     observed_versions = set()
     for row in rows:
@@ -713,7 +722,7 @@ def migrate_db(conn, *, require_backward_compatible=True):
 
     if 3 not in applied_versions:
         _create_tenon_schema(conn)
-        _validate_schema(conn, _EXPECTED_SCHEMA_COLUMNS)
+        _validate_schema(conn, _EXPECTED_SCHEMA_COLUMNS_V3)
         conn.execute(
             """INSERT INTO schema_migrations
                 (version, name, checksum, backward_compatible, applied_at)
@@ -721,6 +730,19 @@ def migrate_db(conn, *, require_backward_compatible=True):
             (3, _TENON_SCHEMA_NAME, _TENON_SCHEMA_CHECKSUM, 1,
              datetime.now(timezone.utc).isoformat()),
         )
+
+    if 4 not in applied_versions:
+        conn.execute("""CREATE TABLE IF NOT EXISTS semantic_heads (
+            project_id TEXT PRIMARY KEY REFERENCES projects(id), revision TEXT)""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS semantic_versions (
+            project_id TEXT NOT NULL REFERENCES projects(id),
+            revision TEXT NOT NULL, parent TEXT, snapshot_json TEXT NOT NULL,
+            created_at TEXT NOT NULL, PRIMARY KEY (project_id, revision))""")
+        conn.execute("""INSERT INTO schema_migrations
+            (version, name, checksum, backward_compatible, applied_at)
+            VALUES (?, ?, ?, ?, ?)""",
+            (4, _HISTORY_SCHEMA_NAME, _HISTORY_SCHEMA_CHECKSUM, 1,
+             datetime.now(timezone.utc).isoformat()))
 
     rows = _migration_rows(conn)
     _validate_migration_ledger(rows)

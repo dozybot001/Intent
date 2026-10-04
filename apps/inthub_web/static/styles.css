@@ -2018,13 +2018,13 @@ svg {
 }
 
 .decision-list,
-.workspace-list {
+.history-list {
   display: grid;
   gap: 8px;
 }
 
 .decision-row,
-.workspace-row {
+.history-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -2038,7 +2038,7 @@ svg {
 }
 
 .decision-row:first-child,
-.workspace-row:first-child {
+.history-row:first-child {
   border-top: 0;
 }
 
@@ -2047,7 +2047,7 @@ svg {
 }
 
 .decision-row strong,
-.workspace-row strong {
+.history-row strong {
   display: block;
   font-size: 0.79rem;
   font-weight: 620;
@@ -2055,7 +2055,7 @@ svg {
 }
 
 .decision-row small,
-.workspace-row small {
+.history-row small {
   display: block;
   margin-top: 3px;
   color: var(--muted);

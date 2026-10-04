@@ -42,11 +42,11 @@ def _snapshot(number):
 def _hub(number):
     return {
         "api_base_url": "https://inthub.example",
+        "format_version": 2,
+        "project_name": "demo",
         "project_id": "proj_demo",
-        "workspace_id": "wks_local",
-        "repo_binding": {"provider": "github", "repo_id": "example/demo"},
-        "last_sync_batch_id": f"sync_{number}",
-        "last_synced_at": "2026-10-04T01:02:03+00:00",
+        "revision": f"{number:064x}",
+        "baseline_sha256": f"{number:064x}",
     }
 
 
@@ -434,6 +434,7 @@ def test_ensure_init_recovers_before_requiring_missing_live_object_directory(
     _interrupted_install(storage, monkeypatch, after_step=1)
     assert not (storage / "intents").exists()
     monkeypatch.setattr(store, "git_root", lambda: storage.parent)
+    monkeypatch.chdir(storage.parent)
 
     assert store.ensure_init() == storage
     assert _tree_state(storage) == before

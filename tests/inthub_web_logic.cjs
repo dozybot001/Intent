@@ -58,12 +58,12 @@ vm.runInContext(`
   assert.equal(t('About IntHub'), '关于 IntHub');
   assert.equal(t('Load more ({count})', {count: 7}), '加载更多（7）');
   state.config = {authMode: 'tenon', apiBaseUrl: '', productVersion: '6.0.1'};
-  state.overview = {active_intents: [{id:'intent-001', remote_id:'w__intent-001', what:'Next', why:'User text', status:'active', decision_ids:[]}], other_intents: []};
+  state.overview = {active_intents: [{id:'intent-001', remote_id:'p__intent-001', what:'Next', why:'User text', status:'active', decision_ids:[]}], other_intents: []};
   renderIntentsTab();
   assert.ok(el.sidebarBody.innerHTML.includes('活跃目标'));
   assert.ok(el.sidebarBody.innerHTML.includes('>Next</strong>'));
   assert.ok(el.sidebarBody.innerHTML.includes('User text'));
-  const payload = {workspace_id: 'w', snap: {id:'snap-001', what:'Verified: Original user facts. Boundary: Next. Next: Continue user work.', why:'', created_at:'2026-10-04T00:00:00Z'}, intent: {id:'intent-001', what:'Next', status:'active'}};
+  const payload = {project_id: 'p', snap: {id:'snap-001', what:'Verified: Original user facts. Boundary: Next. Next: Continue user work.', why:'', created_at:'2026-10-04T00:00:00Z'}, intent: {id:'intent-001', what:'Next', status:'active'}};
   const rendered = buildSnapDetailHtml(payload);
   assert.ok(rendered.includes('接续检查点'));
   assert.ok(rendered.includes('Original user facts'));
@@ -89,26 +89,26 @@ vm.runInContext(`
   assert.equal(continuationHealth([{latest_snap: {what: 'Verified: done. Boundary: UI only. Next: review. Blocker: none.'}}]).ready, true);
   assert.equal(continuationHealth([{latest_snap: {what: 'Verified: done. Boundary: UI only. Next: review. Blocker: waiting for access.'}}]).ready, false);
   state.overview = {active_intents: [
-    {id:'intent-001', workspace_id:'w1', what:'User goal one'},
-    {id:'intent-001', workspace_id:'w2', what:'User goal two'},
+    {id:'intent-001', project_id:'p1', what:'User goal one'},
+    {id:'intent-001', project_id:'p2', what:'User goal two'},
   ]};
   const timelineSnaps = [
-    {id:'snap-001', workspace_id:'w1', intent_id:'intent-001', remote_id:'w1__snap-001', what:'first'},
-    {id:'snap-002', workspace_id:'w1', intent_id:'intent-001', remote_id:'w1__snap-002', what:'second'},
-    {id:'snap-001', workspace_id:'w2', intent_id:'intent-001', remote_id:'w2__snap-001', what:'other workspace'},
+    {id:'snap-001', project_id:'p1', intent_id:'intent-001', remote_id:'p1__snap-001', what:'first'},
+    {id:'snap-002', project_id:'p1', intent_id:'intent-001', remote_id:'p1__snap-002', what:'second'},
+    {id:'snap-001', project_id:'p2', intent_id:'intent-001', remote_id:'p2__snap-001', what:'other project'},
   ];
   const filterOptions = timelineIntentOptions(timelineSnaps);
   assert.equal(filterOptions.length, 2);
   assert.equal(filterOptions[0].count, 2);
   assert.equal(filterOptions[1].label, 'User goal two');
   state.overview.recent_snaps = timelineSnaps;
-  state._timelineIntentKey = 'w2__intent-001';
+  state._timelineIntentKey = 'p2__intent-001';
   renderSnapsTab();
-  assert.ok(el.sidebarBody.innerHTML.includes('data-remote-id="w2__snap-001"'));
-  assert.ok(!el.sidebarBody.innerHTML.includes('data-remote-id="w1__snap-001"'));
+  assert.ok(el.sidebarBody.innerHTML.includes('data-remote-id="p2__snap-001"'));
+  assert.ok(!el.sidebarBody.innerHTML.includes('data-remote-id="p1__snap-001"'));
   assert.ok(el.sidebarBody.innerHTML.includes('User goal two'));
-  assert.ok(detailErrorHtml(new Error('offline'), 'snap', 'w__snap-001').includes('data-retry-detail="detail"'));
-  assert.ok(detailErrorHtml(new Error('offline'), 'snap', 'w__snap-001', 'drawer').includes('data-retry-detail="drawer"'));
+  assert.ok(detailErrorHtml(new Error('offline'), 'snap', 'p__snap-001').includes('data-retry-detail="detail"'));
+  assert.ok(detailErrorHtml(new Error('offline'), 'snap', 'p__snap-001', 'drawer').includes('data-retry-detail="drawer"'));
   const navigation = document.getElementById('navigation-card');
   navigation.matches = selector => selector.includes('.card');
   setButtonBusy(navigation, true);
@@ -274,37 +274,37 @@ async function viewControllerCases() {
     state.currentProjectId = 'p';
     state.activeTab = 'snaps';
     state._workspaceProjectMap = {w:'p'};
-    state.overview = {workspaces: [{workspace_id:'w'}]};
+    state.overview = {history:{project_id:'p',revision:'a'.repeat(64),last_synced_at:'2026-10-04T00:00:00Z'}};
     let responses = new Map();
     fetchJson = url => responses.get(url).promise;
     renderSnapDetail = payload => {el.detailContent.innerHTML = payload.name;};
     renderSnapDetailTo = (target, payload) => {target.innerHTML = payload.name;};
 
     const first = deferred(), next = deferred();
-    responses.set('/api/v1/snaps/w__snap-001', first);
-    responses.set('/api/v1/snaps/w__snap-002', next);
-    const firstRequest = openDetail('snap','w__snap-001');
+    responses.set('/api/v1/snaps/p__snap-001', first);
+    responses.set('/api/v1/snaps/p__snap-002', next);
+    const firstRequest = openDetail('snap','p__snap-001');
     assert.equal(el.detailPane.getAttribute('aria-busy'), 'true');
     assert.ok(el.detailContent.innerHTML.includes('view-loading-spinner'));
-    assert.equal(state.selectedDetail.remoteId, 'w__snap-001');
+    assert.equal(state.selectedDetail.remoteId, 'p__snap-001');
     assert.equal(el.shell.classList.contains('detail-open'), true);
     await Promise.resolve();
-    const nextRequest = openDetail('snap','w__snap-002');
+    const nextRequest = openDetail('snap','p__snap-002');
     await Promise.resolve();
     next.resolve({name:'newest detail'});
     await nextRequest;
     first.resolve({name:'stale detail'});
     await firstRequest;
     assert.equal(el.detailContent.innerHTML, 'newest detail');
-    assert.equal(state.selectedDetail.remoteId, 'w__snap-002');
+    assert.equal(state.selectedDetail.remoteId, 'p__snap-002');
     assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
 
     const stale = deferred(), pending = deferred();
-    responses.set('/api/v1/snaps/w__snap-003', stale);
-    responses.set('/api/v1/snaps/w__snap-004', pending);
-    const staleRequest = openDetail('snap','w__snap-003');
+    responses.set('/api/v1/snaps/p__snap-003', stale);
+    responses.set('/api/v1/snaps/p__snap-004', pending);
+    const staleRequest = openDetail('snap','p__snap-003');
     await Promise.resolve();
-    const pendingRequest = openDetail('snap','w__snap-004');
+    const pendingRequest = openDetail('snap','p__snap-004');
     await Promise.resolve();
     stale.resolve({name:'old response finishes first'});
     await staleRequest;
@@ -314,20 +314,20 @@ async function viewControllerCases() {
     await pendingRequest;
     assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
 
-    responses.set('/api/v1/snaps/w__snap-004', {promise:Promise.reject(new Error('offline'))});
-    await assert.rejects(() => openDetail('snap','w__snap-004'), /offline/);
+    responses.set('/api/v1/snaps/p__snap-004', {promise:Promise.reject(new Error('offline'))});
+    await assert.rejects(() => openDetail('snap','p__snap-004'), /offline/);
     assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
     assert.ok(el.detailContent.innerHTML.includes('data-retry-detail="detail"'));
 
     el.shell.classList.remove('detail-open');
-    responses.set('/api/v1/snaps/w__snap-002', {promise:Promise.resolve({name:'automatic preview'})});
-    await openDetail('snap','w__snap-002',{reveal:false});
+    responses.set('/api/v1/snaps/p__snap-002', {promise:Promise.resolve({name:'automatic preview'})});
+    await openDetail('snap','p__snap-002',{reveal:false});
     assert.equal(el.shell.classList.contains('detail-open'), false);
     assert.equal(el.detailContent.innerHTML, 'automatic preview');
 
     const drawerPending = deferred();
-    responses.set('/api/v1/snaps/w__snap-001', drawerPending);
-    const drawerRequest = openInDrawer('snap','w__snap-001');
+    responses.set('/api/v1/snaps/p__snap-001', drawerPending);
+    const drawerRequest = openInDrawer('snap','p__snap-001');
     assert.equal(el.drawerContent.getAttribute('aria-busy'), 'true');
     assert.ok(el.drawerContent.innerHTML.includes('view-loading-spinner'));
     assert.equal(el.drawer.inert, false);
@@ -357,7 +357,7 @@ async function viewControllerCases() {
 
     state.activeTab = 'overview';
     state._loadedProjectId = 'p';
-    state.overview = {project:{id:'p'}, workspaces:[{workspace_id:'w'}]};
+    state.overview = {project:{id:'p'}, history:{project_id:'p',revision:'a'.repeat(64),last_synced_at:'2026-10-04T00:00:00Z'}};
     state.handoff = {intents:[]};
     renderSidebar = () => {};
     renderProjectSelector = () => {};
@@ -375,17 +375,17 @@ async function viewControllerCases() {
     localizeWorkspace();
     assert.equal(el.detailContent.innerHTML,pendingProjectMarkup);
     assert.ok(el.detailContent.innerHTML.includes('overview-skeleton'));
-    twoOverview.resolve({project:{id:'p2',name:'second'},workspaces:[{workspace_id:'w2'}]});
+    twoOverview.resolve({project:{id:'p2',name:'second'},history:{project_id:'p2',revision:'a'.repeat(64),last_synced_at:'2026-10-04T00:00:00Z'}});
     twoHandoff.resolve({intents:[]});
     await loadTwo;
-    oneOverview.resolve({project:{id:'p1',name:'first'},workspaces:[{workspace_id:'w1'}]});
+    oneOverview.resolve({project:{id:'p1',name:'first'},history:{project_id:'p1',revision:'a'.repeat(64),last_synced_at:'2026-10-04T00:00:00Z'}});
     oneHandoff.resolve({intents:[]});
     await loadOne;
     assert.equal(state.currentProjectId, 'p2');
     assert.equal(state.overview.project.id, 'p2');
     assert.equal(el.detailContent.innerHTML, 'p2');
     assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
-    state.overview={project:{id:'p2'},workspaces:[{workspace_id:'w2'}]};
+    state.overview={project:{id:'p2'},history:{project_id:'p2',revision:'a'.repeat(64),last_synced_at:'2026-10-04T00:00:00Z'}};
     el.detailContent.innerHTML=viewLoadingHtml();
     const pendingDetailMarkup=el.detailContent.innerHTML;
     setViewBusy('detail',true);
@@ -401,7 +401,7 @@ async function viewControllerCases() {
     assert.equal(state.overview.project.id, 'p2');
     assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
 
-    responses.set('/api/v1/projects/empty/overview', {promise:Promise.resolve({project:{id:'empty',name:'empty'},workspaces:[]})});
+    responses.set('/api/v1/projects/empty/overview', {promise:Promise.resolve({project:{id:'empty',name:'empty'},history:{revision:null}})});
     responses.set('/api/v1/projects/empty/handoff', {promise:Promise.resolve({intents:[]})});
     await loadProject('empty');
     assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');

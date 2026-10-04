@@ -10,24 +10,6 @@ def load_hub(base):
     return read_hub_config(base) or {}
 
 
-def config_without_auth_token(config):
-    """Return a persistence-safe copy; account tokens are never local config."""
-    persisted = dict(config)
-    persisted.pop("auth_token", None)
-    return persisted
-
-
-def sanitize_hub_config(config, auth_configured=None):
-    sanitized = dict(config)
-    sanitized.pop("auth_token", None)
-    sanitized["auth_configured"] = (
-        bool(os.getenv("INTHUB_TOKEN"))
-        if auth_configured is None
-        else bool(auth_configured)
-    )
-    return sanitized
-
-
 def hub_api_base(base, args, hub=None):
     hub = load_hub(base) if hub is None else hub
     api_base_url = (

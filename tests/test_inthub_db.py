@@ -61,8 +61,8 @@ def test_schema_v1_upgrades_to_public_profile_schema_v2(tmp_path):
     migrated = db.migrate_target(db_path, require_backward_compatible=True)
     assert migrated == {
         "from_version": 1,
-        "to_version": 3,
-        "latest_known_version": 3,
+        "to_version": 4,
+        "latest_known_version": 4,
         "backward_compatible_only": True,
     }
     with sqlite3.connect(db_path) as check:
@@ -70,7 +70,7 @@ def test_schema_v1_upgrades_to_public_profile_schema_v2(tmp_path):
         profile_table = check.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'public_profiles'"
         ).fetchone()
-    assert versions == [1, 2, 3]
+    assert versions == [1, 2, 3, 4]
     assert profile_table is not None
 
 

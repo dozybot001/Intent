@@ -8,7 +8,6 @@ from intent_cli.store import (
     VALID_STATUSES,
     WorkspaceBusyError,
     ensure_init,
-    git_root,
     workspace_write_lock,
 )
 
@@ -22,12 +21,6 @@ def require_init():
     base = ensure_init()
     if base is not None:
         return base
-    if git_root() is None:
-        error(
-            "GIT_STATE_INVALID",
-            "Not inside a Git repository.",
-            suggested_fix="cd into a git repo and run: itt init",
-        )
     error(
         "NOT_INITIALIZED",
         ".intent/ directory not found.",

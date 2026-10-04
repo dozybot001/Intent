@@ -16,7 +16,6 @@ from intent_cli.store import (
 )
 from intent_cli.hub.credentials import CredentialStoreError, GlobalHubConfigError
 from intent_cli.commands.auth import cmd_auth_login, cmd_auth_logout, cmd_auth_status
-from intent_cli.commands.pull import cmd_pull
 from intent_cli.hub.restore import PullApplyError
 from intent_cli.commands.core import (
     cmd_decision_create,
@@ -32,13 +31,8 @@ from intent_cli.commands.core import (
     cmd_snap_create,
     cmd_version,
 )
-from intent_cli.commands.hub import (
-    cmd_hub_link,
-    cmd_hub_start,
-    cmd_hub_status,
-    cmd_hub_sync,
-    cmd_push,
-)
+from intent_cli.commands.hub import cmd_hub_start
+from intent_cli.commands.shared import cmd_push, cmd_pull, cmd_status, cmd_remote, cmd_link, cmd_hub_status
 
 
 def _invoke(command, args):
@@ -156,6 +150,18 @@ def main():
     p.add_argument("--intent", default=None, metavar="ID")
     p.add_argument("--history", type=int, default=None, metavar="N")
     sub.add_parser("doctor")
+    p = sub.add_parser("status")
+    p.add_argument("--local", action="store_true")
+    p.add_argument("--project", default=None)
+    p.add_argument("--api-base-url", default=None)
+    p.add_argument("--token", default=None)
+    p_remote = sub.add_parser("remote")
+    s_remote = p_remote.add_subparsers(dest="sub")
+    p_remote.add_argument("-v", action="store_true")
+    p = s_remote.add_parser("add")
+    p.add_argument("name")
+    p.add_argument("url")
+    p.add_argument("--project", default=None)
 
     # --- account auth / Git-style push ---
     p_auth = sub.add_parser("auth")
@@ -173,15 +179,15 @@ def main():
     p.add_argument("--api-base-url", default=None)
 
     p = sub.add_parser("push")
+    p.add_argument("--project", default=None)
     p.add_argument("--api-base-url", default=None)
     p.add_argument("--token", default=None)
     p.add_argument("--dry-run", action="store_true")
 
     p = sub.add_parser("pull")
+    p.add_argument("--project", default=None)
     p.add_argument("--api-base-url", default=None)
     p.add_argument("--token", default=None)
-    p.add_argument("--workspace", default=None, metavar="ID")
-    p.add_argument("--source-repo", default=None, metavar="URL")
     p.add_argument("--dry-run", action="store_true")
 
     # --- hub ---
@@ -266,6 +272,8 @@ def main():
         "doctor": cmd_doctor,
         "push": cmd_push,
         "pull": cmd_pull,
+        "status": cmd_status,
+        "remote": cmd_remote,
     }
     if args.command in dispatch_global:
         _invoke(dispatch_global[args.command], args)
@@ -288,8 +296,8 @@ def main():
     dispatch = {
         ("hub", "start"):              cmd_hub_start,
         ("hub", "status"):             cmd_hub_status,
-        ("hub", "link"):               cmd_hub_link,
-        ("hub", "sync"):               cmd_hub_sync,
+        ("hub", "link"):               cmd_link,
+        ("hub", "sync"):               cmd_push,
         ("auth", "login"):             cmd_auth_login,
         ("auth", "status"):            cmd_auth_status,
         ("auth", "logout"):            cmd_auth_logout,

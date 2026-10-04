@@ -21,6 +21,7 @@ MUTATING_COMMANDS = {
     ("init",),
     ("push",),
     ("pull",),
+    ("remote", "add"),
     ("auth", "login"),
     ("auth", "logout"),
     ("hub", "link"),

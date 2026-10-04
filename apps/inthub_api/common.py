@@ -12,13 +12,13 @@ def new_id(prefix):
     return f"{prefix}_{uuid.uuid4().hex[:12]}"
 
 
-def make_remote_object_id(workspace_id, local_object_id):
-    return f"{workspace_id}__{local_object_id}"
+def make_remote_object_id(project_id, local_object_id):
+    return f"{project_id}__{local_object_id}"
 
 
 def split_remote_object_id(remote_object_id):
     parts = remote_object_id.split("__", 1)
-    if len(parts) != 2:
+    if len(parts) != 2 or not all(parts):
         raise ValueError("Invalid remote object ID.")
     return parts[0], parts[1]
 
@@ -30,14 +30,3 @@ class APIError(Exception):
         self.message = message
         self.status = status
         self.details = details or {}
-
-
-def require_repo(repo):
-    required = ("provider", "repo_id", "owner", "name")
-    missing = [key for key in required if not repo.get(key)]
-    if missing:
-        raise APIError(
-            "INVALID_INPUT",
-            f"Missing repo fields: {', '.join(missing)}.",
-            status=400,
-        )

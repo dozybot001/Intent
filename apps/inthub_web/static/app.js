@@ -102,7 +102,7 @@ function relativeDate(v) {
   return fmtDate(v);
 }
 
-function shortCommit(v) {
+function shortRevision(v) {
   return v ? v.slice(0, 8) : "\u2014";
 }
 
@@ -138,17 +138,11 @@ function originBadge(origin) {
   return `<span class="badge origin-${slug}">${esc(origin)}</span>`;
 }
 
-function dirtyBadge(dirty) {
-  return dirty
-    ? `<span class="badge warn">${esc(t("dirty"))}</span>`
-    : `<span class="badge good">${esc(t("clean"))}</span>`;
-}
-
 function remoteId(wksId, objId) {
   return `${wksId}__${objId}`;
 }
 
-function workspaceIdFromRemoteId(rId) {
+function projectIdFromRemoteId(rId) {
   return String(rId || "").split("__", 1)[0] || "";
 }
 
@@ -650,7 +644,7 @@ function overviewIntents() {
 function decisionScope(decision) {
   const ids = decision.intent_ids || [];
   const linked = overviewIntents().filter((intent) =>
-    intent.workspace_id === decision.workspace_id && ids.includes(intent.id),
+    intent.project_id === decision.project_id && ids.includes(intent.id),
   );
   return {
     count: ids.length,
@@ -730,12 +724,12 @@ function intentForSnap(snap) {
     ...(state.overview?.other_intents || []),
   ];
   return intents.find((intent) =>
-    intent.id === snap.intent_id && intent.workspace_id === snap.workspace_id,
-  ) || (!snap.workspace_id ? intents.find((intent) => intent.id === snap.intent_id) : null) || null;
+    intent.id === snap.intent_id && intent.project_id === snap.project_id,
+  ) || (!snap.project_id ? intents.find((intent) => intent.id === snap.intent_id) : null) || null;
 }
 
 function timelineIntentKey(snap) {
-  return remoteId(snap.workspace_id || workspaceIdFromRemoteId(snap.remote_id), snap.intent_id || "");
+  return remoteId(snap.project_id || projectIdFromRemoteId(snap.remote_id), snap.intent_id || "");
 }
 
 function timelineIntentOptions(snaps) {
@@ -1123,20 +1117,13 @@ function decisionRows(decisions) {
     .join("");
 }
 
-function workspaceRows(workspaces) {
-  if (!workspaces.length) {
-    return `<div class="queue-empty">${esc(t("No workspace has completed a first sync."))}</div>`;
-  }
-  return workspaces
-    .map((workspace) => `
-      <div class="workspace-row">
-        <span>
-          <strong>${esc(workspace.branch || t("Detached workspace"))}</strong>
-          <small>${esc(shortCommit(workspace.head_commit))} · ${esc(relativeDate(workspace.last_synced_at))}</small>
-        </span>
-        ${dirtyBadge(workspace.dirty)}
-      </div>`)
-    .join("");
+function historySources(overview) {
+  if (overview?.history) return overview.history.revision ? [{
+    project_id: overview.history.project_id,
+    last_synced_at: overview.history.last_synced_at,
+    revision: overview.history.revision,
+  }] : [];
+  return [];
 }
 
 function continuationHealth(intents) {
@@ -1154,11 +1141,11 @@ function continuationHealth(intents) {
 
 function renderProjectSummary() {
   const project = state.overview.project;
-  const workspaces = state.overview.workspaces || [];
+  const histories = historySources(state.overview);
   const intents = state.handoff?.intents || [];
   const decisions = state.handoff?.active_decisions || [];
-  const latestSync = workspaces
-    .map((workspace) => workspace.last_synced_at)
+  const latestSync = histories
+    .map((history) => history.last_synced_at)
     .filter(Boolean)
     .sort()
     .at(-1);
@@ -1182,11 +1169,11 @@ function renderProjectSummary() {
           <span class="overview-eyebrow">${t("Continuation brief")}</span>
           <h1 class="continuation-title">${esc(project.name)}</h1>
           <div class="project-repo">
-            <span>${esc(project.repo.provider || "git")}</span>
+            <span>${esc(t("Shared history"))}</span>
             <span>·</span>
-            <span>${esc(project.repo.owner)}/${esc(project.repo.name)}</span>
+            <span>${esc(project.name)}</span>
             <span>·</span>
-            <span>${esc(t("{count} workspaces", {count: workspaces.length}))}</span>
+            <span>${esc(shortRevision(state.overview.history.revision))}</span>
           </div>
         </div>
         <div class="hero-health${health.ready ? "" : " is-warning"}">
@@ -1207,10 +1194,10 @@ function renderProjectSummary() {
         </section>
         <section class="support-card">
           <header class="support-card-head">
-            <h3>${esc(t("Workspace health"))}</h3>
-            <span>${esc(t("{count} sources", {count: workspaces.length}))}</span>
+            <h3>${esc(t("History status"))}</h3>
+            <span>${esc(t("Shared history"))}</span>
           </header>
-          <div class="workspace-list">${workspaceRows(workspaces)}</div>
+          <div class="history-list"><div class="history-row"><span><strong>${esc(shortRevision(state.overview.history.revision))}</strong><small>${esc(relativeDate(state.overview.history.last_synced_at))}</small></span></div></div>
         </section>
       </div>
     </div>`;
@@ -1280,34 +1267,7 @@ function returnToList() {
 }
 
 async function resolveProjectIdForRemoteId(rId) {
-  const workspaceId = workspaceIdFromRemoteId(rId);
-  if (!workspaceId) return state.currentProjectId;
-
-  if (!state._workspaceProjectMap) state._workspaceProjectMap = {};
-  if (state._workspaceProjectMap[workspaceId]) {
-    return state._workspaceProjectMap[workspaceId];
-  }
-
-  const currentWorkspaces = state.overview?.workspaces || [];
-  for (const ws of currentWorkspaces) {
-    state._workspaceProjectMap[ws.workspace_id] = state.currentProjectId;
-  }
-  if (currentWorkspaces.some((ws) => ws.workspace_id === workspaceId)) {
-    return state.currentProjectId;
-  }
-
-  for (const project of state.projects) {
-    if (project.id === state.currentProjectId) continue;
-    const overview = await fetchJson(apiUrl(`/api/v1/projects/${project.id}/overview`));
-    for (const ws of overview.workspaces || []) {
-      state._workspaceProjectMap[ws.workspace_id] = project.id;
-    }
-    if ((overview.workspaces || []).some((ws) => ws.workspace_id === workspaceId)) {
-      return project.id;
-    }
-  }
-
-  return null;
+  return projectIdFromRemoteId(rId) || state.currentProjectId;
 }
 
 async function openDetail(type, rId, { reveal = true } = {}) {
@@ -1375,7 +1335,7 @@ function buildIntentDetailHtml(payload) {
     .map((dId) =>
       relationItem(
         "decision",
-        remoteId(payload.workspace_id, dId),
+        remoteId(payload.project_id, dId),
         dId,
         dMap[dId]?.what || dId,
         dMap[dId]?.why || "",
@@ -1387,7 +1347,7 @@ function buildIntentDetailHtml(payload) {
     .map((dId) =>
       relationItem(
         "decision",
-        remoteId(payload.workspace_id, dId),
+        remoteId(payload.project_id, dId),
         dId,
         dMap[dId]?.what || dId,
         dMap[dId]?.why || "",
@@ -1404,7 +1364,7 @@ function buildIntentDetailHtml(payload) {
   const snapLinks = allSnaps.map((s) =>
     relationItem(
       "snap",
-      remoteId(payload.workspace_id, s.id),
+      remoteId(payload.project_id, s.id),
       s.id,
       conciseSnapTitle(s),
       truncate(s.why || "", 80),
@@ -1459,7 +1419,7 @@ function buildDecisionDetailHtml(payload) {
   const intentLinks = payload.intents.map((i) =>
     relationItem(
       "intent",
-      remoteId(payload.workspace_id, i.id),
+      remoteId(payload.project_id, i.id),
       i.id,
       i.what || i.title || i.id,
       truncate(i.why || "", 80),
@@ -1504,7 +1464,7 @@ function buildSnapDetailHtml(payload) {
   const parentLink = payload.intent
     ? `<div class="relation-list">${relationItem(
         "intent",
-        remoteId(payload.workspace_id, payload.intent.id),
+        remoteId(payload.project_id, payload.intent.id),
         payload.intent.id,
         payload.intent.what || payload.intent.id,
         truncate(payload.intent.why || "", 80),
@@ -1549,20 +1509,20 @@ function renderSnapDetailTo(target, payload) {
 /* ---- Setup guide ---- */
 
 function renderSetupGuide(mode) {
-  const linkCmd = state.config.authRequired
-    ? "itt hub link"
-    : `itt hub link --api-base-url ${state.config.apiBaseUrl}`;
+  const projectName = state.projects.find(p => p.id === state.currentProjectId)?.name;
+  const shellArg = value => `'${String(value).replaceAll("'", "'\\''")}'`;
+  const linkCmd = `itt remote add origin ${shellArg(state.config.apiBaseUrl)} --project ${projectName ? shellArg(projectName) : "PROJECT"}`;
   const authPrefix = state.config.authRequired
-    ? [`itt auth login --api-base-url ${state.config.apiBaseUrl}`]
+    ? [`itt auth login --api-base-url ${shellArg(state.config.apiBaseUrl)}`]
     : [];
   let steps = [];
 
   if (mode === "unlinked") {
     steps = [
-      { title: t("1. Initialize"), desc: t("Run once per repo."), cmd: ["itt init"] },
+      { title: t("1. Initialize"), desc: t("Run once per project; Git is optional."), cmd: ["itt init"] },
       {
         title: t("2. Link & Sync"),
-        desc: t("Point CLI here, create binding, push snapshot."),
+        desc: t("Choose a shared project name, then push its semantic history."),
         cmd: [...authPrefix, linkCmd, "itt push"],
       },
     ];
@@ -1608,14 +1568,14 @@ function renderProjectSelector() {
   el.projectPickerTrigger.disabled = Boolean(state._projectBusy);
   const current = state.projects.find((p) => p.id === state.currentProjectId);
   el.projectPickerLabel.textContent = current
-    ? `${current.name} · ${current.repo.owner}/${current.repo.name}`
+    ? current.name
     : state.projects[0].name;
   el.projectPickerDropdown.innerHTML = state.projects
     .map(
       (p) =>
         `<button type="button" role="option" aria-selected="${p.id === state.currentProjectId ? "true" : "false"}" class="project-picker-option${p.id === state.currentProjectId ? " is-selected" : ""}" data-id="${esc(p.id)}">
           <span class="project-picker-option-name">${esc(p.name)}</span>
-          <span class="project-picker-option-repo">${esc(p.repo.owner)}/${esc(p.repo.name)}</span>
+          <span class="project-picker-option-repo">${esc(t("Shared history"))}</span>
         </button>`,
     )
     .join("");
@@ -1717,16 +1677,12 @@ async function loadProject(projectId, { detail = null, reveal = false } = {}) {
   state._loadedProjectId = projectId;
   state.overview = overview;
   state.handoff = handoff;
-  if (!state._workspaceProjectMap) state._workspaceProjectMap = {};
-  for (const ws of overview.workspaces || []) {
-    state._workspaceProjectMap[ws.workspace_id] = projectId;
-  }
 
   el.intentCount.textContent = (overview.active_intents?.length || 0) + (overview.other_intents?.length || 0) || "";
   el.decisionCount.textContent = (overview.active_decisions?.length || 0) + (overview.deprecated_decisions?.length || 0) || "";
   el.snapCount.textContent = overview.total_snaps ?? overview.recent_snaps?.length ?? "";
 
-  const ws = [...(overview.workspaces || [])]
+  const ws = [...historySources(overview)]
     .sort((left, right) => String(right.last_synced_at || "").localeCompare(String(left.last_synced_at || "")))[0];
   el.syncChip.textContent = ws
     ? `${t("Synced")} ${relativeDate(ws.last_synced_at)}`
@@ -1739,7 +1695,7 @@ async function loadProject(projectId, { detail = null, reveal = false } = {}) {
     ? t("{count} active · {missing} missing next", {count: handoff.intents.length, missing: missingNext})
     : t("No active objective");
 
-  if (!overview.workspaces?.length) {
+  if (!historySources(overview).length) {
     renderSetupGuide("unsynced");
     clearDetail(t("Complete the first sync to populate data."));
     writeRoute();
@@ -1884,7 +1840,7 @@ function localizeWorkspace() {
     }
     const detailPending = el.detailPane.getAttribute("aria-busy") === "true";
     renderProjectSelector();
-    if (state.overview?.workspaces?.length) {
+    if (historySources(state.overview).length) {
       if (!state._searchBusy) renderSidebar();
       if (!detailPending && state.activeTab === "overview") renderProjectSummary();
       else if (!detailPending && state.activeTab === "search" && !state.selectedDetail) el.detailContent.innerHTML = renderSearchWelcome();
@@ -1916,7 +1872,7 @@ function localizeWorkspace() {
     el.authError.textContent = t(state._authMessage || "");
     el.accountMode.textContent = t("Private session");
     if (state._statusMessage) el.statusLine.textContent = t(state._statusMessage);
-    const ws = [...(state.overview?.workspaces || [])].sort((a, b) => String(b.last_synced_at || "").localeCompare(String(a.last_synced_at || "")))[0];
+    const ws = [...historySources(state.overview)].sort((a, b) => String(b.last_synced_at || "").localeCompare(String(a.last_synced_at || "")))[0];
     el.syncChip.textContent = ws ? `${t("Synced")} ${relativeDate(ws.last_synced_at)}` : t("Not synced");
     const active = state.handoff?.intents || [];
     el.navHealth.textContent = active.length ? t("{count} active · {missing} missing next", {count: active.length, missing: active.filter(intent => !parseCheckpoint(intent.latest_snap).next).length}) : t("No active objective");

@@ -111,7 +111,7 @@ npx skills add dozybot001/Intent -g --all
 Requires Python 3.9+ and Git. The install script handles pipx automatically.
 Re-run the installer anytime to upgrade or repair an existing `itt` install.
 
-Initialize Intent inside the Git repository you want to record:
+Initialize Intent in the project directory you want to record (Git is optional):
 
 ```bash
 cd your-project
@@ -120,33 +120,33 @@ itt init
 
 `itt init` creates `.intent/` and adds it to this clone's Git-local `.git/info/exclude`; it does **not** edit the shared `.gitignore`. The command returns a warning if the local exclude cannot be updated. Review the files before intentionally sharing them, and add `.intent/` to `.gitignore` separately if the whole team should inherit that rule.
 
-Sign in once for the official IntHub service, then link and push each repository:
+Sign in once, then synchronize one shared semantic history per project:
 
 ```bash
 itt auth login
 cd your-project
-itt hub status
-itt hub link
+itt status
 itt push
 ```
 
-`itt auth login` uses `https://inthub.tenon.asia` by default. It stores the non-secret endpoint in the user config and delegates the account token to Git's configured credential helper, such as macOS Keychain, Git Credential Manager, or libsecret. The same account credential is reused across repositories; each repository keeps its own non-secret `project_id`, `workspace_id`, and `repo_binding` in `.intent/hub.json`. `itt hub status` reports that local state, including `pull_source` provenance and `last_pulled_at`, without calling the IntHub API. GitHub and Gitee origins are supported, while Tenon OIDC identifies the IntHub account. The CLI never needs to rewrite `origin`, and `itt push` rejects an origin that no longer matches the saved binding. `--token` and `INTHUB_TOKEN` remain one-command or environment overrides and are never written to repository config. `itt hub sync` remains a compatible alias for `itt push`.
+Git is optional. The directory name supplies the default project name; use `itt remote add origin https://inthub.tenon.asia --project NAME` when local copies have different names. This remote belongs to Intent and is independent of a code repository's GitHub/Gitee origin. Global credentials still use the secure Git credential helper; tokens never enter `.intent/`. Push creates the remote project when needed and uploads a version identified by its parent and snapshot checksum. Unchanged snapshots create no extra versions. `itt status` reports `empty`, `up_to_date`, `ahead`, `behind`, or `diverged`; `--local` works offline. No staging area, manual commit, branch, force-push, or automatic merge is required.
 
-To restore one account-private IntHub workspace into another checkout, initialize local storage first and reuse the Tenon account credential saved by `itt auth login`:
+To restore the same account-private project into another local directory:
 
 ```bash
 cd another-checkout
 itt init
+itt remote add origin https://inthub.tenon.asia --project your-project
 itt pull
 
 # Optional preview without applying changes
 itt pull --dry-run
 
-# Select a source explicitly when no saved or linked source is available
-itt pull --workspace wks_...
+# Inspect local/remote synchronization state
+itt status
 ```
 
-`itt pull [--api-base-url URL] [--token TOKEN] [--workspace ID] [--dry-run]` restores one complete source-workspace snapshot. At runtime, the endpoint comes from an explicit `--api-base-url`, the repository-local binding, the user-level config, or the official endpoint, in that order. The source workspace comes from an explicit `--workspace`, saved `pull_source` provenance, or the linked checkout's own workspace, in that order; only when none applies does the service select the sole synced source, and it requires an explicit choice if several candidates remain. Pull preserves the destination checkout's identity: a new checkout is not linked automatically and must run `itt hub link` before its first later `itt push`, which creates its own workspace rather than reusing the source ID. Updates are restricted fast-forwards. If local Intent data changed while the source stayed unchanged, pull performs no write; if local and remote histories diverged, it refuses without a force or merge mode.
+Pull restores a complete validated shared snapshot. An unchanged local baseline can advance; local changes stay intact when the remote is unchanged. Divergence is reported without overwriting either side. Repeated pull/push is a no-op. Synchronization uses one shared project history; no workspace or Git-provider branches remain.
 
 Pull requires an IntHub service version that provides the account-private snapshot endpoint. Passing isolated or test-environment checks does not by itself validate restoration of real account history.
 
@@ -159,7 +159,7 @@ itt hub start
 Then, in your project repo:
 
 ```bash
-itt hub link --api-base-url http://127.0.0.1:7210
+itt remote add origin http://127.0.0.1:7210 --project your-project
 itt push
 ```
 

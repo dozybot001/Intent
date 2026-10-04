@@ -1,4 +1,7 @@
 import os
+import copy
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -9,9 +12,11 @@ from apps.inthub_api.auth import (
     create_web_session,
     upsert_github_account,
 )
-from apps.inthub_api.ingest import link_project, store_sync_batch
+from apps.inthub_api.common import APIError
+from apps.inthub_api.db import connect
+from apps.inthub_api.history import link_history, push_history, read_history
+from intent_cli.hub.versions import revision_id
 from apps.inthub_api.queries import list_projects, project_overview
-from apps.inthub_api.snapshots import export_snapshot
 from apps.inthub_api.tenon import (
     account_for_identity, account_for_session as tenon_account_for_session,
     bind_existing_account, consume_attempt, create_attempt, create_session,
@@ -20,6 +25,49 @@ import time
 
 
 POSTGRES_URL = os.getenv("INTHUB_TEST_POSTGRES_URL")
+
+
+@pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")
+def test_postgresql_shared_history_serializes_concurrent_pushes():
+    name = "shared-" + os.urandom(6).hex()
+    account = upsert_github_account(POSTGRES_URL, {"id": name, "login": name})
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        links = list(pool.map(lambda _: link_history(POSTGRES_URL, name, account["id"]), range(2)))
+    assert links[0] == links[1]
+    pid = links[0]["project_id"]
+    snapshot = {"intents": [{"id": "intent-001", "object": "intent", "status": "active",
+                            "created_at": "2026-10-04T00:00:00+00:00", "origin": "test",
+                            "what": "shared", "why": "concurrency", "snap_ids": [], "decision_ids": []}],
+                "snaps": [], "decisions": []}
+    first = {"project_name": name, "project_id": pid, "parent": None,
+             "revision": revision_id(None, snapshot), "snapshot": snapshot}
+    assert push_history(POSTGRES_URL, first, account["id"])["changed"]
+    assert push_history(POSTGRES_URL, first, account["id"])["changed"] is False
+    barrier = threading.Barrier(2)
+
+    def push(label):
+        following = copy.deepcopy(snapshot)
+        following["snaps"].append({"id": "snap-001", "object": "snap", "what": label,
+                                    "created_at": "2026-10-04T00:00:01+00:00", "origin": "test",
+                                    "why": "", "intent_id": "intent-001"})
+        following["intents"][0]["snap_ids"].append("snap-001")
+        payload = {**first, "snapshot": following, "parent": first["revision"],
+                   "revision": revision_id(first["revision"], following)}
+        barrier.wait()
+        try:
+            return push_history(POSTGRES_URL, payload, account["id"])
+        except APIError as exc:
+            return {"error": exc.code}
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(push, ["first", "second"]))
+    assert sum(result.get("changed") is True for result in results) == 1
+    assert sum(result.get("error") == "NON_FAST_FORWARD" for result in results) == 1
+    with connect(POSTGRES_URL) as conn:
+        assert conn.execute("SELECT count(*) AS count FROM semantic_versions WHERE project_id = ?", (pid,)).fetchone()["count"] == 2
+    overview = project_overview(POSTGRES_URL, pid, account_id=account["id"])
+    assert overview["history"]["revision"] == read_history(POSTGRES_URL, name, account["id"])["revision"]
+    assert "workspaces" not in overview
 
 
 @pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")
@@ -34,56 +82,6 @@ def test_postgresql_tenon_mapping_attempt_and_session():
     assert consume_attempt(POSTGRES_URL, attempt["state"])["nonce"] == attempt["nonce"]
     session = create_session(POSTGRES_URL, account["id"], info)
     assert tenon_account_for_session(POSTGRES_URL, session["token"])["role"] == "admin"
-
-
-@pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")
-def test_postgresql_link_sync_and_read_round_trip():
-    suffix = os.urandom(6).hex()
-    repo = {
-        "provider": "github",
-        "repo_id": f"integration/{suffix}",
-        "owner": "integration",
-        "name": suffix,
-    }
-    workspace_id = f"wks_{suffix}"
-    linked = link_project(POSTGRES_URL, f"Postgres {suffix}", repo, workspace_id)
-    batch = store_sync_batch(
-        POSTGRES_URL,
-        {
-            "sync_batch_id": f"sync_{suffix}",
-            "generated_at": "2026-08-02T00:00:00+00:00",
-            "project_id": linked["project_id"],
-            "repo": repo,
-            "workspace": {"workspace_id": workspace_id},
-            "git": {"branch": "main", "head_commit": suffix, "dirty": False},
-            "snapshot": {
-                "intents": [
-                    {
-                        "id": "intent-001",
-                        "object": "intent",
-                        "status": "active",
-                        "what": "Verify PostgreSQL",
-                        "why": "Production uses the PostgreSQL adapter",
-                        "snap_ids": [],
-                        "decision_ids": [],
-                    }
-                ],
-                "snaps": [],
-                "decisions": [],
-            },
-        },
-    )
-
-    assert batch["duplicate"] is False
-    overview = project_overview(POSTGRES_URL, linked["project_id"])
-    assert overview["active_intents"][0]["what"] == "Verify PostgreSQL"
-    projects = list_projects(POSTGRES_URL)["projects"]
-    assert any(project["id"] == linked["project_id"] for project in projects)
-    exported = export_snapshot(POSTGRES_URL, "github", repo["repo_id"], workspace_id=workspace_id)
-    assert exported["project_id"] == linked["project_id"]
-    assert exported["source_workspace_id"] == workspace_id
-    assert exported["batch"]["sync_batch_id"] == f"sync_{suffix}"
-    assert exported["snapshot"]["intents"][0]["what"] == "Verify PostgreSQL"
 
 
 @pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")

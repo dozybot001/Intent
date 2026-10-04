@@ -173,7 +173,7 @@ def test_production_image_declares_gitee_source_and_exact_revision():
     )
     assert 'org.opencontainers.image.revision="${INTHUB_REVISION}"' in dockerfile
     assert 'io.inthub.database-schema-version="${INTHUB_SCHEMA_VERSION}"' in dockerfile
-    assert "ARG INTHUB_SCHEMA_VERSION=3" in dockerfile
+    assert "ARG INTHUB_SCHEMA_VERSION=4" in dockerfile
     assert "github.com/dozybot001/Intent" not in dockerfile
 
 

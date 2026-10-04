@@ -7,6 +7,7 @@ window.IntHubI18n = (() => {
     "{count} incomplete checkpoints": "{count} 个检查点待补充", "{count} blocked objectives": "{count} 个目标被阻塞", "Ready to continue": "可以继续工作",
     "Overview": "概览", "Intents": "意图", "Timeline": "时间线", "Decisions": "决策", "Search": "搜索",
     "Project": "项目", "Project memory": "项目记忆",
+    "Run once per project; Git is optional.": "每个项目初始化一次；无需 Git。", "Choose a shared project name, then push its semantic history.": "选择共享项目名，然后推送语义历史。",
     "No projects yet": "暂无项目", "Checking sync": "正在检查同步", "Waiting for project": "等待项目", "Continuity status": "接续状态",
     "Current work": "当前工作", "Continuation queue": "接续队列", "Related context": "关联上下文", "Back to list": "返回列表",
     "Account": "账号", "Private session": "私有会话", "Access token": "访问令牌", "Sign out": "退出 IntHub",
@@ -79,6 +80,7 @@ window.IntHubI18n = (() => {
     "A token grants CLI access to your own projects. It is shown once; keep it secret and revoke it when no longer needed.": "令牌供 CLI 访问你自己的项目，只显示一次。请妥善保管，不再使用时撤销。",
     "{count} decisions": "{count} 条决策", "{count} linked Intents": "{count} 个关联意图", "Applies to {count} linked Intents.": "适用于 {count} 个关联意图。",
     "Load more ({count})": "加载更多（{count}）", "{count} workspaces": "{count} 个工作区", "{count} constraints": "{count} 条约束", "{count} sources": "{count} 个来源",
+    "Shared history": "共享语义历史", "History status": "历史状态", "Legacy history": "旧版历史",
     "{count} active · {missing} missing next": "{count} 个活跃目标 · {missing} 个缺少下一步", "{name} is up to date": "{name} 已更新",
     "{id} checkpoint": "{id} 检查点", "Checkpoint {id}": "检查点 {id}", "dirty": "有变更", "clean": "无变更",
   };

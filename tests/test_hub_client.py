@@ -40,8 +40,8 @@ def test_http_json_retries_timeout_with_the_same_request(monkeypatch):
 
     result = client.http_json(
         "POST",
-        "https://inthub.example/api/v1/hub/link",
-        {"workspace": {"workspace_id": "wks_stable"}},
+        "https://inthub.example/api/v2/link",
+        {"project_name": "stable"},
         "secret-token",
         timeout=0.1,
     )
@@ -63,15 +63,15 @@ def test_http_json_timeout_is_structured_and_marks_post_unknown(
     with pytest.raises(SystemExit):
         client.http_json(
             "POST",
-            "https://inthub.example/api/v1/hub/link",
-            {"workspace": {"workspace_id": "wks_stable"}},
+            "https://inthub.example/api/v2/link",
+            {"project_name": "stable"},
             timeout=0.01,
         )
 
     output = json.loads(capsys.readouterr().out)
     assert output["error"]["code"] == "NETWORK_TIMEOUT"
     assert output["error"]["details"] == {
-        "url": "https://inthub.example/api/v1/hub/link",
+        "url": "https://inthub.example/api/v2/link",
         "reason": "TimeoutError",
         "attempts": 2,
         "timeout_seconds": 0.01,

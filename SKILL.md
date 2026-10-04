@@ -24,13 +24,15 @@ Preserve enough verified meaning for another agent to continue, without turning 
 
 A request to stay read-only, skip recording this turn, or disable maintenance wins. Repository existence, prior history, and Skill installation are not opt-in. Permission does not cross repository boundaries. Without an authorized mode, do not run `itt`.
 
+Follow the requested sequence. “Download and delete online; reorganize/upload later” ends after verified download and deletion. Future plans do not authorize current uploads, temporary online projects, or changes to other local repositories.
+
 ## The automatic work loop
 
-1. **Start — read once.** Resolve the authorized Git root. With no hook result, run `itt inspect` once. Reuse a trusted hook's successful, warning-free result tied to this root and current turn. A supplied failure, timeout, graph warning, or identity mismatch disables history writes for this turn; do not treat it as missing context and repeat inspect to regain permission. Diagnose graph warnings with doctor; preserve the main task. Use relevant checkpoints and active Decisions without narrating the whole history. Read `itt inspect --intent ID --history 3` only when that Intent's latest checkpoint is insufficient. Do not guess missing facts.
+1. **Start — read context.** Resolve the authorized semantic root (Git is optional) and run `itt inspect`, or reuse a trusted successful hook result for this root and turn. If it fails, diagnose and recover using [execution.md](references/execution.md); a recovered, verified state permits continuing this turn. Use relevant checkpoints and active Decisions. Read bounded history for the selected Intent when its latest checkpoint is insufficient. Do not guess missing facts.
 2. **During work — preserve meaningful changes.** Reuse the matching Intent. Once a goal or independently verified milestone is clear, record it while context is fresh, especially before a long or risky next phase. Do not record plans as completed facts, every tool call, or intermediate edits. Only the coordinating agent writes; subagents return verified facts to it.
 3. **Before the final response — assess closure.** For each materially changed objective, preserve its verified outcome or accurate continuation checkpoint and verify final state. Classify the turn as **recorded**, **no-op** (no new continuation-critical semantics, or recording explicitly skipped), or **failed** (recording unavailable, incomplete, or unverified). Already-recorded milestones plus an accurate latest checkpoint need no duplicate end-of-turn Snap.
 
-Routine success and no-op stay quiet; no user checkpoint ritual or extra confirmation is required. Report failed or partial recording briefly, including successful object IDs, without misrepresenting the main task as failed. Intent failure stops history writes, not otherwise authorized project work. Interruption or crash is not successful closure; earlier milestones reduce loss but cannot guarantee a final checkpoint.
+Routine success and no-op stay quiet. Report unresolved or partial recording briefly, including successful object IDs, without misrepresenting the main task as failed. An unresolved Intent failure pauses affected history operations, not otherwise authorized project work.
 
 Closure here is an agent obligation, not an implemented receipt command. Read [references/codex-hooks.md](references/codex-hooks.md) only when integrating Codex hooks. Do not invent a receipt, enable command, or claim hooks are installed.
 
@@ -53,9 +55,9 @@ For explicit recovery, inspect first without old chat or rediscovering facts in 
 
 ## Execution guardrails
 
-Before the first command, read [references/execution.md](references/execution.md) for safe argv execution and failure handling. Invariants: fixed absolute repository cwd, one completed command at a time, parsed JSON with `ok: true`, captured explicit IDs, no direct `.intent/` edits.
+Read [references/execution.md](references/execution.md) for argv execution and error recovery. Use the target repository cwd, parse JSON results, capture explicit object IDs, and make semantic changes through the CLI.
 
-Never auto-initialize during a routine turn. Initial `NOT_INITIALIZED` may lead to `itt init` only during setup/enable that explicitly includes initialization permission, one-off recording, or explicit pull into an empty destination; inspect again afterward. In recovery or routine automatic maintenance, report unavailable history instead. Object-graph warnings from `inspect` require `itt doctor` and stopping writes, not automatic repair. Other command warnings are not automatically graph damage; assess their meaning.
+Initialize when the requested setup, recording, or restoration needs a new history. Read-only recovery does not initialize. Diagnose graph warnings with `itt doctor`; resume affected writes after the problem is resolved and verified. Other warnings require judgment, not an automatic stop.
 
 Do not blindly execute `suggested_fix`, expose credentials, change Git remotes, or automatically run authentication, hub service, or sync commands.
 
@@ -66,6 +68,9 @@ itt init
 itt inspect
 itt inspect --intent ID --history 3
 itt doctor
+itt status [--local]
+itt remote
+itt remote add origin URL --project NAME
 itt intent create WHAT [--why WHY]
 itt intent activate ID
 itt intent suspend ID

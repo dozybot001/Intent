@@ -31,12 +31,6 @@ def cmd_version(_args):
 
 def cmd_init(_args):
     path, err = init_workspace()
-    if err == "GIT_STATE_INVALID":
-        error(
-            "GIT_STATE_INVALID",
-            "Not inside a Git repository.",
-            suggested_fix="cd into a git repo and run: itt init",
-        )
     if err == "ALREADY_EXISTS":
         error(
             "ALREADY_EXISTS",
@@ -44,7 +38,7 @@ def cmd_init(_args):
             suggested_fix="Remove .intent/ first if you want to reinitialize.",
         )
     warnings = []
-    if not ensure_local_git_exclude(path.parent):
+    if git_root() is not None and not ensure_local_git_exclude(path.parent):
         warnings.append(
             "Could not add .intent/ to Git's local exclude file; exclude it manually before recording private semantics."
         )
