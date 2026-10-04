@@ -157,11 +157,13 @@ sequenceDiagram
   participant I as Intent
   participant B as Agent B
 
-  H->>A: “修复登录超时”
-  A-->>H: 完成
-  H->>A: “记录一下”
-  A->>I: intent create + snaps（回溯记录）
-  A->>I: intent done
+  H->>A: 一次启用当前仓库的本地自动维护
+  H->>A: “改善登录流程”
+  A->>I: itt inspect（读取已有语义）
+  A->>A: 修复超时并验证
+  A->>I: 复用/创建 Intent，追加已验证里程碑
+  A->>I: 更新检查点：修复已验证，部署待完成
+  A-->>H: 本轮结果（不要求用户另发记录请求）
 
   Note over A,B: session 结束，上下文丢失
 
@@ -172,6 +174,8 @@ sequenceDiagram
 ```
 
 在传统开发里，语义在程序员脑中。在 agent 时代，session 会中断、agent 会切换、上下文会丢失。Intent 让这个交接变成结构化的，而不是口头的。
+
+以上自动维护需要一次明确授权，当前由 Skill/Agent 指令承载；Codex hook 的入口读取与闭环回执仍是[接入设计](../../references/codex-hooks.md)，不是已经部署的平台保证。每轮评估是否存在关键语义变化，没有变化就零写入，不能退回逐 query 日志。
 
 ## 7. 判断这件事是否成立
 

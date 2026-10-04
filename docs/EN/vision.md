@@ -157,11 +157,13 @@ sequenceDiagram
   participant I as Intent
   participant B as Agent B
 
-  H->>A: "fix the login timeout"
-  A-->>H: done
-  H->>A: "record what we did"
-  A->>I: intent create + snaps (retrospective)
-  A->>I: intent done
+  H->>A: enable local maintenance for this repository once
+  H->>A: "improve the login flow"
+  A->>I: itt inspect (read existing semantics)
+  A->>A: fix and verify the timeout
+  A->>I: reuse/create Intent, append verified milestone
+  A->>I: checkpoint: fix verified, deployment remains
+  A-->>H: turn result (no separate recording request)
 
   Note over A,B: session ends, context lost
 
@@ -172,6 +174,8 @@ sequenceDiagram
 ```
 
 In traditional development, semantics lived in the programmer's head. In the agent era, sessions are interrupted, agents are swapped, and context is lost between turns. Intent makes this handoff structural — not verbal.
+
+The loop requires explicit one-time enablement and currently runs as a Skill/agent instruction contract. Codex entry hooks and closure receipts remain an [integration design](../../references/codex-hooks.md), not a deployed platform guarantee. Each turn assesses critical semantic change; unchanged turns write nothing rather than reverting to per-query logging.
 
 ## 7. Judging whether this works
 

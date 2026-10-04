@@ -19,14 +19,17 @@ python -m pytest -q
 
 ## Development Workflow
 
-This project dogfoods Intent, but `.intent/` writes remain explicit. Do not initialize or record merely because you started contributing. When the user asks to record or recover through Intent, begin with:
+This project dogfoods Intent. Local writes require either explicit one-off recording permission or explicit automatic-maintenance enablement; contributing alone grants neither. When the user asks to record through Intent, begin with `itt inspect`; if that first inspect returns `NOT_INITIALIZED`, the explicit recording request permits `itt init` and a second inspect. Recovery remains read-only unless the user asks to continue the recovered work.
 
 ```bash
-itt init          # if your fork doesn't have .intent/ yet
 itt inspect       # see current state
+itt init          # only after authorized recording returns NOT_INITIALIZED
+itt inspect       # repeat after the authorized initialization
 ```
 
 Reuse a semantically matching active Intent, or reactivate a relevant suspended Intent, before creating a new one. Zero writes is valid when there is no new high-signal semantic information. Before suspending open work, make its latest Snap a self-contained continuation checkpoint.
+
+The automatic-maintenance contract is a one-time local opt-in for one named repository or task through the active Skill or another recorded agent instruction: each turn starts with inspect, records only verified important milestones during the work, and closes as `recorded`, `no-op`, or `failed`. Per-turn closure does not mean per-turn Snap creation, and records must not be split by query, file, command, or tool call. This repository does not ship an automatic-enable or turn-receipt CLI command, and Codex hooks for this flow are not implemented or enabled. Do not claim hook-enforced evidence or silently infer enablement. Enablement must separately authorize initialization of an uninitialized repository and must not imply IntHub login or sync, automatic Decisions, or query-end `suspend` / `done` transitions.
 
 ## Reporting Bugs
 

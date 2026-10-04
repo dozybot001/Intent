@@ -71,16 +71,15 @@ flowchart LR
 
 ## 记录与接续
 
-早期版本采用 **Snap–Query** 模式——agent 在每次交互后自动捕获快照。在自用中，这会产生过多低价值记录，并打断自然的工作流。
+早期版本采用 **Snap–Query** 模式——agent 在每次交互后自动捕获一条快照。在自用中，这会产生过多低价值记录，并打断自然的工作流。因此 Intent 把语义变化——而不是 query、文件、命令、commit 或工具调用——作为记录边界。
 
-Intent 现在采用 **Intent–Session** 模式：agent 自由工作，由你明确决定何时让 Intent 写入。记录聚焦已经验证的目标、里程碑和决策，而不是捕获每个中间动作。这是一项旨在保持低打扰的产品取舍；未记录的工作不会被自动恢复。
+默认情况下，记录仍由用户明确发起：你要求 agent 用 Intent 记录或更新指定仓库，agent 先检查现有状态，复用语义相同的 active 或 suspended Intent，只写入已验证的高信号变化。独立目标保持为不同 Intent；共享同一结果和生命周期的实现细节则保持在同一边界内。
 
-1. 和 agent 一起完成你的目标
-2. 明确要求 agent 用 Intent 记录或更新这项工作
-3. Agent 先检查现有状态，复用语义相同的 active 或 suspended Intent，只写入新增的高信号语义
-4. 如果目标仍未结束，最后一个 Snap 必须是自包含检查点：已验证状态、当前边界、下一步，以及 blocker 或局部约束
+**显式启用的自动维护：**当用户一次性明确为指定仓库或任务启用本地自动维护后，agent 应在每轮开头运行 `itt inspect`，在工作过程中记录已验证的重要里程碑，并在结束时将本轮收口为 `recorded`、`no-op` 或 `failed`。每轮闭环是责任边界，不等于每轮必须新建 Snap；没有对接续有意义的语义变化时，正常结果就是 `no-op`。
 
-没有新的关键信息时，零写入也是正确结果。每次记录没有对象数量配额：不同的独立目标边界应拆成不同 Intent，并且只创建保存关键语义变化所需的 Snap。和 `git commit` 一样，写入必须由用户明确发起；普通的总结、记笔记或状态汇报不授权修改 `.intent/`。
+这是用户明确授权后的 Agent 执行契约，不代表平台已经强制自动化。当前 CLI 不存在自动启用或 turn receipt 命令，Codex hooks 接入也尚未实现或启用。未被明确启用的仓库仍需要当次直接的记录请求，才能修改 `.intent/`。自动维护不得在启用时未另行授权的情况下初始化仓库，不得登录或同步 IntHub，不得臆造 Decision，也不得在 query 结束时自动 suspend 或 done Intent。
+
+只要未结束目标确实发生了记录，它的最新 Snap 就应保持为自包含检查点：已验证状态、当前边界、下一步，以及 blocker 或局部约束。零写入是正确结果，每轮也没有对象数量配额。Decision 候选应在必要时一次批量确认，不能每轮打断用户。
 
 需要接续时，明确要求 agent “通过 Intent 恢复项目”。Agent 先运行 `itt inspect`；如果最新检查点不足且 `has_more` 为 true，再用 `itt inspect --intent ID --history 3` 受限读取最近历史。仅查看或解释恢复状态时保持只读。
 
@@ -150,7 +149,7 @@ IntHub Local 默认只绑定 `127.0.0.1`。当前本地 API 不强制校验 Bear
 
 公网部署使用统一账户路径：Tenon 统一登录、数据库 Web 会话、账户级 CLI access token、账户隔离的项目、PostgreSQL、回环应用端口和 Caddy TLS。参见 [IntHub 生产部署](docs/CN/inthub-production.md)。
 
-> **Tips：** 请明确表达：“用 Intent 把这轮工作写入 `.intent/`”进入记录模式；“通过 Intent 恢复这个项目”进入接续模式。普通总结和状态汇报保持只读。
+> **Tips：** 请明确表达：“用 Intent 把这轮工作写入 `.intent/`”授权一次记录；“为这个仓库自动维护 Intent”启用上述 Agent 执行契约；“通过 Intent 恢复这个项目”进入接续模式。自动维护不是 `itt` 命令，当前也没有 Codex hook 强制执行。
 
 ## Showcase
 

@@ -71,16 +71,15 @@ flowchart LR
 
 ## Record and resume
 
-Early versions used a **Snap–Query** model where the agent autonomously captured snapshots after each interaction. In self-use, that produced too many low-value records and interrupted the natural flow of work.
+Early versions used a **Snap–Query** model where the agent autonomously captured a snapshot after each interaction. In self-use, that produced too many low-value records and interrupted the natural flow of work. Intent therefore treats semantic change—not a query, file, command, commit, or tool call—as the recording boundary.
 
-Intent now uses an **Intent–Session** model: the agent works freely, and you explicitly decide when Intent should write. Recording focuses on verified goals, milestones, and decisions instead of every intermediate action. This is a product trade-off intended to keep recording lightweight; unrecorded work is not recovered automatically.
+By default, recording remains explicit: you ask the agent to record or update a repository with Intent, it first inspects existing state, reuses matching active or suspended Intents, and writes only verified, high-signal changes. Independent objectives remain separate Intents, while implementation details that share one outcome and lifecycle stay together.
 
-1. Work with the agent on your goal
-2. Explicitly ask the agent to record or update the work with Intent
-3. The agent inspects existing state, reuses a matching active or suspended Intent, and writes only new high-signal semantics
-4. If the goal remains open, its latest Snap is a self-contained checkpoint: verified state, current boundary, next step, and blockers or local constraints
+**Opt-in automatic maintenance:** after a user explicitly enables local automatic maintenance for a specific repository or task once, the agent should begin each turn with `itt inspect`, record verified important milestones during the work, and close the turn as `recorded`, `no-op`, or `failed`. That per-turn closure is an accountability boundary, not a requirement to create a Snap. The normal result for a turn with no continuation-critical semantic change is `no-op`.
 
-Zero writes is a valid result when there is no new critical semantic information. There is no per-recording object quota: split independent objective boundaries into separate Intents and create only the Snaps needed to preserve meaningful semantic changes. Like `git commit`, recording is user-initiated; generic requests to summarize, take notes, or report status do not authorize writes to `.intent/`.
+This is an agent operating contract after explicit user authorization, not a claim of platform-enforced automation. The current CLI has no automatic-enable or turn-receipt command, and Codex hook integration for this flow is not implemented or enabled yet. Repositories that have not been explicitly enabled still require a direct recording request before `.intent/` can change. Automatic maintenance must not initialize a repository unless enablement separately authorizes initialization. It never authorizes signing in or syncing to IntHub, manufacturing a Decision, or automatically suspending or completing an Intent at query end.
+
+Whenever an open goal is recorded, its latest Snap should remain a self-contained checkpoint: verified state, current boundary, next step, and blockers or local constraints. Zero writes is valid, and there is no per-turn object quota. Decision candidates should be confirmed together when needed rather than interrupting every turn.
 
 To resume, explicitly ask the agent to recover the project through Intent. It starts with `itt inspect`; if the latest checkpoint is not enough and `has_more` is true, it can narrowly read recent history with `itt inspect --intent ID --history 3`. Merely inspecting or explaining recovery state is read-only.
 
@@ -150,7 +149,7 @@ IntHub Local binds to `127.0.0.1` by default. Its current local API does not enf
 
 Internet deployments use one account path: Tenon sign-in, database-backed Web sessions, account-scoped CLI access tokens, account-isolated projects, PostgreSQL, a loopback app port, and Caddy TLS. See [IntHub Production Deployment](docs/EN/inthub-production.md).
 
-> **Tips:** Be explicit: “Use Intent to record this work in `.intent/`” enters recording mode; “Resume this project through Intent” enters recovery mode. Ordinary summaries and status reports remain read-only.
+> **Tips:** Be explicit: “Use Intent to record this work in `.intent/`” authorizes one recording, while “Maintain Intent automatically for this repository” enables the opt-in agent contract above. “Resume this project through Intent” enters recovery mode. Automatic maintenance is not an `itt` command and is not currently enforced by a Codex hook.
 
 ## Showcase
 
