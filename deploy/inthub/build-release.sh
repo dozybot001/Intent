@@ -64,7 +64,7 @@ RELEASE_SHA="$(git rev-parse HEAD)"
 if git grep -n 'filter=lfs' "${RELEASE_SHA}" -- ':(glob)**/.gitattributes' >/dev/null 2>&1; then
     fail "Git LFS requires an explicit project release policy"
 fi
-RELEASE_VERSION="$(git describe --tags --always --long)"
+RELEASE_VERSION="$(git describe --tags --always)"
 APP_IMAGE="inthub:${RELEASE_SHA}"
 FINAL_DIRECTORY="${OUTPUT_ROOT}/${RELEASE_SHA}"
 DATABASE_LOCK_LINE="$(

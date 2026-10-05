@@ -2,6 +2,7 @@
 set -euo pipefail
 
 REPO="https://github.com/dozybot001/Intent.git"
+RELEASE_TAG="v7.0.0"
 
 info()  { printf '\033[1;34m[intent]\033[0m %s\n' "$*"; }
 err()   { printf '\033[1;31m[intent]\033[0m %s\n' "$*" >&2; }
@@ -41,7 +42,7 @@ info "pipx $(pipx --version)"
 
 # --- intent-cli ---
 info "Installing intent-cli..."
-pipx install "intent-cli @ git+${REPO}" --force
+pipx install "intent-cli @ git+${REPO}@${RELEASE_TAG}" --force
 
 info "Done! Run 'itt version' to verify."
 info "To add the agent skill: npx skills add dozybot001/Intent -g --all"

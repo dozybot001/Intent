@@ -16,7 +16,7 @@ description: >-
 - 首次启用、缺少 `itt` 或需要可选 IntHub 认证时读 [onboarding.md](references/onboarding.md)。缺少 `itt` 时先征得安装确认，再安装、验证并继续原流程，不停在“找不到命令”。本地记录不需要账号。
 - 确定规范化的语义根目录；Git 可选。可信且对应本项目、当前轮的 hook 上下文就是开头快照，否则检查 `itt maintenance status`。执行命令前读 [execution.md](references/execution.md)。
 - 新历史的 `itt init` 默认开启维护并安装项目级 Codex hooks；已有历史只需一次 `itt maintenance on`。 `itt maintenance off` 只关闭当前项目。安装 Skill 不会开启其他项目。
-- 已配置不等于已执行：Codex 需要审核并信任 hooks。仅设置、缺失 hooks 或宿主适配时读 [codex-hooks.md](references/codex-hooks.md)。
+- 用户要求开启实时记录时，Agent 完成项目配置后，明确告知用户：进入**设置 → 钩子**，审核并信任本项目的 `UserPromptSubmit`（开头读取）和 `Stop`（收尾检查）两个钩子即可完成信任步骤，不需要再次安装。若看不到钩子，按 [codex-hooks.md](references/codex-hooks.md) 排查项目发现；已配置不等于已实际执行。
 - IntHub 可选。用户明确需要且认证缺失时，引导到 IntHub 官网登录并创建 access token，再由用户私下输入 `itt auth login`；不要求把 token 粘贴到聊天。完整路径见 [onboarding.md](references/onboarding.md)。
 - 已关闭或未初始化的项目不自动写语义。仍可明确要求一次性记录；仅请求的设置、记录或恢复确实需要时初始化。接续先只读。
 - 用户要求只读、本轮跳过或关闭维护时优先遵守。不自动同步、登录、公开发布或改 Git remote。明确推送/拉取时分别读 [sync.md](references/sync.md) / [pull.md](references/pull.md)。遵守请求顺序；未来上传计划不是当前授权。

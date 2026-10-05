@@ -13,7 +13,7 @@ Official source: `https://github.com/dozybot001/Intent`. The platform installers
 If Python and pipx already exist, the installer's core operation is:
 
 ```text
-pipx install "intent-cli @ git+https://github.com/dozybot001/Intent.git"
+pipx install "intent-cli @ git+https://github.com/dozybot001/Intent.git@v7.0.0"
 ```
 
 Do not use `--force` to overwrite an existing install without approved repair/upgrade. On restricted hosts, let the user run the official installer. Diagnose network/PATH issues in scope; a newly installed executable may need a fresh shell or its resolved absolute path. Installation uses normal process exit status, not the `itt` JSON contract. Verify `itt version` returns JSON with `ok: true`, then check the required maintenance commands. Record the actual revision/version rather than promising any fetched branch matches an unpublished Skill.
@@ -22,7 +22,7 @@ Do not use `--force` to overwrite an existing install without approved repair/up
 
 Resolve the target root and run `itt maintenance status`. For a new history run `itt init`; for a disabled existing history run `itt maintenance on`. Do not reinitialize or delete an existing `.intent/`. Reuse an already enabled project.
 
-Follow `hooks.setup` and [codex-hooks.md](codex-hooks.md) through project discovery, exact hook review/trust, and a real host turn. Explain only the host confirmations the user must perform; do not repeatedly ask to continue routine authorized setup. Distinguish enabled local maintenance, configured hooks, and actually observed entry/Stop execution. Without working hooks, report the Skill-only soft workflow, not a guaranteed gate.
+After configuration, tell the desktop user: **“Open Settings → Hooks, review and trust this project's UserPromptSubmit and Stop hooks.”** Explain that these provide opening context and closure checks, respectively. The user performs the trust action; do not edit trust hashes or imply configuration grants trust. If the list is empty, follow `hooks.setup` and [codex-hooks.md](codex-hooks.md) to resolve project discovery instead of leaving the user stuck. CLI users can review the same definitions through `/hooks`. Then verify a real host turn; distinguish enabled local maintenance, configured/trusted hooks, and actually observed entry/Stop execution. Without working hooks, report the Skill-only soft workflow, not a guaranteed gate.
 
 ## Optional IntHub: website → access token → private CLI login
 

@@ -1,4 +1,5 @@
 $Repo = "https://github.com/dozybot001/Intent.git"
+$ReleaseTag = "v7.0.0"
 
 function Info($msg)  { Write-Host "[intent] $msg" -ForegroundColor Cyan }
 function Err($msg)   { Write-Host "[intent] $msg" -ForegroundColor Red; exit 1 }
@@ -35,7 +36,7 @@ Info "pipx $(& pipx --version)"
 
 # --- intent-cli ---
 Info "Installing intent-cli..."
-& pipx install "intent-cli @ git+$Repo" --force
+& pipx install "intent-cli @ git+$Repo@$ReleaseTag" --force
 
 Info "Done! Run 'itt version' to verify."
 Info "To add the agent skill: npx skills add dozybot001/Intent -g --all"
