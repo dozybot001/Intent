@@ -15,10 +15,29 @@ Codex requires human review/trust of non-managed definitions through `/hooks`; e
 
 `init`, `maintenance on`, and `maintenance status` return `hooks.setup`, including an argv-safe CLI entry point for the exact root. Use that root, not a parent or another project:
 
-1. Start `codex --cd ROOT`. Review the folder trust prompt: project `.codex/` hooks are not loaded before this layer is trusted. Setup authorization does not authorize bypassing trust or silently trusting unrelated folders.
-2. For desktop setup, tell the user to open **Settings → Hooks** and review/trust this project's `UserPromptSubmit` and `Stop` definitions from `ROOT/.codex/hooks.json`. These are the opening-context and closure-check hooks. The user only needs to trust the two configured definitions, not repeat installation. CLI users use `/hooks`. The host saves exact-definition hashes; do not fabricate/edit those hashes.
-3. If Settings → Hooks is empty, resolve folder/project discovery and reload the desktop project/session. Use the exact-root CLI `/hooks` review path if needed, then return to verify the desktop. An empty list is not successful setup; do not solve it by adding a duplicate global hook or claiming execution before a real turn.
-4. Send a real, read-only smoke-test message. Verify injected context/token, a successful `no-op` receipt, and the Stop path. Test a missing receipt to verify one bounded closure retry. Manual adapter calls and CLI-only success do not prove desktop execution.
+1. For desktop setup, tell the user to open **Settings → Hooks** and review/trust this project's `UserPromptSubmit` and `Stop` definitions from `ROOT/.codex/hooks.json`. CLI users use `/hooks`; neither path requires reinstalling.
+2. If the list is empty, first verify the exact project root, hook file, and directory trust. Project-local hooks are skipped when the project `.codex/` layer is untrusted; an empty list alone does not establish that cause. When directory trust is missing, use the short handoff below. Directory trust and hook-definition trust are separate; do not edit trust hashes, bypass review, or install duplicate global hooks.
+3. Verify a real, read-only host turn: injected context/token, a successful `no-op` receipt, and the Stop observation. Manual adapter calls and CLI-only success do not prove desktop execution. A missing-receipt retry test is for adapter validation, not a required onboarding step for every user.
+
+Keep the handoff brief: what is configured, the one user action still needed, and whether real execution has been observed. If trust is pending, say “configured; awaiting your trust; automatic execution not yet verified,” then continue unrelated authorized work. Do not repeatedly request permission to continue setup, or describe unrelated products as deployed based on this setup.
+
+### Copy-ready trust handoff (only when needed)
+
+Check whether `codex` is available before telling the user to run it; do not assume desktop installation provides a CLI on PATH. Check an existing installation/PATH first. If absent, offer the [official Codex CLI installation guide](https://learn.chatgpt.com/docs/codex/cli); with npm available the official package is `npm install -g @openai/codex`. Installing Codex CLI is separate from installing `itt`: obtain approval before Agent installation, or let the user run the instructions. Do not silently install npm/system prerequisites, use sudo, or capture sign-in credentials; any CLI sign-in is completed privately by the user.
+
+Template for the Agent to fill, not for the user to edit:
+
+```text
+codex --cd <ABSOLUTE_PROJECT_PATH>
+```
+
+Replace the placeholder with the verified root and quote it safely for the user's shell. Send only the filled command, for example:
+
+```sh
+codex --cd /Users/deyang/PassBy
+```
+
+Then say: “Click **Trust** (or the equivalent trust-directory confirmation), enter `/hooks`, review and trust **all Intent hooks for this project**—currently `UserPromptSubmit` and `Stop`—then reopen the desktop session.” This does not mean trusting unrelated hooks from other projects, plugins, or global sources. Already trusted definitions need no repeat confirmation. If CLI installation is declined, retain configured state and report the unverified host limitation without blocking unrelated work.
 
 When setup is requested, proceed through discovery and verification rather than stopping at `configured: true`. Report the verified host and any remaining host-specific gap accurately. Keep test-only turns out of semantic Snaps and dogfood scores.
 
