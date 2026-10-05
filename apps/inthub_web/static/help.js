@@ -1,6 +1,6 @@
 (() => {
   const copy = {
-    auth: "No repository access is requested. Tenon manages identity; IntHub keeps its own short-lived session.",
+    auth: "No repository access is requested. Tenon manages identity; IntHub keeps its own 30-day session.",
     token: "A token grants CLI access to your own projects. It is shown once; keep it secret and revoke it when no longer needed.",
     search: "Search matches goals, checkpoints and decisions within the selected project. Cmd/Ctrl+K opens search.",
     decisions: "Rules that remain binding across linked objectives.",

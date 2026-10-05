@@ -62,9 +62,17 @@ Schema v3 adds exact `(issuer, subject)` mappings to existing `accounts.id`. Pro
 local business roles, public grants and PAT ownership are preserved. First-time Tenon users
 receive ordinary local business records; email and display names never merge accounts.
 Central admin applies only to a verified session, never permanently changes a business role,
-and does not bypass private project ownership. Product sessions last at most 15 minutes and
-never exceed token expiration. Ordinary central logout leaves valid product sessions intact;
-central outages cannot create or extend sessions. Role changes take effect on reauthorization.
+and does not bypass private project ownership. Both ordinary and administrator product sessions
+have a fixed 30-day (2592000-second) lifetime from issuance. Their persistent HttpOnly, Secure,
+SameSite=Strict cookies use the same Max-Age. Token validity remains mandatory at callback and
+session issuance; the verified local session then lasts independently of short OIDC tokens.
+Product requests check only local sessions and identity mappings, with no per-request central
+calls, sliding expiration or additional renewal mechanism. Ordinary central logout leaves valid
+product sessions intact; IntHub logout immediately revokes the current local session. Central
+outages cannot create or extend sessions. Role changes take effect on reauthorization, within
+at most 30 days. Single-use state and PKCE login attempts remain valid for 10 minutes; CLI PATs
+retain their own lifetimes. The runtime entry no longer reads the legacy INTHUB_SESSION_TTL_SECONDS
+setting. Existing short sessions expire as issued; the next login creates a 30-day session.
 
 Register the confidential web client once through Tenon's controlled `account/clients.mjs`
 maintenance entry with `client_secret_basic`, a production lock, verified active container and

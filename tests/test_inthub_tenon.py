@@ -1,12 +1,14 @@
 import base64
 import hashlib
 import time
+from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import pytest
 from authlib.jose import JsonWebKey, jwt
 
+from apps.inthub_api import auth, tenon
 from apps.inthub_api.auth import create_account_access_token, account_for_access_token, create_web_session, upsert_github_account
 from apps.inthub_api.common import APIError
 from apps.inthub_api.db import connect
@@ -34,8 +36,8 @@ def test_explicit_mapping_preserves_business_id_projects_pat_and_role(tmp_path):
         bind_existing_account(target, other["id"], "central-1")
     with pytest.raises(APIError, match="already bound"):
         bind_existing_account(target, original["id"], "central-3")
-    admin = create_session(target, original["id"], identity(role="admin"), ttl_seconds=604800)
-    assert admin["ttl_seconds"] <= 900
+    admin = create_session(target, original["id"], identity(role="admin"), ttl_seconds=60 * 24 * 60 * 60)
+    assert admin["ttl_seconds"] == 30 * 24 * 60 * 60
     assert account_for_session(target, admin["token"])["role"] == "admin"
     assert account_for_access_token(target, pat["token"])["role"] == "member"
     ordinary = create_session(target, original["id"], identity())
@@ -44,6 +46,62 @@ def test_explicit_mapping_preserves_business_id_projects_pat_and_role(tmp_path):
     with connect(target) as conn:
         conn.execute("UPDATE web_sessions SET expires_at = '2000-01-01T00:00:00+00:00'")
     assert account_for_session(target, admin["token"]) is None
+
+
+@pytest.mark.parametrize("role", ["user", "admin"])
+def test_product_session_has_fixed_30_day_lifetime_after_oidc_token_expires(tmp_path, monkeypatch, role):
+    issued_at = datetime(2026, 10, 5, tzinfo=timezone.utc)
+    clock = [issued_at]
+
+    class SessionDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return clock[0].astimezone(tz) if tz else clock[0].replace(tzinfo=None)
+
+    monkeypatch.setattr(auth, "datetime", SessionDatetime)
+    monkeypatch.setattr(tenon, "now_utc", lambda: clock[0].isoformat())
+    monkeypatch.setattr(tenon.time, "time", lambda: clock[0].timestamp())
+    target = str(tmp_path / "db")
+    verified_identity = identity(role=role)
+    verified_identity["expires_at"] = issued_at.timestamp() + 60
+    account = account_for_identity(target, verified_identity)
+    session = create_session(target, account["id"], verified_identity)
+    assert session["ttl_seconds"] == 30 * 24 * 60 * 60
+    with connect(target) as conn:
+        expires_at = conn.execute("SELECT expires_at FROM web_sessions").fetchone()["expires_at"]
+    assert datetime.fromisoformat(expires_at) == issued_at + timedelta(days=30)
+
+    for elapsed in (timedelta(minutes=15), timedelta(days=30) - timedelta(microseconds=1)):
+        clock[0] = issued_at + elapsed
+        active = account_for_session(target, session["token"])
+        assert active["platform_role"] == role
+        assert active["role"] == ("admin" if role == "admin" else "member")
+    with connect(target) as conn:
+        assert conn.execute("SELECT expires_at FROM web_sessions").fetchone()["expires_at"] == expires_at
+
+    clock[0] = issued_at + timedelta(days=30)
+    assert account_for_session(target, session["token"]) is None
+
+
+@pytest.mark.parametrize("remaining_seconds", [0, -1])
+def test_expired_identity_cannot_issue_a_long_product_session(tmp_path, monkeypatch, remaining_seconds):
+    monkeypatch.setattr(tenon.time, "time", lambda: 1000)
+    target = str(tmp_path / "db")
+    verified_identity = identity()
+    verified_identity["expires_at"] = 1000 + remaining_seconds
+    account = account_for_identity(target, verified_identity)
+    with pytest.raises(APIError, match="identity expired"):
+        create_session(target, account["id"], verified_identity)
+
+
+def test_product_session_still_requires_local_identity_mapping(tmp_path):
+    target = str(tmp_path / "db")
+    verified_identity = identity()
+    account = account_for_identity(target, verified_identity)
+    session = create_session(target, account["id"], verified_identity)
+    with connect(target) as conn:
+        conn.execute("DELETE FROM account_identities WHERE account_id = ?", (account["id"],))
+    assert account_for_session(target, session["token"]) is None
 
 
 def test_attempt_nonce_pkce_single_use_and_expiration(tmp_path):

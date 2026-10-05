@@ -69,7 +69,7 @@ window.IntHubI18n = (() => {
     "That sign-in attempt expired. Please try again.": "登录请求已失效，请重试。", "Tenon sign-in could not be completed. Please try again.": "未能完成 Tenon 登录，请重试。", "Sign-in could not be completed.": "未能完成登录。",
     "Sign in again to continue.": "请重新登录后继续。", "Could not load data. Try again.": "无法加载数据，请重试。", "Permission denied.": "没有操作权限。", "Object no longer exists.": "对象已不存在。",
     "Login request timed out. Try again.": "登录请求超时，请重试。", "Could not prepare Tenon sign-in. Try again.": "无法准备 Tenon 登录，请重试。", "Retry": "重试", "Return to IntHub": "返回 IntHub",
-    "Switch language": "切换语言", "Explanation": "说明", "No repository access is requested. Tenon manages identity; IntHub keeps its own short-lived session.": "无需仓库权限。Tenon 管理身份，IntHub 保持独立的短期会话。",
+    "Switch language": "切换语言", "Explanation": "说明", "No repository access is requested. Tenon manages identity; IntHub keeps its own 30-day session.": "无需仓库权限。Tenon 管理身份，IntHub 保持独立的30天会话。",
     "Search matches goals, checkpoints and decisions within the selected project. Cmd/Ctrl+K opens search.": "搜索当前项目中的目标、检查点和决策。Cmd/Ctrl+K 可打开搜索。",
     "A token grants CLI access to your own projects. It is shown once; keep it secret and revoke it when no longer needed.": "令牌供 CLI 访问你自己的项目，只显示一次。请妥善保管，不再使用时撤销。",
     "{count} decisions": "{count} 条决策", "{count} linked Intents": "{count} 个关联意图", "Applies to {count} linked Intents.": "适用于 {count} 个关联意图。",

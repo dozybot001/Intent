@@ -856,9 +856,6 @@ def main():
         secure_cookies=_env_flag("INTHUB_SECURE_COOKIES", False),
         tenon_client_id=tenon_client_id,
         tenon_client_secret=tenon_client_secret,
-        account_session_ttl_seconds=int(
-            os.getenv("INTHUB_SESSION_TTL_SECONDS", str(ACCOUNT_SESSION_TTL_SECONDS))
-        ),
     )
 
 

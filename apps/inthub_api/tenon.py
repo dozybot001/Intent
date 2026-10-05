@@ -12,7 +12,7 @@ from apps.inthub_api.db import connect
 
 ISSUER = "https://account.tenon.asia/api/auth"
 PLATFORM_ROLE = "https://tenon.asia/claims/platform_role"
-SESSION_MAX_SECONDS = 900
+SESSION_MAX_SECONDS = 30 * 24 * 60 * 60
 
 
 def create_attempt(db_target, return_to="/", ttl_seconds=600):
@@ -99,8 +99,10 @@ def account_for_identity(db_target, identity):
 
 
 def create_session(db_target, account_id, identity, ttl_seconds=SESSION_MAX_SECONDS):
-    ttl = min(int(ttl_seconds), SESSION_MAX_SECONDS, int(identity["expires_at"] - time.time()))
-    if ttl <= 0:
+    ttl = min(int(ttl_seconds), SESSION_MAX_SECONDS)
+    # The callback identity must still be valid when issuing the local session.
+    # Its short token lifetime does not limit the independent product session.
+    if ttl <= 0 or identity["expires_at"] <= time.time():
         raise APIError("OAUTH_IDENTITY_INVALID", "The identity expired.", 401)
     timestamp = now_utc()
     token, session_id = "ith_ses_" + secrets.token_urlsafe(32), new_id("ses")

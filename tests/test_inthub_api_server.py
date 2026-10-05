@@ -12,6 +12,9 @@ from urllib.parse import parse_qs, urlparse
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+import pytest
+
+from apps.inthub_api import server as server_module
 from apps.inthub_api.auth import create_account_access_token, upsert_github_account
 from apps.inthub_api.server import make_handler
 
@@ -286,8 +289,12 @@ def test_account_pat_authenticates_cli_reads_and_writes(tmp_path):
         server.server_close()
 
 
-def test_tenon_account_login_uses_pkce_database_session_and_logout(tmp_path):
-    oauth = FakeTenonOIDCClient()
+@pytest.mark.parametrize("role", ["user", "admin"])
+def test_tenon_account_login_uses_pkce_database_session_and_logout(tmp_path, role):
+    oauth = FakeTenonOIDCClient({
+        "sub": "tenon-dozy", "name": "Dozy", "platform_role": role,
+        "expires_at": time.time() + 900,
+    })
     server = ThreadingHTTPServer(
         ("127.0.0.1", 0),
         make_handler(
@@ -327,6 +334,7 @@ def test_tenon_account_login_uses_pkce_database_session_and_logout(tmp_path):
         state_cookie = header_map["Set-Cookie"].split(";", 1)[0]
         assert "HttpOnly" in header_map["Set-Cookie"]
         assert "Secure" in header_map["Set-Cookie"]
+        assert "Max-Age=600" in header_map["Set-Cookie"]
 
         status, callback_headers, _ = _raw_request(
             server,
@@ -338,6 +346,7 @@ def test_tenon_account_login_uses_pkce_database_session_and_logout(tmp_path):
         cookies = [value for name, value in callback_headers if name == "Set-Cookie"]
         session_cookie = next(value.split(";", 1)[0] for value in cookies if "ith_ses_" in value)
         assert "SameSite=Strict" in next(value for value in cookies if "ith_ses_" in value)
+        assert "Max-Age=2592000" in next(value for value in cookies if "ith_ses_" in value)
         assert oauth.exchange["code"] == "temporary-code"
         assert oauth.exchange["redirect_uri"] == (
             "https://inthub.example/api/v1/auth/tenon/callback"
@@ -357,7 +366,7 @@ def test_tenon_account_login_uses_pkce_database_session_and_logout(tmp_path):
         )
         assert status == 200
         assert body["result"]["account"]["display_name"] == "Dozy"
-        assert body["result"]["account"]["role"] == "member"
+        assert body["result"]["account"]["role"] == ("admin" if role == "admin" else "member")
 
         status, _, body = _request_json(
             f"{base}/api/v1/projects",
@@ -436,6 +445,20 @@ def test_tenon_account_login_uses_pkce_database_session_and_logout(tmp_path):
         server.shutdown()
         thread.join()
         server.server_close()
+
+
+@pytest.mark.parametrize("legacy_ttl", ["900", "invalid"])
+def test_legacy_runtime_ttl_cannot_shorten_browser_login(monkeypatch, legacy_ttl):
+    session_lifetimes = []
+
+    def capture_run_server(*args, account_session_ttl_seconds=server_module.ACCOUNT_SESSION_TTL_SECONDS, **kwargs):
+        session_lifetimes.append(account_session_ttl_seconds)
+
+    monkeypatch.setenv("INTHUB_SESSION_TTL_SECONDS", legacy_ttl)
+    monkeypatch.setattr("sys.argv", ["inthub"])
+    monkeypatch.setattr(server_module, "run_server", capture_run_server)
+    server_module.main()
+    assert session_lifetimes == [30 * 24 * 60 * 60]
 
 
 def test_api_rejects_disallowed_origins_and_oversized_bodies(tmp_path):
