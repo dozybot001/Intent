@@ -52,8 +52,23 @@ def test_header_groups_preferences_and_account_actions_in_separate_menus():
     account = markup.within("account-actions")
     assert {"account-label", "token-btn", "logout-btn"}.issubset({attributes.get("id") for _, attributes in account})
     assert not any("data-theme-setting" in attributes or "data-language-select" in attributes for _, attributes in account)
-    assert header.index('id="account-menu-trigger"') < header.index('id="settings-menu-trigger"')
+    assert header.index('id="settings-menu-trigger"') < header.index('id="account-menu-trigger"')
     assert 'id="auth-settings-menu"' in html
+
+
+def test_header_utilities_have_breathing_room_at_every_breakpoint():
+    css = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
+    utilities = re.findall(r"\.header-utilities\s*\{([^}]+)", css)
+    assert utilities
+    assert int(re.search(r"\bgap:\s*(\d+)px", utilities[0]).group(1)) >= 12
+    assert "padding-left: 16px" in utilities[0]
+    for block in utilities:
+        assert int(re.search(r"\bgap:\s*(\d+)px", block).group(1)) >= 8
+    actions = next(block for block in re.findall(r"\.header-actions\s*\{([^}]+)", css) if "justify-content: flex-end" in block)
+    assert int(re.search(r"\bgap:\s*(\d+)px", actions).group(1)) >= 16
+    hover = re.search(r'\.app-header \.icon-button\[aria-expanded="true"\]\s*\{([^}]+)', css).group(1)
+    assert "border-color: transparent" in hover
+    assert "background: var(--surface-selected)" in hover
 
 
 def test_product_resource_links_have_fixed_official_targets_and_safe_new_tabs():

@@ -265,7 +265,7 @@ svg {
 
 .header-actions {
   justify-content: flex-end;
-  gap: 14px;
+  gap: 16px;
 }
 
 .header-resources {
@@ -307,8 +307,8 @@ svg {
 .header-utilities {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding-left: 12px;
+  gap: 12px;
+  padding-left: 16px;
   border-left: 1px solid var(--line);
 }
 
@@ -322,6 +322,7 @@ svg {
 
 .app-header .icon-button:hover,
 .app-header .icon-button[aria-expanded="true"] {
+  border-color: transparent;
   background: var(--surface-selected);
 }
 
@@ -3521,11 +3522,11 @@ select:focus-visible {
   .header-actions {
     grid-column: 2;
     grid-row: 1;
-    gap: 4px;
+    gap: 8px;
   }
 
   .header-utilities {
-    gap: 2px;
+    gap: 8px;
     padding-left: 0;
     border-left: 0;
   }
@@ -3881,8 +3882,12 @@ select:focus-visible {
 }
 
 @media (max-width: 420px) {
+  .app-header {
+    column-gap: 4px;
+  }
+
   .header-actions {
-    gap: 2px;
+    gap: 4px;
   }
 
   .icon-button {

@@ -9,7 +9,7 @@
     <link rel="icon" type="image/svg+xml" href="/tenon-mark.svg">
     <link rel="preload" href="/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
     <script src="/theme.js?rev=header-mono-1"></script>
-    <link rel="stylesheet" href="/styles.css?rev=workspace-header-2">
+    <link rel="stylesheet" href="/styles.css?rev=workspace-header-3">
   </head>
   <body>
     <a class="skip-link" href="#detail-content">Skip to project content</a>
@@ -67,24 +67,6 @@
           </div>
 
           <div class="header-utilities">
-            <div id="account-control" class="account-control is-hidden">
-              <button id="account-menu-trigger" class="icon-button account-menu-trigger" type="button" aria-label="Account" aria-expanded="false" aria-controls="account-actions">
-                <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="6.5" r="3"/><path d="M3.5 17v-1a6.5 6.5 0 0 1 13 0v1"/></svg>
-              </button>
-              <div id="account-actions" class="header-menu account-actions" role="group" aria-label="Account" inert>
-                <div class="account-identity menu-section">
-                  <strong id="account-label" class="account-label">Account</strong>
-                  <span id="account-mode" class="account-mode">Private session</span>
-                </div>
-                <div class="menu-section menu-actions">
-                  <a class="menu-action account-action" href="https://account.tenon.asia/account/">Account center</a>
-                  <button id="token-btn" class="menu-action account-action" type="button">Access token</button>
-                  <button id="logout-btn" class="menu-action account-action account-action-muted" type="button">Sign out</button>
-                  <button id="delete-account-btn" class="menu-action account-action account-action-muted" type="button">Delete account</button>
-                </div>
-              </div>
-            </div>
-
             <div class="header-menu-control settings-control">
               <button class="icon-button" id="settings-menu-trigger" data-settings-trigger type="button" aria-label="Settings" aria-expanded="false" aria-controls="settings-menu">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 2-.5 2-1.5.9-2-.6-2 3.4 1.5 1.4v1.8L2 12.3l2 3.4 2-.6 1.5.9.5 2h4l.5-2 1.5-.9 2 .6 2-3.4-1.5-1.4V9.1L18 7.7l-2-3.4-2 .6-1.5-.9-.5-2Z"/><circle cx="10" cy="10" r="2.5"/></svg>
@@ -112,6 +94,23 @@
               </div>
             </div>
 
+            <div id="account-control" class="account-control is-hidden">
+              <button id="account-menu-trigger" class="icon-button account-menu-trigger" type="button" aria-label="Account" aria-expanded="false" aria-controls="account-actions">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="6.5" r="3"/><path d="M3.5 17v-1a6.5 6.5 0 0 1 13 0v1"/></svg>
+              </button>
+              <div id="account-actions" class="header-menu account-actions" role="group" aria-label="Account" inert>
+                <div class="account-identity menu-section">
+                  <strong id="account-label" class="account-label">Account</strong>
+                  <span id="account-mode" class="account-mode">Private session</span>
+                </div>
+                <div class="menu-section menu-actions">
+                  <a class="menu-action account-action" href="https://account.tenon.asia/account/">Account center</a>
+                  <button id="token-btn" class="menu-action account-action" type="button">Access token</button>
+                  <button id="logout-btn" class="menu-action account-action account-action-muted" type="button">Sign out</button>
+                  <button id="delete-account-btn" class="menu-action account-action account-action-muted" type="button">Delete account</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </header>
