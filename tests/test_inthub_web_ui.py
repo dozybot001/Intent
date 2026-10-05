@@ -1,4 +1,5 @@
 from pathlib import Path
+from html.parser import HTMLParser
 import re
 import shutil
 import subprocess
@@ -11,18 +12,100 @@ from apps.inthub_web import product_version
 STATIC_DIR = Path(__file__).resolve().parents[1] / "apps" / "inthub_web" / "static"
 
 
+class _MarkupTags(HTMLParser):
+    """Collect element attributes and ancestry without rendering the page."""
+
+    def __init__(self, html):
+        super().__init__()
+        self.tags = []
+        self.stack = []
+        self.feed(html)
+
+    def handle_starttag(self, tag, attributes):
+        attributes = dict(attributes)
+        self.tags.append((tag, attributes, tuple(identifier for _, identifier in self.stack)))
+        if tag not in {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}:
+            self.stack.append((tag, attributes.get("id")))
+
+    def handle_endtag(self, tag):
+        for index in range(len(self.stack) - 1, -1, -1):
+            if self.stack[index][0] == tag:
+                del self.stack[index:]
+                break
+
+    def within(self, identifier):
+        return [(tag, attributes) for tag, attributes, ancestors in self.tags if identifier in ancestors]
+
+
 def test_header_groups_preferences_and_account_actions_in_separate_menus():
     html = (STATIC_DIR / "index.html").read_text()
     header = html.split('<header class="app-header">', 1)[1].split('</header>', 1)[0]
+    markup = _MarkupTags(header)
     assert 'id="settings-menu-trigger"' in header
     assert 'id="account-menu-trigger"' in header
     assert 'data-theme-switch' not in header and 'data-language-switch' not in header
-    settings = header.split('id="settings-menu"', 1)[1].split('id="account-control"', 1)[0]
-    assert 'data-theme-setting' in settings and 'data-language-select' in settings
-    assert 'id="refresh-btn"' in settings and 'data-about-open' in settings
-    account = header.split('id="account-actions"', 1)[1]
-    assert 'id="account-label"' in account and 'id="token-btn"' in account and 'id="logout-btn"' in account
+    settings = markup.within("settings-menu")
+    assert any("data-theme-setting" in attributes for _, attributes in settings)
+    assert any("data-language-select" in attributes for _, attributes in settings)
+    assert any(attributes.get("id") == "refresh-btn" for _, attributes in settings)
+    assert any("data-about-open" in attributes for _, attributes in settings)
+    account = markup.within("account-actions")
+    assert {"account-label", "token-btn", "logout-btn"}.issubset({attributes.get("id") for _, attributes in account})
+    assert not any("data-theme-setting" in attributes or "data-language-select" in attributes for _, attributes in account)
+    assert header.index('id="account-menu-trigger"') < header.index('id="settings-menu-trigger"')
     assert 'id="auth-settings-menu"' in html
+
+
+def test_product_resource_links_have_fixed_official_targets_and_safe_new_tabs():
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    markup = _MarkupTags(html)
+    targets = {
+        "skill": "https://www.skills.sh/dozybot001/intent/intent-cli",
+        "repository": "https://github.com/dozybot001/Intent",
+    }
+    links = [(tag, attributes) for tag, attributes, _ in markup.tags if "data-product-link" in attributes]
+    assert links
+    for tag, attributes in links:
+        assert tag == "a"
+        assert attributes["href"] == targets[attributes["data-product-link"]]
+        assert attributes.get("target") == "_blank"
+        assert {"noopener", "noreferrer"}.issubset(attributes.get("rel", "").split())
+        assert "onclick" not in attributes
+    header = html.split('<header class="app-header">', 1)[1].split('</header>', 1)[0]
+    auth_tags = [(tag, attributes, ancestors) for tag, attributes, ancestors in markup.tags if "auth-gate" in ancestors]
+    for scope in (_MarkupTags(header).tags, auth_tags):
+        assert {attributes["data-product-link"] for _, attributes, _ in scope if "data-product-link" in attributes} == set(targets)
+
+
+def test_resource_menus_share_accessible_header_menu_control_flow():
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    markup = _MarkupTags(html)
+    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
+    triggers = [(tag, attributes) for tag, attributes, _ in markup.tags if "data-resources-trigger" in attributes]
+    assert {attributes["id"] for _, attributes in triggers} == {"resources-menu-trigger", "auth-resources-menu-trigger"}
+    for tag, attributes in triggers:
+        assert tag == "button" and attributes.get("type") == "button"
+        assert attributes.get("aria-expanded") == "false"
+        assert attributes.get("aria-label")
+        panel_id = attributes["aria-controls"]
+        panels = [attributes for _, attributes, _ in markup.tags if attributes.get("id") == panel_id]
+        assert len(panels) == 1
+        assert "inert" in panels[0] and panels[0].get("role") == "group"
+        assert {"header-menu", "resources-menu"}.issubset(panels[0].get("class", "").split())
+        assert {attributes["data-product-link"] for _, attributes in markup.within(panel_id) if "data-product-link" in attributes} == {"skill", "repository"}
+    menu_enumeration = javascript.split("function headerMenus()", 1)[1].split("function headerMenuControls", 1)[0]
+    assert 'querySelectorAll("[data-resources-trigger]")' in menu_enumeration
+    assert 'querySelectorAll("button, a[href]")' in javascript
+    assert 'if (event.key === "Escape" && openMenu)' in javascript
+    assert 'if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return' in javascript
+
+
+def test_compact_login_header_uses_resource_menu_even_on_wide_viewports():
+    css = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
+    links = re.search(r"\.auth-header \.header-resources\s*\{([^}]+)", css).group(1)
+    menu = re.search(r"\.auth-header \.resources-control\s*\{([^}]+)", css).group(1)
+    assert "display: none" in links
+    assert "display: flex" in menu
 
 
 def test_project_context_and_options_use_horizontal_flexible_rows():

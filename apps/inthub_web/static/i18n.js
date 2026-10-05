@@ -7,6 +7,7 @@ window.IntHubI18n = (() => {
     "{count} incomplete checkpoints": "{count} 个检查点待补充", "{count} blocked objectives": "{count} 个目标被阻塞", "Ready to continue": "可以继续工作",
     "Overview": "概览", "Intents": "意图", "Timeline": "时间线", "Decisions": "决策", "Search": "搜索",
     "Project": "项目", "Project memory": "项目记忆",
+    "Intent resources": "Intent 资源", "Intent Skill": "Intent Skill", "Official repository": "官方仓库",
     "Run once per project; Git is optional.": "每个项目初始化一次；无需 Git。", "Choose a shared project name, then push its semantic history.": "选择共享项目名，然后推送语义历史。",
     "No projects yet": "暂无项目", "Checking sync": "正在检查同步", "Waiting for project": "等待项目", "Continuity status": "接续状态",
     "Current work": "当前工作", "Continuation queue": "接续队列", "Related context": "关联上下文", "Back to list": "返回列表",

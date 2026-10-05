@@ -65,7 +65,8 @@
   --radius-sm: 10px;
   --radius: 16px;
   --radius-lg: 22px;
-  --header-h: 72px;
+  --header-h: 64px;
+  --header-control-h: 36px;
   --nav-w: 208px;
   --index-w: 350px;
   --sans: Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -240,12 +241,12 @@ svg {
 .app-header {
   position: relative;
   z-index: 70;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 20px;
+  gap: 24px;
   min-width: 0;
-  padding: 0 22px;
+  padding: 0 24px;
   border-bottom: 1px solid var(--line);
   background: var(--surface-header);
   backdrop-filter: blur(16px);
@@ -259,18 +260,81 @@ svg {
 }
 
 .header-context {
-  gap: 16px;
+  gap: 14px;
 }
 
 .header-actions {
   justify-content: flex-end;
-  gap: 10px;
+  gap: 14px;
+}
+
+.header-resources {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.header-resource-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--header-control-h);
+  color: var(--muted-strong);
+  font-size: 0.78rem;
+  font-weight: 550;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 150ms ease;
+}
+
+.header-resource-link:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+
+.header-resource-link svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.header-utilities {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+}
+
+.app-header .icon-button {
+  width: var(--header-control-h);
+  height: var(--header-control-h);
+  flex: 0 0 auto;
+  border-color: transparent;
+  background: transparent;
+}
+
+.app-header .icon-button:hover,
+.app-header .icon-button[aria-expanded="true"] {
+  background: var(--surface-selected);
+}
+
+.app-header .header-menu-control,
+.app-header .account-control {
+  min-height: var(--header-control-h);
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
   gap: 9px;
+  flex: 0 0 auto;
   color: var(--ink);
   text-decoration: none;
 }
@@ -303,7 +367,8 @@ svg {
 
 .header-divider {
   width: 1px;
-  height: 26px;
+  height: 22px;
+  flex: 0 0 auto;
   background: var(--line);
 }
 
@@ -319,9 +384,9 @@ svg {
   align-items: center;
   gap: 12px;
   min-width: 0;
-  max-width: min(390px, 100%);
-  min-height: 48px;
-  padding: 6px 10px 6px 4px;
+  max-width: min(350px, 100%);
+  min-height: var(--header-control-h);
+  padding: 6px 8px;
   border-radius: var(--radius-sm);
   color: var(--ink);
   background: transparent;
@@ -453,7 +518,8 @@ svg {
 .command-trigger {
   gap: 8px;
   min-width: 174px;
-  padding: 8px 9px 8px 11px;
+  height: var(--header-control-h);
+  padding: 0 9px 0 11px;
   border-radius: var(--radius-sm);
   text-align: left;
 }
@@ -514,6 +580,12 @@ svg {
   white-space: nowrap;
 }
 
+#sync-chip {
+  max-width: 164px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .sync-dot {
   width: 7px;
   height: 7px;
@@ -533,6 +605,10 @@ svg {
   display: flex;
   align-items: center;
   min-height: 38px;
+}
+
+.resources-control {
+  display: none;
 }
 
 [data-settings-trigger],
@@ -2836,6 +2912,14 @@ select:focus-visible {
   animation: auth-arrive 180ms ease both;
 }
 
+.auth-header .header-resources {
+  display: none;
+}
+
+.auth-header .resources-control {
+  display: flex;
+}
+
 .auth-header {
   display: flex;
   align-items: center;
@@ -3361,8 +3445,8 @@ select:focus-visible {
   }
 
   .command-trigger {
-    min-width: 40px;
-    width: 40px;
+    min-width: var(--header-control-h);
+    width: var(--header-control-h);
     justify-content: center;
     padding: 9px;
   }
@@ -3370,6 +3454,19 @@ select:focus-visible {
   .command-trigger span,
   .command-trigger kbd {
     display: none;
+  }
+
+  .header-resources {
+    display: none;
+  }
+
+  .resources-control {
+    display: flex;
+  }
+
+  .app-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
   }
 }
 
@@ -3427,7 +3524,14 @@ select:focus-visible {
     gap: 4px;
   }
 
+  .header-utilities {
+    gap: 2px;
+    padding-left: 0;
+    border-left: 0;
+  }
+
   .header-actions > .icon-button,
+  .header-actions [data-resources-trigger],
   .header-actions [data-settings-trigger],
   .header-actions .account-menu-trigger {
     width: 36px;
@@ -3440,6 +3544,7 @@ select:focus-visible {
   }
 
   .header-actions > .icon-button:hover,
+  .header-actions [data-resources-trigger]:hover,
   .header-actions [data-settings-trigger]:hover,
   .header-actions .account-menu-trigger:hover {
     background: var(--canvas-deep);
@@ -3777,7 +3882,7 @@ select:focus-visible {
 
 @media (max-width: 420px) {
   .header-actions {
-    gap: 4px;
+    gap: 2px;
   }
 
   .icon-button {

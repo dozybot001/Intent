@@ -1794,10 +1794,11 @@ function setProjectPickerBusy(busy) {
 
 
 function headerMenus() {
-  const settings = [...document.querySelectorAll("[data-settings-trigger]")].map(trigger => ({
+  const triggers = [...document.querySelectorAll("[data-settings-trigger]"), ...document.querySelectorAll("[data-resources-trigger]")];
+  const menus = triggers.map(trigger => ({
     trigger, panel: document.getElementById(trigger.getAttribute("aria-controls")),
   })).filter(menu => menu.panel);
-  return [...settings, { trigger: el.accountMenuTrigger, panel: el.accountActions }];
+  return [...menus, { trigger: el.accountMenuTrigger, panel: el.accountActions }];
 }
 
 function headerMenuControls(menu) {

@@ -167,6 +167,10 @@ async function headerMenuCases() {
     const settingsPanel = document.getElementById('settings-menu');
     const authSettingsTrigger = document.getElementById('auth-settings-menu-trigger');
     const authSettingsPanel = document.getElementById('auth-settings-menu');
+    const resourcesTrigger = document.getElementById('resources-menu-trigger');
+    const resourcesPanel = document.getElementById('resources-menu');
+    const skillLink = document.getElementById('resource-skill-link');
+    const repositoryLink = document.getElementById('resource-repository-link');
     const languageChinese = document.getElementById('language-chinese');
     const languageEnglish = document.getElementById('language-english');
     const aboutButton = document.getElementById('menu-about-button');
@@ -174,10 +178,13 @@ async function headerMenuCases() {
     languageEnglish.dataset.languageSelect = 'en';
     settingsTrigger.setAttribute('aria-controls','settings-menu');
     authSettingsTrigger.setAttribute('aria-controls','auth-settings-menu');
+    resourcesTrigger.setAttribute('aria-controls','resources-menu');
+    resourcesPanel.querySelectorAll = () => [skillLink, repositoryLink];
+    resourcesPanel.contains = target => target === resourcesPanel || target === skillLink || target === repositoryLink;
     settingsPanel.querySelectorAll = () => [languageChinese, languageEnglish, aboutButton];
     settingsPanel.contains = target => target === settingsPanel || target === languageChinese || target === languageEnglish || target === aboutButton;
     authSettingsPanel.querySelectorAll = () => [languageEnglish];
-    document.querySelectorAll = selector => selector === '[data-settings-trigger]' ? [settingsTrigger, authSettingsTrigger] : selector === '[data-language-select]' ? [languageChinese, languageEnglish] : selector === '[data-about-open]' ? [aboutButton] : originalQueryAll(selector);
+    document.querySelectorAll = selector => selector === '[data-settings-trigger]' ? [settingsTrigger, authSettingsTrigger] : selector === '[data-resources-trigger]' ? [resourcesTrigger] : selector === '[data-language-select]' ? [languageChinese, languageEnglish] : selector === '[data-about-open]' ? [aboutButton] : originalQueryAll(selector);
     bindEvents();
     const dispatch = (type, target, key, extra={}) => {
       let stopped=false;
@@ -197,6 +204,22 @@ async function headerMenuCases() {
     toggleProjectPicker(true);
     assert.equal(authSettingsPanel.classList.contains('is-open'),false);
     assert.equal(el.projectPickerDropdown.classList.contains('is-open'),true);
+
+    dispatch('keydown',resourcesTrigger,'ArrowDown');
+    assert.equal(el.projectPickerDropdown.classList.contains('is-open'),false);
+    assert.equal(resourcesPanel.inert,false);
+    assert.equal(resourcesTrigger.getAttribute('aria-expanded'),'true');
+    assert.equal(document.activeElement,skillLink);
+    dispatch('keydown',skillLink,'End');
+    assert.equal(document.activeElement,repositoryLink);
+    dispatch('keydown',repositoryLink,'Escape');
+    assert.equal(resourcesPanel.inert,true);
+    assert.equal(document.activeElement,resourcesTrigger);
+    toggleHeaderMenu(resourcesTrigger);
+    toggleHeaderMenu(settingsTrigger);
+    assert.equal(resourcesPanel.inert,true);
+    assert.equal(settingsPanel.inert,false);
+    closeHeaderMenus();
 
     const projectOptions = [document.getElementById('project-option-first'), document.getElementById('project-option-last')];
     const originalProjectContains = el.projectPicker.contains;
@@ -304,7 +327,7 @@ async function headerMenuCases() {
     loadProjects=originalLoadProjects;
     document.querySelectorAll=originalQueryAll;
   })()`, context);
-  console.log('Mutually exclusive settings/account/project menus, keyboard/outside dismissal and language selection tests passed.');
+  console.log('Mutually exclusive resource/settings/account/project menus, keyboard/outside dismissal and language selection tests passed.');
 }
 
 async function viewControllerCases() {

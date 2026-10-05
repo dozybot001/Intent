@@ -9,7 +9,7 @@
     <link rel="icon" type="image/svg+xml" href="/tenon-mark.svg">
     <link rel="preload" href="/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
     <script src="/theme.js?rev=header-mono-1"></script>
-    <link rel="stylesheet" href="/styles.css?rev=fluid-workspace-1">
+    <link rel="stylesheet" href="/styles.css?rev=workspace-header-2">
   </head>
   <body>
     <a class="skip-link" href="#detail-content">Skip to project content</a>
@@ -36,6 +36,11 @@
           </div>
         </div>
 
+        <nav class="header-resources" aria-label="Intent resources">
+          <a class="header-resource-link" data-product-link="skill" href="https://www.skills.sh/dozybot001/intent/intent-cli" target="_blank" rel="noopener noreferrer">Intent Skill</a>
+          <a class="header-resource-link" data-product-link="repository" href="https://github.com/dozybot001/Intent" target="_blank" rel="noopener noreferrer">Official repository<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3h8v8M13 3 3 13"/></svg></a>
+        </nav>
+
         <div class="header-actions">
           <button class="command-trigger" id="search-trigger" type="button" aria-label="Search project">
             <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
@@ -49,49 +54,64 @@
           </div>
           <span class="is-hidden" id="api-chip"></span>
 
-          <div class="header-menu-control settings-control">
-            <button class="icon-button" id="settings-menu-trigger" data-settings-trigger type="button" aria-label="Settings" aria-expanded="false" aria-controls="settings-menu">
-              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 2-.5 2-1.5.9-2-.6-2 3.4 1.5 1.4v1.8L2 12.3l2 3.4 2-.6 1.5.9.5 2h4l.5-2 1.5-.9 2 .6 2-3.4-1.5-1.4V9.1L18 7.7l-2-3.4-2 .6-1.5-.9-.5-2Z"/><circle cx="10" cy="10" r="2.5"/></svg>
+          <div class="header-menu-control resources-control">
+            <button class="icon-button" id="resources-menu-trigger" data-resources-trigger type="button" aria-label="Intent resources" aria-expanded="false" aria-controls="resources-menu">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h5.5L10 6l1.5-1.5H17v11h-5.5L10 17l-1.5-1.5H3zM10 6v11"/></svg>
             </button>
-            <div class="header-menu settings-menu" id="settings-menu" data-settings-menu role="group" aria-label="Settings" inert>
-              <section class="menu-section">
-                <span class="menu-title">Appearance</span>
-                <div class="segmented-control" role="group" aria-label="Appearance">
-                  <button data-theme-setting="system" type="button" aria-pressed="true">System</button>
-                  <button data-theme-setting="light" type="button" aria-pressed="false">Light</button>
-                  <button data-theme-setting="dark" type="button" aria-pressed="false">Dark</button>
-                </div>
-              </section>
-              <section class="menu-section">
-                <span class="menu-title">Language</span>
-                <div class="segmented-control" role="group" aria-label="Language">
-                  <button data-language-select="zh-CN" type="button" aria-pressed="false">中文</button>
-                  <button data-language-select="en" type="button" aria-pressed="false">English</button>
-                </div>
-              </section>
+            <div class="header-menu resources-menu" id="resources-menu" role="group" aria-label="Intent resources" inert>
               <div class="menu-section menu-actions">
-                <button class="menu-action" id="refresh-btn" type="button">Refresh project data</button>
-                <button class="menu-action" data-about-open type="button">About IntHub</button>
+                <a class="menu-action" data-product-link="skill" href="https://www.skills.sh/dozybot001/intent/intent-cli" target="_blank" rel="noopener noreferrer">Intent Skill</a>
+                <a class="menu-action" data-product-link="repository" href="https://github.com/dozybot001/Intent" target="_blank" rel="noopener noreferrer">Official repository</a>
               </div>
             </div>
           </div>
 
-          <div id="account-control" class="account-control is-hidden">
-            <button id="account-menu-trigger" class="icon-button account-menu-trigger" type="button" aria-label="Account" aria-expanded="false" aria-controls="account-actions">
-              <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="6.5" r="3"/><path d="M3.5 17v-1a6.5 6.5 0 0 1 13 0v1"/></svg>
-            </button>
-            <div id="account-actions" class="header-menu account-actions" role="group" aria-label="Account" inert>
-              <div class="account-identity menu-section">
-                <strong id="account-label" class="account-label">Account</strong>
-                <span id="account-mode" class="account-mode">Private session</span>
-              </div>
-              <div class="menu-section menu-actions">
-                <a class="menu-action account-action" href="https://account.tenon.asia/account/">Account center</a>
-                <button id="token-btn" class="menu-action account-action" type="button">Access token</button>
-                <button id="logout-btn" class="menu-action account-action account-action-muted" type="button">Sign out</button>
-                <button id="delete-account-btn" class="menu-action account-action account-action-muted" type="button">Delete account</button>
+          <div class="header-utilities">
+            <div id="account-control" class="account-control is-hidden">
+              <button id="account-menu-trigger" class="icon-button account-menu-trigger" type="button" aria-label="Account" aria-expanded="false" aria-controls="account-actions">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="6.5" r="3"/><path d="M3.5 17v-1a6.5 6.5 0 0 1 13 0v1"/></svg>
+              </button>
+              <div id="account-actions" class="header-menu account-actions" role="group" aria-label="Account" inert>
+                <div class="account-identity menu-section">
+                  <strong id="account-label" class="account-label">Account</strong>
+                  <span id="account-mode" class="account-mode">Private session</span>
+                </div>
+                <div class="menu-section menu-actions">
+                  <a class="menu-action account-action" href="https://account.tenon.asia/account/">Account center</a>
+                  <button id="token-btn" class="menu-action account-action" type="button">Access token</button>
+                  <button id="logout-btn" class="menu-action account-action account-action-muted" type="button">Sign out</button>
+                  <button id="delete-account-btn" class="menu-action account-action account-action-muted" type="button">Delete account</button>
+                </div>
               </div>
             </div>
+
+            <div class="header-menu-control settings-control">
+              <button class="icon-button" id="settings-menu-trigger" data-settings-trigger type="button" aria-label="Settings" aria-expanded="false" aria-controls="settings-menu">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 2-.5 2-1.5.9-2-.6-2 3.4 1.5 1.4v1.8L2 12.3l2 3.4 2-.6 1.5.9.5 2h4l.5-2 1.5-.9 2 .6 2-3.4-1.5-1.4V9.1L18 7.7l-2-3.4-2 .6-1.5-.9-.5-2Z"/><circle cx="10" cy="10" r="2.5"/></svg>
+              </button>
+              <div class="header-menu settings-menu" id="settings-menu" data-settings-menu role="group" aria-label="Settings" inert>
+                <section class="menu-section">
+                  <span class="menu-title">Appearance</span>
+                  <div class="segmented-control" role="group" aria-label="Appearance">
+                    <button data-theme-setting="system" type="button" aria-pressed="true">System</button>
+                    <button data-theme-setting="light" type="button" aria-pressed="false">Light</button>
+                    <button data-theme-setting="dark" type="button" aria-pressed="false">Dark</button>
+                  </div>
+                </section>
+                <section class="menu-section">
+                  <span class="menu-title">Language</span>
+                  <div class="segmented-control" role="group" aria-label="Language">
+                    <button data-language-select="zh-CN" type="button" aria-pressed="false">中文</button>
+                    <button data-language-select="en" type="button" aria-pressed="false">English</button>
+                  </div>
+                </section>
+                <div class="menu-section menu-actions">
+                  <button class="menu-action" id="refresh-btn" type="button">Refresh project data</button>
+                  <button class="menu-action" data-about-open type="button">About IntHub</button>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </header>
@@ -182,6 +202,21 @@
             <span class="brand-wordmark">IntHub<img class="product-publisher-mark" src="/tenon-mark.svg" alt="" width="64" height="64"></span>
           </a>
           <div class="auth-header-actions">
+            <nav class="header-resources" aria-label="Intent resources">
+              <a class="header-resource-link" data-product-link="skill" href="https://www.skills.sh/dozybot001/intent/intent-cli" target="_blank" rel="noopener noreferrer">Intent Skill</a>
+              <a class="header-resource-link" data-product-link="repository" href="https://github.com/dozybot001/Intent" target="_blank" rel="noopener noreferrer">Official repository<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3h8v8M13 3 3 13"/></svg></a>
+            </nav>
+            <div class="header-menu-control resources-control">
+              <button class="icon-button" id="auth-resources-menu-trigger" data-resources-trigger type="button" aria-label="Intent resources" aria-expanded="false" aria-controls="auth-resources-menu">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h5.5L10 6l1.5-1.5H17v11h-5.5L10 17l-1.5-1.5H3zM10 6v11"/></svg>
+              </button>
+              <div class="header-menu resources-menu" id="auth-resources-menu" role="group" aria-label="Intent resources" inert>
+                <div class="menu-section menu-actions">
+                  <a class="menu-action" data-product-link="skill" href="https://www.skills.sh/dozybot001/intent/intent-cli" target="_blank" rel="noopener noreferrer">Intent Skill</a>
+                  <a class="menu-action" data-product-link="repository" href="https://github.com/dozybot001/Intent" target="_blank" rel="noopener noreferrer">Official repository</a>
+                </div>
+              </div>
+            </div>
             <div class="header-menu-control settings-control">
               <button class="icon-button" id="auth-settings-menu-trigger" data-settings-trigger type="button" aria-label="Settings" aria-expanded="false" aria-controls="auth-settings-menu">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 2-.5 2-1.5.9-2-.6-2 3.4 1.5 1.4v1.8L2 12.3l2 3.4 2-.6 1.5.9.5 2h4l.5-2 1.5-.9 2 .6 2-3.4-1.5-1.4V9.1L18 7.7l-2-3.4-2 .6-1.5-.9-.5-2Z"/><circle cx="10" cy="10" r="2.5"/></svg>
@@ -271,8 +306,8 @@
     </dialog>
 
     <div id="help-popover" class="help-popover" role="tooltip" popover="manual" tabindex="0" hidden></div>
-    <script src="/i18n.js?rev=fluid-workspace-1" defer></script>
+    <script src="/i18n.js?rev=workspace-header-2" defer></script>
     <script src="/help.js?rev=private-workspace-1" defer></script>
-    <script src="/app.js?rev=shared-history-2" defer></script>
+    <script src="/app.js?rev=workspace-header-2" defer></script>
   </body>
 </html>
