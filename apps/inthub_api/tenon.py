@@ -20,8 +20,8 @@ def create_attempt(db_target, return_to="/", ttl_seconds=600):
     with connect(db_target) as conn:
         conn.execute("DELETE FROM tenon_login_attempts WHERE expires_at <= ?", (now_utc(),))
         conn.execute(
-            "INSERT INTO tenon_login_attempts VALUES (?, ?, ?, ?, ?)",
-            (_sha256(state), verifier, nonce, safe_return_to(return_to), _expires_at(ttl_seconds)),
+            "INSERT INTO tenon_login_attempts(state_hash, code_verifier, nonce, return_to, expires_at, started_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (_sha256(state), verifier, nonce, safe_return_to(return_to), _expires_at(ttl_seconds), now_utc()),
         )
     return {"state": state, "code_verifier": verifier, "nonce": nonce}
 
@@ -67,11 +67,17 @@ def bind_existing_account(db_target, account_id, subject):
     return {"bound": True}
 
 
-def account_for_identity(db_target, identity):
+def account_for_identity(db_target, identity, *, request_started_at=None):
     subject = identity["sub"]
     timestamp = now_utc()
     with connect(db_target) as conn:
         _identity_lock(conn, subject)
+        deleted = conn.execute(
+            "SELECT max(completed_at) AS completed_at FROM product_deletion_receipts WHERE issuer = ? AND subject = ?",
+            (ISSUER, subject),
+        ).fetchone()
+        if deleted["completed_at"] is not None and (request_started_at is None or request_started_at <= deleted["completed_at"]):
+            raise APIError("OAUTH_IDENTITY_RETIRED", "Start a new Tenon sign-in after account deletion.", 401)
         mapping = conn.execute(
             "SELECT account_id FROM account_identities WHERE issuer = ? AND subject = ?",
             (ISSUER, subject),

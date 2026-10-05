@@ -11,6 +11,8 @@ window.IntHubI18n = (() => {
     "No projects yet": "暂无项目", "Checking sync": "正在检查同步", "Waiting for project": "等待项目", "Continuity status": "接续状态",
     "Current work": "当前工作", "Continuation queue": "接续队列", "Related context": "关联上下文", "Back to list": "返回列表",
     "Account": "账号", "Private session": "私有会话", "Access token": "访问令牌", "Sign out": "退出 IntHub",
+    "Account center": "账号中心", "Delete account": "删除账号", "Opening account management…": "正在打开账号管理…",
+    "Tenon returned an invalid deletion destination.": "Tenon 返回了无效的删除入口。",
     "About IntHub": "关于 IntHub", "Close About IntHub": "关闭关于 IntHub", "Version": "版本", "Publisher": "出品方",
     "IntHub, by Tenon, home": "IntHub，Tenon 出品，首页", "IntHub, by Tenon": "IntHub，Tenon 出品",
     "Skip to project content": "跳至项目内容", "Project navigation": "项目导航", "Project index": "项目索引",

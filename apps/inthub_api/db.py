@@ -17,7 +17,9 @@ from urllib.parse import urlsplit, urlunsplit
 _INITIALIZED = set()
 _INIT_LOCK = threading.Lock()
 
-LATEST_SCHEMA_VERSION = 4
+LATEST_SCHEMA_VERSION = 5
+_DELETION_SCHEMA_NAME = "product-deletion-receipts"
+_DELETION_SCHEMA_CHECKSUM = hashlib.sha256(b"0005:product-deletion:operation-subject-receipts:login-start").hexdigest()
 _HISTORY_SCHEMA_NAME = "shared-semantic-history"
 _HISTORY_SCHEMA_CHECKSUM = hashlib.sha256(b"0004:project-head:immutable-parent-revisions").hexdigest()
 _INITIAL_SCHEMA_NAME = "initial-account-scoped-schema"
@@ -122,7 +124,9 @@ _EXPECTED_SCHEMA_COLUMNS_V3 = dict(_EXPECTED_SCHEMA_COLUMNS)
 _EXPECTED_SCHEMA_COLUMNS.update({
     "semantic_heads": {"project_id", "revision"},
     "semantic_versions": {"project_id", "revision", "parent", "snapshot_json", "created_at"},
+    "product_deletion_receipts": {"operation_id", "issuer", "subject", "completed_at"},
 })
+_EXPECTED_SCHEMA_COLUMNS["tenon_login_attempts"] = _EXPECTED_SCHEMA_COLUMNS["tenon_login_attempts"] | {"started_at"}
 
 
 def _backend_for(target):
@@ -640,6 +644,8 @@ def _validate_migration_ledger(rows):
         },
         4: {"name": _HISTORY_SCHEMA_NAME, "checksum": _HISTORY_SCHEMA_CHECKSUM,
             "backward_compatible": 1},
+        5: {"name": _DELETION_SCHEMA_NAME, "checksum": _DELETION_SCHEMA_CHECKSUM,
+            "backward_compatible": 1},
     }
     observed_versions = set()
     for row in rows:
@@ -742,6 +748,19 @@ def migrate_db(conn, *, require_backward_compatible=True):
             (version, name, checksum, backward_compatible, applied_at)
             VALUES (?, ?, ?, ?, ?)""",
             (4, _HISTORY_SCHEMA_NAME, _HISTORY_SCHEMA_CHECKSUM, 1,
+             datetime.now(timezone.utc).isoformat()))
+
+    if 5 not in applied_versions:
+        conn.execute("""CREATE TABLE IF NOT EXISTS product_deletion_receipts (
+            operation_id TEXT PRIMARY KEY NOT NULL, issuer TEXT NOT NULL,
+            subject TEXT NOT NULL, completed_at TEXT NOT NULL)""")
+        conn.execute("CREATE INDEX IF NOT EXISTS product_deletion_subject_idx ON product_deletion_receipts(issuer, subject, completed_at)")
+        if "started_at" not in _observed_schema_columns(conn)["tenon_login_attempts"]:
+            conn.execute("ALTER TABLE tenon_login_attempts ADD COLUMN started_at TEXT")
+        conn.execute("""INSERT INTO schema_migrations
+            (version, name, checksum, backward_compatible, applied_at)
+            VALUES (?, ?, ?, ?, ?)""",
+            (5, _DELETION_SCHEMA_NAME, _DELETION_SCHEMA_CHECKSUM, 1,
              datetime.now(timezone.utc).isoformat()))
 
     rows = _migration_rows(conn)

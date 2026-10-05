@@ -41,7 +41,7 @@ const document = {
 const context = {document, NodeFilter: {SHOW_TEXT: 4}, navigator: {language: 'zh-CN'},
   localStorage: {getItem() {return 'zh-CN';}, setItem() {}},
   window: {dispatchEvent() {}, addEventListener() {}, setTimeout() {}, clearTimeout() {}, location: {pathname: '/', search: ''}, history: {replaceState() {}}},
-  innerHeight: 900, innerWidth: 1440, Event, URLSearchParams, Intl, console, assert,
+  innerHeight: 900, innerWidth: 1440, Event, URL, URLSearchParams, Intl, console, assert,
 };
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(root, 'i18n.js'), 'utf8'), context);
@@ -55,6 +55,17 @@ for (const file of ['app.js', 'help.js']) {
   }
 }
 vm.runInContext(`
+  const deletionUrl = 'https://account.tenon.asia/account/delete/?request=' + 'f'.repeat(43);
+  const deletionExpiry = Date.now() + 300000;
+  assert.equal(productDeletionDestination({url: deletionUrl, expiresAt: deletionExpiry}), deletionUrl);
+  for (const url of [deletionUrl + '&request=' + 'f'.repeat(43), deletionUrl + '&extra=yes', deletionUrl.replace('f'.repeat(43), 'short'), deletionUrl.replace('account.tenon.asia', 'fake.example')]) {
+    assert.throws(() => productDeletionDestination({url, expiresAt: deletionExpiry}));
+  }
+  setButtonBusy(el.deleteAccountBtn, true, 'Opening account management…', 'Delete account');
+  assert.equal(el.deleteAccountBtn.disabled, true);
+  assert.equal(el.deleteAccountBtn.getAttribute('aria-busy'), 'true');
+  assert.equal(el.deleteAccountBtn.textContent, '正在打开账号管理…');
+  setButtonBusy(el.deleteAccountBtn, false, 'Opening account management…', 'Delete account');
   assert.equal(t('About IntHub'), '关于 IntHub');
   assert.equal(t('Load more ({count})', {count: 7}), '加载更多（7）');
   state.config = {authMode: 'tenon', apiBaseUrl: '', productVersion: '6.0.1'};

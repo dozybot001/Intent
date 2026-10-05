@@ -22,9 +22,37 @@ from apps.inthub_api.tenon import (
     bind_existing_account, consume_attempt, create_attempt, create_session,
 )
 import time
+from uuid import uuid4
+from apps.inthub_api.product_deletion import delete_product_account
+from apps.inthub_api.tenon import ISSUER
 
 
 POSTGRES_URL = os.getenv("INTHUB_TEST_POSTGRES_URL")
+
+
+@pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")
+def test_postgresql_product_deletion_receipt_and_subject_lock():
+    subject = "deletion-" + os.urandom(6).hex()
+    info = {"sub": subject, "name": "Integration", "platform_role": "user", "expires_at": time.time() + 60}
+    account = account_for_identity(POSTGRES_URL, info)
+    session = create_session(POSTGRES_URL, account["id"], info)
+    pat = create_account_access_token(POSTGRES_URL, account["id"])
+    project = link_history(POSTGRES_URL, subject, account["id"])
+    proof = {"issuer": ISSUER, "sub": subject, "productId": "inthub", "operationId": str(uuid4())}
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: delete_product_account(POSTGRES_URL, proof), range(2)))
+    assert results[0] == results[1] == {"operationId": proof["operationId"], "status": "completed", "deleted": True}
+    assert tenon_account_for_session(POSTGRES_URL, session["token"]) is None
+    assert account_for_access_token(POSTGRES_URL, pat["token"]) is None
+    with connect(POSTGRES_URL) as conn:
+        assert conn.execute("SELECT id FROM projects WHERE id = ?", (project["project_id"],)).fetchone() is None
+        assert conn.execute("SELECT count(*) AS n FROM product_deletion_receipts WHERE operation_id = ?", (proof["operationId"],)).fetchone()["n"] == 1
+    attempt = create_attempt(POSTGRES_URL)
+    started = consume_attempt(POSTGRES_URL, attempt["state"])["started_at"]
+    replacement = account_for_identity(POSTGRES_URL, info, request_started_at=started)
+    assert replacement["id"] != account["id"]
+    assert delete_product_account(POSTGRES_URL, {**proof, "completed": True}) == results[0]
+    assert account_for_identity(POSTGRES_URL, info, request_started_at=started)["id"] == replacement["id"]
 
 
 @pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")

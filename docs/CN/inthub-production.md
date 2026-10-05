@@ -88,6 +88,18 @@ HttpOnly、Secure、SameSite=Strict Cookie 使用相同 Max-Age。回调及签�
 候选接收登录前执行一次绑定；成功后将凭据之外的迁移记录移入本次受限备份目录。
 登录按钮复用 Tenon 主站 `dist/assets/mark.svg`（2026-10-03），品牌色固定为 `#F06B32`。
 
+## 产品级删除
+
+账号菜单的「删除账号」调用 `POST /api/auth/tenon/delete/start`，立即显示等待状态。后端只从有效浏览器会话读取确切 Tenon subject，用已有机密客户端请求中央来源绑定链接；前端仅接受 `https://account.tenon.asia/account/delete/`。中央统一承担整个账号与产品账号的选择、近期认证及最终确认，IntHub 不另建确认或认证页面。
+
+`POST /api/auth/tenon/delete/execute` 为服务端删除入口。它先以 `client_secret_basic` 向中央 claim 短期 grant，严格核对 issuer、`productId=inthub`、操作 ID 与 subject，再在同一数据库事务中删除产品身份和记录持久回执；不能用浏览器会话、管理员角色或前端提交的身份代替证明，GET 不删除。中央 finish 暂时失败时仍返回已经提交的真实完成结果。
+
+Schema v5 显式增加 `product_deletion_receipts`，以及服务端登录事务的 `started_at`。回执没有账户外键，保存操作 ID、issuer/subject 与完成时间，删除和重新注册后继续存在；同一操作重试只读原回执，不删除新产品身份。已完成中央证明而本地回执丢失时拒绝修改。删除和 OIDC 身份创建使用同一 subject 锁；删除前发起的迟到回调不能重建身份，新发起登录可以建立新的产品账户。全部旧网页会话与 CLI PAT 立即失效。
+
+范围包括 IntHub 业务账户、身份映射、所有会话/PAT、公开资料、本人拥有的全部云端项目、语义版本/head、同步批次及 workspace 副本。本人云端项目从公开页面移除；其他账户及其项目不删除。**本机仓库与 `.intent` 内容不修改**，重新注册不会恢复已删云端数据；中央 Tenon 账号和其他产品保留。仅操作回执及现行备份策略中的备份继续保留，备份不被标记为已在线删除的数据。
+
+[实现](../../apps/inthub_api/product_deletion.py)、[隔离与故障测试](../../tests/test_inthub_product_deletion.py) 和 [PostgreSQL 并发测试](../../tests/test_inthub_postgres.py) 是范围与幂等保证的依据。正式发布器按候选 schema5 进行备份和显式兼容迁移，运行服务保持 `INTHUB_AUTO_MIGRATE=0`。首次启用必须先发布所有产品并确认旧 slot 停止，再登记中央删除 metadata；不得让旧版回调 writer 与真实删除同时运行。
+
 ## 共享语义历史与兼容迁移
 
 语义同步独立于代码 Git。Schema v4 只增添 `semantic_heads` 和 `semantic_versions`，

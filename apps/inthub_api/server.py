@@ -27,6 +27,7 @@ from apps.inthub_api.tenon import (
 from apps.inthub_api.common import APIError
 from apps.inthub_api.db import check_database, describe_database
 from apps.inthub_api.history import link_history, push_history, read_history
+from apps.inthub_api.product_deletion import ProductDeletionClient, subject_for_account
 from apps.inthub_api.queries import (
     get_decision_detail,
     get_intent_detail,
@@ -106,6 +107,7 @@ def make_handler(
     tenon_client_id=None,
     tenon_client_secret=None,
     oauth_client=None,
+    deletion_client=None,
     account_session_ttl_seconds=ACCOUNT_SESSION_TTL_SECONDS,
     oauth_state_ttl_seconds=OAUTH_STATE_TTL_SECONDS,
 ):
@@ -130,6 +132,9 @@ def make_handler(
                 or callback_origin.query or callback_origin.fragment):
             raise ValueError("Tenon sign-in requires an exact HTTPS public origin.")
     origin_allowlist = _normalize_origins(allowed_origins)
+    product_deletion = deletion_client
+    if tenon_configured and product_deletion is None:
+        product_deletion = ProductDeletionClient(tenon_client_id, tenon_client_secret)
 
     class IntHubHandler(BaseHTTPRequestHandler):
         server_version = "IntHubAPI/0.3"
@@ -472,7 +477,7 @@ def make_handler(
                     self._oauth_callback_url(),
                     attempt,
                 )
-                account = account_for_identity(db_path, identity)
+                account = account_for_identity(db_path, identity, request_started_at=attempt.get("started_at"))
                 session = create_session(
                     db_path,
                     account["id"],
@@ -598,7 +603,26 @@ def make_handler(
         def do_POST(self):
             parsed = urlparse(self.path)
             try:
+                if parsed.path == "/api/auth/tenon/delete/execute":
+                    if self.headers.get("Origin") or not product_deletion:
+                        raise APIError("DELETION_AUTHORIZATION_REQUIRED", "Use Tenon's product deletion flow.", 403)
+                    self._send_json(200, product_deletion.execute(db_path, self._read_json_body()))
+                    return
                 self._check_origin()
+                if parsed.path == "/api/auth/tenon/delete/start":
+                    # Same-origin JSON POST + host-only session is this web app's
+                    # CSRF boundary. A CLI PAT cannot delete a browser account.
+                    if self.headers.get("Origin") != self._request_base_url():
+                        raise APIError("ORIGIN_DENIED", "The request origin is not allowed.", 403)
+                    if not self.headers.get("Content-Type", "").startswith("application/json"):
+                        raise APIError("INVALID_INPUT", "JSON is required.", 415)
+                    if self._read_json_body() != {}:
+                        raise APIError("INVALID_DELETION_REQUEST", "Invalid deletion request.", 400)
+                    account = self._require_browser_account()
+                    if not product_deletion:
+                        raise APIError("DELETION_SERVICE_UNAVAILABLE", "Tenon account management is temporarily unavailable.", 503)
+                    self._send_json(200, _json_success(product_deletion.start(subject_for_account(db_path, account["id"]))))
+                    return
                 if parsed.path == "/api/v1/auth/tenon/prepare":
                     body = self._read_json_body()
                     location, cookie = self._prepare_tenon_login(body.get("return_to", "/"))

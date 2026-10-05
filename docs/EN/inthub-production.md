@@ -97,6 +97,18 @@ after database backup and migration but before candidate login, then moves the a
 into that release's protected backup directory. The login button reuses Tenon's
 `dist/assets/mark.svg` (2026-10-03), with fixed brand color `#F06B32`.
 
+## Product-only deletion
+
+The account menu calls `POST /api/auth/tenon/delete/start` with immediate loading feedback. The backend derives the exact subject from a valid local browser session and uses its existing confidential client to request a source-bound central link. The frontend accepts only `https://account.tenon.asia/account/delete/`. Tenon owns scope selection, recent authentication and final confirmation; IntHub provides no duplicate confirmation or identity flow.
+
+`POST /api/auth/tenon/delete/execute` is server-only. It claims a short-lived grant with `client_secret_basic`, validates the exact issuer, `productId=inthub`, operation ID and subject, then deletes business data and commits a durable receipt in the same transaction. Browser sessions, admin privileges and client-provided identity claims cannot replace the proof; GET never deletes. A temporary central finish outage does not turn a committed deletion into a false failure.
+
+Schema5 explicitly adds `product_deletion_receipts` and a server-owned login-attempt `started_at`. Receipts survive account deletion and contain only operation ID, issuer/subject and completion time. An authorized retry reads the existing receipt and never removes a subsequently re-created account. A completed central proof with a missing local receipt fails closed. Deletion and OIDC mapping share the same subject lock: a callback started before deletion cannot recreate the identity, while a newly initiated login may create a fresh business account. All former browser sessions and CLI PATs immediately stop working.
+
+Removal covers the product account, identity mapping, sessions/PATs, public profile, all owned cloud projects, semantic versions/heads, sync batches and workspace copies. Deleted projects disappear from public pages; other accounts and their projects remain. **Local repositories and `.intent` files are untouched**; registering again does not restore removed cloud data. The central Tenon account and other products remain. Minimal deletion receipts and backups subject to existing rotation policy are retained; online deletion is not represented as immediate backup erasure.
+
+See the [implementation](../../apps/inthub_api/product_deletion.py), [isolation and failure tests](../../tests/test_inthub_product_deletion.py) and [PostgreSQL concurrency tests](../../tests/test_inthub_postgres.py). The formal publisher backs up and explicitly applies the candidate schema5 expansion; live startup retains `INTHUB_AUTO_MIGRATE=0`. Initial activation must finish all product releases and verify that old slots have stopped before registering central deletion metadata; an old callback writer must never overlap real deletion.
+
 ## Shared semantic history and compatible migration
 
 Semantic synchronization is independent of source Git. Schema v4 adds only `semantic_heads`

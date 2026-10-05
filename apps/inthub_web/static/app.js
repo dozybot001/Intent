@@ -48,6 +48,7 @@ const el = {
   drawerContent: document.getElementById("drawer-content"),
   logoutBtn: document.getElementById("logout-btn"),
   tokenBtn: document.getElementById("token-btn"),
+  deleteAccountBtn: document.getElementById("delete-account-btn"),
   tokenDialog: document.getElementById("token-dialog"),
   tokenOutput: document.getElementById("token-output"),
   tokenCopy: document.getElementById("token-copy"),
@@ -70,6 +71,17 @@ const el = {
 };
 
 /* ---- Helpers ---- */
+
+function productDeletionDestination(result) {
+  const target = new URL(result?.url || "");
+  if (target.origin !== "https://account.tenon.asia" || target.pathname !== "/account/delete/"
+      || target.username || target.password || target.hash
+      || [...target.searchParams].length !== 1 || !/^[A-Za-z0-9_-]{43}$/.test(target.searchParams.get("request") || "")
+      || !Number.isFinite(result?.expiresAt) || result.expiresAt <= Date.now()) {
+    throw new Error(t("Tenon returned an invalid deletion destination."));
+  }
+  return target.href;
+}
 
 function esc(v) {
   return String(v ?? "")
@@ -1950,6 +1962,21 @@ function bindEvents() {
 
   window.addEventListener("pageshow", () => {
     setTenonLoginLoading(false);
+    setButtonBusy(el.deleteAccountBtn, false, "Opening account management…", "Delete account");
+  });
+
+  el.deleteAccountBtn.addEventListener("click", async () => {
+    if (el.deleteAccountBtn.disabled) return;
+    setButtonBusy(el.deleteAccountBtn, true, "Opening account management…", "Delete account");
+    try {
+      const result = await fetchJson(apiUrl("/api/auth/tenon/delete/start"), {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+      });
+      window.location.assign(productDeletionDestination(result));
+    } catch (error) {
+      setStatus(error.message, true);
+      setButtonBusy(el.deleteAccountBtn, false, "Opening account management…", "Delete account");
+    }
   });
 
 
