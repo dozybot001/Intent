@@ -6,7 +6,7 @@ Inspect the target semantic repository and resolve graph damage before uploading
 
 `itt remote` shows the endpoint and project name. The default project name is the local repository directory name, independent of Git origin. To choose another project or endpoint, use `itt remote add origin URL --project NAME` within the user's scope. Multiple local copies use the same remote/project, not different workspace IDs.
 
-Check `itt auth status` against that endpoint. Existing account authentication is global; do not ask for credentials again when it works. If login is needed, let the user sign in through `itt auth login`, without requesting a pasted token.
+Check `itt auth status` against that endpoint. Existing account authentication is global; do not ask for credentials again when it works. If login is needed, follow [onboarding.md](onboarding.md): website sign-in → account Access token → user-owned interactive `itt auth login` hidden prompt → status verification. Never request a token in chat or pass it through the non-interactive argv adapter.
 
 Run `itt push`. It links the project when needed, saves a content-addressed revision, and reports `changed: false` when nothing needs uploading. There is no manual commit or staging area. A stale/divergent baseline is rejected; do not overwrite or force it. Recover safe failures using [execution.md](execution.md). A read-only `itt status` can establish whether an interrupted upload was accepted.
 

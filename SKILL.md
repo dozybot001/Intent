@@ -4,7 +4,7 @@ description: >-
   Continuously maintain verified Intent semantic history in projects with local
   maintenance enabled; itt init enables it by default. Read context at turn start,
   preserve meaningful changes, and close hooked turns as recorded, no-op, or failed.
-  Also handle explicit Intent recording/recovery and IntHub push/pull requests.
+  Also handle requested project setup, Intent recording/recovery, and IntHub push/pull.
   Disabled or legacy projects are not automatically enabled. Network sync needs
   a separate explicit request.
 ---
@@ -15,9 +15,11 @@ Preserve enough verified meaning for another agent to continue, not a conversati
 
 ## Project scope
 
+- For first-time setup, missing `itt`, or optional IntHub authentication, read [onboarding.md](references/onboarding.md). If `itt` is missing, request installation confirmation, then install, verify, and resume the original workflow; do not stop at command-not-found. Local recording needs no account.
 - Resolve the canonical semantic root; Git is optional. A trusted hook context for this root and turn supplies the opening snapshot. Otherwise check `itt maintenance status`. Read [execution.md](references/execution.md) before executing commands.
 - `itt init` enables maintenance and installs project-local Codex hooks for a new history. Existing histories need `itt maintenance on` once. `itt maintenance off` disables only this project. Skill installation does not enable other projects.
 - Hook configuration is not proof of execution: Codex must review/trust it. Read [codex-hooks.md](references/codex-hooks.md) only for setup, missing hooks, or host integration.
+- IntHub is optional. When requested and authentication is missing, guide the user to the IntHub website to sign in and create an access token, then enter it privately into `itt auth login`; never request the token in chat. Read [onboarding.md](references/onboarding.md) for the full path.
 - Disabled/uninitialized projects do not get automatic semantic writes. Explicit one-off recording remains available; initialize only when requested setup, recording, or restoration needs it. Recovery starts read-only.
 - User read-only, skip-this-turn, and disable instructions take precedence. Never automatically sync, log in, publish, or change Git remotes. Explicit push/pull requests use [sync.md](references/sync.md) / [pull.md](references/pull.md). Follow the requested sequence; planned later uploads are not current authorization.
 

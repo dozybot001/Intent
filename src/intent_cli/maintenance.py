@@ -59,6 +59,8 @@ def read_state(base):
                     or not isinstance(entry.get("entry_error"), (str, type(None)))
                     or not isinstance(entry.get("continuation_reason", ""), str)):
                 raise ValueError("invalid turn entry")
+            if type(entry.get("stop_checked", False)) is not bool:
+                raise ValueError("invalid Stop observation")
             if entry["baseline"] is not None and any(not isinstance(digest, str) or TOKEN.fullmatch(digest) is None
                                                      for digest in entry["baseline"].values()):
                 raise ValueError("invalid baseline fingerprints")

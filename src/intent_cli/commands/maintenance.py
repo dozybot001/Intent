@@ -45,12 +45,18 @@ def cmd_maintenance(args):
             hooks = {"configured": None, "enforcement": "not_attested", "configuration_unavailable": True}
             warnings.append("Project hook configuration is unavailable; the local flag does not guarantee host enforcement.")
         success("maintenance.status", {"root": str(base.parent.resolve()), "initialized": True,
-                "enabled": state["enabled"], "mode": "continuous", "hooks": hooks}, warnings)
+                "enabled": state["enabled"], "mode": "continuous", "hooks": hooks,
+                "observations": {
+                    "entry_seen": bool(state["turns"]),
+                    "stop_checked_receipt": any(entry.get("stop_checked", False)
+                                                for entry in state["turns"].values()),
+                    "note": "Local adapter observations, not attestation of this current desktop session or semantic quality.",
+                }}, warnings)
         return
     base = require_init()
     if args.sub in {"on", "off"}:
         result = configure(base, args.sub == "on")
-        warnings = ["Review/trust these project hooks in Codex /hooks before relying on enforcement."] if args.sub == "on" else []
+        warnings = ["Hooks are configured, not verified running. Follow hooks.setup: trust this project folder, then review its two hooks using /hooks in the CLI; verify actual host execution."] if args.sub == "on" else []
         success("maintenance." + args.sub, result, warnings)
     else:
         result = close_turn(base, args.turn, args.outcome, args.reason, args.objects)

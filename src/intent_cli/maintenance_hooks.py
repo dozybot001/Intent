@@ -78,8 +78,18 @@ def hook_status(root):
 
     configured = all(any(scoped(handler) for group in data["hooks"].get(event, [])
                          for handler in group["hooks"]) for event in EVENTS)
-    return {"configured": configured, "trust": "host_review_required" if configured else "not_configured",
-            "enforcement": "not_attested", "path": str(_hooks_path(root))}
+    return {"configured": configured, "trust": "host_state_not_inspected" if configured else "not_configured",
+            "enforcement": "not_attested", "path": str(_hooks_path(root)),
+            "setup": {
+                "review_argv": ["codex", "--cd", str(root)],
+                "steps": [
+                    "Open Codex in this exact root and review the folder trust prompt; untrusted project hooks are not loaded.",
+                    "In the CLI, open /hooks and review/trust the two handlers from this project's hooks.json.",
+                    "Reload the desktop project/session, then verify a real UserPromptSubmit context and Stop closure.",
+                ],
+                "scope": "project",
+                "note": "Desktop settings may not list the current project's hooks. CLI trust does not prove desktop execution; do not install duplicate global hooks or bypass trust.",
+            }}
 
 
 def install_hooks(root):
@@ -184,6 +194,11 @@ def handle_event(event, expected_root=None):
         if entry is None:
             return {"systemMessage": "Intent closure was not checked: this turn has no trusted entry context."}
         if receipt_valid(base, entry):
+            # Persist a minimal observation so setup can distinguish a receipt
+            # submitted by the Agent from a receipt actually checked by Stop.
+            if not entry.get("stop_checked", False):
+                entry["stop_checked"] = True
+                write_state(base, state)
             if entry["receipt"]["outcome"] == "failed":
                 return {"systemMessage": "Intent recording failed: " + entry["receipt"]["reason"][:600]}
             return {}

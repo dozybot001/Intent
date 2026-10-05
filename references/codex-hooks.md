@@ -11,6 +11,19 @@ Implemented in [maintenance.py](../src/intent_cli/maintenance.py), [maintenance_
 
 Codex requires human review/trust of non-managed definitions through `/hooks`; exact-definition changes need renewed review. Configuration does not attest actual execution. Project/user/plugin hooks merge, so do not install a duplicate global handler. See the [official hooks documentation](https://learn.chatgpt.com/docs/hooks).
 
+### Complete first-time setup (not just file generation)
+
+`init`, `maintenance on`, and `maintenance status` return `hooks.setup`, including an argv-safe CLI entry point for the exact root. Use that root, not a parent or another project:
+
+1. Start `codex --cd ROOT`. Review the folder trust prompt: project `.codex/` hooks are not loaded before this layer is trusted. Setup authorization does not authorize bypassing trust or silently trusting unrelated folders.
+2. Open `/hooks` **in the CLI**, review the two commands from `ROOT/.codex/hooks.json`, and trust them. The host saves exact-definition hashes; do not fabricate/edit those hashes. If a human confirmation is required by the execution environment, prepare the exact review and request only that confirmation.
+3. Reload the desktop project/session if testing the desktop. Its general Settings page being empty does not establish whether a project-local source is loaded. Do not solve that display issue by adding a duplicate global hook.
+4. Send a real, read-only smoke-test message. Verify injected context/token, a successful `no-op` receipt, and the Stop path. Test a missing receipt to verify one bounded closure retry. Manual adapter calls and CLI-only success do not prove desktop execution.
+
+When setup is requested, proceed through discovery and verification rather than stopping at `configured: true`. Report the verified host and any remaining host-specific gap accurately. Keep test-only turns out of semantic Snaps and dogfood scores.
+
+`maintenance status` exposes bounded local `observations`: `entry_seen` and `stop_checked_receipt`. The latter is written by the Stop adapter only after checking a valid receipt, not merely by `maintenance close`. These observations are not current-session attestation; an earlier CLI test does not prove the desktop is running hooks.
+
 ## Normal flow
 
 ```text

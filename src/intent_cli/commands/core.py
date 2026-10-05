@@ -48,7 +48,7 @@ def cmd_init(_args):
 
     try:
         maintenance = configure(path, True)
-        warnings.append("Review/trust this project's Intent hooks in Codex /hooks; installation does not grant host trust.")
+        warnings.append("Hooks are configured, not verified running. Follow maintenance.hooks.setup: trust this project folder, then review its two hooks using /hooks in the CLI; verify actual host execution.")
     except (MaintenanceError, StorageSecurityError, OSError) as exc:
         set_enabled(path, True)
         maintenance = {"enabled": True, "hooks": {"configured": False, "enforcement": "not_attested"}}

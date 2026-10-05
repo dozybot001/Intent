@@ -68,6 +68,9 @@ def test_new_init_defaults_to_project_local_continuous_maintenance(tmp_path):
     assert result["result"]["maintenance"]["enabled"] is True
     assert result["result"]["maintenance"]["hooks"]["configured"] is True
     assert result["result"]["maintenance"]["hooks"]["enforcement"] == "not_attested"
+    setup = result["result"]["maintenance"]["hooks"]["setup"]
+    assert setup["review_argv"] == ["codex", "--cd", str(tmp_path.resolve())]
+    assert setup["scope"] == "project"
     assert cli(tmp_path, "maintenance", "status")["result"]["mode"] == "continuous"
     assert cli(tmp_path, "maintenance", "off")["result"]["enabled"] is False
     assert cli(tmp_path, "maintenance", "on")["result"]["enabled"] is True
@@ -226,6 +229,8 @@ def test_quiet_noop_has_a_receipt_without_semantic_objects(project):
     assert result["ok"] and result["result"]["objects"] == []
     assert not cli(root, "maintenance", "close", "no-op", "--turn", key, "--reason", "Only inspected existing facts")["result"]["changed"]
     assert handle_event(event(root, "Stop"), root) == {}
+    assert read_state(base)["turns"][key]["stop_checked"] is True
+    assert cli(root, "maintenance", "status")["result"]["observations"]["stop_checked_receipt"] is True
     assert all(not list((base / subdir).iterdir()) for subdir in store.SUBDIRS.values())
 
 
