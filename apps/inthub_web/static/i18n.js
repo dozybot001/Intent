@@ -84,6 +84,11 @@ window.IntHubI18n = (() => {
   let language;
   try { language = localStorage.getItem("inthub.language"); } catch {}
   if (!["zh-CN", "en"].includes(language)) language = navigator.language?.startsWith("zh") ? "zh-CN" : "en";
+  const incomingLanguage = new URLSearchParams(window.location?.search || "").getAll("lang");
+  if (incomingLanguage.length === 1 && ["en", "zh"].includes(incomingLanguage[0])) {
+    language = incomingLanguage[0] === "zh" ? "zh-CN" : "en";
+    try { localStorage.setItem("inthub.language", language); } catch {}
+  }
   const t = (key, values = {}) => {
     const copy = language === "zh-CN" ? zh[key] ?? key : key;
     return copy.replace(/\{(\w+)\}/g, (_, name) => String(values[name] ?? `{${name}}`));

@@ -7,6 +7,11 @@ window.IntHubTheme = (() => {
     const saved = localStorage.getItem("inthub.theme");
     if (modes.includes(saved)) preference = saved;
   } catch {}
+  const incoming = new URLSearchParams(window.location.search).getAll("theme");
+  if (incoming.length === 1 && ["light", "dark"].includes(incoming[0])) {
+    preference = incoming[0];
+    try { localStorage.setItem("inthub.theme", preference); } catch {}
+  }
   const icons = {
     system: '<rect x="3" y="4" width="14" height="10" rx="2"/><path d="M7 17h6M10 14v3"/>',
     light: '<circle cx="10" cy="10" r="3.5"/><path d="M10 1.5v2M10 16.5v2M1.5 10h2M16.5 10h2M4 4l1.5 1.5M14.5 14.5 16 16M4 16l1.5-1.5M14.5 5.5 16 4"/>',

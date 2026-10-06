@@ -215,7 +215,7 @@ def test_theme_and_local_font_cover_all_entry_pages_without_external_loading():
     for name in ("index.html", "auth-redirect.html"):
         html = (STATIC_DIR / name).read_text()
         assert 'content="light dark"' in html
-        assert 'src="/theme.js?rev=header-mono-1"' in html
+        assert 'src="/theme.js?rev=tenon-arrival-1"' in html
         assert html.index('/theme.js?') < html.index('/styles.css?')
         assert 'data-theme-switch' in html or 'data-theme-setting' in html
         assert 'href="/InterVariable.woff2"' in html
@@ -309,7 +309,7 @@ def test_web_shell_uses_soft_cards_without_console_style_color_rails():
     javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
     stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
 
-    assert "header-mono-1" in html
+    assert "tenon-arrival-1" in html
     assert "--shadow-card:" in stylesheet
     assert ".checkpoint-blocker.is-clear" in stylesheet
     assert 'clearBlocker ? " is-clear"' in javascript

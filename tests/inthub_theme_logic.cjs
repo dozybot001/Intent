@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const source = fs.readFileSync(path.join(__dirname, '../apps/inthub_web/static/theme.js'), 'utf8');
-function setup(saved, darkSystem = false, blockedStorage = false) {
+function setup(saved, darkSystem = false, blockedStorage = false, search = '') {
   const attributes = new Map();
   const button = {dataset: {}, innerHTML: '', setAttribute(key, value) {attributes.set(key, value);}};
   const mark = {src: '', setAttribute(_, value) {this.src = value;}};
@@ -22,12 +22,14 @@ function setup(saved, darkSystem = false, blockedStorage = false) {
     addEventListener(event, fn) {handlers.set(event, fn);},
   };
   const cx = {
+    URLSearchParams,
     document,
     localStorage: {
       getItem() {if (blockedStorage) throw new Error('blocked'); return saved;},
       setItem(key, value) {if (blockedStorage) throw new Error('blocked'); saved = value;},
     },
     window: {
+      location: {search},
       matchMedia() {return media;},
       addEventListener(event, fn) {handlers.set(event, fn);},
       IntHubI18n: {t(key) {return `localized:${key}`;}},
@@ -35,7 +37,7 @@ function setup(saved, darkSystem = false, blockedStorage = false) {
   };
   vm.runInNewContext(source, cx);
   handlers.get('DOMContentLoaded')();
-  return {cx, document, media, handlers, button, mark, attributes, settings};
+  return {cx, document, media, handlers, button, mark, attributes, settings, saved: () => saved};
 }
 const dark = setup('dark');
 assert.equal(dark.document.documentElement.dataset.theme, 'dark');
@@ -68,4 +70,29 @@ const blocked = setup(null, true, true);
 assert.equal(blocked.document.documentElement.dataset.theme, 'dark');
 blocked.cx.window.IntHubTheme.setPreference('light');
 assert.equal(blocked.document.documentElement.dataset.theme, 'light');
+const incoming = setup('light', false, false, '?theme=dark');
+assert.equal(incoming.document.documentElement.dataset.theme, 'dark');
+assert.equal(incoming.saved(), 'dark');
+assert.equal(setup(incoming.saved()).document.documentElement.dataset.theme, 'dark');
+for (const search of ['?theme=unknown', '?theme=system', '?theme=dark&theme=light']) {
+  assert.equal(setup('light', false, false, search).document.documentElement.dataset.theme, 'light');
+}
+assert.equal(setup(null, false, true, '?theme=dark').document.documentElement.dataset.theme, 'dark');
+
+const languageSource = fs.readFileSync(path.join(__dirname, '../apps/inthub_web/static/i18n.js'), 'utf8');
+function languageBoot(search, saved = 'zh-CN', blockedStorage = false) {
+  const cx = {URLSearchParams, navigator: {language: 'zh-CN'}, window: {location: {search}},
+    localStorage: {getItem() {if (blockedStorage) throw Error('blocked'); return saved;}, setItem(_, value) {if (blockedStorage) throw Error('blocked'); saved = value;}},
+  };
+  vm.runInNewContext(languageSource, cx);
+  return {language: cx.window.IntHubI18n.language, saved};
+}
+const english = languageBoot('?lang=en');
+assert.equal(english.language, 'en'); assert.equal(english.saved, 'en');
+assert.equal(languageBoot('', english.saved).language, 'en');
+assert.equal(languageBoot('?lang=zh', 'en').language, 'zh-CN');
+for (const search of ['?lang=unknown', '?lang=zh-CN', '?lang=en&lang=zh']) {
+  assert.equal(languageBoot(search).language, 'zh-CN');
+}
+assert.equal(languageBoot('?lang=en', undefined, true).language, 'en');
 console.log('Saved/system/manual themes, localized controls and blocked-storage fallback passed.');
