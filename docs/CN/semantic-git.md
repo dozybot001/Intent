@@ -19,7 +19,8 @@
 
 - 新对象使用哈希 ID，旧的计数 ID 永久有效。
 - 每次写入都生成一个修订，没有 `itt commit`。
-- IntHub 首发展示 `main` 及其合并历史，不提供分支图。意图流转视图要等第 5 阶段验证之后再做。
+- IntHub 首发展示 `main` 及其合并历史，不提供分支图。
+- 意图流转用 Intent 之间的关系表达，而不是分支（见[意图流转](intent-flow.md)），在 7.2 先行发布。
 
 ## 唯一的有意差异：没有暂存区
 
@@ -53,7 +54,7 @@ Git 要求人先暂存再提交。Intent 的写入者大多是正在做其他事
   config.json                  远端、上游、维护开关
 ```
 
-对象在创建时获得稳定身份。修改 Intent 状态会写入同一 ID 的新版本，就像在 Git 中修改文件。关系列表（`snap_ids`、`decision_ids`、`intent_ids`）变为只增集合。另有两个一次性写入的关系 `from` 与 `into` 记录意图流转（见[分支不等于意图流转](#分支不等于意图流转)）。
+对象在创建时获得稳定身份。修改 Intent 状态会写入同一 ID 的新版本，就像在 Git 中修改文件。关系列表（`snap_ids`、`decision_ids`、`intent_ids`）以及 Intent `relations` 中的记录都变为只增集合。
 
 ## 语义合并
 
@@ -61,7 +62,8 @@ Snap 只追加，新 ID 不会冲突，所以大多数合并就是并集。对�
 
 - 只增的关系集合：取并集，按 `created_at` 排序；
 - `status`：两边相同，或只有一边改动，可以直接合并；两边改成不同的新状态（例如 `done` 与 `cancelled`）才是冲突；
-- `reason`、`into` 与一次性写入的描述字段：只有两边设置得不一样时才冲突。
+- `reason` 与一次性写入的描述字段：只有两边设置得不一样时才冲突；
+- Intent 的 `relations`：记录取并集，撤回优先；合并后若某个 Intent 出现两个上级或形成环，则视为冲突。
 
 冲突是结构化的，不是文本标记：`itt merge` 停下，`itt status` 列出冲突对象及两边的值，用 `itt resolve ID --status done`（或 `--ours`/`--theirs`）逐个解决，然后 `itt merge --continue` 或 `itt merge --abort`。Agent 以 JSON 获得同样的信息。合并之后，WHAT 规范化后相同的进行中 Intent 会被列为可能重复，合并它们始终要显式使用 `--into`。
 
@@ -79,25 +81,11 @@ Snap 只追加，新 ID 不会冲突，所以大多数合并就是并集。对�
 
 Git 本身也有这个缺口。提交图展示的是并行工作，团队靠「一个功能一个分支」之类的约定来表达功能结构。Intent 不能依赖这类约定，因为 Agent 不会遵守。
 
-因此，意图流转作为语义被显式记录，历史层负责提供时间与来源：
-
-- `itt intent create … --from A` 记录一个目标从 A 分出，可能是子目标、后续目标或替代方案。
-- `itt intent done B --into A` 与 `itt intent cancel X --into Y --reason …` 记录一个目标在结束时汇入另一个目标，可能是汇总、被替代或作为重复项合并。
-- 修订为每次变更提供时间与来源。目前状态变化没有时间戳，这一点只有格式 2 能提供。
-
-流转视图把每个 Intent 画成一条从创建到结束的泳道：`from` 画成分出，`into` 画成汇入。Snap 是泳道上的点，并标出记录位置；Decision 标在它约束的泳道上。修订分支只作为来源信息出现，并可在 `itt log --graph` 中查看，就像 `git log --graph` 之于 Git 用户。
-
-这个视图先验证、后实现：
-
-1. 把上面五种情形做成测试用的历史，先写下每种情形期望画出的流转。
-2. 第 3 阶段之后，用一个临时的渲染器画出本仓库自身的历史和自用验证案例。
-3. 只有读者不打开 Snap、仅凭视图就能复述目标如何演变时，IntHub 才实现这个视图；否则先修改关系设计。
-
-留给这些测试历史决定的问题：已完成的子目标是默认汇回它的 `from` Intent，还是只有显式 `--into` 才汇回。
+因此，意图流转用 Intent 之间的关系记录（见[意图流转](intent-flow.md)）。Snap 本来就归属于一个 Intent，Decision 可以注明它出自哪个 Intent。历史层补上关系无法提供的信息：每次变更发生的时间与记录的位置。修订分支只作为来源信息出现，并可在 `itt log --graph` 中查看，就像 `git log --graph` 之于 Git 用户。
 
 ## 远端协议 3 与 IntHub
 
-push 与 fetch 像 Git 协商 pack 一样协商缺失的修订和对象版本。IntHub 保存修订 DAG 与去重后的对象，同时消除了目前每次推送都存一份完整快照的问题。分支 ref 按项目保存。IntHub 展示 `main` 及其合并历史；流转视图在第 5 阶段。迁移期间 IntHub 继续接受 7.x 协议。
+push 与 fetch 像 Git 协商 pack 一样协商缺失的修订和对象版本。IntHub 保存修订 DAG 与去重后的对象，同时消除了目前每次推送都存一份完整快照的问题。分支 ref 按项目保存。IntHub 展示 `main` 及其合并历史。迁移期间 IntHub 继续接受 7.x 协议。
 
 ## 从 7.x 迁移
 
@@ -105,10 +93,9 @@ push 与 fetch 像 Git 协商 pack 一样协商缺失的修订和对象版本。
 
 ## 分阶段实施
 
-1. 仓库格式 2：对象、修订、refs、自动修订、新对象哈希 ID、`from`/`into` 关系，`itt log`、`show`、`diff` 与 `itt migrate`。
+1. 仓库格式 2：对象、修订、refs、自动修订、新对象哈希 ID，`itt log`、`show`、`diff` 与 `itt migrate`。
 2. 分支与 worktree：`itt branch`、`itt switch` 与 Git worktree 识别。
 3. 带结构化冲突与重复目标提示的语义合并。
 4. 远端协议 3：`fetch`、`pull` = fetch + merge、`push`、`clone`；IntHub 保存修订 DAG，展示 `main` 及其合并历史。
-5. 意图流转视图：测试历史、基于真实历史的原型，然后进入 IntHub。
 
-每个阶段都附带迁移与兼容测试，以及新增功能对应的 Skill 与 hook 指引。第 1 到 3 阶段只涉及本地，可以先于服务端改动发布。
+每个阶段都附带迁移与兼容测试，以及新增功能对应的 Skill 与 hook 指引。第 1 到 3 阶段只涉及本地，可以先于服务端改动发布。Intent 之间的关系在 7.2 单独发布，迁移时原样保留。
