@@ -24,6 +24,8 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 | `itt init [--host codex\|claude-code]` | 初始化 `.intent/`，默认开启项目级持续维护并为所选宿主安装本地 hooks（默认 Codex）；Git 可选 |
 | `itt inspect [--intent ID] [--history N]` | 恢复视图，返回目标原因、最新 Snap、可选的受限历史、有效 Decision 和完整图诊断 |
 | `itt doctor` | 返回同一套完整对象图诊断，并显式给出 `healthy` 结果 |
+| `itt log [--intent ID] [-n N \| --all]` | 按时间倒序列出 Snap，类似 `git log`（默认 20 条） |
+| `itt show ID` | 显示一个 Intent、Snap 或 Decision 及其关联，类似 `git show` |
 
 ### 项目级持续维护
 
@@ -181,6 +183,8 @@ stateDiagram-v2
 优先级：显式 `--origin LABEL` > `ITT_ORIGIN` / `INTENT_ORIGIN` > 内置启发式。
 
 ## JSON 输出
+
+在终端中，`itt` 输出便于阅读的文本；当 stdout 不是终端（管道、脚本、Agent 工具）、检测到 Codex 或 Claude Code 等 Agent 宿主，或使用 `--json` / `ITT_FORMAT=json` 时，输出本节描述的 JSON；`ITT_FORMAT=text` 强制文本。文本模式下错误以 `error:` 与 `hint:` 行写到 stderr。遇到意外的 `INTERNAL_ERROR` 时设置 `ITT_DEBUG=1` 查看调用栈。
 
 ### 标准成功包
 

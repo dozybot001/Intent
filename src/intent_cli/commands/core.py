@@ -1,10 +1,8 @@
 """Core object command handlers for the Intent CLI."""
 
-import json
-
 from intent_cli import __version__
 from intent_cli.commands.common import now_utc, require_init, workspace_mutation
-from intent_cli.output import error, success
+from intent_cli.output import emit_json, error, json_mode, success
 from intent_cli.origin import detect_origin
 from intent_cli.store import (
     CHECKPOINT_FIELDS,
@@ -37,8 +35,8 @@ def cmd_init(args):
     if err == "ALREADY_EXISTS":
         error(
             "ALREADY_EXISTS",
-            ".intent/ already exists.",
-            suggested_fix="Remove .intent/ first if you want to reinitialize.",
+            "Intent is already initialized here.",
+            suggested_fix="Run `itt inspect` to see its state, or `itt maintenance on` to enable continuous maintenance.",
         )
     warnings = []
     if git_root() is not None and not ensure_local_git_exclude(path.parent):
@@ -135,13 +133,70 @@ def cmd_inspect(args):
 
     warnings = validate_graph(graph)["issues"]
 
-    print(json.dumps({
+    payload = {
         "ok": True,
         "active_intents": active_intents,
         "active_decisions": active_decisions,
         "suspended": suspended,
         "warnings": warnings,
-    }, indent=2, ensure_ascii=False))
+    }
+    if json_mode():
+        # inspect keeps its original top-level JSON shape for agents and hooks.
+        emit_json(payload)
+        return
+    from intent_cli.render import render_success
+    print(render_success("inspect", payload))
+
+
+def _number(obj_id):
+    return int(obj_id.rsplit("-", 1)[1])
+
+
+def cmd_log(args):
+    """List Snaps newest first, like `git log`."""
+    base = require_init()
+    if args.intent is not None:
+        validate_object_id("intent", args.intent)
+    if args.max_count < 1:
+        error("INVALID_INPUT", "-n must be a positive integer.")
+    with workspace_write_lock(base, operation="log"):
+        graph = load_graph_once(base)
+    intents = graph["intent"]
+    if args.intent is not None and args.intent not in intents:
+        error("OBJECT_NOT_FOUND", f"Intent {args.intent} not found.")
+    snaps = [snap for snap in graph["snap"].values() if args.intent in (None, snap.get("intent_id"))]
+    snaps.sort(key=lambda snap: (snap.get("created_at", ""), _number(snap["id"])), reverse=True)
+    shown = snaps if args.all else snaps[:args.max_count]
+    entries = []
+    for snap in shown:
+        intent = intents.get(snap.get("intent_id"))
+        entries.append({**snap, "intent": {key: intent.get(key) for key in ("id", "what", "status")} if intent else None})
+    success("log", {"snaps": entries, "total": len(snaps), "has_more": len(shown) < len(snaps)})
+
+
+def cmd_show(args):
+    """Show one Intent, Snap or Decision with its relations, like `git show`."""
+    kind = args.id.split("-", 1)[0] if "-" in args.id else ""
+    if kind not in {"intent", "snap", "decision"}:
+        error("INVALID_INPUT", f"{args.id!r} is not an object ID.", suggested_fix="Use an ID such as intent-001, snap-001 or decision-001.")
+    validate_object_id(kind, args.id)
+    base = require_init()
+    with workspace_write_lock(base, operation="show"):
+        graph = load_graph_once(base)
+    obj = graph[kind].get(args.id)
+    if obj is None:
+        error("OBJECT_NOT_FOUND", f"{args.id} not found.")
+    summary = lambda item, *keys: {key: item.get(key) for key in ("id", *keys)}
+    result = {"object": obj}
+    if kind == "intent":
+        result["snaps"] = [summary(graph["snap"][sid], "created_at", "what") for sid in obj.get("snap_ids", []) if sid in graph["snap"]]
+        result["decisions"] = [summary(graph["decision"][did], "what", "status") for did in obj.get("decision_ids", []) if did in graph["decision"]]
+    elif kind == "snap":
+        intent = graph["intent"].get(obj.get("intent_id"))
+        result["intent"] = summary(intent, "what", "status") if intent else None
+    else:
+        result["intents"] = [summary(graph["intent"][iid], "what", "status") for iid in obj.get("intent_ids", []) if iid in graph["intent"]]
+    success("show", result)
 
 
 def cmd_doctor(_args):
@@ -176,7 +231,7 @@ def _resolve_inferred_intent_id(
             {"id": obj["id"], "what": obj["what"]}
             for obj in list_objects(base, "intent", status=status)
         ),
-        key=lambda c: c["id"],
+        key=lambda c: _number(c["id"]),
     )
     if not candidates:
         error(none_code, none_message, suggested_fix=suggested_fix)
@@ -190,8 +245,14 @@ def _resolve_inferred_intent_id(
     return candidates[0]["id"], True
 
 
+def _require_text(value, name="WHAT"):
+    if not str(value or "").strip():
+        error("INVALID_INPUT", f"{name} must not be empty.")
+
+
 @workspace_mutation
 def cmd_intent_create(args):
+    _require_text(args.what)
     base = require_init()
     obj_id = next_id(base, "intent")
 
@@ -412,6 +473,7 @@ def _checkpoint_from_args(args):
 
 @workspace_mutation
 def cmd_snap_create(args):
+    _require_text(args.what)
     base = require_init()
     checkpoint = _checkpoint_from_args(args)
     if args.intent:
@@ -480,6 +542,7 @@ def cmd_snap_create(args):
 
 @workspace_mutation
 def cmd_decision_create(args):
+    _require_text(args.what)
     base = require_init()
     obj_id = next_id(base, "decision")
 

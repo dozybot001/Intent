@@ -24,6 +24,8 @@ The CLI is intentionally small:
 | `itt init [--host codex\|claude-code]` | Initialize `.intent/`, enable project-local continuous maintenance, and install local hooks for the chosen host (default Codex); Git is optional |
 | `itt inspect [--intent ID] [--history N]` | Recovery view with each goal's rationale, latest snap, optional bounded history, active decisions, and full graph warnings |
 | `itt doctor` | Return the same full object-graph diagnosis with an explicit `healthy` result |
+| `itt log [--intent ID] [-n N \| --all]` | List Snaps newest first, like `git log` (default 20) |
+| `itt show ID` | Show one Intent, Snap or Decision with its relations, like `git show` |
 
 ### Project-local continuous maintenance
 
@@ -181,6 +183,8 @@ Later commands may advance `status`, add `reason`, and append auto-maintained re
 Priority: explicit `--origin LABEL` > `ITT_ORIGIN` / `INTENT_ORIGIN` > built-in heuristics.
 
 ## JSON Output
+
+In a terminal, `itt` prints readable text for people. It prints the JSON described here whenever stdout is not a terminal (pipes, scripts, agent tools), when an agent host such as Codex or Claude Code is detected, or with `--json` / `ITT_FORMAT=json`; `ITT_FORMAT=text` forces text. Errors in text mode go to stderr as `error:` and `hint:` lines. Set `ITT_DEBUG=1` to see a traceback for an unexpected `INTERNAL_ERROR`.
 
 ### Standard success envelope
 

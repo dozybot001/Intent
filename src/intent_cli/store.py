@@ -506,15 +506,18 @@ def workspace_write_lock(base, timeout=10.0, operation=None):
         lock_file.close()
 
 
+def _entry_order(item):
+    match = re.search(r"-([0-9]+)\.json$", item.name, re.ASCII | re.IGNORECASE)
+    return (int(match.group(1)) if match else float("inf"), item.name.casefold(), item.name)
+
+
 def _object_entry_groups(base, object_type):
     """Enumerate object-looking entries grouped by case-insensitive filename."""
     subdir, resolved_subdir = _safe_object_dir(base, object_type)
     prefix = f"{object_type}-"
     groups = {}
-    entries = sorted(
-        subdir.iterdir(),
-        key=lambda item: (item.name.casefold(), item.name),
-    )
+    # Numeric order, so intent-1000 follows intent-999.
+    entries = sorted(subdir.iterdir(), key=_entry_order)
     for entry in entries:
         folded = entry.name.casefold()
         if folded.startswith(prefix) and folded.endswith(".json"):
