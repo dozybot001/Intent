@@ -61,6 +61,8 @@ def read_state(base):
                 raise ValueError("invalid turn entry")
             if type(entry.get("stop_checked", False)) is not bool:
                 raise ValueError("invalid Stop observation")
+            if not isinstance(entry.get("host", "codex"), str):
+                raise ValueError("invalid turn host")
             if entry["baseline"] is not None and any(not isinstance(digest, str) or TOKEN.fullmatch(digest) is None
                                                      for digest in entry["baseline"].values()):
                 raise ValueError("invalid baseline fingerprints")
@@ -122,7 +124,16 @@ def find_turn(state, root, session_id, turn_id):
     return None, None
 
 
-def begin_turn(base, state, session_id, turn_id, prompt, context_factory):
+def latest_turn(state, root, session_id, host):
+    """Fallback for hosts without a usable turn ID: a session runs one prompt at a time."""
+    for key, entry in reversed(list(state["turns"].items())):
+        if (entry["root"] == str(root) and entry["session_id"] == session_id
+                and entry["generation"] == state["generation"] and entry.get("host", "codex") == host):
+            return key, entry
+    return None, None
+
+
+def begin_turn(base, state, session_id, turn_id, prompt, context_factory, host="codex"):
     root = base.parent.resolve()
     key, entry = find_turn(state, root, session_id, turn_id)
     if entry is not None:
@@ -149,6 +160,8 @@ def begin_turn(base, state, session_id, turn_id, prompt, context_factory):
              "generation": state["generation"], "started_at": time.time(),
              "baseline": baseline, "entry_error": unavailable, "aliases": [],
              "retry_count": 0, "receipt": None}
+    if host != "codex":
+        entry["host"] = host
     entry["context"] = context_factory(base, key, entry, graph)
     state["turns"][key] = entry
     write_state(base, state)

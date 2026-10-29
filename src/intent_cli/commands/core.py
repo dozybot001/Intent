@@ -30,7 +30,7 @@ def cmd_version(_args):
     success("version", {"version": __version__})
 
 
-def cmd_init(_args):
+def cmd_init(args):
     path, err = init_workspace()
     if err == "ALREADY_EXISTS":
         error(
@@ -43,15 +43,15 @@ def cmd_init(_args):
         warnings.append(
             "Could not add .intent/ to Git's local exclude file; exclude it manually before recording private semantics."
         )
-    from intent_cli.commands.maintenance import configure
+    from intent_cli.commands.maintenance import configure, setup_warning
     from intent_cli.maintenance import MaintenanceError, set_enabled
 
     try:
-        maintenance = configure(path, True)
-        warnings.append("Hooks are configured, not verified running. Follow maintenance.hooks.setup: trust this project folder, then review its two hooks using /hooks in the CLI; verify actual host execution.")
+        maintenance = configure(path, True, args.host)
+        warnings.append(setup_warning(args.host, "maintenance.hooks.setup"))
     except (MaintenanceError, StorageSecurityError, OSError) as exc:
         set_enabled(path, True)
-        maintenance = {"enabled": True, "hooks": {"configured": False, "enforcement": "not_attested"}}
+        maintenance = {"enabled": True, "hooks": {"host": args.host, "configured": False, "enforcement": "not_attested"}}
         warnings.append(f"Local maintenance is enabled but hooks were not installed: {type(exc).__name__}.")
     success("init", {"path": str(path), "maintenance": maintenance}, warnings)
 

@@ -77,7 +77,7 @@ flowchart LR
 
 Agent 每轮开头读一次，过程中保存已验证的重要里程碑，回复前以 `recorded`、`no-op` 或 `failed` 收尾。独立目标分别记录为 Intent；没有接续关键变化时静默 no-op，不新增凑数 Snap，也不重复询问授权。
 
-项目级 Codex 开头/Stop hooks 与持久回执已实现正常路径的闭环检查。需在 Codex `/hooks` 审核并信任定义；已配置不代表宿主实际执行。最多补一次收尾，仍失败则报告并释放主任务，不能保证语义质量、崩溃/取消恢复或不支持 hooks 的宿主。详见 [hooks 接入与边界](references/codex-hooks.md)。自动维护不授权登录、推送/拉取、公开发布或跨项目写入。
+项目级开头/Stop hooks 与持久回执已实现正常路径的闭环检查，宿主默认是 Codex，也可显式选择 Claude Code。需在宿主的 `/hooks` 审核并信任定义；已配置不代表宿主实际执行。最多补一次收尾，仍失败则报告并释放主任务，不能保证语义质量、崩溃/取消恢复或不支持 hooks 的宿主。详见 [Codex](references/codex-hooks.md) 与 [Claude Code](references/claude-code-hooks.md) 的 hooks 接入与边界。自动维护不授权登录、推送/拉取、公开发布或跨项目写入。
 
 只要未结束目标确实发生了记录，它的最新 Snap 就应保持为自包含检查点：已验证状态、当前边界、下一步，以及 blocker 或局部约束。零写入是正确结果，每轮也没有对象数量配额。Decision 候选应在必要时一次批量确认，不能每轮打断用户。
 
@@ -108,6 +108,8 @@ git clone https://github.com/dozybot001/Intent.git
 npx skills add dozybot001/Intent -g --all
 ```
 
+Claude Code 也可以把同一份 Skill 作为插件安装：先运行 `/plugin marketplace add dozybot001/Intent`，再运行 `/plugin install intent-cli@intent`。插件只包含说明，不含 hooks。
+
 需要 Python 3.9+。源码安装与安全 credential helper 使用 Git，本地语义历史不依赖 Git。安装脚本会自动处理 pipx。
 需要升级或修复已有的 `itt` 安装时，直接重新运行安装脚本即可。
 
@@ -123,7 +125,9 @@ itt maintenance status
 itt maintenance off
 ```
 
-`itt init` 也会开启持续维护并生成项目级 hooks。依赖 Stop 检查前先在 Codex `/hooks` 审核；日常工作无需额外用户仪式。
+`itt init` 也会开启持续维护并生成项目级 Codex hooks。依赖 Stop 检查前先在 Codex `/hooks` 审核；日常工作无需额外用户仪式。
+
+Claude Code 用户需显式选择宿主：`itt init --host claude-code`（已有历史用 `itt maintenance on --host claude-code`）把 Intent 的两个 hooks 合并进 `.claude/settings.local.json`，不改动其他设置；`itt maintenance status --host claude-code` 查看配置。`itt maintenance off` 只移除 Intent 自己的条目。随后在 Claude Code 中信任该目录，并在 `/hooks` 确认两个 hooks（看不到时重启会话）；详见 [Claude Code 接入与边界](references/claude-code-hooks.md)。不会自动开启其他项目。
 
 `itt init` 会创建 `.intent/`，并将它加入当前克隆的 Git 本地 `.git/info/exclude`；它**不会**修改团队共享的 `.gitignore`。本地忽略规则写入失败时，命令会返回 warning。有意共享前应先审查其中内容；如果整个团队都应继承该规则，再单独将 `.intent/` 加入 `.gitignore`。
 

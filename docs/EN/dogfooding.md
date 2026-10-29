@@ -4,7 +4,7 @@
 
 This protocol tests whether Intent provides critical continuation context with low disruption under either an explicit recording request or a locally enabled automatic-maintenance contract. Historical demos and facts rediscovered from code do not count as current-version recovery evidence.
 
-Project-local enablement, receipts, and Codex hook adapters are implemented, but configuration does not attest host execution. Automatic cases must preserve init/enablement evidence, exact CLI/Skill revisions, and whether hooks were reviewed/trusted and actually supplied entry context and a Stop check. Adapter tests or a soft contract are not proof of host enforcement.
+Project-local enablement, receipts, and Codex/Claude Code hook adapters are implemented, but configuration does not attest host execution. Automatic cases must preserve init/enablement evidence, exact CLI/Skill revisions, and whether hooks were reviewed/trusted and actually supplied entry context and a Stop check. Adapter tests or a soft contract are not proof of host enforcement.
 
 ## Case setup
 

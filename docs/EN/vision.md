@@ -175,7 +175,7 @@ sequenceDiagram
 
 In traditional development, semantics lived in the programmer's head. In the agent era, sessions are interrupted, agents are swapped, and context is lost between turns. Intent makes this handoff structural — not verbal.
 
-The loop requires explicit one-time enablement and currently runs as a Skill/agent instruction contract. Codex entry hooks and closure receipts remain an [integration design](../../references/codex-hooks.md), not a deployed platform guarantee. Each turn assesses critical semantic change; unchanged turns write nothing rather than reverting to per-query logging.
+The loop requires explicit one-time enablement and currently runs as a Skill/agent instruction contract. Codex and Claude Code entry hooks and closure receipts remain an integration design ([Codex](../../references/codex-hooks.md), [Claude Code](../../references/claude-code-hooks.md)), not a deployed platform guarantee. Each turn assesses critical semantic change; unchanged turns write nothing rather than reverting to per-query logging.
 
 ## 7. Judging whether this works
 

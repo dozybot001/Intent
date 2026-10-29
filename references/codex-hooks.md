@@ -1,6 +1,6 @@
 # Project-local Codex maintenance
 
-Implemented in [maintenance.py](../src/intent_cli/maintenance.py), [maintenance_hooks.py](../src/intent_cli/maintenance_hooks.py), and [commands/maintenance.py](../src/intent_cli/commands/maintenance.py); adapter coverage lives in [test_maintenance.py](../tests/test_maintenance.py). No external model or server is needed.
+Claude Code uses the same closure model through an explicit host choice; see [claude-code-hooks.md](claude-code-hooks.md). Implemented in [maintenance.py](../src/intent_cli/maintenance.py), [maintenance_hooks.py](../src/intent_cli/maintenance_hooks.py), and [commands/maintenance.py](../src/intent_cli/commands/maintenance.py); adapter coverage lives in [test_maintenance.py](../tests/test_maintenance.py). No external model or server is needed.
 
 ## Setup and scope
 

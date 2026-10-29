@@ -4,7 +4,9 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
+import re
+import shlex
 import subprocess
 import sys
 
@@ -14,10 +16,13 @@ from intent_cli import store
 from intent_cli import maintenance_hooks
 from intent_cli.commands.maintenance import configure
 from intent_cli.maintenance import MaintenanceError, MAX_TURNS, close_turn, read_state, set_enabled
-from intent_cli.maintenance_hooks import MAX_CONTEXT_BYTES, handle_event, hook_status, install_hooks
+from intent_cli.maintenance_hooks import (
+    MAX_CONTEXT_BYTES, claude_hook_status, handle_event, hook_status, install_claude_hooks, install_hooks,
+)
 
 
 SOURCE = Path(__file__).resolve().parents[1]
+CLAUDE_SETTINGS = Path(".claude") / "settings.local.json"
 
 
 def cli(root, *argv, stdin=None):
@@ -42,8 +47,33 @@ def project(tmp_path, monkeypatch):
     return root, base
 
 
+@pytest.fixture
+def claude_project(tmp_path, monkeypatch):
+    root = tmp_path / "claude project's root"
+    root.mkdir()
+    monkeypatch.chdir(root)
+    base, error = store.init_workspace()
+    assert error is None
+    configure(base, True, "claude-code")
+    return root, base
+
+
 def event(root, name="UserPromptSubmit", turn="t1", session="s1", **extra):
     return {"cwd": str(root), "hook_event_name": name, "session_id": session, "turn_id": turn, **extra}
+
+
+def claude_event(root, name="UserPromptSubmit", session="c1", prompt_id="p1", **extra):
+    """Claude Code's documented hook input: no turn ID; prompt_id is absent in older releases."""
+    payload = {"session_id": session, "transcript_path": str(root.parent / "transcript.jsonl"),
+               "cwd": str(root), "permission_mode": "default", "hook_event_name": name}
+    if prompt_id is not None:
+        payload["prompt_id"] = prompt_id
+    payload.update({"prompt": "Continue the task"} if name == "UserPromptSubmit" else {"stop_hook_active": False})
+    return {**payload, **extra}
+
+
+def claude(root, name="UserPromptSubmit", **extra):
+    return handle_event(claude_event(root, name, **extra), root, "claude-code")
 
 
 def begin(root, base, **extra):
@@ -71,6 +101,8 @@ def test_new_init_defaults_to_project_local_continuous_maintenance(tmp_path):
     setup = result["result"]["maintenance"]["hooks"]["setup"]
     assert setup["review_argv"] == ["codex", "--cd", str(tmp_path.resolve())]
     assert setup["scope"] == "project"
+    assert result["result"]["maintenance"]["hooks"]["host"] == "codex"
+    assert not (tmp_path / ".claude").exists()
     assert cli(tmp_path, "maintenance", "status")["result"]["mode"] == "continuous"
     assert cli(tmp_path, "maintenance", "off")["result"]["enabled"] is False
     assert cli(tmp_path, "maintenance", "on")["result"]["enabled"] is True
@@ -424,3 +456,237 @@ def test_oversized_and_invalid_hook_events_release_main_work(project):
         result = cli(root, "maintenance", "hook", "--root", str(root), stdin=payload)
         assert "systemMessage" in result and "decision" not in result
     assert handle_event(event(root, session=123), root).get("systemMessage")
+
+
+# ---- Claude Code host ----
+
+def intent_handler_words(settings, name):
+    return [shlex.split(handler["command"]) for group in settings["hooks"][name] for handler in group["hooks"]
+            if shlex.split(handler["command"])[1:5] == ["-m", "intent_cli", "maintenance", "hook"]]
+
+
+def test_claude_code_host_is_explicit_and_leaves_codex_untouched(tmp_path):
+    result = cli(tmp_path, "init", "--host", "claude-code")
+    hooks = result["result"]["maintenance"]["hooks"]
+    assert hooks["host"] == "claude-code" and hooks["configured"] and hooks["enforcement"] == "not_attested"
+    assert hooks["setup"]["review_cwd"] == str(tmp_path.resolve()) and hooks["setup"]["review_argv"] == ["claude"]
+    assert any("Claude Code" in warning for warning in result["warnings"])
+    assert not (tmp_path / ".codex").exists()
+    settings = json.loads((tmp_path / CLAUDE_SETTINGS).read_text())
+    for name in ("UserPromptSubmit", "Stop"):
+        [words] = intent_handler_words(settings, name)
+        assert words[1:] == ["-m", "intent_cli", "maintenance", "hook", "--host", "claude-code",
+                             "--root", str(tmp_path.resolve())]
+    status = cli(tmp_path, "maintenance", "status", "--host", "claude-code")["result"]
+    assert status["hooks"]["configured"] and not status["observations"]["entry_seen"]
+    assert cli(tmp_path, "maintenance", "status")["result"]["hooks"]["configured"] is False
+
+
+def test_claude_merge_preserves_settings_and_off_removes_only_intent_entries(tmp_path):
+    path = tmp_path / CLAUDE_SETTINGS
+    path.parent.mkdir()
+    stale = {"type": "command", "command": "/old/python -m intent_cli maintenance hook --host claude-code --root /old"}
+    custom = {"permissions": {"allow": ["Bash(npm test)"]}, "env": {"FOO": "1"}, "hooks": {
+        "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "echo custom"}, stale]}],
+        "PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "echo pre"}]}],
+        "Stop": [{"hooks": [stale]}]}}
+    path.write_text(json.dumps(custom))
+    assert cli(tmp_path, "init", "--host", "claude-code")["ok"]
+    updated = json.loads(path.read_text())
+    assert {key: updated[key] for key in ("permissions", "env")} == {key: custom[key] for key in ("permissions", "env")}
+    assert updated["hooks"]["PreToolUse"] == custom["hooks"]["PreToolUse"]
+    assert updated["hooks"]["UserPromptSubmit"][0] == {"hooks": [{"type": "command", "command": "echo custom"}]}
+    assert [len(intent_handler_words(updated, name)) for name in ("UserPromptSubmit", "Stop")] == [1, 1]
+    assert len(updated["hooks"]["Stop"]) == 1
+    before = path.read_bytes()
+    assert cli(tmp_path, "maintenance", "on", "--host", "claude-code")["ok"]
+    assert path.read_bytes() == before
+    result = cli(tmp_path, "maintenance", "off")
+    assert result["ok"] and not result["result"]["enabled"]
+    assert json.loads(path.read_text()) == {
+        "permissions": custom["permissions"], "env": custom["env"], "hooks": {
+            "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "echo custom"}]}],
+            "PreToolUse": custom["hooks"]["PreToolUse"]}}
+
+
+def test_claude_off_deletes_only_a_settings_file_left_empty(tmp_path):
+    (tmp_path / ".codex").mkdir()
+    assert cli(tmp_path, "init")["ok"]
+    codex = (tmp_path / ".codex" / "hooks.json").read_bytes()
+    assert cli(tmp_path, "maintenance", "on", "--host", "claude-code")["result"]["hooks"]["configured"]
+    assert cli(tmp_path, "maintenance", "off", "--host", "claude-code")["result"]["hooks"]["configured"] is False
+    assert not (tmp_path / ".claude").exists()
+    assert (tmp_path / ".codex" / "hooks.json").read_bytes() == codex
+    assert cli(tmp_path, "maintenance", "on", "--host", "claude-code")["result"]["hooks"]["configured"]
+
+
+def test_broken_claude_settings_cannot_block_revocation(claude_project):
+    root, base = claude_project
+    path = root / CLAUDE_SETTINGS
+    path.write_text("{")
+    status = cli(root, "maintenance", "status", "--host", "claude-code")
+    assert status["result"]["hooks"]["configuration_unavailable"] and status["warnings"]
+    result = cli(root, "maintenance", "off", "--host", "claude-code")
+    assert result["ok"] and not read_state(base)["enabled"]
+    assert result["result"]["hooks"]["configuration_unavailable"] and path.read_text() == "{"
+    assert cli(root, "maintenance", "on", "--host", "claude-code")["error"]["code"] == "HOOK_CONFIG_INVALID"
+    assert not read_state(base)["enabled"]
+
+
+def test_claude_settings_directory_symlink_is_not_followed(tmp_path):
+    root, outside = tmp_path / "root", tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    (root / ".claude").symlink_to(outside, target_is_directory=True)
+    result = cli(root, "init", "--host", "claude-code")
+    assert result["ok"] and not result["result"]["maintenance"]["hooks"]["configured"]
+    assert list(outside.iterdir()) == []
+
+
+def test_claude_status_requires_handlers_scoped_to_this_root(claude_project):
+    root, _ = claude_project
+    path = root / CLAUDE_SETTINGS
+    data = json.loads(path.read_text())
+    data["hooks"]["Stop"][0]["hooks"][0]["command"] += "/elsewhere"
+    path.write_text(json.dumps(data))
+    assert claude_hook_status(root)["configured"] is False
+    install_claude_hooks(root)
+    data = json.loads(path.read_text())
+    assert claude_hook_status(root)["configured"] is True and len(data["hooks"]["Stop"]) == 1
+    data["disableAllHooks"] = True
+    path.write_text(json.dumps(data))
+    assert claude_hook_status(root)["blocked_by"] == "disableAllHooks"
+
+
+def test_claude_entry_issues_token_and_stop_allows_one_closure_retry(claude_project):
+    root, base = claude_project
+    context = claude(root)["hookSpecificOutput"]["additionalContext"]
+    [key] = read_state(base)["turns"]
+    assert f"--turn {key}" in context and read_state(base)["turns"][key]["host"] == "claude-code"
+    retry = claude(root, "Stop")
+    assert retry["decision"] == "block" and f"--turn {key}" in retry["reason"]
+    # The blocked Stop continues the same Claude Code turn without a new prompt.
+    close_turn(base, key, "no-op", "Only answered a question", None)
+    assert claude(root, "Stop", stop_hook_active=True) == {}
+    assert read_state(base)["turns"][key]["stop_checked"] is True
+    observations = cli(root, "maintenance", "status", "--host", "claude-code")["result"]["observations"]
+    assert observations["entry_seen"] and observations["stop_checked_receipt"]
+    assert cli(root, "maintenance", "status")["result"]["observations"]["entry_seen"] is False
+
+
+def test_claude_missing_receipt_releases_after_one_retry(claude_project):
+    root, base = claude_project
+    claude(root)
+    assert claude(root, "Stop")["decision"] == "block"
+    released = claude(root, "Stop", stop_hook_active=True)
+    assert "decision" not in released and "incomplete" in released["systemMessage"]
+    assert "decision" not in claude(root, "Stop", session="never-started")
+    assert claude(root, session="")["systemMessage"]
+
+
+def test_claude_prompt_id_is_the_turn_identity(claude_project):
+    root, base = claude_project
+    first = claude(root, prompt="same words", prompt_id="p1")
+    assert claude(root, prompt="same words", prompt_id="p1") == first
+    [p1] = read_state(base)["turns"]
+    close_turn(base, p1, "no-op", "Read only", None)
+    claude(root, prompt="same words", prompt_id="p2")
+    p2 = list(read_state(base)["turns"])[-1]
+    assert p2 != p1 and len(read_state(base)["turns"]) == 2
+    # An exact prompt_id match wins over recency; the open p2 turn still gates.
+    assert claude(root, "Stop", prompt_id="p1") == {}
+    assert claude(root, "Stop", prompt_id="p2")["decision"] == "block"
+    assert b"same words" not in (base / "maintenance.json").read_bytes()
+
+
+def test_claude_without_prompt_id_each_prompt_is_new_and_stop_closes_the_latest(claude_project):
+    root, base = claude_project
+    claude(root, prompt_id=None)
+    [first] = read_state(base)["turns"]
+    close_turn(base, first, "no-op", "Read only", None)
+    assert claude(root, "Stop", prompt_id=None) == {}
+    claude(root, prompt_id=None)
+    second = list(read_state(base)["turns"])[-1]
+    assert second != first and claude(root, "Stop", prompt_id=None)["decision"] == "block"
+    # An unmatched prompt_id (its entry hook never ran) also falls back to the latest turn.
+    assert "incomplete" in claude(root, "Stop", prompt_id="unseen", stop_hook_active=True)["systemMessage"]
+    claude(root, session="parallel", prompt_id=None)
+    third = list(read_state(base)["turns"])[-1]
+    close_turn(base, third, "no-op", "Separate session", None)
+    assert claude(root, "Stop", session="parallel", prompt_id=None) == {}
+
+
+def test_claude_plan_mode_turns_are_not_gated(claude_project):
+    root, base = claude_project
+    context = claude(root, permission_mode="plan")["hookSpecificOutput"]["additionalContext"]
+    assert "Plan mode is read-only" in context
+    assert claude(root, "Stop", permission_mode="plan") == {}
+    [key] = read_state(base)["turns"]
+    assert read_state(base)["turns"][key]["retry_count"] == 0
+    # Leaving plan mode inside the same turn restores the normal closure check.
+    assert claude(root, "Stop", permission_mode="acceptEdits")["decision"] == "block"
+
+
+def test_windows_claude_command_uses_a_git_bash_executable_path(monkeypatch):
+    root = PureWindowsPath(r"C:\Projects\semantic history")
+    with monkeypatch.context() as patch:
+        patch.setattr(maintenance_hooks.os, "name", "nt")
+        patch.setattr(maintenance_hooks.sys, "executable", r"C:\Program Files\Python\python.exe")
+        handler = {"type": "command", "command": maintenance_hooks._claude_command(root)}
+        assert shlex.split(handler["command"]) == [
+            "C:/Program Files/Python/python.exe", "-m", "intent_cli", "maintenance", "hook",
+            "--host", "claude-code", "--root", str(root)]
+        assert maintenance_hooks._our_handler(handler, posix=True)
+
+
+def test_claude_entry_context_stays_below_the_host_cap(claude_project):
+    root, base = claude_project
+    for number in range(1, 18):
+        intent(base, number, text="Long verified fact " * 200)
+    output = claude(root)["hookSpecificOutput"]["additionalContext"]
+    assert len(output) < 10000 and '"context_truncated": true' in output
+
+
+def test_codex_and_claude_turns_stay_separate(project):
+    root, base = project
+    begin(root, base)
+    assert configure(base, True, "claude-code")["hooks"]["configured"]
+    # The flag is shared, but a Claude Code Stop never closes a Codex turn.
+    assert "decision" not in claude(root, "Stop", session="s1")
+    assert handle_event(event(root, "Stop"), root)["decision"] == "block"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX shell quoting check")
+def test_installed_claude_command_runs_through_a_shell(claude_project):
+    root, base = claude_project
+    settings = json.loads((root / CLAUDE_SETTINGS).read_text())
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = os.pathsep.join((str(SOURCE / "src"), str(SOURCE)))
+
+    def run(name, payload):
+        [group] = settings["hooks"][name]
+        process = subprocess.run(["/bin/sh", "-c", group["hooks"][0]["command"]], input=json.dumps(payload),
+                                 env=environment, text=True, capture_output=True, timeout=10, cwd=root)
+        assert process.returncode == 0, process.stderr
+        return json.loads(process.stdout)
+
+    entry = run("UserPromptSubmit", claude_event(root, prompt="Summarize the plan"))
+    assert entry["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
+    assert run("Stop", claude_event(root, "Stop"))["decision"] == "block"
+    assert len(read_state(base)["turns"]) == 1
+
+
+def test_claude_code_plugin_serves_the_single_root_skill_without_hooks():
+    manifest = json.loads((SOURCE / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
+    [plugin] = manifest["plugins"]
+    # With no skills/ directory or skills key, the root SKILL.md loads as the plugin's one skill.
+    assert plugin["source"] == "./" and "skills" not in plugin and not (SOURCE / "skills").exists()
+    # Plugin hooks would run in every project; enabling stays an explicit project command.
+    assert not {"hooks", "mcpServers"} & set(plugin) and not (SOURCE / "hooks").exists()
+    skill = (SOURCE / "SKILL.md").read_text(encoding="utf-8")
+    assert skill.split("---", 2)[1].splitlines()[1] == f"name: {plugin['name']}"
+    for document in ("SKILL.md", "SKILL_CN.md"):
+        text = (SOURCE / document).read_text(encoding="utf-8")
+        for link in re.findall(r"\]\((references/[^)#]+)", text):
+            assert (SOURCE / link).is_file(), link
+        assert "references/claude-code-hooks.md" in text

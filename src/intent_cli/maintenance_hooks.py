@@ -1,37 +1,55 @@
-"""Bounded Codex entry/closure adapters, scoped to exactly one semantic root."""
+"""Bounded Codex and Claude Code entry/closure adapters, scoped to exactly one semantic root."""
 
+import contextlib
+import functools
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
+import secrets
 import shlex
 import subprocess
 import sys
 
 from intent_cli import store
 from intent_cli.maintenance import (
-    MaintenanceError, begin_turn, find_turn, read_state, receipt_valid, verified_graph, write_state,
+    MaintenanceError, begin_turn, find_turn, latest_turn, read_state, receipt_valid, verified_graph, write_state,
 )
 
 
 MAX_EVENT_BYTES = 256 * 1024
 MAX_CONTEXT_BYTES = 12000
+# Claude Code caps injected hook text at 10,000 characters; stay below it so
+# clipping is explicit instead of a host cut through the records.
+CLAUDE_MAX_CONTEXT_BYTES = 9500
+PLAN_MODE_NOTE = " Plan mode is read-only: skip the receipt unless this turn leaves plan mode before finishing."
 EVENTS = ("UserPromptSubmit", "Stop")
+HOSTS = ("codex", "claude-code")
+# Personal project settings: the handlers carry machine-specific paths, so they
+# do not belong in the shared, usually committed .claude/settings.json.
+CLAUDE_SETTINGS = (".claude", "settings.local.json")
 
 
-def _hooks_path(root, create=False):
-    directory = root / ".codex"
+def _config_path(root, folder, name, create=False):
+    directory = root / folder
     if directory.is_symlink() or (directory.exists() and not directory.is_dir()):
         raise store.UnsafeStoragePathError(directory, "Project hook directory must not be redirected")
     if create:
         directory.mkdir(exist_ok=True)
-    path = directory / "hooks.json"
+    path = directory / name
     if path.is_symlink() or (path.exists() and not path.is_file()):
         raise store.UnsafeStoragePathError(path, "Project hooks must be a regular file")
     return path
 
 
-def _hooks_data(root):
-    path = _hooks_path(root)
+def _hooks_path(root, create=False):
+    return _config_path(root, ".codex", "hooks.json", create)
+
+
+def _claude_path(root, create=False):
+    return _config_path(root, *CLAUDE_SETTINGS, create=create)
+
+
+def _hooks_data(path):
     if not path.exists():
         return {"hooks": {}}
     try:
@@ -51,34 +69,46 @@ def _hooks_data(root):
         raise MaintenanceError("HOOK_CONFIG_INVALID", "Existing hooks are invalid; nothing was replaced.") from exc
 
 
-def _command_words(handler):
+def _command_words(handler, posix=None):
     if handler.get("type") != "command" or not isinstance(handler.get("command"), str):
         return []
+    native = os.name == "nt" and not posix
     try:
-        words = shlex.split(handler["command"], posix=os.name != "nt")
+        words = shlex.split(handler["command"], posix=not native)
     except ValueError:
         return []
-    if os.name == "nt":
+    if native:
         words = [word[1:-1] if word.startswith('"') and word.endswith('"') else word for word in words]
     return words
 
 
-def _our_handler(handler):
-    words = _command_words(handler)
+def _our_handler(handler, posix=None):
+    words = _command_words(handler, posix)
     return ["-m", "intent_cli", "maintenance", "hook"] == words[1:5]
 
 
-def hook_status(root):
-    data = _hooks_data(root)
-    def scoped(handler):
-        if not _our_handler(handler):
-            return False
-        words = _command_words(handler)
-        return words[5:] == ["--root", str(root)]
+def _configured(data, scope, posix=None):
+    return all(any(_our_handler(handler, posix) and _command_words(handler, posix)[5:] == scope
+                   for group in data["hooks"].get(event, []) for handler in group["hooks"]) for event in EVENTS)
 
-    configured = all(any(scoped(handler) for group in data["hooks"].get(event, [])
-                         for handler in group["hooks"]) for event in EVENTS)
-    return {"configured": configured, "trust": "host_state_not_inspected" if configured else "not_configured",
+
+def _without_ours(groups, posix=None):
+    retained = []
+    for group in groups:
+        old = group["hooks"]
+        keep = [item for item in old if not _our_handler(item, posix)]
+        if keep:
+            retained.append({**group, "hooks": keep})
+        elif not any(_our_handler(item, posix) for item in old):
+            retained.append(group)
+    return retained
+
+
+def hook_status(root):
+    data = _hooks_data(_hooks_path(root))
+    configured = _configured(data, ["--root", str(root)])
+    return {"host": "codex", "configured": configured,
+            "trust": "host_state_not_inspected" if configured else "not_configured",
             "enforcement": "not_attested", "path": str(_hooks_path(root)),
             "setup": {
                 "review_argv": ["codex", "--cd", str(root)],
@@ -92,39 +122,107 @@ def hook_status(root):
             }}
 
 
-def install_hooks(root):
-    """Preserve unrelated hooks; never edit host trust or user-global config."""
-    data = _hooks_data(root)
-    words = [sys.executable, "-m", "intent_cli", "maintenance", "hook", "--root", str(root)]
-    command = subprocess.list2cmdline(words) if os.name == "nt" else shlex.join(words)
+def claude_hook_status(root):
+    path = _claude_path(root)
+    data = _hooks_data(path)
+    configured = _configured(data, ["--host", "claude-code", "--root", str(root)], posix=True)
+    status = {"host": "claude-code", "configured": configured,
+              "trust": "host_state_not_inspected" if configured else "not_configured",
+              "enforcement": "not_attested", "path": str(path),
+              "setup": {
+                  "review_cwd": str(root),
+                  "review_argv": ["claude"],
+                  "steps": [
+                      "Start Claude Code from this exact root and accept its workspace trust dialog; an interactive session runs no settings-file hooks before that.",
+                      "Run /hooks (read-only) to confirm the UserPromptSubmit and Stop handlers from .claude/settings.local.json; edits are normally picked up automatically, otherwise restart the session.",
+                      "Verify a real context injection and Stop closure (claude --debug logs each hook run); configuration alone is not execution.",
+                  ],
+                  "scope": "project",
+                  "note": "Do not copy these handlers into user-global settings or a plugin, and do not bypass trust or hook policies. On Windows, hooks need Claude Code's default Git Bash shell.",
+              }}
+    if data.get("disableAllHooks") is True:
+        status["blocked_by"] = "disableAllHooks"
+    return status
+
+
+def host_status(root, host):
+    return claude_hook_status(root) if host == "claude-code" else hook_status(root)
+
+
+def _install(root, locate, command, pattern, posix=None):
+    data = _hooks_data(locate(root))
     handler = {"type": "command", "command": command, "timeout": 5}
     for event in EVENTS:
-        groups = data["hooks"].setdefault(event, [])
         # An update replaces only this integration, avoiding duplicate sources
         # within the project. Other plugin/user hooks remain untouched.
-        retained = []
-        for group in groups:
-            old = group["hooks"]
-            keep = [item for item in old if not _our_handler(item)]
-            if keep:
-                retained.append({**group, "hooks": keep})
-            elif not any(_our_handler(item) for item in old):
-                retained.append(group)
-        retained.append({"hooks": [handler]})
-        data["hooks"][event] = retained
-    path = _hooks_path(root, create=True)
+        data["hooks"][event] = _without_ours(data["hooks"].get(event, []), posix) + [{"hooks": [handler]}]
+    path = locate(root, create=True)
     new_file = not path.exists()
-    if not path.exists() or json.loads(path.read_text(encoding="utf-8")) != data:
+    if new_file or json.loads(path.read_text(encoding="utf-8")) != data:
         try:
             store._write_json_atomic(path, data)
         except OSError as exc:
             raise MaintenanceError("HOOK_CONFIG_WRITE_FAILED", "Could not install project hooks; review local file permissions.") from exc
     if new_file:
-        store.ensure_local_git_exclude(root, (".codex/hooks.json",))
+        store.ensure_local_git_exclude(root, (pattern,))
+
+
+def install_hooks(root):
+    """Preserve unrelated hooks; never edit host trust or user-global config."""
+    words = [sys.executable, "-m", "intent_cli", "maintenance", "hook", "--root", str(root)]
+    command = subprocess.list2cmdline(words) if os.name == "nt" else shlex.join(words)
+    _install(root, _hooks_path, command, ".codex/hooks.json")
     return hook_status(root)
 
 
-def _context(base, key, entry, graph):
+def _claude_command(root):
+    # Shell form runs through sh, or Git Bash on Windows, which execs only a
+    # slash-separated path. Exec-form `args` lacks a documented minimum version.
+    executable = PureWindowsPath(sys.executable).as_posix() if os.name == "nt" else sys.executable
+    return shlex.join([executable, "-m", "intent_cli", "maintenance", "hook", "--host", "claude-code", "--root", str(root)])
+
+
+def install_claude_hooks(root):
+    """Merge into this project's local Claude Code settings only; other keys and hooks survive."""
+    _install(root, _claude_path, _claude_command(root), "/".join(CLAUDE_SETTINGS), posix=True)
+    return claude_hook_status(root)
+
+
+def install_host_hooks(root, host):
+    return install_claude_hooks(root) if host == "claude-code" else install_hooks(root)
+
+
+def remove_claude_hooks(root):
+    """Remove only Intent's handlers; drop the settings file only if nothing else remains."""
+    path = _claude_path(root)
+    if not path.exists():
+        return
+    data = _hooks_data(path)
+    changed = False
+    for event, groups in list(data["hooks"].items()):
+        kept = _without_ours(groups, posix=True)
+        if kept != groups:
+            changed = True
+            if kept:
+                data["hooks"][event] = kept
+            else:
+                del data["hooks"][event]
+    if not changed:
+        return
+    if not data["hooks"]:
+        del data["hooks"]
+    try:
+        if data:
+            store._write_json_atomic(path, data)
+        else:
+            path.unlink()
+            with contextlib.suppress(OSError):
+                path.parent.rmdir()
+    except OSError as exc:
+        raise MaintenanceError("HOOK_CONFIG_WRITE_FAILED", "Could not remove project hooks; review local file permissions.") from exc
+
+
+def _context(base, key, entry, graph, limit=MAX_CONTEXT_BYTES):
     prefix = (
         f"Intent continuous local maintenance is enabled only for {base.parent.resolve()}. "
         "Use the intent-cli Skill. This entry is the current turn's inspect; do not repeat it if sufficient. "
@@ -156,7 +254,7 @@ def _context(base, key, entry, graph):
             collection = "active_decisions" if kind == "decision" else "active_intents" if obj["status"] == "active" else "suspended"
             records[collection].append(item)
             rendered = prefix + json.dumps(records, ensure_ascii=True)
-            if len(rendered.encode("utf-8")) > MAX_CONTEXT_BYTES - 300:
+            if len(rendered.encode("utf-8")) > limit - 300:
                 records[collection].pop()
                 records["context_truncated"] = True
     if records["context_truncated"]:
@@ -164,12 +262,21 @@ def _context(base, key, entry, graph):
     return prefix + json.dumps(records, ensure_ascii=True)
 
 
-def handle_event(event, expected_root=None):
+def handle_event(event, expected_root=None, host="codex"):
     if not isinstance(event, dict) or event.get("hook_event_name") not in EVENTS:
         return {}
+    identity = ("cwd", "session_id", "turn_id") if host == "codex" else ("cwd", "session_id")
     if not all(isinstance(event.get(field), str) and 0 < len(event[field]) <= 1024
-               for field in ("cwd", "session_id", "turn_id")):
+               for field in identity):
         return {"systemMessage": "Intent maintenance hook lacks a valid turn identity; no history was written."}
+    # Claude Code has no turn ID. Its prompt_id correlates a prompt with every
+    # later event until the next prompt; without one, entry issues an ID and
+    # Stop falls back to the session's latest turn.
+    turn = event["turn_id"] if host == "codex" else event.get("prompt_id")
+    if not (isinstance(turn, str) and 0 < len(turn) <= 1024):
+        turn = None
+    # Plan mode cannot run the closure command, so its turns are not gated.
+    plan = host == "claude-code" and event.get("permission_mode") == "plan"
     cwd = Path(event["cwd"]).resolve()
     if not cwd.is_dir():
         return {}
@@ -188,9 +295,17 @@ def handle_event(event, expected_root=None):
         if not state["enabled"]:
             return {}
         if event["hook_event_name"] == "UserPromptSubmit":
-            key, entry = begin_turn(base, state, event["session_id"], event["turn_id"], event.get("prompt"), _context)
-            return {"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": entry["context"]}}
-        key, entry = find_turn(state, root, event["session_id"], event["turn_id"])
+            if host == "codex":
+                key, entry = begin_turn(base, state, event["session_id"], turn, event.get("prompt"), _context)
+            else:
+                context = functools.partial(_context, limit=CLAUDE_MAX_CONTEXT_BYTES)
+                key, entry = begin_turn(base, state, event["session_id"], turn or secrets.token_hex(16),
+                                        event.get("prompt"), context, host)
+            note = PLAN_MODE_NOTE if plan else ""
+            return {"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": entry["context"] + note}}
+        key, entry = find_turn(state, root, event["session_id"], turn) if turn else (None, None)
+        if entry is None and host != "codex":
+            key, entry = latest_turn(state, root, event["session_id"], host)
         if entry is None:
             return {"systemMessage": "Intent closure was not checked: this turn has no trusted entry context."}
         if receipt_valid(base, entry):
@@ -201,6 +316,8 @@ def handle_event(event, expected_root=None):
                 write_state(base, state)
             if entry["receipt"]["outcome"] == "failed":
                 return {"systemMessage": "Intent recording failed: " + entry["receipt"]["reason"][:600]}
+            return {}
+        if plan:
             return {}
         if entry["retry_count"] or event.get("stop_hook_active") is True:
             return {"systemMessage": "Intent closure remains incomplete after one retry; main work is released, no successful recording is claimed."}
@@ -213,12 +330,12 @@ def handle_event(event, expected_root=None):
         return {"decision": "block", "reason": reason}
 
 
-def run_hook(expected_root=None):
+def run_hook(expected_root=None, host="codex"):
     try:
         raw = sys.stdin.buffer.read(MAX_EVENT_BYTES + 1)
         if len(raw) > MAX_EVENT_BYTES:
             raise ValueError("event too large")
-        result = handle_event(json.loads(raw), expected_root)
+        result = handle_event(json.loads(raw), expected_root, host)
     except (ValueError, OSError, store.StorageSecurityError, store.WorkspaceBusyError, RecursionError):
         result = {"systemMessage": "Intent maintenance hook could not verify local state; main work continues without a closure guarantee."}
     print(json.dumps(result, ensure_ascii=True))
