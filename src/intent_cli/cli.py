@@ -19,6 +19,7 @@ from intent_cli.hub.credentials import CredentialStoreError, GlobalHubConfigErro
 from intent_cli.commands.auth import cmd_auth_login, cmd_auth_logout, cmd_auth_status
 from intent_cli.commands.maintenance import cmd_maintenance
 from intent_cli.maintenance import MaintenanceError
+from intent_cli.maintenance_hooks import HOSTS
 from intent_cli.hub.restore import PullApplyError
 from intent_cli.commands.core import (
     cmd_decision_create,
@@ -150,7 +151,8 @@ def main():
 
     # version / init / inspect / doctor
     sub.add_parser("version")
-    sub.add_parser("init")
+    p = sub.add_parser("init")
+    p.add_argument("--host", choices=HOSTS, default="codex")
     p = sub.add_parser("inspect")
     p.add_argument("--intent", default=None, metavar="ID")
     p.add_argument("--history", type=int, default=None, metavar="N")
@@ -171,13 +173,14 @@ def main():
     p_maintenance = sub.add_parser("maintenance")
     s_maintenance = p_maintenance.add_subparsers(dest="sub")
     for name in ("status", "on", "off"):
-        s_maintenance.add_parser(name)
+        s_maintenance.add_parser(name).add_argument("--host", choices=HOSTS, default="codex")
     p = s_maintenance.add_parser("close")
     p.add_argument("outcome", choices=("recorded", "no-op", "failed"))
     p.add_argument("--turn", required=True)
     p.add_argument("--reason", default="")
     p.add_argument("--objects", nargs="+", default=None)
     p = s_maintenance.add_parser("hook")
+    p.add_argument("--host", choices=HOSTS, default="codex")
     p.add_argument("--root", default=None)
 
     # --- account auth / Git-style push ---

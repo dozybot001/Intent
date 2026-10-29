@@ -21,7 +21,7 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 | 命令 | 作用 |
 |---|---|
 | `itt version` | 输出 CLI 版本 |
-| `itt init` | 初始化 `.intent/`，默认开启项目级持续维护并安装本地 Codex hooks；Git 可选 |
+| `itt init [--host codex\|claude-code]` | 初始化 `.intent/`，默认开启项目级持续维护并为所选宿主安装本地 hooks（默认 Codex）；Git 可选 |
 | `itt inspect [--intent ID] [--history N]` | 恢复视图，返回目标原因、最新 Snap、可选的受限历史、有效 Decision 和完整图诊断 |
 | `itt doctor` | 返回同一套完整对象图诊断，并显式给出 `healthy` 结果 |
 
@@ -29,14 +29,14 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 
 | 命令 | 作用 |
 |---|---|
-| `itt maintenance status` | 只读查询本项目开关与 hooks 配置；不初始化，不假定宿主已经执行。 |
-| `itt maintenance on / off` | 本项目开启/关闭；旧版历史需开启一次，新 init 默认开启，不改全局设置。 |
+| `itt maintenance status [--host H]` | 只读查询本项目开关与所选宿主的 hooks 配置；不初始化，不假定宿主已经执行。 |
+| `itt maintenance on / off [--host H]` | 本项目开启/关闭；旧版历史需开启一次，新 init 默认开启。`on` 安装所选宿主的 hooks，`off` 同时移除 Intent 的 Claude Code 条目；不改全局设置。 |
 | `itt maintenance close recorded --turn TOKEN [--objects ID ...]` | Agent 提交当前轮已验证变化的回执，ID 可从开头快照差异推导。 |
 | `itt maintenance close no-op / failed --turn TOKEN --reason TEXT` | 零写入或失败如实收尾，不为回执制造 Snap。 |
 
 持续维护遵循“开头读一次 → 过程保存关键里程碑 → 回复前收尾”。正常成功和 no-op 静默；可恢复错误经验证后继续，未解决错误只暂停相关历史操作。用户只读/本轮跳过优先。按独立目标拆 Intent，按已验证结论拆 Snap，无对象配额。
 
-`.intent/maintenance.json` 保存本地开关和有界回执，不属于三类语义对象，不推送到 IntHub。新生成的 `.codex/hooks.json` 本地 Git 忽略，保留已有其他 hooks；需在 Codex `/hooks` 审核信任。Stop 最多补一次收尾，不保证崩溃/取消路径或语义质量；没有 hooks 的宿主仍只是 Skill 软契约。详见 [hooks 实现与限制](../../references/codex-hooks.md)及 [测试](../../tests/test_maintenance.py)。
+`.intent/maintenance.json` 保存本地开关和有界回执，不属于三类语义对象，不推送到 IntHub。新生成的 `.codex/hooks.json` 或 `.claude/settings.local.json` 本地 Git 忽略，保留已有其他 hooks 与设置；需在宿主的 `/hooks` 审核信任。Stop 最多补一次收尾，不保证崩溃/取消路径或语义质量；没有 hooks 的宿主仍只是 Skill 软契约。详见 [Codex](../../references/codex-hooks.md) 与 [Claude Code](../../references/claude-code-hooks.md) 的 hooks 实现与限制，及 [测试](../../tests/test_maintenance.py)。
 
 ### Intent
 

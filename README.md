@@ -176,6 +176,20 @@ Internet deployments use one account path: Tenon sign-in, database-backed Web se
 
 > **Tips:** Continuous maintenance is project-local and quiet. “Use Intent to record this work in `.intent/`” remains available for one-off recording; “Resume this project through Intent” starts read-only recovery. IntHub push/pull always needs a separate explicit request. A trusted Stop hook checks closure, not semantic completeness.
 
+### Claude Code
+
+Codex is the default host. Claude Code users choose it explicitly, once per project:
+
+```bash
+cd your-project
+itt init --host claude-code
+# Existing history: enable once
+itt maintenance on --host claude-code
+itt maintenance status --host claude-code
+```
+
+This merges Intent's two hooks (`UserPromptSubmit` for opening context, `Stop` for the closure check) into `.claude/settings.local.json` without touching other settings, and `itt maintenance off` removes only Intent's entries. Trust the folder in Claude Code, then confirm both hooks in `/hooks` (restart the session if they are missing); configuration alone does not prove execution. Claude Code can also install the same Skill as a plugin: `/plugin marketplace add dozybot001/Intent`, then `/plugin install intent-cli@intent`. The plugin carries instructions only, no hooks, and never enables a project. See [Claude Code setup and limits](references/claude-code-hooks.md).
+
 ## Docs
 
 - [Vision](docs/EN/vision.md) — why semantic history matters

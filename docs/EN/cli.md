@@ -21,7 +21,7 @@ The CLI is intentionally small:
 | Command | What it does |
 |---|---|
 | `itt version` | Print CLI version |
-| `itt init` | Initialize `.intent/`, enable project-local continuous maintenance, and install local Codex hooks; Git is optional |
+| `itt init [--host codex\|claude-code]` | Initialize `.intent/`, enable project-local continuous maintenance, and install local hooks for the chosen host (default Codex); Git is optional |
 | `itt inspect [--intent ID] [--history N]` | Recovery view with each goal's rationale, latest snap, optional bounded history, active decisions, and full graph warnings |
 | `itt doctor` | Return the same full object-graph diagnosis with an explicit `healthy` result |
 
@@ -29,14 +29,14 @@ The CLI is intentionally small:
 
 | Command | Behavior |
 |---|---|
-| `itt maintenance status` | Read this project's flag/hook configuration without initializing; configuration does not attest execution. |
-| `itt maintenance on / off` | Enable/disable only this project. Legacy histories need on once; new init defaults on. No global setting changes. |
+| `itt maintenance status [--host H]` | Read this project's flag and the chosen host's hook configuration without initializing; configuration does not attest execution. |
+| `itt maintenance on / off [--host H]` | Enable/disable only this project. Legacy histories need on once; new init defaults on. `on` installs the chosen host's hooks; `off` also removes Intent's Claude Code entries. No global setting changes. |
 | `itt maintenance close recorded --turn TOKEN [--objects ID ...]` | Agent acknowledges verified changed objects; IDs may be derived from the entry baseline. |
 | `itt maintenance close no-op / failed --turn TOKEN --reason TEXT` | Acknowledge zero writes or failure without manufacturing a Snap. |
 
 The normal loop is read once → preserve important verified milestones → close before responding. Success/no-op are quiet; safely recoverable errors permit continuing after verification, unresolved errors pause only affected history operations. User read-only/skip instructions win. Split independent goals into Intents and verified conclusions into Snaps; no object quota.
 
-`.intent/maintenance.json` contains bounded local flag/receipt metadata, not semantic objects or IntHub snapshot content. Newly generated `.codex/hooks.json` is locally Git-excluded; unrelated hooks remain intact. Review/trust it in Codex `/hooks`. Stop allows one closure-only retry, not a guarantee against crashes/cancellation or semantic omissions. Hosts without hooks retain a soft Skill contract. See [implementation and limits](../../references/codex-hooks.md) and [tests](../../tests/test_maintenance.py).
+`.intent/maintenance.json` contains bounded local flag/receipt metadata, not semantic objects or IntHub snapshot content. Newly generated `.codex/hooks.json` or `.claude/settings.local.json` is locally Git-excluded; unrelated hooks and settings remain intact. Review/trust them in the host's `/hooks`. Stop allows one closure-only retry, not a guarantee against crashes/cancellation or semantic omissions. Hosts without hooks retain a soft Skill contract. See implementation and limits for [Codex](../../references/codex-hooks.md) and [Claude Code](../../references/claude-code-hooks.md), and [tests](../../tests/test_maintenance.py).
 
 ### Intent
 

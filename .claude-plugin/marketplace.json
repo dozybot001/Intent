@@ -1,0 +1,25 @@
+{
+  "name": "intent",
+  "owner": {
+    "name": "Zeng Deyang"
+  },
+  "metadata": {
+    "description": "Intent semantic history for agent-driven development."
+  },
+  "plugins": [
+    {
+      "name": "intent-cli",
+      "description": "Instructions for quiet, continuous Intent semantic maintenance with the itt CLI. Ships the Skill only: no hooks, and no project is enabled by installing it.",
+      "source": "./",
+      "homepage": "https://github.com/dozybot001/Intent",
+      "repository": "https://github.com/dozybot001/Intent",
+      "license": "MIT",
+      "keywords": [
+        "intent",
+        "semantic-history",
+        "agent",
+        "continuation"
+      ]
+    }
+  ]
+}

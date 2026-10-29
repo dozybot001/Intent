@@ -175,7 +175,7 @@ sequenceDiagram
 
 在传统开发里，语义在程序员脑中。在 agent 时代，session 会中断、agent 会切换、上下文会丢失。Intent 让这个交接变成结构化的，而不是口头的。
 
-以上自动维护需要一次明确授权，当前由 Skill/Agent 指令承载；用户信任项目内的 Codex hook 后，它负责轮次开始的上下文与 Stop 闭环检查（[说明与限制](../../references/codex-hooks.md)）；它检查的是闭环，而不是语义质量。每轮评估是否存在关键语义变化，没有变化就零写入，不能退回逐 query 日志。
+以上自动维护需要一次明确授权，当前由 Skill/Agent 指令承载；用户信任项目内的 Codex 或 Claude Code hook 后，它负责轮次开始的上下文与 Stop 闭环检查（[Codex](../../references/codex-hooks.md)、[Claude Code](../../references/claude-code-hooks.md)）；它检查的是闭环，而不是语义质量。每轮评估是否存在关键语义变化，没有变化就零写入，不能退回逐 query 日志。
 
 ## 7. 判断这件事是否成立
 

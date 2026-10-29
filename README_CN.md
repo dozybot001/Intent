@@ -173,6 +173,20 @@ IntHub Local 默认只绑定 `127.0.0.1`。当前本地 API 不强制校验 Bear
 
 > **Tips：** 持续维护按项目开启，日常静默执行。“用 Intent 把这轮工作写入 `.intent/`”仍可用于一次性记录；“通过 Intent 恢复这个项目”先只读。IntHub 推送/拉取始终需要独立明确请求。可信 Stop hook 检查的是收尾，不是语义完整性。
 
+### Claude Code
+
+默认宿主是 Codex。Claude Code 用户需按项目显式选择一次：
+
+```bash
+cd your-project
+itt init --host claude-code
+# 已有历史：只需启用一次
+itt maintenance on --host claude-code
+itt maintenance status --host claude-code
+```
+
+这会把 Intent 的两个 hooks（`UserPromptSubmit` 负责开头上下文，`Stop` 负责收尾检查）合并进 `.claude/settings.local.json`，不改动其他设置；`itt maintenance off` 只移除 Intent 自己的条目。随后在 Claude Code 中信任该目录，并在 `/hooks` 确认两个 hooks（看不到时重启会话）；已配置不代表已实际执行。Claude Code 也可以把同一份 Skill 作为插件安装：先运行 `/plugin marketplace add dozybot001/Intent`，再运行 `/plugin install intent-cli@intent`。插件只包含说明，不含 hooks，也不会开启任何项目。详见 [Claude Code 接入与边界](references/claude-code-hooks.md)。
+
 ## 文档
 
 - [愿景](docs/CN/vision.md) — 为什么需要语义历史
