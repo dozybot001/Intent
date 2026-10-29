@@ -106,8 +106,11 @@ def cmd_status(args):
     base = require_init()
     with workspace_write_lock(base, operation="status"):
         config, name, snapshot, digest = _state(base, args)
-    if getattr(args, "local", False):
-        success("status", {"project_name": name, "remote_checked": False,
+    # Never contact a service the user has not chosen: without a configured
+    # remote (or an explicit --api-base-url), status stays local.
+    remote_configured = bool(config.get("api_base_url") or getattr(args, "api_base_url", None))
+    if getattr(args, "local", False) or not remote_configured:
+        success("status", {"project_name": name, "remote_checked": False, "remote_configured": remote_configured,
             "local_changes": digest != config.get("baseline_sha256") and bool(config.get("baseline_sha256") or any(snapshot.values())),
             "revision": config.get("revision"), "counts": {k: len(v) for k, v in snapshot.items()}})
         return
@@ -136,7 +139,9 @@ def cmd_remote(args):
             write_hub_config(base, {"format_version": 2, "api_base_url": api, "project_name": name})
             success("remote.add", {"name": "origin", "api_base_url": api, "project_name": name})
         else:
-            success("remote", {"name": "origin", "api_base_url": hub_api_base(base, args, config),
+            # Unconfigured projects report the default push target, marked as such.
+            success("remote", {"name": "origin", "configured": bool(config.get("api_base_url")),
+                "api_base_url": hub_api_base(base, args, config),
                 "project_name": config.get("project_name") or base.parent.name})
 
 

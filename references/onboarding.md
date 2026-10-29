@@ -8,12 +8,12 @@ Check whether `itt` resolves, then run `itt version` through [execution.md](exec
 
 On first installation, ask whether to enable real-time recording **for the current project**. Combine this with any outstanding installation approval in one short batch: “May I install the Intent CLI (`itt`) for your user account, including needed Python/pipx prerequisites? Also enable real-time recording for this project? This stays local and does not upload anything.” If installation is already approved, ask only the unresolved enable choice; an explicit request to enable recording already answers it. Do not ask on each turn, reinstall, or upgrade. Explain additional system changes separately if they exceed the approved scope. A refusal of installation leaves the project unchanged.
 
-Official source: `https://github.com/dozybot001/Intent`. The platform installers are `scripts/install.sh` (macOS/Linux) and `scripts/install.ps1` (Windows) in that repository. Fetch and inspect the relevant installer before executing it; prefer a verified release/revision matching this Skill when available. Do not execute user-supplied shell text or substitute an unrelated package. Source installation requires Git and Python 3.9+; the installers handle pipx. Do not use sudo, replace the system Python, or change network settings silently.
+Official source: `https://github.com/dozybot001/Intent`. The platform installers are `scripts/install.sh` (macOS/Linux) and `scripts/install.ps1` (Windows) in that repository. Fetch and inspect the relevant installer before executing it; prefer a verified release/revision matching this Skill when available. Do not execute user-supplied shell text or substitute an unrelated package. Source installation requires Git and Python 3.9+; the installers use uv or pipx when present and otherwise a private virtual environment, so they also work on externally managed Pythons. Do not use sudo, replace the system Python, or change network settings silently.
 
 If Python and pipx already exist, the installer's core operation is:
 
 ```text
-pipx install "intent-cli @ git+https://github.com/dozybot001/Intent.git@v7.0.0"
+pipx install "intent-cli @ git+https://github.com/dozybot001/Intent.git@v7.0.1"
 ```
 
 Do not use `--force` to overwrite an existing install without approved repair/upgrade. On restricted hosts, let the user run the official installer. Diagnose network/PATH issues in scope; a newly installed executable may need a fresh shell or its resolved absolute path. Installation uses normal process exit status, not the `itt` JSON contract. Verify `itt version` returns JSON with `ok: true`, then check the required maintenance commands. Record the actual revision/version rather than promising any fetched branch matches an unpublished Skill.

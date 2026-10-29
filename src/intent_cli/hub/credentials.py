@@ -38,6 +38,10 @@ def normalize_api_base_url(value):
         raise GlobalHubConfigError(
             "IntHub API base URL must not contain credentials, a query, or a fragment."
         )
+    if parsed.scheme.lower() == "http" and parsed.hostname.lower() not in {"127.0.0.1", "localhost", "::1"}:
+        raise GlobalHubConfigError(
+            "IntHub URLs must use https; plain http is only allowed for 127.0.0.1 or localhost."
+        )
     path = parsed.path.rstrip("/")
     return urlunsplit((parsed.scheme.lower(), parsed.netloc.lower(), path, "", ""))
 
