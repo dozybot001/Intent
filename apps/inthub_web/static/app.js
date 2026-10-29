@@ -3,8 +3,10 @@ window.IntHubI18n.bindStatic(document.body);
 
 /* ---- State ---- */
 
-const TABS = ["overview", "intents", "snaps", "decisions", "search"];
+const TABS = ["overview", "intents", "snaps", "decisions"];
 const DETAIL_PATHS = { intent: "intents", decision: "decisions", snap: "snaps" };
+const PAGE_SIZE = 30;
+const INSTALL_COMMAND = "curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.sh | bash";
 
 const state = {
   config: null,
@@ -28,16 +30,15 @@ const el = {
   projectPickerDropdown: document.getElementById("project-picker-dropdown"),
   refreshBtn: document.getElementById("refresh-btn"),
   searchTrigger: document.getElementById("search-trigger"),
+  searchDialog: document.getElementById("search-dialog"),
+  searchForm: document.getElementById("search-form"),
+  searchInput: document.getElementById("search-input"),
+  searchResults: document.getElementById("search-results"),
   syncChip: document.getElementById("sync-chip"),
   syncIndicator: document.getElementById("sync-indicator"),
-  apiChip: document.getElementById("api-chip"),
-  tabBar: document.querySelector(".tab-bar"),
-  sidebarKicker: document.getElementById("sidebar-kicker"),
-  sidebarTitle: document.getElementById("sidebar-title"),
-  sidebarBody: document.getElementById("sidebar-body"),
+  tabBar: document.getElementById("tab-bar"),
   detailPane: document.getElementById("detail-pane"),
   detailContent: document.getElementById("detail-content"),
-  backBtn: document.getElementById("back-btn"),
   statusLine: document.getElementById("status-line"),
   intentCount: document.getElementById("intent-count"),
   decisionCount: document.getElementById("decision-count"),
@@ -45,6 +46,8 @@ const el = {
   drawer: document.getElementById("drawer"),
   drawerOverlay: document.getElementById("drawer-overlay"),
   drawerClose: document.getElementById("drawer-close"),
+  drawerBack: document.getElementById("drawer-back"),
+  drawerTitle: document.getElementById("drawer-title"),
   drawerContent: document.getElementById("drawer-content"),
   logoutBtn: document.getElementById("logout-btn"),
   tokenBtn: document.getElementById("token-btn"),
@@ -63,12 +66,36 @@ const el = {
   authError: document.getElementById("auth-error"),
   tenonLogin: document.getElementById("tenon-login"),
   tenonLoginLabel: document.getElementById("tenon-login-label"),
-  navHealth: document.getElementById("nav-health"),
-  navContextLabel: document.getElementById("nav-context-label"),
   aboutDialog: document.getElementById("about-dialog"),
   aboutClose: document.getElementById("about-close"),
   aboutVersion: document.getElementById("about-version"),
 };
+
+/* ---- Icons ---- */
+
+const ICONS = {
+  intent: '<circle cx="10" cy="10" r="6.5"/><circle cx="10" cy="10" r="2.5"/>',
+  snap: '<path d="M5.5 17V3.5"/><path d="M5.5 4.5h9l-2 3 2 3h-9"/>',
+  decision: '<path d="M10 2.8 17.2 10 10 17.2 2.8 10Z"/>',
+  next: '<path d="M4 10h12M11 5l5 5-5 5"/>',
+  blocker: '<path d="M10 3.2 17.6 16.5H2.4Z"/><path d="M10 8.3v3.6M10 14.1v.1"/>',
+  clear: '<circle cx="10" cy="10" r="7"/><path d="m7 10.2 2 2 4-4.4"/>',
+  boundary: '<rect x="3.5" y="3.5" width="13" height="13" rx="2.5" stroke-dasharray="2.4 2.2"/>',
+  verified: '<path d="M10 2.8 16 5v4.6c0 3.6-2.5 6.2-6 7.6-3.5-1.4-6-4-6-7.6V5Z"/><path d="m7.4 10 1.8 1.8 3.5-3.6"/>',
+  chevron: '<path d="m8 5 5 5-5 5"/>',
+  chevronDown: '<path d="m5.5 8 4.5 4.5L14.5 8"/>',
+  arrow: '<path d="M4 10h12M11 5l5 5-5 5"/>',
+  copy: '<rect x="7" y="7" width="9.5" height="9.5" rx="2"/><path d="M13 7V5.5A1.5 1.5 0 0 0 11.5 4h-6A1.5 1.5 0 0 0 4 5.5v6A1.5 1.5 0 0 0 5.5 13H7"/>',
+  key: '<circle cx="7" cy="13" r="3.5"/><path d="m9.5 10.5 7-7M14 6l2 2"/>',
+  overview: '<rect x="3" y="3.5" width="14" height="13" rx="2"/><path d="M3 8h14M8.5 8v8.5"/>',
+  timeline: '<path d="M6 3.5v13"/><circle cx="6" cy="6.5" r="1.7"/><circle cx="6" cy="13.5" r="1.7"/><path d="M10 6.5h7M10 13.5h7"/>',
+  terminal: '<rect x="2.5" y="4" width="15" height="12" rx="2"/><path d="m6 8.5 2.5 2-2.5 2M10.5 13h3.5"/>',
+  search: '<circle cx="9" cy="9" r="5.5"/><path d="m13.2 13.2 3.8 3.8"/>',
+};
+
+function icon(name) {
+  return `<svg viewBox="0 0 20 20" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+}
 
 /* ---- Helpers ---- */
 
@@ -93,7 +120,7 @@ function esc(v) {
 }
 
 function fmtDate(v) {
-  if (!v) return "\u2014";
+  if (!v) return "—";
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return v;
   const pad = (part) => String(part).padStart(2, "0");
@@ -114,40 +141,91 @@ function relativeDate(v) {
   return fmtDate(v);
 }
 
+function shortDay(v) {
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "—";
+  const today = new Date();
+  if (d.toDateString() === today.toDateString()) {
+    return new Intl.DateTimeFormat(window.IntHubI18n.language, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
+  }
+  return new Intl.DateTimeFormat(window.IntHubI18n.language, {
+    month: "short",
+    day: "numeric",
+    year: d.getFullYear() === today.getFullYear() ? undefined : "numeric",
+  }).format(d);
+}
+
+function plural(count, one, other, values = {}) {
+  return t(count === 1 ? one : other, { count, ...values });
+}
+
 function shortRevision(v) {
-  return v ? v.slice(0, 8) : "\u2014";
+  return v ? v.slice(0, 8) : "—";
 }
 
 function truncate(v, n = 140) {
   if (!v || v.length <= n) return v || "";
-  return v.slice(0, n).trimEnd() + "\u2026";
+  return v.slice(0, n).trimEnd() + "…";
 }
 
 function formatText(v) {
   if (!v) return "";
-  const safe = esc(v);
-  const hasChinese = /\u3002/.test(safe);
-  const splitter = hasChinese ? "\u3002" : /(?<=\.)\s+/;
-  const suffix = hasChinese ? "\u3002" : "";
-  const parts = safe
-    .split(splitter)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (parts.length <= 1) return `<p>${safe}</p>`;
-  return parts
-    .map((p) => `<p>${p.replace(/\uff1b/g, "\uff1b<br>")}${suffix}</p>`)
+  return String(v)
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => `<p>${esc(line)}</p>`)
     .join("");
 }
 
-function statusBadge(status) {
-  const cls = status ? ` status-${status}` : "";
-  return `<span class="badge${cls}">${esc(intentStatusLabel(status))}</span>`;
+function highlight(text, query) {
+  const source = String(text ?? "");
+  const needle = String(query || "").trim().toLowerCase();
+  const lower = source.toLowerCase();
+  if (!needle || lower.length !== source.length) return esc(source);
+  let out = "";
+  let index = 0;
+  for (let hit = lower.indexOf(needle); hit >= 0; hit = lower.indexOf(needle, index)) {
+    out += `${esc(source.slice(index, hit))}<mark>${esc(source.slice(hit, hit + needle.length))}</mark>`;
+    index = hit + needle.length;
+  }
+  return out + esc(source.slice(index));
+}
+
+function intentStatusLabel(status) {
+  return {
+    active: t("In progress"),
+    suspend: t("On hold"),
+    done: t("Completed"),
+    cancelled: t("Cancelled"),
+    deprecated: t("Deprecated"),
+  }[status] || status || t("Unknown");
+}
+
+function decisionStatusLabel(status) {
+  return { active: t("In effect"), deprecated: t("Deprecated") }[status] || status || t("Unknown");
+}
+
+function statusBadge(status, kind = "intent") {
+  const label = kind === "decision" ? decisionStatusLabel(status) : intentStatusLabel(status);
+  return `<span class="status-pill status-${esc(status || "unknown")}"><span class="status-dot" aria-hidden="true"></span>${esc(label)}</span>`;
+}
+
+function stateBadge(status) {
+  return `<span class="status-pill state-${esc(status.key)}"><span class="status-dot" aria-hidden="true"></span>${esc(status.label)}</span>`;
+}
+
+function rowStatusIcon(status) {
+  return `<span class="row-icon status-${esc(status || "unknown")}" aria-hidden="true"><span class="status-dot"></span></span>`;
 }
 
 function originBadge(origin) {
   if (!origin) return "";
-  const slug = origin.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  return `<span class="badge origin-${slug}">${esc(origin)}</span>`;
+  return `<span class="chip">${esc(origin)}</span>`;
+}
+
+function idChip(id) {
+  return `<span class="chip chip-id">${esc(id)}</span>`;
 }
 
 function remoteId(wksId, objId) {
@@ -169,7 +247,7 @@ function configUrl() {
 // A newer action owns its view. Late responses may finish, but cannot replace it.
 function beginViewRequest(view) {
   state._requestVersions ||= {};
-  if (view === "detail" || view === "drawer") setViewBusy(view, false);
+  if (view === "detail" || view === "sheet") setViewBusy(view, false);
   return state._requestVersions[view] = (state._requestVersions[view] || 0) + 1;
 }
 
@@ -178,12 +256,16 @@ function ownsViewRequest(view, request) {
 }
 
 function setViewBusy(view, busy) {
-  const target = view === "drawer" ? el.drawerContent : el.detailPane;
+  const target = view === "sheet" ? el.drawerContent : el.detailPane;
   target.setAttribute("aria-busy", String(busy));
 }
 
 function viewLoadingHtml() {
   return `<div class="view-loading" role="status"><span class="view-loading-spinner" aria-hidden="true"></span><p data-view-loading-copy>${esc(t("Loading…"))}</p></div>`;
+}
+
+function pageSkeletonHtml() {
+  return `<div class="page-skeleton" role="status" aria-label="${esc(t("Loading continuation brief"))}"><i></i><i></i><i></i></div>`;
 }
 
 function localizeViewLoadingCopy() {
@@ -223,6 +305,19 @@ async function fetchJson(url, options = {}) {
   return p.result;
 }
 
+async function copyText(text, message) {
+  try {
+    await navigator.clipboard.writeText(text);
+    setStatus(message);
+    return true;
+  } catch {
+    setStatus(t("Copy failed. Select and copy the text manually."), true);
+    return false;
+  }
+}
+
+/* ---- Authentication ---- */
+
 function setTenonLoginLoading(loading) {
   el.tenonLogin.classList.toggle("is-loading", loading);
   el.tenonLogin.setAttribute("aria-busy", String(loading));
@@ -238,7 +333,8 @@ function setTenonLoginLoading(loading) {
 
 function showAuthGate(message = "") {
   closeHeaderMenus();
-  closeDrawer();
+  closeDrawer({ history: "none" });
+  if (el.searchDialog.open) el.searchDialog.close();
   el.shell.inert = true;
   state._authMessage = window.IntHubI18n.keyFor(message);
   state.authenticated = false;
@@ -300,16 +396,19 @@ function callbackErrorMessage() {
 
 function readRoute() {
   const p = new URLSearchParams(window.location.search);
+  const requestedTab = p.get("tab") || "overview";
+  const q = p.get("q") || "";
   return {
     project: p.get("project"),
-    tab: p.get("tab") || "overview",
+    tab: TABS.includes(requestedTab) ? requestedTab : "overview",
     detail: p.get("detail"),
     detailType: p.get("detailType"),
-    q: p.get("q") || "",
+    q,
+    search: requestedTab === "search" || Boolean(q),
   };
 }
 
-function writeRoute() {
+function routeUrl() {
   const p = new URLSearchParams();
   if (state.currentProjectId) p.set("project", state.currentProjectId);
   if (state.activeTab !== "overview") p.set("tab", state.activeTab);
@@ -317,13 +416,21 @@ function writeRoute() {
     p.set("detail", state.selectedDetail.remoteId);
     p.set("detailType", state.selectedDetail.type);
   }
-  if (state.searchQuery) p.set("q", state.searchQuery);
   const q = p.toString();
-  window.history.replaceState(
-    {},
-    "",
-    q ? `${window.location.pathname}?${q}` : window.location.pathname,
-  );
+  return q ? `${window.location.pathname}?${q}` : window.location.pathname;
+}
+
+// "push" creates a browser history entry, "replace" updates the current one,
+// "none" is used while applying an entry that the browser already restored.
+function writeRoute(mode = "replace", entry = "page") {
+  if (mode === "none") return "none";
+  const url = routeUrl();
+  if (mode === "push" && window.history.pushState && url !== `${window.location.pathname}${window.location.search}`) {
+    window.history.pushState({ inthub: entry }, "", url);
+    return "pushed";
+  }
+  window.history.replaceState({ ...(window.history.state || {}), inthub: entry }, "", url);
+  return "replaced";
 }
 
 /* ---- Status ---- */
@@ -336,314 +443,48 @@ function setStatus(msg, isError = false) {
   el.statusLine.classList.add("is-visible");
   window.clearTimeout(setStatus._timer);
   setStatus._timer = window.setTimeout(() => {
-    if (!isError) el.statusLine.classList.remove("is-visible");
-  }, 2600);
+    el.statusLine.classList.remove("is-visible");
+  }, isError ? 6000 : 2600);
 }
 
-/* ---- Tab switching ---- */
+/* ---- Tabs ---- */
 
-async function switchTab(tab) {
-  if (!TABS.includes(tab)) return;
-  if (state.activeTab === tab && state.overview) {
-    if (tab !== "overview") returnToList();
-    if (tab === "search") document.getElementById("search-input")?.focus();
-    return;
-  }
-  beginViewRequest("detail");
-  beginViewRequest("search");
-  state._searchBusy = false;
-  state._detailPayload = null;
-  state.selectedDetail = null;
-  state.activeTab = tab;
-  el.shell.dataset.activeTab = tab;
-  el.shell.classList.remove("detail-open");
-  closeDrawer();
+function setActiveTabUI() {
+  el.shell.dataset.activeTab = state.activeTab;
   for (const btn of el.tabBar.querySelectorAll(".tab")) {
-    btn.classList.toggle("is-active", btn.dataset.tab === tab);
-    if (btn.dataset.tab === tab) btn.setAttribute("aria-current", "page");
+    btn.classList.toggle("is-active", btn.dataset.tab === state.activeTab);
+    if (btn.dataset.tab === state.activeTab) btn.setAttribute("aria-current", "page");
     else btn.removeAttribute("aria-current");
   }
-  renderSidebar();
-  writeRoute();
+}
 
-  if (tab === "overview") {
-    state.selectedDetail = null;
-    if (state.overview) renderProjectSummary();
-    else clearDetail(t("Link a project to build a continuation brief."));
+function switchTab(tab, { history = "push" } = {}) {
+  if (!TABS.includes(tab)) return;
+  if (state.activeTab === tab) {
+    window.scrollTo?.({ top: 0, behavior: "smooth" });
     return;
   }
-
-  if (tab === "search") {
-    state.selectedDetail = null;
-    el.detailContent.innerHTML = renderSearchWelcome();
-    window.setTimeout(() => document.getElementById("search-input")?.focus(), 0);
-    return;
-  }
-
-  // Keep list and detail in sync for object views.
-  const firstCard = el.sidebarBody.querySelector("[data-detail-type][data-remote-id]");
-  if (firstCard) {
-    try {
-      await openDetail(firstCard.dataset.detailType, firstCard.dataset.remoteId, { reveal: false });
-    } catch (error) { setStatus(error.message, true); }
-  } else clearDetail(t("No object is available in this view."));
+  closeDrawer({ history: "none" });
+  state.activeTab = tab;
+  setActiveTabUI();
+  if (hasHistory()) renderView();
+  writeRoute(history);
+  window.scrollTo?.({ top: 0 });
 }
 
-/* ---- Selected card sync ---- */
+/* ---- Data helpers ---- */
 
-function syncSelected() {
-  for (const node of document.querySelectorAll(
-    "[data-detail-type][data-remote-id]",
-  )) {
-    const sel =
-      state.selectedDetail &&
-      node.dataset.detailType === state.selectedDetail.type &&
-      node.dataset.remoteId === state.selectedDetail.remoteId;
-    node.classList.toggle("is-selected", Boolean(sel));
-    if (sel) node.setAttribute("aria-current", "true");
-    else node.removeAttribute("aria-current");
-  }
+function hasHistory() {
+  return Boolean(historySources(state.overview).length);
 }
 
-/* ---- Render helpers ---- */
-
-function commandSnippet(lines) {
-  return `<pre class="command-snippet">${esc(lines.join("\n"))}</pre>`;
-}
-
-function detailSection(title, body) {
-  return `<div class="detail-section"><h4 class="detail-section-title">${esc(title)}</h4>${body}</div>`;
-}
-
-function kvRow(label, value) {
-  return `<div class="detail-kv-row"><span class="detail-kv-label">${esc(label)}</span><span class="detail-kv-value">${esc(value)}</span></div>`;
-}
-
-function linkButton(type, rId, label, meta) {
-  return `<button type="button" class="detail-link" data-detail-type="${esc(type)}" data-remote-id="${esc(rId)}"><span class="detail-link-label">${esc(label)}</span>${meta ? `<span class="detail-link-meta">${esc(meta)}</span>` : ""}</button>`;
-}
-
-function relationItem(type, rId, id, title, meta, status) {
-  const cls = status === "deprecated"
-    ? " rel-deprecated"
-    : status === "cancelled"
-      ? " rel-cancelled"
-      : status === "done"
-        ? " rel-muted"
-        : "";
-  return `<button type="button" class="relation-item${cls}" data-detail-type="${esc(type)}" data-remote-id="${esc(rId)}">
-    <span class="relation-id"><span class="badge">${esc(id)}</span>${status ? statusBadge(status) : ""}</span>
-    <span class="relation-title">${esc(title)}</span>
-    ${meta ? `<span class="relation-meta">${esc(meta)}</span>` : ""}
-  </button>`;
-}
-
-function relatedLinks(items, emptyMsg) {
-  return items.length
-    ? `<div class="detail-link-list">${items.join("")}</div>`
-    : `<div class="empty-state">${esc(emptyMsg)}</div>`;
-}
-
-function rawToggle(data) {
-  return `<details class="raw-toggle"><summary>${esc(t("Raw JSON"))}</summary><pre class="raw-pre">${esc(JSON.stringify(data, null, 2))}</pre></details>`;
-}
-
-/* ---- Sidebar rendering ---- */
-
-function renderSidebar() {
-  if (!state.overview) {
-    el.sidebarBody.innerHTML =
-      `<div class="empty-state">${esc(t("Loading project data…"))}</div>`;
-    return;
-  }
-  switch (state.activeTab) {
-    case "overview":
-      el.sidebarKicker.textContent = t("Current work");
-      el.sidebarTitle.textContent = t("Continuation queue");
-      renderContinuationQueue();
-      break;
-    case "intents":
-      el.sidebarKicker.textContent = t("Semantic goals");
-      el.sidebarTitle.textContent = t("Intents");
-      renderIntentsTab();
-      break;
-    case "decisions":
-      el.sidebarKicker.textContent = t("Project constraints");
-      el.sidebarTitle.textContent = t("Decisions");
-      renderDecisionsTab();
-      break;
-    case "snaps":
-      el.sidebarKicker.textContent = t("Semantic history");
-      el.sidebarTitle.textContent = t("Timeline");
-      renderSnapsTab();
-      break;
-    case "search":
-      el.sidebarKicker.textContent = t("Find context");
-      el.sidebarTitle.textContent = t("Search");
-      renderSearchTab();
-      break;
-  }
-  syncSelected();
-}
-
-function queueItem(intent, section) {
-  const snap = intent.latest_snap;
-  const summary = snap?.what || intent.why || t("No continuation checkpoint recorded.");
-  return `
-    <button class="queue-item" type="button" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
-      <span class="queue-item-title">${esc(intent.what)}</span>
-      <span class="queue-item-summary">${esc(truncate(summary, 150))}</span>
-      <span class="queue-item-meta">
-        ${statusBadge(intent.status)}
-        <span class="badge">${esc(intent.id)}</span>
-        ${snap ? `<span class="badge">${esc(snap.id)}</span>` : `<span class="badge warn">${esc(t("checkpoint missing"))}</span>`}
-      </span>
-    </button>`;
-}
-
-function renderContinuationQueue() {
-  const active = state.handoff?.intents || [];
-  const suspended = state.handoff?.suspended_intents || [];
-  const activeBody = active.length
-    ? active.map((intent) => queueItem(intent, "active")).join("")
-    : `<div class="queue-empty">${esc(t("No active Intent. The project has no explicit current objective."))}</div>`;
-  const suspendedBody = suspended.length
-    ? suspended.map((intent) => queueItem(intent, "suspended")).join("")
-    : `<div class="queue-empty">${esc(t("No suspended work waiting to resume."))}</div>`;
-
-  el.sidebarBody.innerHTML = `
-    <section class="queue-group">
-      <div class="queue-heading">${esc(t("Active"))} · ${active.length}</div>
-      ${activeBody}
-    </section>
-    <section class="queue-group">
-      <div class="queue-heading">${esc(t("Suspended"))} · ${suspended.length}</div>
-      ${suspendedBody}
-    </section>`;
-}
-
-
-const PAGE_SIZE = 30;
-
-function renderIntentsTab() {
-  const active = state.overview.active_intents || [];
-  const other = [...(state.overview.other_intents || [])].reverse();
-  const suspended = other.filter((intent) => intent.status === "suspend");
-  const completed = other.filter((intent) => intent.status === "done");
-  const cancelled = other.filter((intent) => intent.status === "cancelled");
-  const otherHistory = other.filter((intent) =>
-    !["suspend", "done", "cancelled"].includes(intent.status),
-  );
-  const total = active.length + other.length;
-
-  if (!total) {
-    el.sidebarBody.innerHTML =
-      `<div class="empty-state">${esc(t("No intents."))}</div>`;
-    return;
-  }
-
-  if (!state._pageState) state._pageState = {};
-  const archiveShown = state._pageState.intentArchive || PAGE_SIZE;
-  const archived = [...completed, ...cancelled, ...otherHistory];
-  const visibleArchive = archived.slice(0, archiveShown);
-  const visibleIds = new Set(visibleArchive.map((intent) => intent.remote_id));
-  const visibleCompleted = completed.filter((intent) => visibleIds.has(intent.remote_id));
-  const visibleCancelled = cancelled.filter((intent) => visibleIds.has(intent.remote_id));
-  const visibleOther = otherHistory.filter((intent) => visibleIds.has(intent.remote_id));
-  const archiveRemaining = archived.length - visibleArchive.length;
-
-  const archive = archived.length
-    ? `<details class="object-archive intent-archive">
-        <summary>
-          <span>
-            <strong>${esc(t("Resolved history"))}</strong>
-          </span>
-          <span class="object-archive-count">${archived.length}</span>
-        </summary>
-        <div class="object-archive-body">
-          ${intentSubgroup(t("Completed"), visibleCompleted, "done")}
-          ${intentSubgroup(t("Cancelled"), visibleCancelled, "cancelled")}
-          ${intentSubgroup(t("Other"), visibleOther, "history")}
-          ${archiveRemaining > 0
-            ? `<button type="button" class="load-more-btn" id="load-more-intent-archive">${esc(t("Load more ({count})", {count: archiveRemaining}))}</button>`
-            : ""}
-        </div>
-      </details>`
-    : "";
-
-  el.sidebarBody.innerHTML = `
-    ${intentGroup(
-      t("Active objectives"),
-      active,
-      "active",
-      t("No active objective. Resume a suspended Intent or record a new one."),
-    )}
-    ${suspended.length
-      ? intentGroup(t("Suspended"), suspended, "suspend")
-      : ""}
-    ${archive}`;
-
-  const loadMore = document.getElementById("load-more-intent-archive");
-  if (loadMore) {
-    loadMore.addEventListener("click", () => {
-      state._pageState.intentArchive = archiveShown + PAGE_SIZE;
-      renderSidebar();
-      document.querySelector(".intent-archive")?.setAttribute("open", "");
-    });
-  }
-}
-
-function intentStatusLabel(status) {
-  return {
-    active: t("In progress"),
-    suspend: t("On hold"),
-    done: t("Completed"),
-    cancelled: t("Cancelled"),
-    deprecated: t("Deprecated"),
-  }[status] || status || t("Unknown");
-}
-
-function intentEntry(intent) {
-  const decisions = intent.decision_ids || [];
-  const checkpoint = intent.latest_snap_id
-    ? t("Checkpoint {id}", {id: intent.latest_snap_id})
-    : t("Checkpoint missing");
-  return `
-    <button type="button" class="intent-entry intent-entry-${esc(intent.status)}" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
-      <span class="intent-entry-topline">
-        <span class="intent-lifecycle"><i aria-hidden="true"></i>${esc(intentStatusLabel(intent.status))}</span>
-        <span class="intent-entry-id">${esc(intent.id)}</span>
-      </span>
-      <strong class="intent-entry-title">${esc(intent.what)}</strong>
-      ${intent.why ? `<span class="intent-entry-summary">${esc(truncate(intent.why, 132))}</span>` : ""}
-      <span class="intent-entry-context">
-        <span class="${intent.latest_snap_id ? "has-checkpoint" : "missing-checkpoint"}">${esc(checkpoint)}</span>
-        <span>${esc(t("{count} decisions", {count: decisions.length}))}</span>
-      </span>
-    </button>`;
-}
-
-function intentGroup(label, intents, tone, emptyMessage = "") {
-  const body = intents.length
-    ? `<div class="object-group-list">${intents.map(intentEntry).join("")}</div>`
-    : `<div class="object-group-empty">${esc(emptyMessage)}</div>`;
-  return `
-    <section class="object-group intent-group intent-group-${esc(tone)}">
-      <header class="object-group-header">
-        <span class="object-group-title"><i aria-hidden="true"></i>${esc(label)}</span>
-        <span class="object-group-count">${intents.length}</span>
-      </header>
-      ${body}
-    </section>`;
-}
-
-function intentSubgroup(label, intents, tone) {
-  if (!intents.length) return "";
-  return `
-    <section class="object-subgroup object-subgroup-${esc(tone)}">
-      <header><span>${esc(label)}</span><span>${intents.length}</span></header>
-      <div class="object-group-list">${intents.map(intentEntry).join("")}</div>
-    </section>`;
+function historySources(overview) {
+  if (overview?.history) return overview.history.revision ? [{
+    project_id: overview.history.project_id,
+    last_synced_at: overview.history.last_synced_at,
+    revision: overview.history.revision,
+  }] : [];
+  return [];
 }
 
 function overviewIntents() {
@@ -651,6 +492,28 @@ function overviewIntents() {
     ...(state.overview?.active_intents || []),
     ...(state.overview?.other_intents || []),
   ];
+}
+
+const snapIndexes = new WeakMap();
+
+function snapIndex() {
+  const overview = state.overview;
+  if (!overview) return new Map();
+  if (!snapIndexes.has(overview)) {
+    snapIndexes.set(overview, new Map((overview.recent_snaps || []).map((snap) => [snap.remote_id || remoteId(snap.project_id, snap.id), snap])));
+  }
+  return snapIndexes.get(overview);
+}
+
+function latestSnapFor(intent) {
+  return intent.latest_snap_id ? snapIndex().get(remoteId(intent.project_id, intent.latest_snap_id)) || null : null;
+}
+
+function intentForSnap(snap) {
+  const intents = overviewIntents();
+  return intents.find((intent) =>
+    intent.id === snap.intent_id && intent.project_id === snap.project_id,
+  ) || (!snap.project_id ? intents.find((intent) => intent.id === snap.intent_id) : null) || null;
 }
 
 function decisionScope(decision) {
@@ -664,341 +527,7 @@ function decisionScope(decision) {
   };
 }
 
-function decisionConstraint(decision, index, deprecated = false) {
-  const scope = decisionScope(decision);
-  const scopeLabel = scope.count
-    ? t("{count} linked Intents", {count: scope.count})
-    : t("No Intent scope recorded");
-  const scopePreview = scope.titles.length
-    ? truncate(scope.titles.join(" · "), 94)
-    : scope.count
-      ? truncate((decision.intent_ids || []).join(" · "), 94)
-      : t("Open the Decision to inspect its recorded rationale.");
-  return `
-    <button type="button" class="decision-constraint${deprecated ? " is-deprecated" : ""}" data-detail-type="decision" data-remote-id="${esc(decision.remote_id)}">
-      <span class="decision-sequence" aria-hidden="true">${String(index + 1).padStart(2, "0")}</span>
-      <span class="decision-constraint-body">
-        <span class="decision-constraint-topline">
-          <span>${deprecated ? t("Deprecated") : t("Current constraint")}</span>
-          <span class="decision-id">${esc(decision.id)}</span>
-        </span>
-        <strong class="decision-constraint-title">${esc(decision.what)}</strong>
-        ${decision.why ? `<span class="decision-constraint-why">${esc(truncate(decision.why, 132))}</span>` : ""}
-        <span class="decision-scope">
-          <strong>${esc(scopeLabel)}</strong>
-          <span>${esc(scopePreview)}</span>
-        </span>
-      </span>
-    </button>`;
-}
-
-function renderDecisionsTab() {
-  const active = [...(state.overview.active_decisions || [])].reverse();
-  const deprecated = [...(state.overview.deprecated_decisions || [])].reverse();
-
-  if (!active.length && !deprecated.length) {
-    el.sidebarBody.innerHTML =
-      `<div class="empty-state">${esc(t("No decisions."))}</div>`;
-    return;
-  }
-
-  const activeHtml = active.length
-    ? active.map((decision, index) => decisionConstraint(decision, index)).join("")
-    : `<div class="object-group-empty">${esc(t("No active cross-Intent constraints."))}</div>`;
-  const deprecatedHtml = deprecated.length
-    ? `<details class="object-archive decision-archive">
-        <summary>
-          <span>
-            <strong>${esc(t("Deprecated history"))}</strong>
-          </span>
-          <span class="object-archive-count">${deprecated.length}</span>
-        </summary>
-        <div class="object-archive-body decision-archive-body">
-          ${deprecated.map((decision, index) => decisionConstraint(decision, index, true)).join("")}
-        </div>
-      </details>`
-    : "";
-
-  el.sidebarBody.innerHTML = `
-    <section class="object-group decision-group">
-      <header class="object-group-header">
-        <span class="object-group-title heading-with-help"><i aria-hidden="true"></i>${esc(t("Active constraints"))}<button class="help-trigger" data-help="decisions" type="button" aria-label="${esc(t("Explanation"))}" aria-expanded="false"><span aria-hidden="true">i</span></button></span>
-        <span class="object-group-count">${active.length}</span>
-      </header>
-      <div class="decision-constraint-list">${activeHtml}</div>
-    </section>
-    ${deprecatedHtml}`;
-}
-
-function intentForSnap(snap) {
-  const intents = [
-    ...(state.overview?.active_intents || []),
-    ...(state.overview?.other_intents || []),
-  ];
-  return intents.find((intent) =>
-    intent.id === snap.intent_id && intent.project_id === snap.project_id,
-  ) || (!snap.project_id ? intents.find((intent) => intent.id === snap.intent_id) : null) || null;
-}
-
-function timelineIntentKey(snap) {
-  return remoteId(snap.project_id || projectIdFromRemoteId(snap.remote_id), snap.intent_id || "");
-}
-
-function timelineIntentOptions(snaps) {
-  const options = new Map();
-  for (const snap of snaps) {
-    const key = timelineIntentKey(snap);
-    const entry = options.get(key);
-    if (entry) entry.count++;
-    else options.set(key, { key, count: 1, label: intentForSnap(snap)?.what || snap.intent_id || t("Unlinked Intent") });
-  }
-  return [...options.values()];
-}
-
-function timelineDate(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return { key: "undated", label: t("Undated"), time: "—", datetime: "" };
-  }
-  const dayKey = (entry) => [
-    entry.getFullYear(),
-    String(entry.getMonth() + 1).padStart(2, "0"),
-    String(entry.getDate()).padStart(2, "0"),
-  ].join("-");
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const key = dayKey(date);
-  const label = key === dayKey(today)
-    ? t("Today")
-    : key === dayKey(yesterday)
-      ? t("Yesterday")
-      : new Intl.DateTimeFormat(window.IntHubI18n.language, {
-          month: "short",
-          day: "numeric",
-          year: date.getFullYear() === today.getFullYear() ? undefined : "numeric",
-        }).format(date);
-  return {
-    key,
-    label,
-    time: new Intl.DateTimeFormat(window.IntHubI18n.language, {
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date),
-    datetime: date.toISOString(),
-  };
-}
-
-function timelineState(checkpoint) {
-  if (checkpoint.blocker && !isClearBlocker(checkpoint.blocker)) {
-    return { className: " is-blocked", label: t("Blocked") };
-  }
-  if (!checkpoint.next) {
-    return { className: " is-incomplete", label: t("Next missing") };
-  }
-  if (checkpoint.blocker && isClearBlocker(checkpoint.blocker)) {
-    return { className: " is-ready", label: t("Unblocked") };
-  }
-  return { className: "", label: t("Checkpoint") };
-}
-
-function snapTimelineEntry(snap) {
-  const checkpoint = parseCheckpoint(snap);
-  const recordedAt = timelineDate(snap.created_at);
-  const status = timelineState(checkpoint);
-  const intent = intentForSnap(snap);
-  const supportingValue = checkpoint.next || checkpoint.boundary || snap.why || "";
-  const supportingLabel = checkpoint.next
-    ? t("Next")
-    : checkpoint.boundary
-      ? t("Boundary")
-      : t("Context");
-  return `
-    <button type="button" class="timeline-entry${status.className}" data-detail-type="snap" data-remote-id="${esc(snap.remote_id)}">
-      <span class="timeline-node" aria-hidden="true"></span>
-      <span class="timeline-entry-body">
-        <span class="timeline-entry-topline">
-          <time datetime="${esc(recordedAt.datetime)}">${esc(recordedAt.time)}</time>
-          <span class="timeline-entry-id">${esc(snap.id)}</span>
-          <span class="timeline-entry-state">${esc(status.label)}</span>
-        </span>
-        <strong class="timeline-entry-title">${esc(conciseSnapTitle(snap))}</strong>
-        ${supportingValue ? `<span class="timeline-entry-summary"><i>${esc(supportingLabel)}</i>${esc(truncate(supportingValue, 104))}</span>` : ""}
-        <span class="timeline-entry-intent">${esc(intent ? truncate(intent.what, 72) : snap.intent_id || t("Unlinked Intent"))}</span>
-      </span>
-    </button>`;
-}
-
-function renderTimeline(snaps) {
-  if (!state._pageState) state._pageState = {};
-  const shown = state._pageState.snaps || PAGE_SIZE;
-  const visible = snaps.slice(0, shown);
-  const groups = [];
-  for (const snap of visible) {
-    const date = timelineDate(snap.created_at);
-    const current = groups.at(-1);
-    if (!current || current.key !== date.key) {
-      groups.push({ key: date.key, label: date.label, snaps: [snap] });
-    } else {
-      current.snaps.push(snap);
-    }
-  }
-
-  const remaining = snaps.length - visible.length;
-  el.sidebarBody.innerHTML = groups
-    .map((group) => `
-      <section class="timeline-group">
-        <header class="timeline-day">
-          <span>${esc(group.label)}</span>
-          <span>${group.snaps.length}</span>
-        </header>
-        <div class="timeline-events">${group.snaps.map(snapTimelineEntry).join("")}</div>
-      </section>`)
-    .join("")
-    + (remaining > 0
-      ? `<button type="button" class="load-more-btn" id="load-more-snaps">${esc(t("Load more ({count})", {count: remaining}))}</button>`
-      : "");
-}
-
-function renderSnapsTab() {
-  const allSnaps = state.overview.recent_snaps || [];
-  if (!allSnaps.length) {
-    el.sidebarBody.innerHTML =
-      `<div class="empty-state">${esc(t("No snaps synced yet."))}</div>`;
-    return;
-  }
-  const options = timelineIntentOptions(allSnaps);
-  if (state._timelineIntentKey && !options.some(option => option.key === state._timelineIntentKey)) state._timelineIntentKey = "";
-  const selected = options.find(option => option.key === state._timelineIntentKey);
-  const snaps = selected ? allSnaps.filter(snap => timelineIntentKey(snap) === selected.key) : allSnaps;
-  renderTimeline(snaps);
-  const optionHtml = (key, label, count) => `<button type="button" class="timeline-filter-option${(state._timelineIntentKey || "") === key ? " is-selected" : ""}" data-timeline-intent="${esc(key)}" aria-pressed="${(state._timelineIntentKey || "") === key}"><span>${esc(label)}</span><small>${count}</small></button>`;
-  el.sidebarBody.innerHTML = `
-    <div class="timeline-toolbar">
-      <details class="timeline-filter">
-        <summary class="timeline-filter-trigger" aria-label="${esc(t("Filter timeline by Intent"))}"><span>${esc(selected ? truncate(selected.label, 44) : t("All Intents"))}</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></summary>
-        <div class="timeline-filter-menu">${optionHtml("", t("All Intents"), allSnaps.length)}${options.map(option => optionHtml(option.key, option.label, option.count)).join("")}</div>
-      </details>
-      <span class="timeline-result-count">${esc(t("{count} checkpoints", {count: snaps.length}))}</span>
-    </div>` + el.sidebarBody.innerHTML;
-  // Replacing the toolbar also replaces child nodes; use delegation for pagination.
-}
-
-function renderSearchTab() {
-  el.sidebarBody.innerHTML = `
-    <h3 class="search-heading heading-with-help">${esc(t("Search"))}<button class="help-trigger" data-help="search" type="button" aria-label="${esc(t("Explanation"))}" aria-expanded="false"><span aria-hidden="true">i</span></button></h3>
-    <form class="search-bar" id="search-form">
-      <input type="search" id="search-input" aria-label="${esc(t("Search project memory"))}" placeholder="${esc(t("Goal, boundary, decision…"))}" value="${esc(state._searchDraft ?? state.searchQuery)}" autocomplete="off">
-      <button type="submit">${esc(t("Go"))}</button>
-    </form>
-    <div id="search-results">
-      <div class="empty-state">${esc(t("Type a query and press Go."))}</div>
-    </div>`;
-
-  document.getElementById("search-input").addEventListener("input", event => {state._searchDraft = event.target.value;});
-
-  document
-    .getElementById("search-form")
-    .addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const q = document.getElementById("search-input").value.trim();
-      await runSearch(q, e.target.querySelector("button[type=submit]"));
-    });
-
-  if (state._localizing) {
-    if (state._searchResults) renderSearchResults(state._searchResults);
-    return;
-  }
-  if (state._searchResults && state._searchResultProject === state.currentProjectId && state._searchResultQuery === state.searchQuery) renderSearchResults(state._searchResults);
-  else if (state.searchQuery && state.currentProjectId) runSearch(state.searchQuery, document.getElementById("search-form").querySelector("button[type=submit]"));
-}
-
-async function runSearch(query, button) {
-  if (state._searchBusy) return;
-  state.searchQuery = query;
-  state._searchDraft = query;
-  writeRoute();
-  const container = document.getElementById("search-results");
-  if (!query || !state.currentProjectId) {
-    state._searchResults = null;
-    if (container) container.innerHTML = `<div class="empty-state">${esc(t("Type a query and press Go."))}</div>`;
-    return;
-  }
-  const projectId = state.currentProjectId;
-  const request = beginViewRequest("search");
-  state._searchBusy = true;
-  if (button) setButtonBusy(button, true, "Searching…", "Go");
-  if (container) {
-    container.setAttribute("aria-busy", "true");
-    container.innerHTML = `<div class="empty-state loading">${esc(t("Searching…"))}</div>`;
-  }
-  const current = () => ownsViewRequest("search", request) && state.activeTab === "search" && state.currentProjectId === projectId;
-  try {
-    const result = await fetchJson(apiUrl(`/api/v1/search?project_id=${encodeURIComponent(projectId)}&q=${encodeURIComponent(query)}`));
-    if (!current()) return;
-    state._searchResultProject = projectId;
-    state._searchResultQuery = query;
-    renderSearchResults(result);
-  } catch (error) {
-    if (!current()) return;
-    state._searchResults = null;
-    if (container) container.innerHTML = `<div class="empty-state"><p>${esc(error.message)}</p><button class="secondary-btn" type="button" data-retry-search>${esc(t("Retry"))}</button></div>`;
-  } finally {
-    if (current()) {
-      state._searchBusy = false;
-      container?.setAttribute("aria-busy", "false");
-      if (button) setButtonBusy(button, false, "Searching…", "Go");
-    }
-  }
-}
-
-function renderSearchWelcome() {
-  return `
-    <section class="overview-empty">
-      <div>
-        <span class="overview-empty-mark">⌕</span>
-        <h2 class="heading-with-help">${esc(t("Search the reason behind the work."))}<button class="help-trigger" data-help="search" type="button" aria-label="${esc(t("Explanation"))}" aria-expanded="false"><span aria-hidden="true">i</span></button></h2>
-      </div>
-    </section>`;
-}
-
-function renderSearchResults(result) {
-  state._searchResults = result;
-  const container = document.getElementById("search-results");
-  if (!container || state.activeTab !== "search") return;
-  if (!result.matches?.length) {
-    container.innerHTML =
-      `<div class="empty-state">${esc(t("No matches found."))}</div>`;
-    return;
-  }
-  container.innerHTML = result.matches
-    .map((m) => {
-      const title = m.object_type === "snap"
-        ? conciseSnapTitle(m)
-        : m.what || m.title || m.id;
-      return `
-        <button type="button" class="card" data-detail-type="${esc(m.object_type)}" data-remote-id="${esc(m.remote_id)}">
-          <span class="card-title">${esc(title)}</span>
-          <span class="card-body">${esc(m.object_type)} \u00b7 ${esc(m.status ? intentStatusLabel(m.status) : "\u2014")}</span>
-          <span class="card-meta">
-            <span class="badge">${esc(m.id)}</span>
-          </span>
-        </button>`;
-    })
-    .join("");
-  syncSelected();
-}
-
-/* ---- Detail pane ---- */
-
-function clearDetail(msg = t("Select an object to inspect.")) {
-  beginViewRequest("detail");
-  state._detailPayload = null;
-  el.detailContent.innerHTML = `<div class="empty-state">${esc(msg)}</div>`;
-  state.selectedDetail = null;
-  el.shell.classList.remove("detail-open");
-  syncSelected();
-}
+/* ---- Checkpoint contract ---- */
 
 function checkpointKey(label) {
   const normalized = String(label || "").trim().toLowerCase();
@@ -1081,61 +610,17 @@ function isClearBlocker(value) {
   );
 }
 
-function checkpointCell(key, label, value) {
-  const missing = !value;
-  const clearBlocker = key === "blocker" && isClearBlocker(value);
-  return `
-    <section class="checkpoint checkpoint-${esc(key)}${missing ? " is-missing" : ""}${clearBlocker ? " is-clear" : ""}">
-      <span class="checkpoint-label">${esc(label)}</span>
-      <p class="checkpoint-value">${missing ? t("Not explicitly recorded in the latest Snap.") : esc(value)}</p>
-    </section>`;
-}
-
-function continuationCard(intent, index) {
-  const checkpoint = parseCheckpoint(intent.latest_snap);
-
-  return `
-    <article class="brief-card">
-      <header class="brief-card-head">
-        <div>
-          <span class="brief-index">Intent ${String(index + 1).padStart(2, "0")} · ${esc(intentStatusLabel(intent.status))}</span>
-          <h2>${esc(intent.what)}</h2>
-          ${intent.why ? `<p class="brief-why">${esc(intent.why)}</p>` : ""}
-        </div>
-        <button class="brief-open" type="button" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">${esc(t("Open Intent ↗"))}</button>
-      </header>
-      <div class="checkpoint-grid">
-        ${checkpointCell("next", t("Next"), checkpoint.next)}
-        ${checkpointCell("blocker", t("Blocker"), checkpoint.blocker)}
-        ${checkpointCell("boundary", t("Boundary"), checkpoint.boundary)}
-        ${checkpointCell("verified", t("Verified"), checkpoint.verified)}
-      </div>
-    </article>`;
-}
-
-function decisionRows(decisions) {
-  if (!decisions.length) {
-    return `<div class="queue-empty">${esc(t("N/A — no active Decision constrains future work."))}</div>`;
+function timelineState(checkpoint) {
+  if (checkpoint.blocker && !isClearBlocker(checkpoint.blocker)) {
+    return { key: "blocked", className: " is-blocked", label: t("Blocked") };
   }
-  return decisions
-    .map((decision) => `
-      <button class="decision-row" type="button" data-detail-type="decision" data-remote-id="${esc(decision.remote_id)}">
-        <span>
-          <strong>${esc(decision.what)}</strong>
-          ${decision.why ? `<small>${esc(truncate(decision.why, 120))}</small>` : ""}
-        </span>
-        <span class="badge">${esc(decision.id)}</span>
-      </button>`)
-    .join("");
-}
-
-function historySources(overview) {
-  if (overview?.history) return overview.history.revision ? [{
-    project_id: overview.history.project_id,
-    last_synced_at: overview.history.last_synced_at,
-    revision: overview.history.revision,
-  }] : [];
-  return [];
+  if (!checkpoint.next) {
+    return { key: "incomplete", className: " is-incomplete", label: t("Next missing") };
+  }
+  if (checkpoint.blocker && isClearBlocker(checkpoint.blocker)) {
+    return { key: "ready", className: " is-ready", label: t("Unblocked") };
+  }
+  return { key: "checkpoint", className: "", label: t("Checkpoint") };
 }
 
 function continuationHealth(intents) {
@@ -1145,176 +630,755 @@ function continuationHealth(intents) {
     ...extractCheckpointParts(intent.latest_snap?.what).fields,
   }));
   const incomplete = checkpoints.filter(checkpoint => !checkpoint.verified || !checkpoint.boundary || !checkpoint.next || !checkpoint.blocker).length;
-  if (incomplete) return { ready: false, label: t("{count} incomplete checkpoints", {count: incomplete}) };
+  if (incomplete) return { ready: false, label: plural(incomplete, "{count} incomplete checkpoint", "{count} incomplete checkpoints") };
   const blocked = checkpoints.filter(checkpoint => !isClearBlocker(checkpoint.blocker)).length;
-  if (blocked) return { ready: false, label: t("{count} blocked objectives", {count: blocked}) };
+  if (blocked) return { ready: false, label: plural(blocked, "{count} blocked objective", "{count} blocked objectives") };
   return { ready: true, label: t("Ready to continue") };
+}
+
+function checkpointCell(key, label, value) {
+  const missing = !value;
+  const clearBlocker = key === "blocker" && isClearBlocker(value);
+  const blocked = key === "blocker" && !missing && !clearBlocker;
+  const iconName = key === "blocker" ? (clearBlocker ? "clear" : "blocker") : key;
+  return `
+    <section class="checkpoint checkpoint-${esc(key)}${missing ? " is-missing" : ""}${clearBlocker ? " is-clear" : ""}${blocked ? " is-blocked" : ""}">
+      <h4 class="checkpoint-label">${icon(iconName)}${esc(label)}</h4>
+      <p class="checkpoint-value">${esc(missing ? t("Not explicitly recorded in the latest Snap.") : value)}</p>
+    </section>`;
+}
+
+function checkpointGrid(checkpoint, order = ["next", "blocker", "boundary", "verified"], className = "") {
+  const labels = { verified: t("Verified"), boundary: t("Boundary"), next: t("Next"), blocker: t("Blocker") };
+  return `<div class="checkpoint-grid${className}">${order.map((key) => checkpointCell(key, labels[key], checkpoint[key])).join("")}</div>`;
+}
+
+/* ---- Shared render pieces ---- */
+
+function pageHeader({ eyebrow = "", title, titleHtml = "", meta = [], actions = "" }) {
+  return `
+    <header class="page-header">
+      <div class="page-heading">
+        ${eyebrow ? `<span class="eyebrow">${esc(eyebrow)}</span>` : ""}
+        <h1 class="page-title">${titleHtml || esc(title)}</h1>
+        ${meta.length ? `<p class="page-meta">${meta.map((item) => `<span>${item}</span>`).join("")}</p>` : ""}
+      </div>
+      ${actions ? `<div class="page-actions">${actions}</div>` : ""}
+    </header>`;
+}
+
+function sectionHeader(title, count, extra = "") {
+  return `<header class="section-header"><h2 class="section-title">${esc(title)}${count === undefined ? "" : `<span class="count">${count}</span>`}</h2>${extra}</header>`;
+}
+
+function helpButton(topic) {
+  return `<button class="help-trigger" data-help="${esc(topic)}" type="button" aria-label="${esc(t("Explanation"))}" aria-expanded="false"><span aria-hidden="true">i</span></button>`;
+}
+
+function emptyState({ iconName = "intent", title = "", body = "", extra = "" }) {
+  return `
+    <div class="empty-state">
+      <span class="empty-icon">${icon(iconName)}</span>
+      ${title ? `<h3>${esc(title)}</h3>` : ""}
+      ${body ? `<p>${esc(body)}</p>` : ""}
+      ${extra}
+    </div>`;
+}
+
+function commandSnippet(lines) {
+  const text = lines.join("\n");
+  return `<div class="snippet"><pre class="command-snippet">${esc(text)}</pre><button class="icon-button copy-button" type="button" data-copy="${esc(text)}" aria-label="${esc(t("Copy command"))}">${icon("copy")}</button></div>`;
+}
+
+function detailSection(title, body, count) {
+  return `<section class="detail-section"><h3 class="detail-section-title">${esc(title)}${count === undefined ? "" : `<span class="count">${count}</span>`}</h3>${body}</section>`;
+}
+
+function relationItem(type, rId, id, title, meta, status) {
+  const cls = status === "deprecated"
+    ? " rel-deprecated"
+    : status === "cancelled"
+      ? " rel-cancelled"
+      : status === "done"
+        ? " rel-muted"
+        : "";
+  return `<button type="button" class="relation-item${cls}" data-detail-type="${esc(type)}" data-remote-id="${esc(rId)}">
+    <span class="row-icon">${icon(type)}</span>
+    <span class="relation-title">${esc(title)}</span>
+    ${meta ? `<span class="relation-meta">${esc(meta)}</span>` : ""}
+    <span class="relation-side"><span class="row-id">${esc(id)}</span>${status ? statusBadge(status, type) : ""}</span>
+  </button>`;
+}
+
+function collapsibleRelation(allItems, visibleCount) {
+  if (!allItems.length) return "";
+  const visible = allItems.slice(0, visibleCount);
+  const rest = allItems.slice(visibleCount);
+  let html = `<div class="relation-list">${visible.join("")}</div>`;
+  if (rest.length) {
+    html += `<details class="collapse-toggle"><summary>${esc(t("Show {count} more", {count: rest.length}))}</summary><div class="relation-list">${rest.join("")}</div></details>`;
+  }
+  return html;
+}
+
+function rawToggle(data) {
+  return `<details class="raw-toggle"><summary>${icon("chevron")}${esc(t("Raw JSON"))}</summary><pre class="raw-pre">${esc(JSON.stringify(data, null, 2))}</pre></details>`;
+}
+
+/* ---- Views ---- */
+
+function renderView() {
+  if (!state.overview) return;
+  el.shell.classList.remove("is-empty");
+  switch (state.activeTab) {
+    case "intents":
+      renderIntentsTab();
+      break;
+    case "snaps":
+      renderSnapsTab();
+      break;
+    case "decisions":
+      renderDecisionsTab();
+      break;
+    default:
+      renderProjectSummary();
+  }
+  syncSelected();
+}
+
+function syncSelected() {
+  const root = state._sheetStack?.[0];
+  for (const node of el.detailContent.querySelectorAll("[data-detail-type][data-remote-id]")) {
+    const selected = Boolean(root) && node.dataset.detailType === root.type && node.dataset.remoteId === root.remoteId;
+    node.classList.toggle("is-selected", selected);
+    if (selected) node.setAttribute("aria-current", "true");
+    else node.removeAttribute("aria-current");
+  }
+}
+
+/* Overview: the continuation brief */
+
+function continuationCard(intent) {
+  const snap = intent.latest_snap;
+  const checkpoint = parseCheckpoint(snap);
+  const snapRemoteId = snap ? remoteId(intent.project_id, snap.id) : "";
+  return `
+    <article class="brief-card">
+      <header class="brief-card-head">
+        <div>
+          <div class="brief-meta">
+            ${statusBadge(intent.status)}
+            ${idChip(intent.id)}
+            ${snap ? `<span>${esc(t("Updated {time}", {time: relativeDate(snap.created_at)}))}</span>` : `<span>${esc(t("Checkpoint missing"))}</span>`}
+          </div>
+          <h3 class="brief-title">${esc(intent.what)}</h3>
+          ${intent.why ? `<p class="brief-why">${esc(intent.why)}</p>` : ""}
+        </div>
+        <button class="brief-open" type="button" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">${esc(t("Open Intent"))}${icon("arrow")}</button>
+      </header>
+      ${checkpointGrid(checkpoint)}
+      ${checkpoint.constraints ? `<p class="checkpoint-note brief-constraints"><strong>${esc(t("Constraints:"))}</strong> ${esc(checkpoint.constraints)}</p>` : ""}
+      <footer class="brief-foot">
+        <span class="brief-foot-meta">
+          ${snap
+            ? `<span>${esc(t("Latest checkpoint"))} <span class="mono">${esc(snap.id)}</span></span><span>${esc(fmtDate(snap.created_at))}</span>${snap.origin ? `<span>${esc(snap.origin)}</span>` : ""}`
+            : `<span>${esc(t("No continuation checkpoint recorded."))}</span>`}
+        </span>
+        ${snap ? `<button class="link-button" type="button" data-detail-type="snap" data-remote-id="${esc(snapRemoteId)}">${esc(t("View checkpoint"))}${icon("arrow")}</button>` : ""}
+      </footer>
+    </article>`;
+}
+
+function pausedRow(intent) {
+  const snap = intent.latest_snap;
+  const checkpoint = parseCheckpoint(snap);
+  const summary = checkpoint.next
+    ? `<b>${esc(t("Next"))}</b> ${esc(truncate(checkpoint.next, 200))}`
+    : esc(truncate(intent.why || t("No continuation checkpoint recorded."), 200));
+  return `
+    <button class="list-row queue-item" type="button" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
+      ${rowStatusIcon(intent.status)}
+      <span class="row-main">
+        <span class="row-title">${esc(intent.what)}</span>
+        <span class="row-summary">${summary}</span>
+      </span>
+      <span class="row-meta">
+        <span class="row-id">${esc(intent.id)}</span>
+        ${snap ? `<span>${esc(t("Updated {time}", {time: relativeDate(snap.created_at)}))}</span>` : ""}
+      </span>
+    </button>`;
+}
+
+function decisionRows(decisions) {
+  if (!decisions.length) {
+    return `<div class="inline-empty">${esc(t("N/A — no active Decision constrains future work."))}</div>`;
+  }
+  return `<div class="list-card">${decisions
+    .map((decision, index) => `
+      <button class="list-row decision-row" type="button" data-detail-type="decision" data-remote-id="${esc(decision.remote_id)}">
+        <span class="decision-index">${String(index + 1).padStart(2, "0")}</span>
+        <span class="row-main">
+          <span class="row-title">${esc(decision.what)}</span>
+          ${decision.why ? `<span class="row-summary">${esc(truncate(decision.why, 160))}</span>` : ""}
+        </span>
+      </button>`)
+    .join("")}</div>`;
+}
+
+function activityRows(snaps) {
+  if (!snaps.length) return `<div class="inline-empty">${esc(t("No snaps synced yet."))}</div>`;
+  return `<div class="list-card">${snaps
+    .map((snap) => {
+      const intent = intentForSnap(snap);
+      return `
+        <button class="list-row activity-row" type="button" data-detail-type="snap" data-remote-id="${esc(snap.remote_id)}">
+          <span class="activity-time">${esc(shortDay(snap.created_at))}</span>
+          <span class="row-main">
+            <span class="row-title">${esc(conciseSnapTitle(snap))}</span>
+            <span class="row-summary">${esc(intent ? intent.what : snap.intent_id || t("Unlinked Intent"))}</span>
+          </span>
+        </button>`;
+    })
+    .join("")}</div>`;
 }
 
 function renderProjectSummary() {
   const project = state.overview.project;
-  const histories = historySources(state.overview);
+  const history = state.overview.history || {};
   const intents = state.handoff?.intents || [];
+  const suspended = state.handoff?.suspended_intents || [];
   const decisions = state.handoff?.active_decisions || [];
-  const latestSync = histories
-    .map((history) => history.last_synced_at)
-    .filter(Boolean)
-    .sort()
-    .at(-1);
   const health = continuationHealth(intents);
+  const healthTone = health.ready ? "" : intents.length ? " is-warning" : " is-neutral";
+  const healthIcon = health.ready ? "clear" : intents.length ? "blocker" : "intent";
 
   const brief = intents.length
     ? `<div class="brief-stack">${intents.map(continuationCard).join("")}</div>`
-    : `
-      <section class="overview-empty">
-        <div>
-          <span class="overview-empty-mark">I</span>
-          <h2>${esc(t("No active Intent defines the next move."))}</h2>
-          <p>${esc(t("History is available, but IntHub cannot name the current goal until an active Intent and a self-contained checkpoint are synced."))}</p>
-        </div>
-      </section>`;
+    : emptyState({
+        iconName: "intent",
+        title: t("No active Intent defines the next move."),
+        body: t("History is available, but IntHub cannot name the current goal until an active Intent and a self-contained checkpoint are synced."),
+      });
 
   el.detailContent.innerHTML = `
     <div class="continuation-page">
-      <header class="continuation-hero">
-        <div>
-          <span class="overview-eyebrow">${t("Continuation brief")}</span>
-          <h1 class="continuation-title">${esc(project.name)}</h1>
-          <div class="project-repo">
-            <span>${esc(t("Shared history"))}</span>
-            <span>·</span>
-            <span>${esc(project.name)}</span>
-            <span>·</span>
-            <span>${esc(shortRevision(state.overview.history.revision))}</span>
-          </div>
-        </div>
-        <div class="hero-health${health.ready ? "" : " is-warning"}">
-          <strong>${esc(health.label)}</strong>
-          <span>${latestSync ? `${esc(t("Updated"))} ${esc(relativeDate(latestSync))}` : t("Waiting for first sync")}</span>
-        </div>
-      </header>
+      ${pageHeader({
+        eyebrow: t("Continuation brief"),
+        title: project.name,
+        meta: [
+          esc(t("Shared history")),
+          `<span class="mono">${esc(shortRevision(history.revision))}</span>`,
+          esc(history.last_synced_at ? t("Synced {time}", {time: relativeDate(history.last_synced_at)}) : t("Waiting for first sync")),
+        ],
+        actions: `
+          <span class="health-pill${healthTone}">${icon(healthIcon)}${esc(health.label)}</span>
+          <button class="button button-secondary" type="button" data-copy-brief>${icon("copy")}${esc(t("Copy brief"))}</button>`,
+      })}
 
-      ${brief}
+      <section class="section">
+        ${sectionHeader(t("Active work"), intents.length)}
+        ${brief}
+      </section>
 
-      <div class="support-grid">
-        <section class="support-card">
-          <header class="support-card-head">
-            <h3>${esc(t("Active decisions"))}</h3>
-            <span>${esc(t("{count} constraints", {count: decisions.length}))}</span>
-          </header>
-          <div class="decision-list">${decisionRows(decisions)}</div>
+      ${suspended.length ? `
+        <section class="section">
+          ${sectionHeader(t("Suspended"), suspended.length)}
+          <div class="list-card">${suspended.map(pausedRow).join("")}</div>
+        </section>` : ""}
+
+      <div class="overview-columns">
+        <section class="section">
+          ${sectionHeader(t("Active decisions"), decisions.length)}
+          ${decisionRows(decisions)}
         </section>
-        <section class="support-card">
-          <header class="support-card-head">
-            <h3>${esc(t("History status"))}</h3>
-            <span>${esc(t("Shared history"))}</span>
-          </header>
-          <div class="history-list"><div class="history-row"><span><strong>${esc(shortRevision(state.overview.history.revision))}</strong><small>${esc(relativeDate(state.overview.history.last_synced_at))}</small></span></div></div>
+        <section class="section">
+          ${sectionHeader(t("Recent activity"), undefined, state.overview.recent_snaps?.length ? `<button class="link-button" type="button" data-tab-jump="snaps">${esc(t("View timeline"))}${icon("arrow")}</button>` : "")}
+          ${activityRows((state.overview.recent_snaps || []).slice(0, 6))}
         </section>
       </div>
     </div>`;
 }
 
+function briefMarkdown() {
+  const project = state.overview.project;
+  const history = state.overview.history || {};
+  const intents = state.handoff?.intents || [];
+  const suspended = state.handoff?.suspended_intents || [];
+  const decisions = state.handoff?.active_decisions || [];
+  const lines = [
+    `# ${project.name} · ${t("Continuation brief")}`,
+    "",
+    `${t("Shared history")} ${shortRevision(history.revision)} · ${t("Synced {time}", {time: fmtDate(history.last_synced_at)})}`,
+    "",
+  ];
+  if (!intents.length) lines.push(t("No active Intent defines the next move."), "");
+  for (const intent of intents) {
+    const checkpoint = parseCheckpoint(intent.latest_snap);
+    lines.push(`## ${intent.what} (${intent.id})`, "");
+    if (intent.why) lines.push(`${t("Why")}: ${intent.why}`, "");
+    for (const [label, value] of [[t("Next"), checkpoint.next], [t("Blocker"), checkpoint.blocker], [t("Boundary"), checkpoint.boundary], [t("Verified"), checkpoint.verified]]) {
+      lines.push(`- **${label}:** ${value || t("Not explicitly recorded in the latest Snap.")}`);
+    }
+    if (checkpoint.constraints) lines.push(`- **${t("Constraints:")}** ${checkpoint.constraints}`);
+    lines.push("");
+  }
+  if (suspended.length) {
+    lines.push(`## ${t("Suspended")}`, "", ...suspended.map((intent) => `- ${intent.what} (${intent.id})`), "");
+  }
+  lines.push(`## ${t("Active decisions")}`, "");
+  lines.push(...(decisions.length ? decisions.map((decision) => `- ${decision.what} (${decision.id})`) : [t("N/A — no active Decision constrains future work.")]));
+  return `${lines.join("\n").trim()}\n`;
+}
+
+/* Intents */
+
+function intentEntry(intent) {
+  const snap = latestSnapFor(intent);
+  const snaps = (intent.snap_ids || []).length;
+  const decisions = (intent.decision_ids || []).length;
+  return `
+    <button type="button" class="list-row intent-entry intent-entry-${esc(intent.status)}" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
+      ${rowStatusIcon(intent.status)}
+      <span class="row-main">
+        <strong class="row-title intent-entry-title">${esc(intent.what)}</strong>
+        ${intent.why ? `<span class="row-summary">${esc(truncate(intent.why, 220))}</span>` : ""}
+      </span>
+      <span class="row-meta">
+        <span class="row-id">${esc(intent.id)}</span>
+        <span class="row-meta-line"><span>${esc(plural(snaps, "{count} snap", "{count} snaps"))}</span><span>${esc(plural(decisions, "{count} decision", "{count} decisions"))}</span></span>
+        <span>${esc(snap ? t("Updated {time}", {time: relativeDate(snap.created_at)}) : intent.latest_snap_id ? t("Checkpoint {id}", {id: intent.latest_snap_id}) : t("Checkpoint missing"))}</span>
+      </span>
+    </button>`;
+}
+
+function intentGroup(label, intents, tone, emptyMessage = "") {
+  const body = intents.length
+    ? `<div class="list-card object-group-list">${intents.map(intentEntry).join("")}</div>`
+    : `<div class="object-group-empty">${esc(emptyMessage)}</div>`;
+  return `
+    <section class="object-group intent-group intent-group-${esc(tone)}">
+      <header class="object-group-header">
+        <h2 class="object-group-title">${esc(label)}</h2>
+        <span class="object-group-count">${intents.length}</span>
+      </header>
+      ${body}
+    </section>`;
+}
+
+function intentSubgroup(label, intents, tone) {
+  if (!intents.length) return "";
+  return `
+    <section class="object-subgroup object-subgroup-${esc(tone)}">
+      <header><span>${esc(label)}</span> · <span>${intents.length}</span></header>
+      <div class="list-card object-group-list">${intents.map(intentEntry).join("")}</div>
+    </section>`;
+}
+
+function renderIntentsTab() {
+  const active = state.overview.active_intents || [];
+  const other = [...(state.overview.other_intents || [])].reverse();
+  const suspended = other.filter((intent) => intent.status === "suspend");
+  const completed = other.filter((intent) => intent.status === "done");
+  const cancelled = other.filter((intent) => intent.status === "cancelled");
+  const otherHistory = other.filter((intent) =>
+    !["suspend", "done", "cancelled"].includes(intent.status),
+  );
+  const total = active.length + other.length;
+  const header = pageHeader({
+    title: t("Intents"),
+    meta: total ? [esc(plural(total, "{count} intent", "{count} intents")), esc(t("{count} active", {count: active.length}))] : [],
+  });
+
+  if (!total) {
+    el.detailContent.innerHTML = header + emptyState({
+      iconName: "intent",
+      title: t("No intents."),
+      body: t("An Intent is one goal with its own outcome. Agents record them while they work."),
+      extra: commandSnippet(['itt intent create "Goal" --why "Reason"']),
+    });
+    return;
+  }
+
+  state._pageState ||= {};
+  const archiveShown = state._pageState.intentArchive || PAGE_SIZE;
+  const archived = [...completed, ...cancelled, ...otherHistory];
+  const visibleArchive = archived.slice(0, archiveShown);
+  const visibleIds = new Set(visibleArchive.map((intent) => intent.remote_id));
+  const visibleCompleted = completed.filter((intent) => visibleIds.has(intent.remote_id));
+  const visibleCancelled = cancelled.filter((intent) => visibleIds.has(intent.remote_id));
+  const visibleOther = otherHistory.filter((intent) => visibleIds.has(intent.remote_id));
+  const archiveRemaining = archived.length - visibleArchive.length;
+  const archiveOpen = state._pageState.intentArchiveOpen ?? (!active.length && !suspended.length);
+
+  const archive = archived.length
+    ? `<details class="object-archive intent-archive" data-archive="intents"${archiveOpen ? " open" : ""}>
+        <summary>${icon("chevron")}<span>${esc(t("Resolved history"))}</span><span class="object-archive-count">${archived.length}</span></summary>
+        <div class="object-archive-body">
+          ${intentSubgroup(t("Completed"), visibleCompleted, "done")}
+          ${intentSubgroup(t("Cancelled"), visibleCancelled, "cancelled")}
+          ${intentSubgroup(t("Other"), visibleOther, "history")}
+          ${archiveRemaining > 0
+            ? `<button type="button" class="load-more-btn" id="load-more-intent-archive">${esc(t("Load more ({count})", {count: archiveRemaining}))}</button>`
+            : ""}
+        </div>
+      </details>`
+    : "";
+
+  el.detailContent.innerHTML = `
+    ${header}
+    ${intentGroup(
+      t("Active objectives"),
+      active,
+      "active",
+      t("No active objective. Resume a suspended Intent or record a new one."),
+    )}
+    ${suspended.length
+      ? intentGroup(t("Suspended"), suspended, "suspend")
+      : ""}
+    ${archive}`;
+}
+
+/* Timeline */
+
+function timelineIntentKey(snap) {
+  return remoteId(snap.project_id || projectIdFromRemoteId(snap.remote_id), snap.intent_id || "");
+}
+
+function timelineIntentOptions(snaps) {
+  const options = new Map();
+  for (const snap of snaps) {
+    const key = timelineIntentKey(snap);
+    const entry = options.get(key);
+    if (entry) entry.count++;
+    else options.set(key, { key, count: 1, label: intentForSnap(snap)?.what || snap.intent_id || t("Unlinked Intent") });
+  }
+  return [...options.values()];
+}
+
+function timelineDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return { key: "undated", label: t("Undated"), time: "—", datetime: "" };
+  }
+  const dayKey = (entry) => [
+    entry.getFullYear(),
+    String(entry.getMonth() + 1).padStart(2, "0"),
+    String(entry.getDate()).padStart(2, "0"),
+  ].join("-");
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const key = dayKey(date);
+  const label = key === dayKey(today)
+    ? t("Today")
+    : key === dayKey(yesterday)
+      ? t("Yesterday")
+      : new Intl.DateTimeFormat(window.IntHubI18n.language, {
+          month: "short",
+          day: "numeric",
+          weekday: "short",
+          year: date.getFullYear() === today.getFullYear() ? undefined : "numeric",
+        }).format(date);
+  return {
+    key,
+    label,
+    time: new Intl.DateTimeFormat(window.IntHubI18n.language, {
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(date),
+    datetime: date.toISOString(),
+  };
+}
+
+function snapTimelineEntry(snap) {
+  const checkpoint = parseCheckpoint(snap);
+  const recordedAt = timelineDate(snap.created_at);
+  const status = timelineState(checkpoint);
+  const intent = intentForSnap(snap);
+  const supportingValue = checkpoint.next || checkpoint.boundary || snap.why || "";
+  const supportingLabel = checkpoint.next
+    ? t("Next")
+    : checkpoint.boundary
+      ? t("Boundary")
+      : t("Context");
+  return `
+    <button type="button" class="timeline-entry${status.className}" data-detail-type="snap" data-remote-id="${esc(snap.remote_id)}">
+      <time datetime="${esc(recordedAt.datetime)}">${esc(recordedAt.time)}</time>
+      <span class="timeline-node" aria-hidden="true"></span>
+      <span class="timeline-entry-body">
+        <span class="timeline-entry-topline">
+          ${idChip(snap.id)}
+          ${status.key === "blocked" ? stateBadge(status) : ""}
+          <span class="timeline-entry-time-inline">${esc(recordedAt.time)}</span>
+          <span class="timeline-entry-intent">${esc(intent ? intent.what : snap.intent_id || t("Unlinked Intent"))}</span>
+        </span>
+        <strong class="timeline-entry-title">${esc(conciseSnapTitle(snap, 120))}</strong>
+        ${supportingValue ? `<span class="timeline-entry-summary"><i>${esc(supportingLabel)}</i>${esc(truncate(supportingValue, 240))}</span>` : ""}
+      </span>
+    </button>`;
+}
+
+function renderTimeline(snaps) {
+  state._pageState ||= {};
+  const shown = state._pageState.snaps || PAGE_SIZE;
+  const visible = snaps.slice(0, shown);
+  const groups = [];
+  for (const snap of visible) {
+    const date = timelineDate(snap.created_at);
+    const current = groups.at(-1);
+    if (!current || current.key !== date.key) {
+      groups.push({ key: date.key, label: date.label, snaps: [snap] });
+    } else {
+      current.snaps.push(snap);
+    }
+  }
+
+  const remaining = snaps.length - visible.length;
+  return groups
+    .map((group) => `
+      <section class="timeline-group">
+        <h2 class="timeline-day"><span>${esc(group.label)}</span><span>${group.snaps.length}</span></h2>
+        <div class="timeline-events">${group.snaps.map(snapTimelineEntry).join("")}</div>
+      </section>`)
+    .join("")
+    + (remaining > 0
+      ? `<button type="button" class="load-more-btn" id="load-more-snaps">${esc(t("Load more ({count})", {count: remaining}))}</button>`
+      : "");
+}
+
+function renderSnapsTab() {
+  const allSnaps = state.overview.recent_snaps || [];
+  if (!allSnaps.length) {
+    el.detailContent.innerHTML = pageHeader({ title: t("Timeline") }) + emptyState({
+      iconName: "timeline",
+      title: t("No snaps synced yet."),
+      body: t("Snaps are verified checkpoints. They appear here after the next push."),
+    });
+    return;
+  }
+  const options = timelineIntentOptions(allSnaps);
+  if (state._timelineIntentKey && !options.some(option => option.key === state._timelineIntentKey)) state._timelineIntentKey = "";
+  const selected = options.find(option => option.key === state._timelineIntentKey);
+  const snaps = selected ? allSnaps.filter(snap => timelineIntentKey(snap) === selected.key) : allSnaps;
+  const optionHtml = (key, label, count) => `<button type="button" class="timeline-filter-option${(state._timelineIntentKey || "") === key ? " is-selected" : ""}" data-timeline-intent="${esc(key)}" aria-pressed="${(state._timelineIntentKey || "") === key}"><span>${esc(label)}</span><small>${count}</small></button>`;
+  const filter = `
+    <div class="timeline-toolbar">
+      <details class="timeline-filter">
+        <summary class="timeline-filter-trigger" aria-label="${esc(t("Filter timeline by Intent"))}"><span>${esc(selected ? truncate(selected.label, 44) : t("All Intents"))}</span>${icon("chevronDown")}</summary>
+        <div class="timeline-filter-menu">${optionHtml("", t("All Intents"), allSnaps.length)}${options.map(option => optionHtml(option.key, option.label, option.count)).join("")}</div>
+      </details>
+    </div>`;
+  el.detailContent.innerHTML = pageHeader({
+    title: t("Timeline"),
+    meta: [esc(plural(snaps.length, "{count} checkpoint", "{count} checkpoints")), esc(selected ? truncate(selected.label, 60) : t("All Intents"))],
+    actions: filter,
+  }) + `<div class="timeline">${renderTimeline(snaps)}</div>`;
+}
+
+/* Decisions */
+
+function decisionConstraint(decision, index, deprecated = false) {
+  const scope = decisionScope(decision);
+  const scopeLabel = scope.count
+    ? plural(scope.count, "{count} linked Intent", "{count} linked Intents")
+    : t("No Intent scope recorded");
+  const scopePreview = scope.titles.length
+    ? truncate(scope.titles.join(" · "), 120)
+    : scope.count
+      ? truncate((decision.intent_ids || []).join(" · "), 120)
+      : t("Open the Decision to inspect its recorded rationale.");
+  return `
+    <button type="button" class="list-row decision-row decision-constraint${deprecated ? " is-deprecated" : ""}" data-detail-type="decision" data-remote-id="${esc(decision.remote_id)}">
+      <span class="decision-index" aria-hidden="true">${String(index + 1).padStart(2, "0")}</span>
+      <span class="row-main">
+        <strong class="row-title decision-constraint-title">${esc(decision.what)}</strong>
+        ${decision.why ? `<span class="row-summary">${esc(truncate(decision.why, 220))}</span>` : ""}
+        ${deprecated && decision.reason ? `<span class="row-summary"><b>${esc(t("Reason"))}</b> ${esc(truncate(decision.reason, 200))}</span>` : ""}
+        <span class="decision-scope">
+          <strong>${esc(scopeLabel)}</strong>
+          <span>${esc(scopePreview)}</span>
+        </span>
+      </span>
+    </button>`;
+}
+
+function renderDecisionsTab() {
+  const active = [...(state.overview.active_decisions || [])].reverse();
+  const deprecated = [...(state.overview.deprecated_decisions || [])].reverse();
+  const header = pageHeader({
+    titleHtml: `<span class="heading-with-help">${esc(t("Decisions"))}${helpButton("decisions")}</span>`,
+    meta: active.length || deprecated.length
+      ? [esc(t("{count} active", {count: active.length})), esc(t("{count} deprecated", {count: deprecated.length}))]
+      : [],
+  });
+
+  if (!active.length && !deprecated.length) {
+    el.detailContent.innerHTML = header + emptyState({
+      iconName: "decision",
+      title: t("No decisions."),
+      body: t("Decisions are durable rules that bind future Intents, such as an architecture choice or a product constraint."),
+      extra: commandSnippet(['itt decision create "Rule" --why "Reason"']),
+    });
+    return;
+  }
+
+  const activeHtml = active.length
+    ? `<div class="list-card decision-constraint-list">${active.map((decision, index) => decisionConstraint(decision, index)).join("")}</div>`
+    : `<div class="object-group-empty">${esc(t("No active cross-Intent constraints."))}</div>`;
+  const archiveOpen = state._pageState?.decisionArchiveOpen ?? false;
+  const deprecatedHtml = deprecated.length
+    ? `<details class="object-archive decision-archive" data-archive="decisions"${archiveOpen ? " open" : ""}>
+        <summary>${icon("chevron")}<span>${esc(t("Deprecated history"))}</span><span class="object-archive-count">${deprecated.length}</span></summary>
+        <div class="list-card decision-archive-body">
+          ${deprecated.map((decision, index) => decisionConstraint(decision, index, true)).join("")}
+        </div>
+      </details>`
+    : "";
+
+  el.detailContent.innerHTML = `
+    ${header}
+    <section class="object-group decision-group">
+      <header class="object-group-header">
+        <h2 class="object-group-title">${esc(t("Active constraints"))}</h2>
+        <span class="object-group-count">${active.length}</span>
+      </header>
+      ${activeHtml}
+    </section>
+    ${deprecatedHtml}`;
+}
+
+/* ---- Detail sheet ---- */
+
+function detailErrorHtml(error, type, rId) {
+  return `<div class="empty-state"><p>${esc(error.message)}</p><button type="button" class="secondary-btn" data-retry-detail="sheet" data-detail-type="${esc(type)}" data-remote-id="${esc(rId)}">${esc(t("Retry"))}</button></div>`;
+}
+
+function sheetIsOpen() {
+  return el.drawer.classList.contains("open");
+}
+
+function renderSheetHeader(payload = null) {
+  const entry = state._sheetStack?.at(-1);
+  const labels = { intent: t("Intent"), snap: t("Snap"), decision: t("Decision") };
+  const id = payload?.id || (entry ? entry.remoteId.split("__").slice(1).join("__") : "");
+  el.drawerTitle.innerHTML = entry ? `${esc(labels[entry.type] || "")} · <b class="mono">${esc(id)}</b>` : esc(t("Details"));
+  el.drawerBack.classList.toggle("is-hidden", (state._sheetStack?.length || 0) < 2);
+}
+
 function openDrawer() {
   closeHeaderMenus();
-  if (!el.drawer.classList.contains("open")) state._drawerTrigger = document.activeElement;
+  toggleProjectPicker(false);
+  if (!sheetIsOpen()) state._drawerTrigger = document.activeElement;
   el.drawer.inert = false;
   el.drawer.classList.add("open");
   el.drawerOverlay.classList.add("open");
   el.drawer.setAttribute("aria-hidden", "false");
-  el.drawer.setAttribute("role", "dialog");
   el.drawer.setAttribute("aria-modal", "true");
-  for (const node of document.querySelectorAll(".app-header, .main")) node.inert = true;
+  for (const node of document.querySelectorAll(".app-header, .page")) node.inert = true;
   el.drawerClose.focus();
 }
 
-function closeDrawer() {
-  const wasOpen = el.drawer.classList.contains("open");
-  beginViewRequest("drawer");
+function closeDrawer({ history = "auto" } = {}) {
+  const wasOpen = sheetIsOpen();
+  beginViewRequest("sheet");
   state._drawerPayload = null;
+  state._sheetStack = [];
+  state.selectedDetail = null;
   el.drawer.classList.remove("open");
   el.drawerOverlay.classList.remove("open");
   el.drawer.setAttribute("aria-hidden", "true");
   el.drawer.inert = true;
   el.drawer.removeAttribute("aria-modal");
-  for (const node of document.querySelectorAll(".app-header, .main")) node.inert = false;
+  for (const node of document.querySelectorAll(".app-header, .page")) node.inert = false;
   el.drawerContent.innerHTML = "";
+  syncSelected();
   if (wasOpen) {
     if (state._drawerTrigger?.isConnected && !state._drawerTrigger.disabled) state._drawerTrigger.focus();
     else el.detailContent.focus();
+    if (history === "auto") {
+      // Closing a sheet that added its own history entry steps back over it;
+      // a sheet restored from a deep link only drops its URL parameters.
+      if (state._sheetPushed && window.history.state?.inthub === "sheet" && window.history.back) window.history.back();
+      else writeRoute("replace");
+    }
   }
+  state._sheetPushed = false;
   state._drawerTrigger = null;
 }
 
-async function openInDrawer(type, rId) {
+function buildDetailHtml(type, payload) {
+  return type === "intent"
+    ? buildIntentDetailHtml(payload)
+    : type === "decision"
+      ? buildDecisionDetailHtml(payload)
+      : buildSnapDetailHtml(payload);
+}
+
+// mode: "reset" opens a fresh stack, "push" adds a related object, "replace" retries the top.
+async function openDetail(type, rId, { mode = "reset", history = "auto" } = {}) {
   if (!DETAIL_PATHS[type]) return;
-  const request = beginViewRequest("drawer");
+  const targetProjectId = projectIdFromRemoteId(rId);
+  if (targetProjectId && state.currentProjectId && targetProjectId !== state.currentProjectId
+      && state.projects.some((project) => project.id === targetProjectId)) {
+    closeDrawer({ history: "none" });
+    await loadProject(targetProjectId, { detail: { type, remoteId: rId }, history: "push" });
+    return;
+  }
+  const request = beginViewRequest("sheet");
+  const wasOpen = sheetIsOpen();
+  const entry = { type, remoteId: rId };
+  state._sheetStack ||= [];
+  if (mode === "push" && wasOpen) state._sheetStack.push(entry);
+  else if (mode === "replace" && wasOpen && state._sheetStack.length) state._sheetStack[state._sheetStack.length - 1] = entry;
+  else state._sheetStack = [entry];
+  state.selectedDetail = entry;
   state._drawerPayload = null;
-  el.drawerContent.innerHTML = viewLoadingHtml();
-  setViewBusy("drawer", true);
-  openDrawer();
-  try {
-    const payload = await fetchJson(apiUrl(`/api/v1/${DETAIL_PATHS[type]}/${encodeURIComponent(rId)}`));
-    if (!ownsViewRequest("drawer", request) || !el.drawer.classList.contains("open")) return;
-    state._drawerPayload = {type, payload};
-    const target = el.drawerContent;
-    if (type === "intent") renderIntentDetailTo(target, payload);
-    else if (type === "decision") renderDecisionDetailTo(target, payload);
-    else renderSnapDetailTo(target, payload);
-  } catch (error) {
-    if (!ownsViewRequest("drawer", request)) return;
-    el.drawerContent.innerHTML = detailErrorHtml(error, type, rId, "drawer");
-    throw error;
-  } finally { if (ownsViewRequest("drawer", request)) setViewBusy("drawer", false); }
-}
-
-function detailErrorHtml(error, type, rId, target = "detail") {
-  return `<div class="empty-state"><p>${esc(error.message)}</p><button type="button" class="secondary-btn" data-retry-detail="${esc(target)}" data-detail-type="${esc(type)}" data-remote-id="${esc(rId)}">${esc(t("Retry"))}</button></div>`;
-}
-
-function returnToList() {
-  el.shell.classList.remove("detail-open");
-  const selected = [...el.sidebarBody.querySelectorAll("[data-detail-type][data-remote-id]")].find(node => node.dataset.remoteId === state.selectedDetail?.remoteId && node.dataset.detailType === state.selectedDetail?.type);
-  selected?.focus();
-}
-
-async function resolveProjectIdForRemoteId(rId) {
-  return projectIdFromRemoteId(rId) || state.currentProjectId;
-}
-
-async function openDetail(type, rId, { reveal = true } = {}) {
-  if (!DETAIL_PATHS[type]) return;
-  const request = beginViewRequest("detail");
-  state.selectedDetail = { type, remoteId: rId };
-  state._detailPayload = null;
-  if (reveal) el.shell.classList.add("detail-open");
-  el.detailContent.innerHTML = viewLoadingHtml();
-  setViewBusy("detail", true);
-  el.detailPane.scrollTop = 0;
+  renderSheetHeader();
+  if (!wasOpen) openDrawer();
   syncSelected();
-  writeRoute();
+  const routed = writeRoute(history === "auto" ? (wasOpen ? "replace" : "push") : history, "sheet");
+  if (!wasOpen) state._sheetPushed = routed === "pushed";
 
+  const cacheKey = `${type}:${rId}`;
+  const cached = state._detailCache?.get(cacheKey);
+  if (cached) {
+    showDetailPayload(type, cached, wasOpen);
+    return;
+  }
+  el.drawerContent.innerHTML = viewLoadingHtml();
+  el.drawerContent.scrollTop = 0;
+  setViewBusy("sheet", true);
   try {
-    const targetProjectId = await resolveProjectIdForRemoteId(rId);
-    if (!ownsViewRequest("detail", request)) return;
-    if (targetProjectId && targetProjectId !== state.currentProjectId) {
-      await loadProject(targetProjectId, { detail: { type, remoteId: rId }, reveal });
-      return;
-    }
     const payload = await fetchJson(apiUrl(`/api/v1/${DETAIL_PATHS[type]}/${encodeURIComponent(rId)}`));
-    if (!ownsViewRequest("detail", request)) return;
-    state._detailPayload = {type, payload};
-    if (type === "intent") renderIntentDetail(payload);
-    else if (type === "decision") renderDecisionDetail(payload);
-    else renderSnapDetail(payload);
-    syncSelected();
-    writeRoute();
+    if (!ownsViewRequest("sheet", request) || !sheetIsOpen()) return;
+    state._detailCache?.set(cacheKey, payload);
+    showDetailPayload(type, payload, wasOpen);
   } catch (error) {
-    if (!ownsViewRequest("detail", request)) return;
-    el.detailContent.innerHTML = detailErrorHtml(error, type, rId);
-    writeRoute();
+    if (!ownsViewRequest("sheet", request)) return;
+    el.drawerContent.innerHTML = detailErrorHtml(error, type, rId);
     throw error;
-  } finally { if (ownsViewRequest("detail", request)) setViewBusy("detail", false); }
+  } finally {
+    if (ownsViewRequest("sheet", request)) setViewBusy("sheet", false);
+  }
+}
+
+function showDetailPayload(type, payload, moveFocus) {
+  state._drawerPayload = { type, payload };
+  el.drawerContent.innerHTML = buildDetailHtml(type, payload);
+  el.drawerContent.scrollTop = 0;
+  renderSheetHeader(payload);
+  if (moveFocus) el.drawerContent.querySelector(".detail-title")?.focus();
+}
+
+async function sheetBack() {
+  if ((state._sheetStack?.length || 0) < 2) {
+    closeDrawer();
+    return;
+  }
+  state._sheetStack.pop();
+  const previous = state._sheetStack.pop();
+  await openDetail(previous.type, previous.remoteId, { mode: "push", history: "replace" });
 }
 
 function allDecisionsMap() {
@@ -1332,6 +1396,10 @@ function activeDecisionIds() {
   return ids;
 }
 
+function detailMeta(parts) {
+  return `<div class="detail-meta">${parts.filter(Boolean).join("")}</div>`;
+}
+
 function buildIntentDetailHtml(payload) {
   const intent = payload.intent;
   const activeIds = activeDecisionIds();
@@ -1342,91 +1410,54 @@ function buildIntentDetailHtml(payload) {
     if (decision.status === "active") activeIds.add(decision.id);
   }
   const allIds = intent.decision_ids || [];
-  const activeLinks = allIds
-    .filter((dId) => activeIds.has(dId))
-    .map((dId) =>
-      relationItem(
-        "decision",
-        remoteId(payload.project_id, dId),
-        dId,
-        dMap[dId]?.what || dId,
-        dMap[dId]?.why || "",
-        "active",
-      ),
-    );
-  const deprecatedLinks = allIds
-    .filter((dId) => !activeIds.has(dId))
-    .map((dId) =>
-      relationItem(
-        "decision",
-        remoteId(payload.project_id, dId),
-        dId,
-        dMap[dId]?.what || dId,
-        dMap[dId]?.why || "",
-        "deprecated",
-      ),
-    );
-
-  const allDecisionLinks = [...activeLinks, ...deprecatedLinks];
-  const decisionsBody = allDecisionLinks.length
-    ? collapsibleRelation(allDecisionLinks, 5, t("more decision(s)"))
-    : `<div class="empty-state">${esc(t("No decisions linked."))}</div>`;
+  const decisionLinks = [
+    ...allIds.filter((dId) => activeIds.has(dId)).map((dId) => [dId, "active"]),
+    ...allIds.filter((dId) => !activeIds.has(dId)).map((dId) => [dId, "deprecated"]),
+  ].map(([dId, status]) => relationItem(
+    "decision",
+    remoteId(payload.project_id, dId),
+    dId,
+    dMap[dId]?.what || dId,
+    truncate(dMap[dId]?.why || "", 120),
+    status,
+  ));
+  const decisionsBody = decisionLinks.length
+    ? collapsibleRelation(decisionLinks, 5)
+    : `<div class="inline-empty">${esc(t("No decisions linked."))}</div>`;
 
   const allSnaps = [...payload.snaps].reverse();
+  const latest = allSnaps[0];
   const snapLinks = allSnaps.map((s) =>
     relationItem(
       "snap",
       remoteId(payload.project_id, s.id),
       s.id,
       conciseSnapTitle(s),
-      truncate(s.why || "", 80),
+      fmtDate(s.created_at),
     ),
   );
-
   const snapTimelineBody = snapLinks.length
-    ? collapsibleRelation(snapLinks, 5, t("older snap(s)"))
-    : `<div class="empty-state">${esc(t("No snaps recorded."))}</div>`;
+    ? collapsibleRelation(snapLinks, 5)
+    : `<div class="inline-empty">${esc(t("No snaps recorded."))}</div>`;
 
   return `
     <div class="detail-header">
-      <span class="detail-id">${esc(intent.id)} \u00b7 Intent</span>
-      <h2 class="detail-title">${esc(intent.what)}</h2>
-      <div class="detail-meta">
-        ${statusBadge(intent.status)}
-        ${originBadge(intent.origin)}
-        <span class="badge">${esc(fmtDate(intent.created_at))}</span>
-      </div>
+      ${detailMeta([statusBadge(intent.status), idChip(intent.id), originBadge(intent.origin), `<span>${esc(t("Created {time}", {time: fmtDate(intent.created_at)}))}</span>`])}
+      <h2 class="detail-title" tabindex="-1">${esc(intent.what)}</h2>
     </div>
     ${intent.why ? detailSection(t("Why"), formatText(intent.why)) : ""}
-    ${detailSection(t("Snap Timeline (") + allSnaps.length + ")", snapTimelineBody)}
-    ${detailSection(t("Linked Decisions (") + allIds.length + ")", decisionsBody)}
+    ${intent.reason ? detailSection(t("Reason"), formatText(intent.reason)) : ""}
+    ${latest && ["active", "suspend"].includes(intent.status) ? detailSection(t("Latest checkpoint"), checkpointGrid(parseCheckpoint(latest), ["next", "blocker", "boundary", "verified"], " detail-checkpoint-grid")) : ""}
+    ${detailSection(t("Snaps"), snapTimelineBody, allSnaps.length)}
+    ${detailSection(t("Linked decisions"), decisionsBody, allIds.length)}
     ${rawToggle({ intent, snaps: payload.snaps, decisions: payload.decisions || [] })}`;
-}
-
-function renderIntentDetail(payload) {
-  el.detailContent.innerHTML = buildIntentDetailHtml(payload);
-}
-
-function renderIntentDetailTo(target, payload) {
-  target.innerHTML = buildIntentDetailHtml(payload);
-}
-
-function collapsibleRelation(allItems, visibleCount, moreLabel) {
-  if (!allItems.length) return "";
-  const visible = allItems.slice(0, visibleCount);
-  const rest = allItems.slice(visibleCount);
-  let html = `<div class="relation-list">${visible.join("")}</div>`;
-  if (rest.length) {
-    html += `<details class="collapse-toggle"><summary>${rest.length} ${moreLabel}</summary><div class="relation-list">${rest.join("")}</div></details>`;
-  }
-  return html;
 }
 
 function buildDecisionDetailHtml(payload) {
   const decision = payload.decision;
   const linkedCount = payload.intents.length;
   const scopeSummary = linkedCount
-    ? t("Applies to {count} linked Intents.", {count: linkedCount})
+    ? plural(linkedCount, "Applies to {count} linked Intent.", "Applies to {count} linked Intents.")
     : t("No Intent scope is recorded.");
   const intentLinks = payload.intents.map((i) =>
     relationItem(
@@ -1434,137 +1465,109 @@ function buildDecisionDetailHtml(payload) {
       remoteId(payload.project_id, i.id),
       i.id,
       i.what || i.title || i.id,
-      truncate(i.why || "", 80),
+      truncate(i.why || "", 120),
       i.status,
     ),
   );
 
   const intentsBody = intentLinks.length
-    ? collapsibleRelation(intentLinks, 5, t("more intent(s)"))
-    : `<div class="empty-state">${esc(t("No linked intents."))}</div>`;
+    ? collapsibleRelation(intentLinks, 5)
+    : `<div class="inline-empty">${esc(t("No linked intents."))}</div>`;
 
   return `
     <div class="detail-header">
-      <span class="detail-id">${esc(decision.id)} \u00b7 Decision</span>
-      <h2 class="detail-title">${esc(decision.what)}</h2>
-      <p class="decision-detail-scope">${decision.status === "active" ? t("Current cross-Intent constraint") : t("Deprecated constraint history")} \u00b7 ${esc(scopeSummary)}</p>
-      <div class="detail-meta">
-        ${statusBadge(decision.status)}
-        ${originBadge(decision.origin)}
-        <span class="badge">${esc(fmtDate(decision.created_at))}</span>
-      </div>
+      ${detailMeta([statusBadge(decision.status, "decision"), idChip(decision.id), originBadge(decision.origin), `<span>${esc(t("Created {time}", {time: fmtDate(decision.created_at)}))}</span>`])}
+      <h2 class="detail-title" tabindex="-1">${esc(decision.what)}</h2>
+      <p class="detail-context decision-detail-scope">${esc(decision.status === "active" ? t("Current cross-Intent constraint") : t("Deprecated constraint history"))} · ${esc(scopeSummary)}</p>
     </div>
     ${detailSection(t("Why"), formatText(decision.why) || `<p>${esc(t("No why provided."))}</p>`)}
     ${decision.reason ? detailSection(t("Reason"), formatText(decision.reason)) : ""}
-    ${detailSection(t("Affected Intents (") + payload.intents.length + ")", intentsBody)}
+    ${detailSection(t("Affected Intents"), intentsBody, payload.intents.length)}
     ${rawToggle({ decision, intents: payload.intents })}`;
-}
-
-function renderDecisionDetail(payload) {
-  el.detailContent.innerHTML = buildDecisionDetailHtml(payload);
-}
-
-function renderDecisionDetailTo(target, payload) {
-  target.innerHTML = buildDecisionDetailHtml(payload);
 }
 
 function buildSnapDetailHtml(payload) {
   const snap = payload.snap;
   const checkpoint = parseCheckpoint(snap);
   const status = timelineState(checkpoint);
-  const parentTitle = payload.intent?.what || t("an unlinked Intent");
+  const parent = payload.intent
+    ? `<button type="button" data-detail-type="intent" data-remote-id="${esc(remoteId(payload.project_id, payload.intent.id))}">${esc(payload.intent.what || payload.intent.id)}</button>`
+    : esc(t("an unlinked Intent"));
   const parentLink = payload.intent
     ? `<div class="relation-list">${relationItem(
         "intent",
         remoteId(payload.project_id, payload.intent.id),
         payload.intent.id,
         payload.intent.what || payload.intent.id,
-        truncate(payload.intent.why || "", 80),
+        truncate(payload.intent.why || "", 120),
         payload.intent.status,
       )}</div>`
-    : `<div class="empty-state">${esc(t("No linked intent."))}</div>`;
+    : `<div class="inline-empty">${esc(t("No linked intent."))}</div>`;
 
   return `
     <div class="detail-header detail-header-snap">
-      <span class="detail-id">${esc(snap.id)} \u00b7 Snap</span>
-      <h2 class="detail-title detail-title-snap">${esc(conciseSnapTitle(snap, 110))}</h2>
-      <p class="snap-detail-context">${esc(t("Semantic checkpoint for"))} <strong>${esc(parentTitle)}</strong></p>
-      <div class="detail-meta">
-        <span class="badge snap-state${status.className}">${esc(status.label)}</span>
-        ${originBadge(snap.origin)}
-        <span class="badge">${esc(fmtDate(snap.created_at))}</span>
-      </div>
+      ${detailMeta([stateBadge(status), idChip(snap.id), originBadge(snap.origin), `<span>${esc(fmtDate(snap.created_at))}</span>`])}
+      <h2 class="detail-title detail-title-snap" tabindex="-1">${esc(conciseSnapTitle(snap, 110))}</h2>
+      <p class="detail-context snap-detail-context">${esc(t("Semantic checkpoint for"))} ${parent}</p>
     </div>
     ${detailSection(
       t("Continuation checkpoint"),
-      `<div class="checkpoint-grid detail-checkpoint-grid">
-        ${checkpointCell("verified", t("Verified"), checkpoint.verified)}
-        ${checkpointCell("boundary", t("Boundary"), checkpoint.boundary)}
-        ${checkpointCell("next", t("Next"), checkpoint.next)}
-        ${checkpointCell("blocker", t("Blocker"), checkpoint.blocker)}
-      </div>
-      ${checkpoint.constraints ? `<p class="checkpoint-note"><strong>${esc(t("Constraints:"))}</strong> ${esc(checkpoint.constraints)}</p>` : ""}
-      ${checkpoint.context ? `<p class="checkpoint-note">${esc(checkpoint.context)}</p>` : ""}`,
+      `${checkpointGrid(checkpoint, ["verified", "boundary", "next", "blocker"], " detail-checkpoint-grid")}
+      ${checkpoint.constraints ? `<p class="checkpoint-note"><strong>${esc(t("Constraints:"))}</strong> ${esc(checkpoint.constraints)}</p>` : ""}`,
     )}
+    ${checkpoint.context ? detailSection(t("Context"), formatText(checkpoint.context)) : ""}
     ${detailSection(t("Parent Intent"), parentLink)}
     ${rawToggle({ snap, intent: payload.intent })}`;
-}
-
-function renderSnapDetail(payload) {
-  el.detailContent.innerHTML = buildSnapDetailHtml(payload);
-}
-
-function renderSnapDetailTo(target, payload) {
-  target.innerHTML = buildSnapDetailHtml(payload);
 }
 
 /* ---- Setup guide ---- */
 
 function renderSetupGuide(mode) {
+  el.shell.classList.add("is-empty");
   const projectName = state.projects.find(p => p.id === state.currentProjectId)?.name;
   const shellArg = value => `'${String(value).replaceAll("'", "'\\''")}'`;
   const linkCmd = `itt remote add origin ${shellArg(state.config.apiBaseUrl)} --project ${projectName ? shellArg(projectName) : "PROJECT"}`;
-  const authPrefix = state.config.authRequired
-    ? [`itt auth login --api-base-url ${shellArg(state.config.apiBaseUrl)}`]
-    : [];
-  let steps = [];
-
+  const steps = [];
   if (mode === "unlinked") {
-    steps = [
-      { title: t("1. Initialize"), desc: t("Run once per project; Git is optional."), cmd: ["itt init"] },
-      {
-        title: t("2. Link & Sync"),
-        desc: t("Choose a shared project name, then push its semantic history."),
-        cmd: [...authPrefix, linkCmd, "itt push"],
-      },
-    ];
-  } else {
-    steps = [
-      {
-        title: t("1. Link & Sync"),
-        desc: t("Ensure CLI points here, then push the next snapshot."),
-        cmd: [...authPrefix, linkCmd, "itt push"],
-      },
-      {
-        title: t("2. Sync Again Later"),
-        desc: t("Push new semantic history after more work."),
-        cmd: ["itt push"],
-      },
-    ];
+    steps.push(
+      { title: t("Install the Intent CLI"), desc: t("Requires Python 3.9+. Re-run any time to upgrade."), cmd: [INSTALL_COMMAND] },
+      { title: t("Initialize your project"), desc: t("Run once per project; Git is optional."), cmd: ["itt init"] },
+    );
   }
+  if (state.config.authRequired) {
+    steps.push({
+      title: t("Sign in from the CLI"),
+      desc: t("Create an access token, then paste it when the CLI asks. It is shown once."),
+      cmd: [`itt auth login --api-base-url ${shellArg(state.config.apiBaseUrl)}`],
+      token: true,
+    });
+  }
+  steps.push({
+    title: t("Link and push"),
+    desc: mode === "unlinked"
+      ? t("Choose a shared project name, then push its semantic history.")
+      : t("Ensure CLI points here, then push the next snapshot."),
+    cmd: [linkCmd, "itt push"],
+  });
 
-  el.sidebarBody.innerHTML = `
-    <div class="setup-guide">
-      <h3 class="heading-with-help">${mode === "unlinked" ? t("Get started with IntHub") : t("Complete the first sync")}<button class="help-trigger" data-help="setup" type="button" aria-label="${esc(t("Explanation"))}" aria-expanded="false"><span aria-hidden="true">i</span></button></h3>
-      ${steps
-        .map(
-          (s) => `
-        <div class="setup-step">
-          <h4 class="heading-with-help">${esc(s.title)}<button class="help-trigger" data-help-copy="${esc(s.desc)}" type="button" aria-label="${esc(t("Explanation"))}" aria-expanded="false"><span aria-hidden="true">i</span></button></h4>
-          ${commandSnippet(s.cmd)}
-        </div>`,
-        )
-        .join("")}
+  el.detailContent.innerHTML = `
+    <div class="setup-page setup-guide">
+      ${pageHeader({
+        eyebrow: mode === "unlinked" ? t("Welcome") : projectName || t("Project"),
+        titleHtml: `<span class="heading-with-help">${esc(mode === "unlinked" ? t("Get started with IntHub") : t("Complete the first sync"))}${helpButton("setup")}</span>`,
+        meta: [esc(t("Sync semantic history from the Intent CLI, then continue from the brief here."))],
+      })}
+      <ol class="setup-steps">
+        ${steps.map((step) => `
+          <li class="setup-step">
+            <h3>${esc(step.title)}</h3>
+            <p>${esc(step.desc)}</p>
+            <div>
+              ${commandSnippet(step.cmd)}
+              ${step.token ? `<div class="setup-step-actions"><button class="button button-secondary" type="button" data-create-token>${icon("key")}${esc(t("Create access token"))}</button></div>` : ""}
+            </div>
+          </li>`).join("")}
+      </ol>
     </div>`;
 }
 
@@ -1587,7 +1590,7 @@ function renderProjectSelector() {
       (p) =>
         `<button type="button" role="option" aria-selected="${p.id === state.currentProjectId ? "true" : "false"}" class="project-picker-option${p.id === state.currentProjectId ? " is-selected" : ""}" data-id="${esc(p.id)}">
           <span class="project-picker-option-name">${esc(p.name)}</span>
-          <span class="project-picker-option-repo">${esc(t("Shared history"))}</span>
+          <span class="project-picker-option-repo">${esc(p.last_synced_at ? t("Synced {time}", {time: relativeDate(p.last_synced_at)}) : t("Shared history"))}</span>
         </button>`,
     )
     .join("");
@@ -1601,48 +1604,43 @@ function toggleProjectPicker(open) {
   el.projectPickerTrigger.setAttribute("aria-expanded", String(isOpen));
 }
 
+function updateSyncChip() {
+  const ws = [...historySources(state.overview)]
+    .sort((left, right) => String(right.last_synced_at || "").localeCompare(String(left.last_synced_at || "")))[0];
+  el.syncChip.textContent = ws
+    ? t("Synced {time}", {time: relativeDate(ws.last_synced_at)})
+    : state.currentProjectId ? t("Not synced") : t("Waiting for first project");
+  el.syncChip.title = ws ? fmtDate(ws.last_synced_at) : "";
+  el.syncIndicator.classList.toggle("is-unsynced", !ws);
+}
+
 /* ---- Project loading ---- */
 
-async function loadProject(projectId, { detail = null, reveal = false } = {}) {
+async function loadProject(projectId, { detail = null, history = "replace" } = {}) {
   const request = beginViewRequest("project");
   state._projectPending = request;
   const previous = {
     projectId: state._loadedProjectId || state.currentProjectId,
     overview: state.overview, handoff: state.handoff,
-    selectedDetail: state.selectedDetail, detailPayload: state._detailPayload,
     pageState: state._pageState, timelineIntentKey: state._timelineIntentKey,
-    searchResults: state._searchResults, detailOpen: el.shell.classList.contains("detail-open"),
+    searchResults: state._searchResults, detailCache: state._detailCache,
   };
   const switching = Boolean(state._loadedProjectId && state._loadedProjectId !== projectId);
-  const detailRequest = beginViewRequest("detail");
   beginViewRequest("search");
   state._searchBusy = false;
-  closeDrawer();
   if (switching) {
+    closeDrawer({ history: "none" });
     state.overview = null;
     state.handoff = null;
-    state._detailPayload = null;
     state._searchResults = null;
     state._timelineIntentKey = "";
     state._pageState = {};
-    state.selectedDetail = null;
-    el.shell.classList.toggle("detail-open", Boolean(detail && reveal));
+    state._detailCache = new Map();
   }
-  if (detail) state.selectedDetail = detail;
   state.currentProjectId = projectId;
   renderProjectSelector();
   setViewBusy("detail", true);
-
-  if (!state.overview) {
-    el.sidebarBody.innerHTML = `
-      <div class="skeleton-list" aria-label="${esc(t("Loading project data"))}">
-        <i></i><i></i><i></i>
-      </div>`;
-    el.detailContent.innerHTML = `
-      <div class="overview-skeleton" aria-label="${esc(t("Loading continuation brief"))}">
-        <i></i><i></i><i></i><i></i>
-      </div>`;
-  }
+  if (!state.overview) el.detailContent.innerHTML = pageSkeletonHtml();
 
   let overview;
   let handoff;
@@ -1658,30 +1656,21 @@ async function loadProject(projectId, { detail = null, reveal = false } = {}) {
       state.currentProjectId = previous.projectId;
       state.overview = previous.overview;
       state.handoff = previous.handoff;
-      state.selectedDetail = previous.selectedDetail;
-      state._detailPayload = previous.detailPayload;
       state._pageState = previous.pageState;
       state._timelineIntentKey = previous.timelineIntentKey;
       state._searchResults = previous.searchResults;
-      el.shell.classList.toggle("detail-open", previous.detailOpen);
+      state._detailCache = previous.detailCache;
       renderProjectSelector();
-      renderSidebar();
-      if (detail) {
-        state.selectedDetail = detail;
-        state._detailPayload = null;
-        if (reveal) el.shell.classList.add("detail-open");
-        el.detailContent.innerHTML = detailErrorHtml(error, detail.type, detail.remoteId);
-      } else if (state.activeTab === "overview") renderProjectSummary();
-      else if (state.activeTab === "search") el.detailContent.innerHTML = renderSearchWelcome();
-      else if (previous.detailPayload) {
-        const {type, payload} = previous.detailPayload;
-        el.detailContent.innerHTML = type === "intent" ? buildIntentDetailHtml(payload) : type === "decision" ? buildDecisionDetailHtml(payload) : buildSnapDetailHtml(payload);
-      } else clearDetail(error.message);
+      renderView();
     } else {
-      el.sidebarBody.innerHTML = `<div class="empty-state">${esc(error.message)}</div>`;
-      el.detailContent.innerHTML = `<div class="empty-state"><p>${esc(error.message)}</p><button type="button" class="secondary-btn" data-retry-project="${esc(projectId)}">${esc(t("Retry"))}</button></div>`;
+      el.detailContent.innerHTML = emptyState({
+        iconName: "blocker",
+        title: t("Could not load this project."),
+        body: error.message,
+        extra: `<button type="button" class="secondary-btn" data-retry-project="${esc(projectId)}">${esc(t("Retry"))}</button>`,
+      });
     }
-    if (ownsViewRequest("detail", detailRequest)) setViewBusy("detail", false);
+    setViewBusy("detail", false);
     throw error;
   }
   if (!ownsViewRequest("project", request)) return;
@@ -1689,68 +1678,36 @@ async function loadProject(projectId, { detail = null, reveal = false } = {}) {
   state._loadedProjectId = projectId;
   state.overview = overview;
   state.handoff = handoff;
+  state._detailCache = new Map();
 
   el.intentCount.textContent = (overview.active_intents?.length || 0) + (overview.other_intents?.length || 0) || "";
   el.decisionCount.textContent = (overview.active_decisions?.length || 0) + (overview.deprecated_decisions?.length || 0) || "";
   el.snapCount.textContent = overview.total_snaps ?? overview.recent_snaps?.length ?? "";
+  updateSyncChip();
 
-  const ws = [...historySources(overview)]
-    .sort((left, right) => String(right.last_synced_at || "").localeCompare(String(left.last_synced_at || "")))[0];
-  el.syncChip.textContent = ws
-    ? `${t("Synced")} ${relativeDate(ws.last_synced_at)}`
-    : t("Not synced");
-  el.syncChip.title = ws ? fmtDate(ws.last_synced_at) : "";
-  el.syncIndicator.classList.toggle("is-unsynced", !ws);
-
-  const missingNext = (handoff.intents || []).filter((intent) => !parseCheckpoint(intent.latest_snap).next).length;
-  el.navHealth.textContent = (handoff.intents || []).length
-    ? t("{count} active · {missing} missing next", {count: handoff.intents.length, missing: missingNext})
-    : t("No active objective");
-
-  if (!historySources(overview).length) {
+  if (!hasHistory()) {
     renderSetupGuide("unsynced");
-    clearDetail(t("Complete the first sync to populate data."));
-    writeRoute();
+    writeRoute(history);
+    setViewBusy("detail", false);
     return;
   }
 
-  renderSidebar();
-  setStatus(t("{name} is up to date", {name: overview.project.name}));
-
-  if (state.activeTab === "overview") {
-    state.selectedDetail = null;
-    renderProjectSummary();
-  } else if (state.activeTab === "search" && !state.selectedDetail) {
-    state.selectedDetail = null;
-    el.detailContent.innerHTML = renderSearchWelcome();
-  } else if (state.selectedDetail) {
+  renderView();
+  writeRoute(history);
+  setViewBusy("detail", false);
+  if (detail) {
     try {
-      await openDetail(
-        state.selectedDetail.type,
-        state.selectedDetail.remoteId,
-        { reveal },
-      );
+      await openDetail(detail.type, detail.remoteId, { history: "replace" });
     } catch (error) { setStatus(error.message, true); }
-  } else {
-    const firstCard = el.sidebarBody.querySelector("[data-detail-type][data-remote-id]");
-    if (firstCard) {
-      await openDetail(firstCard.dataset.detailType, firstCard.dataset.remoteId, { reveal: false });
-    } else {
-      clearDetail(t("No object is available in this view."));
-    }
   }
-
-  writeRoute();
-  if (ownsViewRequest("detail", detailRequest)) setViewBusy("detail", false);
 }
 
-async function loadProjects() {
+async function loadProjects(route = readRoute()) {
   const request = beginViewRequest("projects");
   const result = await fetchJson(apiUrl("/api/v1/projects"));
   if (!ownsViewRequest("projects", request)) return;
   state.projects = result.projects;
 
-  const route = readRoute();
   const requested = route.project || state.config.defaultProjectId;
   state.currentProjectId =
     requested && state.projects.some((p) => p.id === requested)
@@ -1762,23 +1719,178 @@ async function loadProjects() {
   if (!state.currentProjectId) {
     state.overview = null;
     state.handoff = null;
-    el.navHealth.textContent = t("No project linked");
-    el.syncChip.textContent = t("Waiting for first project");
-    el.syncIndicator.classList.add("is-unsynced");
-    setStatus(t("No projects linked yet."));
+    updateSyncChip();
     renderSetupGuide("unlinked");
-    clearDetail(t("Link a project to get started."));
-    writeRoute();
+    writeRoute("replace");
     return;
   }
 
-  await loadProject(state.currentProjectId);
+  const detail = route.detail && DETAIL_PATHS[route.detailType] && projectIdFromRemoteId(route.detail) === state.currentProjectId
+    ? { type: route.detailType, remoteId: route.detail }
+    : null;
+  await loadProject(state.currentProjectId, { detail });
+}
+
+/* ---- Search palette ---- */
+
+function openSearch(query = null) {
+  if (el.shell.inert && !sheetIsOpen()) return;
+  if (sheetIsOpen()) closeDrawer();
+  closeHeaderMenus();
+  toggleProjectPicker(false);
+  if (!el.searchDialog.open) {
+    state._searchReturnFocus = document.activeElement;
+    el.searchDialog.showModal();
+  }
+  if (query !== null) el.searchInput.value = query;
+  el.searchInput.focus();
+  el.searchInput.select?.();
+  if (el.searchInput.value.trim()) runSearch(el.searchInput.value.trim());
+  else renderSearchSuggestions();
+}
+
+function closeSearch() {
+  if (el.searchDialog.open) el.searchDialog.close();
+}
+
+function searchOptions() {
+  return [...el.searchResults.querySelectorAll("[role=option]")];
+}
+
+function setActiveSearchOption(index) {
+  const options = searchOptions();
+  if (!options.length) {
+    el.searchInput.removeAttribute("aria-activedescendant");
+    return;
+  }
+  const next = (index + options.length) % options.length;
+  options.forEach((option, position) => {
+    option.classList.toggle("is-active", position === next);
+    option.setAttribute("aria-selected", String(position === next));
+  });
+  el.searchInput.setAttribute("aria-activedescendant", options[next].id);
+  options[next].scrollIntoView?.({ block: "nearest" });
+  state._searchActive = next;
+}
+
+async function activateSearchOption(option) {
+  if (!option) return;
+  closeSearch();
+  if (option.dataset.tabJump) {
+    switchTab(option.dataset.tabJump);
+    return;
+  }
+  try {
+    await openDetail(option.dataset.detailType, option.dataset.remoteId);
+  } catch (error) {
+    setStatus(error.message, true);
+  }
+}
+
+function renderSearchSuggestions() {
+  const tabs = [
+    ["overview", t("Overview"), "overview"],
+    ["intents", t("Intents"), "intent"],
+    ["snaps", t("Timeline"), "timeline"],
+    ["decisions", t("Decisions"), "decision"],
+  ];
+  const active = state.handoff?.intents || [];
+  let index = 0;
+  const option = (attributes, iconName, title, meta = "", side = "") => `
+    <div class="search-result" role="option" id="search-option-${index++}" aria-selected="false" ${attributes}>
+      ${icon(iconName)}
+      <span class="search-result-title">${title}</span>
+      ${meta ? `<span class="search-result-meta">${esc(meta)}</span>` : ""}
+      ${side ? `<span class="search-result-side">${esc(side)}</span>` : ""}
+    </div>`;
+  el.searchResults.innerHTML = `
+    ${active.length ? `<div class="search-group-label">${esc(t("Active work"))}</div>${active.map((intent) => option(`data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}"`, "intent", esc(intent.what), parseCheckpoint(intent.latest_snap).next ? `${t("Next")} · ${truncate(parseCheckpoint(intent.latest_snap).next, 90)}` : "", intent.id)).join("")}` : ""}
+    ${state.overview ? `<div class="search-group-label">${esc(t("Go to"))}</div>${tabs.map(([tab, label, iconName]) => option(`data-tab-jump="${tab}"`, iconName, esc(label))).join("")}` : `<div class="search-empty">${esc(t("Link a project to search its history."))}</div>`}`;
+  setActiveSearchOption(0);
+}
+
+function renderSearchResults(result) {
+  state._searchResults = result;
+  if (!el.searchDialog.open && !state._localizing) return;
+  const matches = result.matches || [];
+  const query = result.query || state.searchQuery;
+  if (!matches.length) {
+    el.searchResults.innerHTML = `<div class="search-empty">${esc(t("No matches found."))}</div>`;
+    el.searchInput.removeAttribute("aria-activedescendant");
+    return;
+  }
+  const groups = [
+    ["intent", t("Intents")],
+    ["snap", t("Checkpoints")],
+    ["decision", t("Decisions")],
+  ];
+  let index = 0;
+  el.searchResults.innerHTML = groups
+    .map(([type, label]) => {
+      const items = matches.filter((m) => m.object_type === type);
+      if (!items.length) return "";
+      return `<div class="search-group-label">${esc(label)}</div>${items.map((m) => {
+        const title = type === "snap" ? conciseSnapTitle(m) : m.what || m.title || m.id;
+        const meta = type === "snap"
+          ? intentForSnap(m)?.what || m.intent_id || ""
+          : `${type === "decision" ? decisionStatusLabel(m.status) : intentStatusLabel(m.status)}${m.why ? ` · ${truncate(m.why, 90)}` : ""}`;
+        return `
+          <div class="search-result" role="option" id="search-option-${index++}" aria-selected="false" data-detail-type="${esc(m.object_type)}" data-remote-id="${esc(m.remote_id)}">
+            ${icon(type)}
+            <span class="search-result-title">${highlight(title, query)}</span>
+            <span class="search-result-meta">${esc(meta)}</span>
+            <span class="search-result-side">${esc(m.id)}</span>
+          </div>`;
+      }).join("")}`;
+    })
+    .join("");
+  setActiveSearchOption(0);
+}
+
+function scheduleSearch(delay = 180) {
+  window.clearTimeout(state._searchTimer);
+  state._searchTimer = window.setTimeout(() => runSearch(el.searchInput.value.trim()), delay);
+}
+
+async function runSearch(query, button = null) {
+  state.searchQuery = query;
+  const container = el.searchResults;
+  const projectId = state.currentProjectId;
+  const request = beginViewRequest("search");
+  if (!query || !projectId) {
+    state._searchBusy = false;
+    state._searchResults = null;
+    renderSearchSuggestions();
+    return;
+  }
+  state._searchBusy = true;
+  if (button) setButtonBusy(button, true, "Searching…", "Retry");
+  container.setAttribute("aria-busy", "true");
+  if (!container.querySelector("[data-detail-type]")) container.innerHTML = `<div class="search-empty loading">${esc(t("Searching…"))}</div>`;
+  const current = () => ownsViewRequest("search", request) && state.currentProjectId === projectId;
+  try {
+    const result = await fetchJson(apiUrl(`/api/v1/search?project_id=${encodeURIComponent(projectId)}&q=${encodeURIComponent(query)}`));
+    if (!current()) return;
+    state._searchResultProject = projectId;
+    state._searchResultQuery = query;
+    renderSearchResults({ ...result, query });
+  } catch (error) {
+    if (!current()) return;
+    state._searchResults = null;
+    container.innerHTML = `<div class="search-empty"><p>${esc(error.message)}</p><button class="secondary-btn" type="button" data-retry-search>${esc(t("Retry"))}</button></div>`;
+  } finally {
+    if (current()) {
+      state._searchBusy = false;
+      container.setAttribute("aria-busy", "false");
+      if (button) setButtonBusy(button, false, "Searching…", "Retry");
+    }
+  }
 }
 
 /* ---- Events ---- */
 
 function setButtonBusy(button, busy, loadingCopy = "", idleCopy = "") {
-  if (button.matches(".card, .queue-item, .intent-entry, .decision-constraint, .timeline-entry, .relation-item, .detail-link, .decision-row, .brief-open, .tab, .project-picker-trigger")) return;
+  if (button.matches(".card, .list-row, .queue-item, .intent-entry, .decision-constraint, .timeline-entry, .relation-item, .detail-link, .decision-row, .brief-open, .link-button, .search-result, .tab, .project-picker-trigger")) return;
   button.disabled = busy;
   button.classList.toggle("action-busy", busy);
   button.setAttribute("aria-busy", String(busy));
@@ -1791,7 +1903,6 @@ function setProjectPickerBusy(busy) {
   el.projectPickerTrigger.disabled = busy;
   el.projectPickerTrigger.setAttribute("aria-busy", String(busy));
 }
-
 
 function headerMenus() {
   const triggers = [...document.querySelectorAll("[data-settings-trigger]"), ...document.querySelectorAll("[data-resources-trigger]")];
@@ -1833,64 +1944,89 @@ function toggleHeaderMenu(trigger, { focus = null } = {}) {
   }
 }
 
+async function createAccessToken(button) {
+  if (button.disabled) return;
+  const idle = button === el.tokenBtn ? "Access token" : "Create access token";
+  setButtonBusy(button, true, "Creating token…", idle);
+  try {
+    const issued = await fetchJson(apiUrl("/api/v1/auth/tokens"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "CLI token", ttl_seconds: 7776000 }),
+    });
+    el.tokenOutput.value = issued.token;
+    state._tokenReturnFocus = button === el.tokenBtn ? el.accountMenuTrigger : button;
+    closeHeaderMenus();
+    el.tokenDialog.showModal();
+    el.tokenOutput.select();
+  } catch (err) {
+    setStatus(err.message, true);
+  } finally {
+    setButtonBusy(button, false, "Creating token…", idle);
+    if (button !== el.tokenBtn) button.innerHTML = `${icon("key")}${esc(t(idle))}`;
+  }
+}
+
 function localizeWorkspace() {
-  const draft = document.getElementById("search-input")?.value;
-  const focusedId = document.activeElement?.id;
-  const editing = document.activeElement?.matches("input");
-  const selectionStart = document.activeElement?.selectionStart;
-  const selectionEnd = document.activeElement?.selectionEnd;
-  const sidebarScroll = el.sidebarBody.scrollTop;
-  const detailScroll = el.detailPane.scrollTop;
-  const expanded = [...document.querySelectorAll("details[open]")].map(node => node.className);
+  const pageScroll = window.scrollY;
+  const sheetScroll = el.drawerContent.scrollTop;
+  const expanded = [...document.querySelectorAll("details[open]")].map(node => node.dataset.archive || node.className);
   state._localizing = true;
   try {
+    for (const button of document.querySelectorAll("[data-idle-copy]")) if (button.dataset.idleCopy) button.textContent = t(button.disabled ? button.dataset.loadingCopy : button.dataset.idleCopy);
+    localizeViewLoadingCopy();
     if (state._projectPending && ownsViewRequest("project", state._projectPending)) {
-      localizeViewLoadingCopy();
-      el.sidebarBody.querySelector(".skeleton-list")?.setAttribute("aria-label", t("Loading project data"));
-      el.detailContent.querySelector(".overview-skeleton")?.setAttribute("aria-label", t("Loading continuation brief"));
-      for (const button of document.querySelectorAll("[data-idle-copy]")) if (button.dataset.idleCopy) button.textContent = t(button.disabled ? button.dataset.loadingCopy : button.dataset.idleCopy);
+      el.detailContent.querySelector(".page-skeleton")?.setAttribute("aria-label", t("Loading continuation brief"));
       return;
     }
-    const detailPending = el.detailPane.getAttribute("aria-busy") === "true";
+    const pagePending = el.detailPane.getAttribute("aria-busy") === "true";
     renderProjectSelector();
-    if (historySources(state.overview).length) {
-      if (!state._searchBusy) renderSidebar();
-      if (!detailPending && state.activeTab === "overview") renderProjectSummary();
-      else if (!detailPending && state.activeTab === "search" && !state.selectedDetail) el.detailContent.innerHTML = renderSearchWelcome();
-      else if (!detailPending && state._detailPayload) {
-        const {type, payload} = state._detailPayload;
-        el.detailContent.innerHTML = type === "intent" ? buildIntentDetailHtml(payload) : type === "decision" ? buildDecisionDetailHtml(payload) : buildSnapDetailHtml(payload);
-      }
-      if (el.drawer.classList.contains("open") && state._drawerPayload) {
-        const {type, payload} = state._drawerPayload;
-        el.drawerContent.innerHTML = type === "intent" ? buildIntentDetailHtml(payload) : type === "decision" ? buildDecisionDetailHtml(payload) : buildSnapDetailHtml(payload);
-      }
-    } else if (state.authenticated && !detailPending) renderSetupGuide(state.projects.length ? "unsynced" : "unlinked");
-    const input = document.getElementById("search-input");
-    if (input && draft !== undefined) input.value = draft;
-    for (const node of document.querySelectorAll("details")) if (expanded.includes(node.className)) node.open = true;
-    el.sidebarBody.scrollTop = sidebarScroll;
-    el.detailPane.scrollTop = detailScroll;
-    const focus = document.getElementById(focusedId);
-    if (focus && editing) {
-      focus.focus();
-      if (selectionStart !== undefined) focus.setSelectionRange?.(selectionStart, selectionEnd);
+    if (!pagePending) {
+      if (hasHistory()) renderView();
+      else if (state.authenticated) renderSetupGuide(state.projects.length ? "unsynced" : "unlinked");
     }
-    for (const button of document.querySelectorAll("[data-idle-copy]")) {
-      if (button.dataset.idleCopy) button.textContent = t(button.disabled ? button.dataset.loadingCopy : button.dataset.idleCopy);
+    if (sheetIsOpen()) {
+      if (state._drawerPayload) el.drawerContent.innerHTML = buildDetailHtml(state._drawerPayload.type, state._drawerPayload.payload);
+      renderSheetHeader(state._drawerPayload?.payload);
     }
-    for (const node of document.querySelectorAll(".empty-state.loading")) node.textContent = t(node.closest("#search-results") ? "Searching…" : "Loading…");
-    localizeViewLoadingCopy();
+    if (el.searchDialog.open) {
+      if (state._searchResults) renderSearchResults(state._searchResults);
+      else if (!el.searchInput.value.trim()) renderSearchSuggestions();
+    }
+    for (const node of document.querySelectorAll("details")) if (expanded.includes(node.dataset.archive || node.className)) node.open = true;
+    window.scrollTo?.(0, pageScroll);
+    el.drawerContent.scrollTop = sheetScroll;
+    for (const node of document.querySelectorAll(".search-empty.loading")) node.textContent = t("Searching…");
     el.aboutVersion.textContent = t(state.config?.productVersion || "Unavailable");
     el.authError.textContent = t(state._authMessage || "");
     el.accountMode.textContent = t("Private session");
     if (state._statusMessage) el.statusLine.textContent = t(state._statusMessage);
-    const ws = [...historySources(state.overview)].sort((a, b) => String(b.last_synced_at || "").localeCompare(String(a.last_synced_at || "")))[0];
-    el.syncChip.textContent = ws ? `${t("Synced")} ${relativeDate(ws.last_synced_at)}` : t("Not synced");
-    const active = state.handoff?.intents || [];
-    el.navHealth.textContent = active.length ? t("{count} active · {missing} missing next", {count: active.length, missing: active.filter(intent => !parseCheckpoint(intent.latest_snap).next).length}) : t("No active objective");
+    if (state.config) updateSyncChip();
     setTenonLoginLoading(el.tenonLogin.classList.contains("is-loading"));
   } finally { state._localizing = false; }
+}
+
+function sheetFocusables() {
+  return [...el.drawer.querySelectorAll("button, a[href], input, summary, [tabindex]")].filter(node => !node.disabled && !node.hidden && node.getAttribute("tabindex") !== "-1" && node.getClientRects().length);
+}
+
+async function applyRoute(route) {
+  if (el.shell.inert && !sheetIsOpen()) return;
+  if (route.project && route.project !== state.currentProjectId && state.projects.some((project) => project.id === route.project)) {
+    state.activeTab = route.tab;
+    setActiveTabUI();
+    const detail = route.detail && DETAIL_PATHS[route.detailType] ? { type: route.detailType, remoteId: route.detail } : null;
+    try { await loadProject(route.project, { detail, history: "none" }); }
+    catch (error) { setStatus(error.message, true); }
+    return;
+  }
+  if (route.tab !== state.activeTab) switchTab(route.tab, { history: "none" });
+  if (route.detail && DETAIL_PATHS[route.detailType]) {
+    if (state.selectedDetail?.remoteId !== route.detail) {
+      try { await openDetail(route.detailType, route.detail, { history: "none" }); }
+      catch (error) { setStatus(error.message, true); }
+    }
+  } else if (sheetIsOpen()) closeDrawer({ history: "none" });
 }
 
 function bindEvents() {
@@ -1937,6 +2073,7 @@ function bindEvents() {
   }
   for (const button of document.querySelectorAll("[data-language-select]")) button.addEventListener("click", () => window.IntHubI18n.setLanguage(button.dataset.languageSelect));
   window.addEventListener("inthub:language", localizeWorkspace);
+  window.addEventListener("popstate", () => applyRoute(readRoute()));
   for (const trigger of document.querySelectorAll("[data-about-open]")) {
     trigger.addEventListener("click", () => {
       state._aboutReturnTrigger = headerMenus().find(menu => menu.panel.contains(trigger))?.trigger || trigger;
@@ -1950,7 +2087,49 @@ function bindEvents() {
     if (state._aboutReturnTrigger?.isConnected) state._aboutReturnTrigger.focus();
     state._aboutReturnTrigger = null;
   });
-  el.searchTrigger.addEventListener("click", () => switchTab("search"));
+
+  el.searchTrigger.addEventListener("click", () => openSearch());
+  el.searchInput.addEventListener("input", () => scheduleSearch());
+  el.searchInput.addEventListener("keydown", (event) => {
+    if (event.isComposing || event.keyCode === 229) return;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveSearchOption((state._searchActive || 0) + (event.key === "ArrowDown" ? 1 : -1));
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const active = el.searchResults.querySelector("[role=option].is-active");
+      if (active) activateSearchOption(active);
+      else runSearch(el.searchInput.value.trim());
+    }
+  });
+  el.searchForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const active = el.searchResults.querySelector("[role=option].is-active");
+    if (active) activateSearchOption(active);
+    else runSearch(el.searchInput.value.trim());
+  });
+  el.searchResults.addEventListener("pointermove", (event) => {
+    const option = event.target.closest("[role=option]");
+    if (option && !option.classList.contains("is-active")) setActiveSearchOption(searchOptions().indexOf(option));
+  });
+  el.searchResults.addEventListener("click", (event) => {
+    if (event.target.closest("[data-retry-search]")) {
+      runSearch(el.searchInput.value.trim(), event.target.closest("[data-retry-search]"));
+      return;
+    }
+    activateSearchOption(event.target.closest("[role=option]"));
+  });
+  el.searchDialog.addEventListener("click", (event) => {
+    if (event.target === el.searchDialog) closeSearch();
+  });
+  el.searchDialog.addEventListener("close", () => {
+    window.clearTimeout(state._searchTimer);
+    beginViewRequest("search");
+    state._searchBusy = false;
+    const target = state._searchReturnFocus;
+    state._searchReturnFocus = null;
+    if (target?.isConnected && !sheetIsOpen()) target.focus();
+  });
 
   el.tenonLogin.addEventListener("click", (event) => {
     if (el.tenonLogin.classList.contains("is-loading")) {
@@ -1980,26 +2159,7 @@ function bindEvents() {
     }
   });
 
-
-  el.tokenBtn.addEventListener("click", async () => {
-    if (el.tokenBtn.disabled) return;
-    setButtonBusy(el.tokenBtn, true, "Creating token…", "Access token");
-    try {
-      const issued = await fetchJson(apiUrl("/api/v1/auth/tokens"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "CLI token", ttl_seconds: 7776000 }),
-      });
-      el.tokenOutput.value = issued.token;
-      closeHeaderMenus(true);
-      el.tokenDialog.showModal();
-      el.tokenOutput.select();
-    } catch (err) {
-      setStatus(err.message, true);
-    } finally {
-      setButtonBusy(el.tokenBtn, false, "Creating token…", "Access token");
-    }
-  });
+  el.tokenBtn.addEventListener("click", () => createAccessToken(el.tokenBtn));
 
   el.tokenCopy.addEventListener("click", async () => {
     if (el.tokenCopy.disabled) return;
@@ -2018,7 +2178,9 @@ function bindEvents() {
   el.tokenDialog.addEventListener("close", () => {
     el.tokenOutput.value = "";
     el.tokenCopy.textContent = t("Copy token");
-    if (el.accountMenuTrigger.isConnected) el.accountMenuTrigger.focus();
+    const target = state._tokenReturnFocus?.isConnected ? state._tokenReturnFocus : el.accountMenuTrigger;
+    state._tokenReturnFocus = null;
+    if (target.isConnected) target.focus();
   });
 
   el.logoutBtn.addEventListener("click", async () => {
@@ -2033,8 +2195,8 @@ function bindEvents() {
       setButtonBusy(el.logoutBtn, false, "Signing out…", "Sign out");
     }
     closeHeaderMenus();
-    for (const view of ["projects", "project", "detail", "drawer", "search"]) beginViewRequest(view);
-    closeDrawer();
+    for (const view of ["projects", "project", "detail", "sheet", "search"]) beginViewRequest(view);
+    closeDrawer({ history: "none" });
     state.projects = [];
     state._loadedProjectId = null;
     state.overview = null;
@@ -2056,7 +2218,7 @@ function bindEvents() {
     state._projectBusy = true;
     setProjectPickerBusy(true);
     try {
-      await loadProject(id);
+      await loadProject(id, { history: "push" });
     } catch (err) {
       setStatus(err.message, true);
     } finally {
@@ -2078,8 +2240,9 @@ function bindEvents() {
     setButtonBusy(el.refreshBtn, true, "Refreshing project data", "Refresh project data");
     el.refreshBtn.setAttribute("aria-label", t("Refreshing project data"));
     try {
-      await loadProjects();
+      await loadProjects({ ...readRoute(), detail: null });
       closeHeaderMenus(true);
+      setStatus(t("Project data refreshed."));
     } catch (err) {
       setStatus(err.message, true);
     } finally {
@@ -2093,20 +2256,21 @@ function bindEvents() {
     if (tab && tab.dataset.tab) switchTab(tab.dataset.tab);
   });
 
-  el.backBtn.addEventListener("click", returnToList);
+  el.detailContent.addEventListener("toggle", (event) => {
+    const archive = event.target.dataset?.archive;
+    if (!archive) return;
+    state._pageState ||= {};
+    state._pageState[archive === "intents" ? "intentArchiveOpen" : "decisionArchiveOpen"] = event.target.open;
+  }, true);
 
   document.addEventListener("click", async (e) => {
+    if (e.target.closest("#search-dialog")) return;
     const retryInit = e.target.closest("[data-retry-init]");
     if (retryInit) {
       if (retryInit.disabled) return;
       setButtonBusy(retryInit, true, "Loading…", "Retry");
       try { await init(false); }
       finally { setButtonBusy(retryInit, false, "Loading…", "Retry"); }
-      return;
-    }
-    const retrySearch = e.target.closest("[data-retry-search]");
-    if (retrySearch) {
-      await runSearch(state.searchQuery, document.getElementById("search-form")?.querySelector("button[type=submit]"));
       return;
     }
     const retryProject = e.target.closest("[data-retry-project]");
@@ -2118,59 +2282,72 @@ function bindEvents() {
       finally { setButtonBusy(retryProject, false, "Loading…", "Retry"); }
       return;
     }
+    const copy = e.target.closest("[data-copy]");
+    if (copy) {
+      await copyText(copy.dataset.copy, t("Command copied."));
+      return;
+    }
+    if (e.target.closest("[data-copy-brief]")) {
+      if (state.overview) await copyText(briefMarkdown(), t("Brief copied."));
+      return;
+    }
+    const createToken = e.target.closest("[data-create-token]");
+    if (createToken) {
+      await createAccessToken(createToken);
+      return;
+    }
+    const jump = e.target.closest("[data-tab-jump]");
+    if (jump) {
+      switchTab(jump.dataset.tabJump);
+      return;
+    }
     const filter = e.target.closest("[data-timeline-intent]");
     if (filter) {
       state._timelineIntentKey = filter.dataset.timelineIntent;
       state._pageState ||= {};
       state._pageState.snaps = PAGE_SIZE;
-      renderSidebar();
-      el.sidebarBody.scrollTop = 0;
-      const selectedStillVisible = [...el.sidebarBody.querySelectorAll("[data-detail-type][data-remote-id]")].some(node => node.dataset.remoteId === state.selectedDetail?.remoteId);
-      if (!selectedStillVisible) {
-        const first = el.sidebarBody.querySelector("[data-detail-type][data-remote-id]");
-        if (first) {
-          try { await openDetail(first.dataset.detailType, first.dataset.remoteId, {reveal: false}); }
-          catch (error) { setStatus(error.message, true); }
-        }
-      }
-      el.sidebarBody.querySelector(".timeline-filter-trigger")?.focus();
+      renderView();
+      el.detailContent.querySelector(".timeline-filter-trigger")?.focus();
       return;
     }
     if (e.target.closest("#load-more-snaps")) {
       state._pageState ||= {};
       state._pageState.snaps = (state._pageState.snaps || PAGE_SIZE) + PAGE_SIZE;
-      const scroll = el.sidebarBody.scrollTop;
-      renderSidebar();
-      el.sidebarBody.scrollTop = scroll;
+      const scroll = window.scrollY;
+      renderView();
+      window.scrollTo?.(0, scroll);
+      return;
+    }
+    if (e.target.closest("#load-more-intent-archive")) {
+      state._pageState ||= {};
+      state._pageState.intentArchive = (state._pageState.intentArchive || PAGE_SIZE) + PAGE_SIZE;
+      state._pageState.intentArchiveOpen = true;
+      const scroll = window.scrollY;
+      renderView();
+      window.scrollTo?.(0, scroll);
       return;
     }
     const card = e.target.closest("[data-detail-type][data-remote-id]");
     if (!card) return;
-    const inDetailPane = card.closest("#detail-content") || card.closest("#drawer-content");
+    const inSheet = Boolean(card.closest("#drawer-content"));
     try {
-      if (card.dataset.retryDetail === "detail") {
-        await openDetail(card.dataset.detailType, card.dataset.remoteId);
-      } else if (inDetailPane || state.activeTab === "overview") {
-        await openInDrawer(card.dataset.detailType, card.dataset.remoteId);
-      } else {
-        closeDrawer();
-        await openDetail(card.dataset.detailType, card.dataset.remoteId);
-      }
+      if (card.dataset.retryDetail) await openDetail(card.dataset.detailType, card.dataset.remoteId, { mode: "replace", history: "replace" });
+      else await openDetail(card.dataset.detailType, card.dataset.remoteId, { mode: inSheet ? "push" : "reset" });
     } catch (err) {
       setStatus(err.message, true);
     }
   });
 
-  el.drawerClose.addEventListener("click", closeDrawer);
-  el.drawerOverlay.addEventListener("click", closeDrawer);
+  el.drawerClose.addEventListener("click", () => closeDrawer());
+  el.drawerBack.addEventListener("click", () => sheetBack().catch((error) => setStatus(error.message, true)));
+  el.drawerOverlay.addEventListener("click", () => closeDrawer());
 
   document.addEventListener("keydown", (event) => {
-    if (el.shell.inert) return;
-    if (el.aboutDialog.open || el.tokenDialog.open) return;
-    if (el.drawer.classList.contains("open")) {
+    if (el.aboutDialog.open || el.tokenDialog.open || el.searchDialog.open) return;
+    if (sheetIsOpen()) {
       if (event.key === "Escape") { event.preventDefault(); closeDrawer(); return; }
       if (event.key === "Tab") {
-        const controls = [...el.drawer.querySelectorAll("button, a[href], input, summary, [tabindex]")].filter(node => !node.disabled && !node.hidden && node.getAttribute("tabindex") !== "-1" && node.getClientRects().length);
+        const controls = sheetFocusables();
         const first = controls[0] || el.drawerClose;
         const last = controls.at(-1) || first;
         if (event.shiftKey && (document.activeElement === first || !el.drawer.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
@@ -2178,6 +2355,7 @@ function bindEvents() {
       }
       return;
     }
+    if (el.shell.inert) return;
     const filter = event.target.closest?.(".timeline-filter");
     if (filter && ["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
       event.preventDefault();
@@ -2198,18 +2376,17 @@ function bindEvents() {
       options[(next + options.length) % options.length]?.focus();
       return;
     }
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+    const typing = event.target.matches?.("input, textarea, select, [contenteditable]");
+    if (((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") || (event.key === "/" && !typing && !event.metaKey && !event.ctrlKey && !event.altKey)) {
       event.preventDefault();
-      switchTab("search");
+      openSearch();
       return;
     }
     if (event.key === "Escape") {
       if (filter?.open) { filter.open = false; filter.querySelector("summary")?.focus(); }
       else if (el.projectPickerDropdown.classList.contains("is-open")) { toggleProjectPicker(false); el.projectPickerTrigger.focus(); }
-      else if (el.shell.classList.contains("detail-open")) returnToList();
     }
   });
-
 }
 
 /* ---- Init ---- */
@@ -2221,40 +2398,24 @@ async function init(bind = true) {
     state.config = await fetch(configUrl()).then((r) => r.json());
     authError = callbackErrorMessage();
     const route = readRoute();
-
-    if (route.tab && TABS.includes(route.tab)) state.activeTab = route.tab;
-    if (route.detail && DETAIL_PATHS[route.detailType]) {
-      if (state.activeTab === "overview") {
-        const detailTab = { intent: "intents", snap: "snaps", decision: "decisions" }[route.detailType];
-        if (detailTab) state.activeTab = detailTab;
-      }
-      state.selectedDetail = {
-        remoteId: route.detail,
-        type: route.detailType,
-      };
-      el.shell.classList.add("detail-open");
-    }
-    state.searchQuery = route.q;
-    if (state.searchQuery && state.activeTab === "overview") state.activeTab = "search";
-    el.shell.dataset.activeTab = state.activeTab;
-
-    for (const btn of el.tabBar.querySelectorAll(".tab")) {
-      btn.classList.toggle("is-active", btn.dataset.tab === state.activeTab);
-      if (btn.dataset.tab === state.activeTab) btn.setAttribute("aria-current", "page");
-      else btn.removeAttribute("aria-current");
-    }
-
+    state.activeTab = route.tab;
+    setActiveTabUI();
     await loadCurrentAccount();
-    await loadProjects();
+    await loadProjects(route);
     hideAuthGate();
+    if (route.search && state.currentProjectId) openSearch(route.q);
   } catch (err) {
     if (err.status === 401 && state.config?.authRequired) {
       showAuthGate(authError);
       return;
     }
     setStatus(err.message, true);
-    el.detailContent.innerHTML =
-      `<div class="empty-state"><p>${esc(t("Failed to initialize."))}</p><p>${esc(err.message)}</p><button type="button" class="secondary-btn" data-retry-init>${esc(t("Retry"))}</button></div>`;
+    el.detailContent.innerHTML = emptyState({
+      iconName: "blocker",
+      title: t("Failed to initialize."),
+      body: err.message,
+      extra: `<button type="button" class="secondary-btn" data-retry-init>${esc(t("Retry"))}</button>`,
+    });
   }
 }
 

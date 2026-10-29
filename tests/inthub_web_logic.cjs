@@ -38,21 +38,44 @@ const document = {
   activeElement: node('focus'),
   events: new Map(), addEventListener(type, fn) {this.events.set(type, [...(this.events.get(type) || []), fn]);},
 };
+const routes = [];
+const history = {
+  state: null,
+  replaceState(state) {this.state = state; routes.push('replace');},
+  pushState(state) {this.state = state; routes.push('push');},
+  back() {routes.push('back');},
+};
 const context = {document, NodeFilter: {SHOW_TEXT: 4}, navigator: {language: 'zh-CN'},
   localStorage: {getItem() {return 'zh-CN';}, setItem() {}},
-  window: {dispatchEvent() {}, addEventListener() {}, setTimeout() {}, clearTimeout() {}, location: {pathname: '/', search: ''}, history: {replaceState() {}}},
-  innerHeight: 900, innerWidth: 1440, Event, URL, URLSearchParams, Intl, console, assert,
+  window: {dispatchEvent() {}, addEventListener() {}, setTimeout() {}, clearTimeout() {}, location: {pathname: '/', search: ''}, history},
+  innerHeight: 900, innerWidth: 1440, Event, URL, URLSearchParams, Intl, console, assert, routes,
 };
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(root, 'i18n.js'), 'utf8'), context);
 const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 vm.runInContext(app.replace(/init\(\);\s*$/, ''), context);
+const zh = context.window.IntHubI18n.zh;
 for (const file of ['app.js', 'help.js']) {
   const source = fs.readFileSync(path.join(root, file), 'utf8');
   for (const match of source.matchAll(/\bt\("((?:[^"\\]|\\.)*)"/g)) {
     const key = JSON.parse('"' + match[1] + '"');
-    assert.ok(Object.hasOwn(context.window.IntHubI18n.zh, key), 'missing translation: ' + key);
+    assert.ok(Object.hasOwn(zh, key), 'missing translation: ' + key);
   }
+  for (const match of source.matchAll(/\bplural\([^,]+,\s*"((?:[^"\\]|\\.)*)",\s*"((?:[^"\\]|\\.)*)"/g)) {
+    for (const key of [match[1], match[2]]) assert.ok(Object.hasOwn(zh, key), 'missing plural translation: ' + key);
+  }
+  for (const match of source.matchAll(/setButtonBusy\([^,]+,\s*[^,]+,\s*"([^"]+)",\s*"([^"]+)"/g)) {
+    for (const key of [match[1], match[2]]) assert.ok(Object.hasOwn(zh, key), 'missing busy translation: ' + key);
+  }
+}
+const markup = fs.readFileSync(path.join(root, 'index.html'), 'utf8').replace(/<script[\s\S]*?<\/script>/g, '');
+const untranslated = new Set(['IntHub', '⌘K', 'English', '中文', 'i', 'Esc', '↑', '↓', '↵', '榫卯 Tenon AI', 'tenon.asia', 'itt auth login', 'System', 'Light', 'Dark']);
+for (const match of markup.matchAll(/>([^<>]+)</g)) {
+  const text = match[1].trim();
+  if (text && /[A-Za-z]/.test(text) && !untranslated.has(text)) assert.ok(Object.hasOwn(zh, text), 'missing static translation: ' + text);
+}
+for (const match of markup.matchAll(/(?:aria-label|placeholder|title)="([^"]+)"/g)) {
+  assert.ok(Object.hasOwn(zh, match[1]), 'missing attribute translation: ' + match[1]);
 }
 vm.runInContext(`
   const deletionUrl = 'https://account.tenon.asia/account/delete/?request=' + 'f'.repeat(43);
@@ -68,24 +91,31 @@ vm.runInContext(`
   setButtonBusy(el.deleteAccountBtn, false, 'Opening account management…', 'Delete account');
   assert.equal(t('About IntHub'), '关于 IntHub');
   assert.equal(t('Load more ({count})', {count: 7}), '加载更多（7）');
+  assert.equal(highlight('<b>Pay</b> pay', 'pay'), '&lt;b&gt;<mark>Pay</mark>&lt;/b&gt; <mark>pay</mark>');
+  assert.equal(highlight('a & b', ''), 'a &amp; b');
   state.config = {authMode: 'tenon', apiBaseUrl: '', productVersion: '6.0.1'};
-  state.overview = {active_intents: [{id:'intent-001', remote_id:'p__intent-001', what:'Next', why:'User text', status:'active', decision_ids:[]}], other_intents: []};
+  state.overview = {active_intents: [{id:'intent-001', remote_id:'p__intent-001', project_id:'p', what:'Next', why:'User text', status:'active', decision_ids:[], snap_ids:['snap-001']}], other_intents: [], recent_snaps: []};
   renderIntentsTab();
-  assert.ok(el.sidebarBody.innerHTML.includes('活跃目标'));
-  assert.ok(el.sidebarBody.innerHTML.includes('>Next</strong>'));
-  assert.ok(el.sidebarBody.innerHTML.includes('User text'));
+  assert.ok(el.detailContent.innerHTML.includes('活跃目标'));
+  assert.ok(el.detailContent.innerHTML.includes('intent-entry-title">Next</strong>'));
+  assert.ok(el.detailContent.innerHTML.includes('User text'));
+  assert.ok(el.detailContent.innerHTML.includes('1 个 Snap'));
   const payload = {project_id: 'p', snap: {id:'snap-001', what:'Verified: Original user facts. Boundary: Next. Next: Continue user work.', why:'', created_at:'2026-10-04T00:00:00Z'}, intent: {id:'intent-001', what:'Next', status:'active'}};
   const rendered = buildSnapDetailHtml(payload);
   assert.ok(rendered.includes('接续检查点'));
   assert.ok(rendered.includes('Original user facts'));
   assert.ok(rendered.includes('Continue user work'));
+  assert.ok(rendered.includes('data-detail-type="intent" data-remote-id="p__intent-001"'));
   state.searchQuery = 'unsent user query';
   el.tokenOutput.value = 'sensitive clipboard value';
   window.IntHubI18n.setLanguage('en');
   renderIntentsTab();
-  assert.ok(el.sidebarBody.innerHTML.includes('Active objectives'));
+  assert.ok(el.detailContent.innerHTML.includes('Active objectives'));
+  assert.ok(el.detailContent.innerHTML.includes('1 snap<'));
   assert.equal(state.searchQuery, 'unsent user query');
   assert.equal(el.tokenOutput.value, 'sensitive clipboard value');
+  assert.equal(plural(1, '{count} blocked objective', '{count} blocked objectives'), '1 blocked objective');
+  assert.equal(plural(2, '{count} blocked objective', '{count} blocked objectives'), '2 blocked objectives');
   setButtonBusy(el.tokenBtn, true, 'Creating token…', 'Access token');
   assert.equal(el.tokenBtn.disabled, true);
   assert.equal(el.tokenBtn.classList.contains('action-busy'), true);
@@ -94,11 +124,60 @@ vm.runInContext(`
   setButtonBusy(el.tokenBtn, false, 'Creating token…', 'Access token');
   assert.equal(el.tokenBtn.disabled, false);
   assert.equal(el.tokenBtn.textContent, '访问令牌');
+  assert.ok(statusBadge('active', 'decision').includes('有效'));
+  assert.ok(statusBadge('active').includes('进行中'));
   assert.equal(continuationHealth([]).ready, false);
   assert.equal(continuationHealth([{latest_snap: {what: 'Verified: done. Next: work.'}}]).ready, false);
   assert.equal(continuationHealth([{latest_snap: {what: 'Boundary: UI only. Next: review. Blocker: none.'}}]).ready, false);
   assert.equal(continuationHealth([{latest_snap: {what: 'Verified: done. Boundary: UI only. Next: review. Blocker: none.'}}]).ready, true);
   assert.equal(continuationHealth([{latest_snap: {what: 'Verified: done. Boundary: UI only. Next: review. Blocker: waiting for access.'}}]).ready, false);
+  assert.equal(continuationHealth([{latest_snap: {what: 'Verified: done. Boundary: UI only. Next: review. Blocker: waiting for access.'}}]).label, '1 个目标被阻塞');
+
+  state.overview = {
+    project: {id:'p', name:'Checkout <beta>'},
+    history: {project_id:'p', revision:'b'.repeat(64), last_synced_at:'2026-10-04T00:00:00Z'},
+    active_intents: [], other_intents: [], recent_snaps: [], active_decisions: [], deprecated_decisions: [],
+  };
+  state.handoff = {
+    intents: [{id:'intent-002', remote_id:'p__intent-002', project_id:'p', status:'active', what:'Ship <Apple Pay>', why:'Mobile users convert better.',
+      latest_snap: {id:'snap-004', what:'Verified: sheet confirms payments. Boundary: web only. Next: run QA. Blocker: waiting for APM access. Constraints: never trust client totals.', why:'', created_at:'2026-10-04T00:00:00Z'}}],
+    suspended_intents: [{id:'intent-001', remote_id:'p__intent-001', project_id:'p', status:'suspend', what:'Port receipts', latest_snap: {id:'snap-001', what:'Next: port refund template.'}}],
+    active_decisions: [{id:'decision-001', remote_id:'p__decision-001', what:'Use PaymentIntents only', why:'One SCA path.'}],
+  };
+  renderProjectSummary();
+  const brief = el.detailContent.innerHTML;
+  assert.ok(brief.includes('data-copy-brief'));
+  assert.ok(brief.includes('Ship &lt;Apple Pay&gt;'));
+  assert.ok(!brief.includes('<Apple Pay>'));
+  assert.ok(brief.includes('checkpoint-blocker is-blocked'));
+  assert.ok(brief.includes('health-pill is-warning'));
+  assert.ok(brief.includes('data-detail-type="snap" data-remote-id="p__snap-004"'));
+  assert.ok(brief.includes('Port receipts'));
+  assert.ok(brief.includes('Use PaymentIntents only'));
+  const markdown = briefMarkdown();
+  assert.ok(markdown.startsWith('# Checkout <beta> · 接续简报'));
+  assert.ok(markdown.includes('## Ship <Apple Pay> (intent-002)'));
+  assert.ok(markdown.includes('- **下一步:** run QA'));
+  assert.ok(markdown.includes('- **阻塞项:** waiting for APM access'));
+  assert.ok(markdown.includes('- **约束：** never trust client totals'));
+  assert.ok(markdown.includes('- Port receipts (intent-001)'));
+  assert.ok(markdown.includes('- Use PaymentIntents only (decision-001)'));
+
+  state.projects = [{id:'p', name:"Team's checkout"}];
+  state.currentProjectId = 'p';
+  state.config = {apiBaseUrl: 'https://inthub.example', authRequired: true};
+  el.shell.classList.remove('is-empty');
+  renderSetupGuide('unlinked');
+  const guide = el.detailContent.innerHTML;
+  assert.ok(guide.includes(INSTALL_COMMAND.replace(/&/g, '&amp;').replace(/\\|/g, '|')));
+  assert.ok(guide.includes('itt init'));
+  assert.ok(guide.includes('data-create-token'));
+  assert.ok(guide.includes('itt auth login --api-base-url &#39;https://inthub.example&#39;'));
+  assert.ok(guide.includes("--project &#39;Team&#39;\\\\&#39;&#39;s checkout&#39;"));
+  assert.ok(guide.includes('itt push'));
+  assert.equal(el.shell.classList.contains('is-empty'), true);
+  state.config = {authMode: 'tenon', apiBaseUrl: '', productVersion: '6.0.1'};
+
   state.overview = {active_intents: [
     {id:'intent-001', project_id:'p1', what:'User goal one'},
     {id:'intent-001', project_id:'p2', what:'User goal two'},
@@ -115,13 +194,13 @@ vm.runInContext(`
   state.overview.recent_snaps = timelineSnaps;
   state._timelineIntentKey = 'p2__intent-001';
   renderSnapsTab();
-  assert.ok(el.sidebarBody.innerHTML.includes('data-remote-id="p2__snap-001"'));
-  assert.ok(!el.sidebarBody.innerHTML.includes('data-remote-id="p1__snap-001"'));
-  assert.ok(el.sidebarBody.innerHTML.includes('User goal two'));
-  assert.ok(detailErrorHtml(new Error('offline'), 'snap', 'p__snap-001').includes('data-retry-detail="detail"'));
-  assert.ok(detailErrorHtml(new Error('offline'), 'snap', 'p__snap-001', 'drawer').includes('data-retry-detail="drawer"'));
+  assert.ok(el.detailContent.innerHTML.includes('data-remote-id="p2__snap-001"'));
+  assert.ok(!el.detailContent.innerHTML.includes('data-remote-id="p1__snap-001"'));
+  assert.ok(el.detailContent.innerHTML.includes('User goal two'));
+  assert.ok(el.detailContent.innerHTML.includes('1 个检查点'));
+  assert.ok(detailErrorHtml(new Error('offline'), 'snap', 'p__snap-001').includes('data-retry-detail="sheet"'));
   const navigation = document.getElementById('navigation-card');
-  navigation.matches = selector => selector.includes('.card');
+  navigation.matches = selector => selector.includes('.list-row');
   setButtonBusy(navigation, true);
   assert.notEqual(navigation.disabled, true);
   assert.equal(navigation.classList.contains('action-busy'), false);
@@ -150,15 +229,15 @@ vm.runInContext(`
   const originalLoadingQuery = document.querySelectorAll;
   const loadingCaption = document.getElementById('loading-caption');
   document.querySelectorAll = selector => selector === '[data-view-loading-copy]' ? [loadingCaption] : originalLoadingQuery(selector);
-  el.detailContent.innerHTML = waitingMarkup;
+  el.drawerContent.innerHTML = waitingMarkup;
   window.IntHubI18n.setLanguage('en');
   localizeViewLoadingCopy();
   assert.equal(loadingCaption.textContent,'Loading…');
-  assert.ok(el.detailContent.innerHTML.includes('view-loading-spinner'));
+  assert.ok(el.drawerContent.innerHTML.includes('view-loading-spinner'));
   window.IntHubI18n.setLanguage('zh-CN');
   document.querySelectorAll = originalLoadingQuery;
 `, context);
-console.log('Bilingual rendering, user-content preservation, truthful checkpoint health and scoped timeline filter tests passed.');
+console.log('Bilingual rendering, user-content preservation, truthful checkpoint health, copyable brief, onboarding and scoped timeline filter tests passed.');
 
 async function headerMenuCases() {
   await vm.runInContext(`(async () => {
@@ -287,6 +366,11 @@ async function headerMenuCases() {
     el.tokenDialog.showModal();
     el.tokenDialog.close();
     assert.equal(document.activeElement,el.accountMenuTrigger);
+    const setupTokenButton = document.getElementById('setup-token-button');
+    state._tokenReturnFocus = setupTokenButton;
+    el.tokenDialog.showModal();
+    el.tokenDialog.close();
+    assert.equal(document.activeElement,setupTokenButton);
 
     window.IntHubI18n.setLanguage('en');
     assert.equal(languageEnglish.getAttribute('aria-pressed'),'true');
@@ -307,11 +391,15 @@ async function headerMenuCases() {
     const gatedTab=state.activeTab;
     dispatch('keydown',document.getElementById('outside-menu'),'k',{ctrlKey:true});
     assert.equal(state.activeTab,gatedTab);
+    assert.notEqual(el.searchDialog.open,true);
     dispatch('keydown',authSettingsTrigger,'ArrowDown');
     assert.equal(authSettingsPanel.classList.contains('is-open'),true);
     hideAuthGate();
     assert.equal(el.shell.inert,false);
     closeHeaderMenus();
+    dispatch('keydown',document.getElementById('outside-menu'),'k',{metaKey:true});
+    assert.equal(el.searchDialog.open,true);
+    el.searchDialog.close();
 
     const originalLoadProjects=loadProjects;
     let finishRefresh;
@@ -327,110 +415,154 @@ async function headerMenuCases() {
     loadProjects=originalLoadProjects;
     document.querySelectorAll=originalQueryAll;
   })()`, context);
-  console.log('Mutually exclusive resource/settings/account/project menus, keyboard/outside dismissal and language selection tests passed.');
+  console.log('Mutually exclusive resource/settings/account/project menus, keyboard/outside dismissal, gated search and language selection tests passed.');
 }
 
 async function viewControllerCases() {
   await vm.runInContext(`(async () => {
     const savedFetch = fetchJson;
-    const savedRender = renderSnapDetail;
-    const savedRenderTo = renderSnapDetailTo;
-    const savedSidebar = renderSidebar;
+    const savedBuild = buildDetailHtml;
+    const savedView = renderView;
     const savedSelector = renderProjectSelector;
-    const savedSummary = renderProjectSummary;
+    const savedLoadProject = loadProject;
     const deferred = () => {let resolve, reject; const promise = new Promise((yes, no) => {resolve=yes; reject=no;}); return {promise, resolve, reject};};
     state.config = {apiBaseUrl:''};
     state.currentProjectId = 'p';
+    state.projects = [{id:'p', name:'p'}];
     state.activeTab = 'snaps';
-    state._workspaceProjectMap = {w:'p'};
+    state._detailCache = new Map();
     state.overview = {history:{project_id:'p',revision:'a'.repeat(64),last_synced_at:'2026-10-04T00:00:00Z'}};
     let responses = new Map();
-    fetchJson = url => responses.get(url).promise;
-    renderSnapDetail = payload => {el.detailContent.innerHTML = payload.name;};
-    renderSnapDetailTo = (target, payload) => {target.innerHTML = payload.name;};
+    const requested = [];
+    fetchJson = url => {requested.push(url); return responses.get(url).promise;};
+    buildDetailHtml = (type, payload) => payload.name;
 
     const first = deferred(), next = deferred();
     responses.set('/api/v1/snaps/p__snap-001', first);
     responses.set('/api/v1/snaps/p__snap-002', next);
+    routes.length = 0;
     const firstRequest = openDetail('snap','p__snap-001');
-    assert.equal(el.detailPane.getAttribute('aria-busy'), 'true');
-    assert.ok(el.detailContent.innerHTML.includes('view-loading-spinner'));
+    assert.equal(el.drawerContent.getAttribute('aria-busy'), 'true');
+    assert.ok(el.drawerContent.innerHTML.includes('view-loading-spinner'));
     assert.equal(state.selectedDetail.remoteId, 'p__snap-001');
-    assert.equal(el.shell.classList.contains('detail-open'), true);
+    assert.equal(el.drawer.classList.contains('open'), true);
+    assert.equal(el.drawer.inert, false);
+    assert.equal(document.activeElement, el.drawerClose);
+    assert.equal(routes.join(), 'push');
     await Promise.resolve();
-    const nextRequest = openDetail('snap','p__snap-002');
+    const nextRequest = openDetail('snap','p__snap-002', {mode:'replace'});
     await Promise.resolve();
-    next.resolve({name:'newest detail'});
+    next.resolve({id:'snap-002', name:'newest detail'});
     await nextRequest;
-    first.resolve({name:'stale detail'});
+    first.resolve({id:'snap-001', name:'stale detail'});
     await firstRequest;
-    assert.equal(el.detailContent.innerHTML, 'newest detail');
+    assert.equal(el.drawerContent.innerHTML, 'newest detail');
     assert.equal(state.selectedDetail.remoteId, 'p__snap-002');
-    assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
+    assert.equal(state._sheetStack.length, 1);
+    assert.equal(el.drawerContent.getAttribute('aria-busy'), 'false');
+    assert.ok(!state._detailCache.has('snap:p__snap-001'));
+    assert.equal(routes.join(), 'push,replace');
 
     const stale = deferred(), pending = deferred();
     responses.set('/api/v1/snaps/p__snap-003', stale);
     responses.set('/api/v1/snaps/p__snap-004', pending);
-    const staleRequest = openDetail('snap','p__snap-003');
+    const staleRequest = openDetail('snap','p__snap-003', {mode:'replace'});
     await Promise.resolve();
-    const pendingRequest = openDetail('snap','p__snap-004');
+    const pendingRequest = openDetail('snap','p__snap-004', {mode:'replace'});
     await Promise.resolve();
     stale.resolve({name:'old response finishes first'});
     await staleRequest;
-    assert.equal(el.detailPane.getAttribute('aria-busy'), 'true');
-    assert.ok(el.detailContent.innerHTML.includes('loading'));
-    pending.resolve({name:'latest finished'});
+    assert.equal(el.drawerContent.getAttribute('aria-busy'), 'true');
+    assert.ok(el.drawerContent.innerHTML.includes('loading'));
+    pending.resolve({id:'snap-004', name:'latest finished'});
     await pendingRequest;
-    assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
+    assert.equal(el.drawerContent.getAttribute('aria-busy'), 'false');
 
-    responses.set('/api/v1/snaps/p__snap-004', {promise:Promise.reject(new Error('offline'))});
-    await assert.rejects(() => openDetail('snap','p__snap-004'), /offline/);
-    assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
-    assert.ok(el.detailContent.innerHTML.includes('data-retry-detail="detail"'));
+    responses.set('/api/v1/snaps/p__snap-005', {promise:Promise.reject(new Error('offline'))});
+    await assert.rejects(() => openDetail('snap','p__snap-005', {mode:'replace'}), /offline/);
+    assert.equal(el.drawerContent.getAttribute('aria-busy'), 'false');
+    assert.ok(el.drawerContent.innerHTML.includes('data-retry-detail="sheet"'));
 
-    el.shell.classList.remove('detail-open');
-    responses.set('/api/v1/snaps/p__snap-002', {promise:Promise.resolve({name:'automatic preview'})});
-    await openDetail('snap','p__snap-002',{reveal:false});
-    assert.equal(el.shell.classList.contains('detail-open'), false);
-    assert.equal(el.detailContent.innerHTML, 'automatic preview');
+    routes.length = 0;
+    window.history.state = {inthub:'sheet'};
+    closeDrawer();
+    assert.equal(routes.join(), 'back');
+    assert.equal(el.drawer.inert, true);
+    assert.equal(el.drawer.classList.contains('open'), false);
+    assert.equal(state.selectedDetail, null);
+
+    responses.set('/api/v1/intents/p__intent-001', {promise:Promise.resolve({id:'intent-001', name:'parent intent'})});
+    responses.set('/api/v1/snaps/p__snap-007', {promise:Promise.resolve({id:'snap-007', name:'child snap'})});
+    routes.length = 0;
+    await openDetail('intent','p__intent-001', {history:'replace'});
+    assert.equal(routes.join(), 'replace');
+    await openDetail('snap','p__snap-007', {mode:'push'});
+    assert.equal(state._sheetStack.length, 2);
+    assert.equal(el.drawerBack.classList.contains('is-hidden'), false);
+    assert.equal(el.drawerContent.innerHTML, 'child snap');
+    const fetchesBeforeBack = requested.length;
+    await sheetBack();
+    assert.equal(state._sheetStack.length, 1);
+    assert.equal(el.drawerContent.innerHTML, 'parent intent');
+    assert.equal(el.drawerBack.classList.contains('is-hidden'), true);
+    assert.equal(requested.length, fetchesBeforeBack);
+    routes.length = 0;
+    window.history.state = {inthub:'sheet'};
+    closeDrawer();
+    assert.equal(routes.join(), 'replace');
 
     const drawerPending = deferred();
-    responses.set('/api/v1/snaps/p__snap-001', drawerPending);
-    const drawerRequest = openInDrawer('snap','p__snap-001');
+    responses.set('/api/v1/snaps/p__snap-006', drawerPending);
+    const drawerRequest = openDetail('snap','p__snap-006');
     assert.equal(el.drawerContent.getAttribute('aria-busy'), 'true');
-    assert.ok(el.drawerContent.innerHTML.includes('view-loading-spinner'));
-    assert.equal(el.drawer.inert, false);
     assert.equal(el.drawer.getAttribute('aria-modal'), 'true');
-    closeDrawer();
-    drawerPending.resolve({name:'closed drawer must stay empty'});
+    closeDrawer({history:'none'});
+    drawerPending.resolve({name:'closed sheet must stay empty'});
     await drawerRequest;
     assert.equal(el.drawer.inert, true);
     assert.equal(el.drawerContent.getAttribute('aria-busy'), 'false');
     assert.equal(el.drawerContent.innerHTML, '');
     assert.equal(state._drawerPayload, null);
 
-    state.activeTab = 'search';
-    state._searchBusy = false;
+    let crossProject = null;
+    loadProject = (id, options) => {crossProject = {id, options}; return Promise.resolve();};
+    state.projects = [{id:'p', name:'p'}, {id:'other', name:'other'}];
+    await openDetail('intent','other__intent-001');
+    assert.equal(crossProject.id, 'other');
+    assert.deepEqual(crossProject.options.detail, {type:'intent', remoteId:'other__intent-001'});
+    loadProject = savedLoadProject;
+
     const searchPending = deferred();
     responses.set('/api/v1/search?project_id=p&q=goal', searchPending);
-    const searchRequest = runSearch('goal', el.tokenBtn);
-    assert.equal(el.tokenBtn.disabled, true);
-    state.activeTab = 'snaps';
-    beginViewRequest('search');
-    state._searchBusy = false;
-    el.sidebarBody.innerHTML = 'timeline stays intact';
-    searchPending.resolve({matches:[{what:'late search result'}]});
+    el.searchDialog.open = true;
+    const searchRequest = runSearch('goal');
+    assert.equal(state._searchBusy, true);
+    await runSearch('');
+    searchPending.resolve({matches:[{object_type:'intent', remote_id:'p__intent-009', id:'intent-009', what:'late search result'}]});
     await searchRequest;
-    assert.equal(el.sidebarBody.innerHTML, 'timeline stays intact');
-    assert.equal(state._searchResults?.matches?.[0]?.what, undefined);
+    assert.ok(!el.searchResults.innerHTML.includes('late search result'));
+    assert.equal(state._searchResults, null);
+    responses.set('/api/v1/search?project_id=p&q=pay', {promise:Promise.resolve({matches:[
+      {object_type:'decision', remote_id:'p__decision-001', id:'decision-001', status:'active', what:'Pay <safely>', why:''},
+      {object_type:'intent', remote_id:'p__intent-002', id:'intent-002', status:'active', what:'Add pay button', why:''},
+    ]})});
+    await runSearch('pay');
+    const searchMarkup = el.searchResults.innerHTML;
+    assert.ok(searchMarkup.indexOf('intent-002') < searchMarkup.indexOf('decision-001'));
+    assert.ok(searchMarkup.includes('<mark>Pay</mark> &lt;safely&gt;'));
+    assert.ok(searchMarkup.includes('role="option"'));
+    responses.set('/api/v1/search?project_id=p&q=goal', {promise:Promise.reject(new Error('offline'))});
+    await runSearch('goal');
+    assert.equal(state._searchBusy, false);
+    assert.ok(el.searchResults.innerHTML.includes('data-retry-search'));
+    el.searchDialog.open = false;
 
     state.activeTab = 'overview';
     state._loadedProjectId = 'p';
     state.overview = {project:{id:'p'}, history:{project_id:'p',revision:'a'.repeat(64),last_synced_at:'2026-10-04T00:00:00Z'}};
     state.handoff = {intents:[]};
-    renderSidebar = () => {};
     renderProjectSelector = () => {};
-    renderProjectSummary = () => {el.detailContent.innerHTML = state.overview.project.id;};
+    renderView = () => {el.detailContent.innerHTML = state.overview.project.id;};
     const oneOverview = deferred(), oneHandoff = deferred(), twoOverview = deferred(), twoHandoff = deferred();
     responses.set('/api/v1/projects/p1/overview', oneOverview);
     responses.set('/api/v1/projects/p1/handoff', oneHandoff);
@@ -443,7 +575,7 @@ async function viewControllerCases() {
     const pendingProjectMarkup=el.detailContent.innerHTML;
     localizeWorkspace();
     assert.equal(el.detailContent.innerHTML,pendingProjectMarkup);
-    assert.ok(el.detailContent.innerHTML.includes('overview-skeleton'));
+    assert.ok(el.detailContent.innerHTML.includes('page-skeleton'));
     twoOverview.resolve({project:{id:'p2',name:'second'},history:{project_id:'p2',revision:'a'.repeat(64),last_synced_at:'2026-10-04T00:00:00Z'}});
     twoHandoff.resolve({intents:[]});
     await loadTwo;
@@ -454,13 +586,11 @@ async function viewControllerCases() {
     assert.equal(state.overview.project.id, 'p2');
     assert.equal(el.detailContent.innerHTML, 'p2');
     assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
-    state.overview={project:{id:'p2'},history:{project_id:'p2',revision:'a'.repeat(64),last_synced_at:'2026-10-04T00:00:00Z'}};
     el.detailContent.innerHTML=viewLoadingHtml();
     const pendingDetailMarkup=el.detailContent.innerHTML;
     setViewBusy('detail',true);
     localizeWorkspace();
     assert.equal(el.detailContent.innerHTML,pendingDetailMarkup);
-    assert.ok(el.detailContent.innerHTML.includes('view-loading-spinner'));
     setViewBusy('detail',false);
 
     responses.set('/api/v1/projects/failing/overview', {promise:Promise.reject(new Error('offline'))});
@@ -470,24 +600,17 @@ async function viewControllerCases() {
     assert.equal(state.overview.project.id, 'p2');
     assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
 
+    state.projects = [{id:'empty', name:'empty'}];
     responses.set('/api/v1/projects/empty/overview', {promise:Promise.resolve({project:{id:'empty',name:'empty'},history:{revision:null}})});
     responses.set('/api/v1/projects/empty/handoff', {promise:Promise.resolve({intents:[]})});
     await loadProject('empty');
     assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
-    state.currentProjectId='p2';
+    assert.equal(el.shell.classList.contains('is-empty'), true);
+    assert.ok(el.detailContent.innerHTML.includes('itt push'));
 
-    state.activeTab = 'search';
-    state._searchBusy = false;
-    responses.set('/api/v1/search?project_id=p2&q=goal', {promise:Promise.reject(new Error('offline'))});
-    await runSearch('goal', el.tokenBtn);
-    assert.equal(state._searchBusy, false);
-    assert.equal(el.tokenBtn.disabled, false);
-    assert.ok(document.getElementById('search-results').innerHTML.includes('data-retry-search'));
-
-    fetchJson=savedFetch; renderSnapDetail=savedRender; renderSnapDetailTo=savedRenderTo;
-    renderSidebar=savedSidebar; renderProjectSelector=savedSelector; renderProjectSummary=savedSummary;
+    fetchJson=savedFetch; buildDetailHtml=savedBuild; renderView=savedView; renderProjectSelector=savedSelector;
   })()`, context);
-  console.log('Latest-action ownership, closed-drawer cancellation, mobile preview, project rollback and search recovery tests passed.');
+  console.log('Latest-action ownership, sheet back stack and history, closed-sheet cancellation, cross-project links, search recovery and project rollback tests passed.');
 }
 
 async function redirectCase(destination, failure = false) {

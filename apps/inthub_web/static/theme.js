@@ -38,7 +38,7 @@ window.IntHubTheme = (() => {
     const theme = preference === "system" ? (media.matches ? "dark" : "light") : preference;
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#171717" : "#F6F6F6");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#0A0A0A" : "#FAFAFA");
     refreshControls();
   }
   function setPreference(next) {

@@ -9,7 +9,9 @@ import pytest
 from apps.inthub_web import product_version
 
 
-STATIC_DIR = Path(__file__).resolve().parents[1] / "apps" / "inthub_web" / "static"
+ROOT = Path(__file__).resolve().parents[1]
+STATIC_DIR = ROOT / "apps" / "inthub_web" / "static"
+STATUS_TOKEN = re.compile(r"--(?:blue|green|amber|red)(?:-soft|-line|-dot)?$")
 
 
 class _MarkupTags(HTMLParser):
@@ -36,9 +38,26 @@ class _MarkupTags(HTMLParser):
     def within(self, identifier):
         return [(tag, attributes) for tag, attributes, ancestors in self.tags if identifier in ancestors]
 
+    def by_id(self, identifier):
+        return next((tag, attributes) for tag, attributes, _ in self.tags if attributes.get("id") == identifier)
+
+
+def _static(name):
+    return (STATIC_DIR / name).read_text(encoding="utf-8")
+
+
+def _block(css, selector):
+    return re.search(re.escape(selector) + r"\s*\{([^}]+)", css).group(1)
+
+
+def _is_neutral(color):
+    channels = color[:3] if len(color) in (3, 4) else color[:6]
+    rgb = "".join(channel * 2 for channel in channels) if len(channels) == 3 else channels
+    return rgb[0:2].lower() == rgb[2:4].lower() == rgb[4:6].lower()
+
 
 def test_header_groups_preferences_and_account_actions_in_separate_menus():
-    html = (STATIC_DIR / "index.html").read_text()
+    html = _static("index.html")
     header = html.split('<header class="app-header">', 1)[1].split('</header>', 1)[0]
     markup = _MarkupTags(header)
     assert 'id="settings-menu-trigger"' in header
@@ -50,14 +69,14 @@ def test_header_groups_preferences_and_account_actions_in_separate_menus():
     assert any(attributes.get("id") == "refresh-btn" for _, attributes in settings)
     assert any("data-about-open" in attributes for _, attributes in settings)
     account = markup.within("account-actions")
-    assert {"account-label", "token-btn", "logout-btn"}.issubset({attributes.get("id") for _, attributes in account})
+    assert {"account-label", "token-btn", "logout-btn", "delete-account-btn"}.issubset({attributes.get("id") for _, attributes in account})
     assert not any("data-theme-setting" in attributes or "data-language-select" in attributes for _, attributes in account)
     assert header.index('id="settings-menu-trigger"') < header.index('id="account-menu-trigger"')
     assert 'id="auth-settings-menu"' in html
 
 
 def test_header_utilities_have_breathing_room_at_every_breakpoint():
-    css = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
+    css = _static("styles.css")
     utilities = re.findall(r"\.header-utilities\s*\{([^}]+)", css)
     assert utilities
     assert int(re.search(r"\bgap:\s*(\d+)px", utilities[0]).group(1)) >= 12
@@ -72,7 +91,7 @@ def test_header_utilities_have_breathing_room_at_every_breakpoint():
 
 
 def test_product_resource_links_have_fixed_official_targets_and_safe_new_tabs():
-    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    html = _static("index.html")
     markup = _MarkupTags(html)
     targets = {
         "skill": "https://www.skills.sh/dozybot001/intent/intent-cli",
@@ -93,9 +112,9 @@ def test_product_resource_links_have_fixed_official_targets_and_safe_new_tabs():
 
 
 def test_resource_menus_share_accessible_header_menu_control_flow():
-    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    html = _static("index.html")
     markup = _MarkupTags(html)
-    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
+    javascript = _static("app.js")
     triggers = [(tag, attributes) for tag, attributes, _ in markup.tags if "data-resources-trigger" in attributes]
     assert {attributes["id"] for _, attributes in triggers} == {"resources-menu-trigger", "auth-resources-menu-trigger"}
     for tag, attributes in triggers:
@@ -116,118 +135,144 @@ def test_resource_menus_share_accessible_header_menu_control_flow():
 
 
 def test_compact_login_header_uses_resource_menu_even_on_wide_viewports():
-    css = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
-    links = re.search(r"\.auth-header \.header-resources\s*\{([^}]+)", css).group(1)
-    menu = re.search(r"\.auth-header \.resources-control\s*\{([^}]+)", css).group(1)
-    assert "display: none" in links
-    assert "display: flex" in menu
+    css = _static("styles.css")
+    assert "display: none" in _block(css, ".auth-header .header-resources")
+    assert "display: flex" in _block(css, ".auth-header .resources-control")
+    # The workspace header shows inline links on wide screens and folds them into the menu below 1180px.
+    assert "display: none" in _block(css, ".resources-control")
+    narrow = css.split("@media (max-width: 1180px)", 1)[1].split("@media", 1)[0]
+    assert ".app-header .header-resources" in narrow and ".app-header .resources-control" in narrow
 
 
 def test_project_context_and_options_use_horizontal_flexible_rows():
-    css = (STATIC_DIR / "styles.css").read_text()
+    css = _static("styles.css")
     for selector in (".project-picker-copy", ".project-picker-option"):
-        block = re.search(re.escape(selector) + r"\s*\{([^}]+)", css).group(1)
+        block = _block(css, selector)
         assert "display: flex" in block
         assert "align-items: center" in block
-    trigger = re.search(r"\.project-picker-trigger\s*\{([^}]+)", css).group(1)
-    assert "min-width: 0" in trigger
-    label = re.search(r"\.project-picker-label\s*\{([^}]+)", css).group(1)
+    assert "min-width: 0" in _block(css, ".project-picker-trigger")
+    label = _block(css, ".project-picker-label")
     assert "min-width: 0" in label and "text-overflow: ellipsis" in label
-    name = re.search(r"\.project-picker-option-name\s*\{([^}]+)", css).group(1)
+    name = _block(css, ".project-picker-option-name")
     assert "min-width: 0" in name
     assert "text-overflow: ellipsis" in name
     assert "white-space: nowrap" in name
-    description = re.search(r"\.project-picker-option-repo\s*\{([^}]+)", css).group(1)
+    description = _block(css, ".project-picker-option-repo")
     assert "flex: 0 0 auto" in description
     assert "white-space: nowrap" in description
 
 
-def test_index_heading_is_one_row_and_list_height_follows_its_content():
-    html = (STATIC_DIR / "index.html").read_text()
-    css = (STATIC_DIR / "styles.css").read_text()
-    header = re.search(r"\.index-header\s*\{([^}]+)", css).group(1)
-    assert "display: flex" in header and "align-items: center" in header
-    sidebar = re.search(r"\.sidebar\s*\{([^}]+)", css).group(1)
-    assert "grid-template-rows: auto minmax(0, 1fr)" in sidebar
-    title = re.search(r"\.index-title\s*\{([^}]+)", css).group(1)
-    assert "min-width: 0" in title and "margin: 0" in title
-    assert "white-space: nowrap" in title and "text-overflow: ellipsis" in title
-    assert "order:" not in title
-    assert html.index('id="sidebar-title"') < html.index('id="sidebar-kicker"')
-    for body in re.findall(r"\.sidebar-body\s*\{([^}]+)", css):
-        assert "height: calc(" not in body
-
-
-def test_detail_canvas_does_not_keep_fixed_desktop_width_caps():
-    css = (STATIC_DIR / "styles.css").read_text()
-    content = re.search(r"\.detail-content\s*\{([^}]+)", css).group(1)
-    assert "width: 100%" in content
-    assert "1120px" not in content and "margin: 0 auto" not in content
-    for selector in (".detail-header", ".detail-header-snap", ".detail-section"):
-        block = re.search(re.escape(selector) + r"\s*\{([^}]+)", css).group(1)
-        assert "max-width: none" in block
-    title = re.search(r"\.detail-title\s*\{([^}]+)", css).group(1)
-    assert "max-width: 100%" in title
-    assert "28ch" not in title
+def test_workspace_is_one_fluid_page_with_tabs_instead_of_three_fixed_panes():
+    html = _static("index.html")
+    css = _static("styles.css")
+    markup = _MarkupTags(html)
+    for retired in ('id="sidebar"', 'class="primary-nav"', 'id="back-btn"', 'id="nav-health"', "Continuation queue"):
+        assert retired not in html
+    tabs = [attributes["data-tab"] for _, attributes, _ in markup.tags if "data-tab" in attributes]
+    assert tabs == ["overview", "intents", "snaps", "decisions"]
+    tab_bar = markup.by_id("tab-bar")
+    assert tab_bar[0] == "nav" and tab_bar[1].get("aria-label")
+    content = _block(css, ".page-content")
+    assert "width: 100%" in content and "margin: 0 auto" in content
+    assert "max-width: calc(var(--page-max) + 2 * var(--gutter))" in content
+    assert re.search(r"--page-max:\s*1200px", css)
     # A fluid canvas should not turn paragraphs into unbounded reading lines.
-    paragraph = re.search(r"\.detail-section p\s*\{([^}]+)", css).group(1)
-    assert "max-width: 74ch" in paragraph
+    assert "max-width: 74ch" in _block(css, ".detail-section p")
+    assert "max-width: 82ch" in _block(css, ".brief-why")
+    # Narrow screens give the project its own row instead of compressing the brand.
+    mobile = css.split("@media (max-width: 720px)", 1)[1]
+    assert 'grid-template-areas: "brand actions" "project project"' in mobile
+    assert "display: contents" in _block(mobile, ".header-context")
 
 
 def test_navigation_loading_does_not_insert_spinners_into_card_layout():
-    javascript = (STATIC_DIR / "app.js").read_text()
-    css = (STATIC_DIR / "styles.css").read_text()
+    javascript = _static("app.js")
+    css = _static("styles.css")
     for target in ('card', 'tabButton', 'el.projectPickerTrigger'):
         assert f'setButtonBusy({target},' not in javascript
     assert 'view-loading' in javascript and 'view-loading' in css
     assert '.is-busy::before' not in css
     assert '.action-busy' in css
+    guard = javascript.split("function setButtonBusy", 1)[1].split("\n", 2)[1]
+    for navigation in (".list-row", ".timeline-entry", ".relation-item", ".search-result", ".tab", ".project-picker-trigger"):
+        assert navigation in guard
 
 
-def test_ui_palette_is_monochrome_without_changing_official_tenon_asset():
-    css = (STATIC_DIR / 'styles.css').read_text()
-    for color in re.findall(r'#([0-9a-fA-F]{3,8})(?![\w-])', css):
-        assert len(color) in (3, 4, 6, 8), color
-        rgb = ''.join(channel * 2 for channel in color[:3]) if len(color) < 6 else color[:6]
-        assert rgb[0:2].lower() == rgb[2:4].lower() == rgb[4:6].lower(), color
-    for channels in re.findall(r'rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)', css):
-        assert len(set(channels)) == 1, channels
-    for channels in re.findall(r'--[\w-]+-rgb:\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)', css):
-        assert len(set(channels)) == 1, channels
-    assert 'fill="#f06b32"' in (STATIC_DIR / 'tenon-mark.svg').read_text()
+def test_hue_is_reserved_for_status_tokens_and_tenon_mark_keeps_its_color():
+    css = _static("styles.css")
+    declarations = dict(re.findall(r"(--[\w-]+):\s*([^;]+);", css))
+    colored_tokens = set()
+    for line in css.splitlines():
+        match = re.match(r"\s*(--[\w-]+):\s*([^;]+);", line)
+        colors = re.findall(r"#([0-9a-fA-F]{3,8})(?![\w-])", line)
+        channels = re.findall(r"rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)", line)
+        if not colors and not channels:
+            continue
+        for color in colors:
+            assert len(color) in (3, 4, 6, 8), color
+        chromatic = any(not _is_neutral(color) for color in colors) or any(len(set(rgb)) != 1 for rgb in channels)
+        if chromatic:
+            assert match and STATUS_TOKEN.match(match.group(1)), line.strip()
+            colored_tokens.add(match.group(1))
+    assert colored_tokens == {f"--{hue}{suffix}" for hue in ("blue", "green", "amber", "red") for suffix in ("", "-soft", "-line", "-dot")}
+    assert declarations and 'fill="#f06b32"' in _static("tenon-mark.svg")
+    # Status is never conveyed by color alone: every status pill carries its label text.
+    javascript = _static("app.js")
+    assert '<span class="status-dot" aria-hidden="true"></span>${esc(label)}</span>' in javascript
+    assert '<span class="status-dot" aria-hidden="true"></span>${esc(status.label)}</span>' in javascript
 
 
 def test_primary_theme_text_and_status_color_pairs_have_readable_contrast():
-    css = (STATIC_DIR / "styles.css").read_text()
+    css = _static("styles.css")
+
     def luminance(color):
         channels = [int(color[i:i + 2], 16) / 255 for i in (1, 3, 5)]
         linear = [v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in channels]
         return sum(v * weight for v, weight in zip(linear, (0.2126, 0.7152, 0.0722)))
+
+    pairs = (
+        ("ink", "canvas"), ("ink", "surface"), ("ink-2", "surface"), ("muted", "surface"),
+        ("muted", "canvas"), ("muted", "surface-subtle"), ("primary-ink", "primary-bg"),
+        ("green", "green-soft"), ("amber", "amber-soft"), ("red", "red-soft"), ("blue", "blue-soft"),
+    )
     for selector in (":root", ':root[data-theme="dark"]'):
         block = re.search(re.escape(selector) + r'\s*\{([^}]+)', css).group(1)
         tokens = dict(re.findall(r'--([\w-]+):\s*(#[0-9a-fA-F]{6})\s*;', block))
-        for foreground, background in (("ink", "canvas"), ("muted", "surface"), ("muted", "surface-nav"), ("copper", "surface-strong"), ("green", "green-soft"), ("amber", "amber-soft"), ("red", "red-soft"), ("blue", "blue-soft")):
+        for foreground, background in pairs:
             low, high = sorted((luminance(tokens[foreground]), luminance(tokens[background])))
             assert (high + 0.05) / (low + 0.05) >= 4.5, (selector, foreground, background)
 
 
 def test_theme_and_local_font_cover_all_entry_pages_without_external_loading():
     for name in ("index.html", "auth-redirect.html"):
-        html = (STATIC_DIR / name).read_text()
+        html = _static(name)
         assert 'content="light dark"' in html
-        assert 'src="/theme.js?rev=tenon-arrival-1"' in html
+        assert 'src="/theme.js?rev=continuity-3"' in html
         assert html.index('/theme.js?') < html.index('/styles.css?')
         assert 'data-theme-switch' in html or 'data-theme-setting' in html
         assert 'href="/InterVariable.woff2"' in html
-    css = (STATIC_DIR / "styles.css").read_text()
+    css = _static("styles.css")
     assert '@font-face' in css and 'font-display: swap' in css
     assert 'url("/InterVariable.woff2")' in css
     assert '[data-theme="dark"]' in css
     assert '0 12px 32px #00000066, 0 2px 6px #00000033' in css
     assert 'https://' not in css
-    menu = css.split('.timeline-filter-menu {', 1)[1].split('}', 1)[0]
-    assert 'position: relative' in menu and '35dvh' in menu
-    assert 'SIL OPEN FONT LICENSE Version 1.1' in (STATIC_DIR / 'Inter-LICENSE.txt').read_text()
+    menu = _block(css, ".timeline-filter-menu")
+    assert 'position: absolute' in menu and 'dvh' in menu and 'overflow-y: auto' in menu
+    assert 'SIL OPEN FONT LICENSE Version 1.1' in _static('Inter-LICENSE.txt')
+    assert "prefers-reduced-motion: reduce" in css
+
+
+def test_static_assets_carry_one_current_cache_revision():
+    for name in ("index.html", "auth-redirect.html"):
+        html = _static(name)
+        references = re.findall(r'(?:src|href)="/([\w.-]+\.(?:js|css))(\?rev=[\w.-]+)?"', html)
+        assert references
+        for asset, revision in references:
+            assert revision, (name, asset)
+    index = _static("index.html")
+    revisions = set(re.findall(r'/(?:app|i18n|help|styles|theme)\.(?:js|css)\?rev=([\w.-]+)"', index))
+    assert revisions == {"continuity-3"}
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js unavailable for frontend logic tests")
@@ -237,22 +282,26 @@ def test_bilingual_rendering_preserves_user_content_and_immediate_loading():
 
 
 def test_updated_standard_uses_fixed_redirect_help_and_shared_dialog_layout():
-    html = (STATIC_DIR / "index.html").read_text()
-    javascript = (STATIC_DIR / "app.js").read_text()
-    css = (STATIC_DIR / "styles.css").read_text()
-    redirect = (STATIC_DIR / "auth-redirect.js").read_text()
-    help_script = (STATIC_DIR / "help.js").read_text()
+    html = _static("index.html")
+    javascript = _static("app.js")
+    css = _static("styles.css")
+    redirect = _static("auth-redirect.js")
+    help_script = _static("help.js")
     assert 'href="/auth/redirect"' in html
     assert 'class="heading-with-help"' in html
-    assert 'data-help="auth"' in html and 'data-help="token"' in html
-    assert 'gap: 6px' in css and 'border-radius: 12px' in css
+    assert 'data-help="auth"' in html and 'data-help="token"' in html and 'data-help="search"' in html
+    assert 'helpButton("decisions")' in javascript and 'helpButton("setup")' in javascript
+    assert 'gap: max(6px, 0.28em)' in _block(css, ".heading-with-help")
+    popover = _block(css, ".help-popover")
+    assert 'border-radius: 12px' in popover and 'box-shadow: var(--help-shadow)' in popover
     assert '0 12px 32px #00000016, 0 2px 6px #00000008' in css
     assert 'panel.showPopover()' in help_script and 'aria-describedby' in help_script
     assert 'rect.bottom < top + 16' in help_script
     assert 'Math.min(preferredTop, top + height - panel.offsetHeight - 16)' in help_script
     assert '--dialog-width:' in css and '--dialog-height:' in css
-    assert css.count('height: var(--dialog-height)') == 2
-    assert 'grid-template-rows: auto minmax(0, 1fr) auto' in css
+    shared = re.search(r"\.about-dialog,\s*\.token-dialog\s*\{([^}]+)", css).group(1)
+    assert "width: var(--dialog-width)" in shared and "height: var(--dialog-height)" in shared
+    assert 'grid-template-rows: auto minmax(0, 1fr) auto' in _block(css, ".dialog-layout")
     assert 'class="dialog-body"' in html
     assert 'data-language-select' in html and 'localizeWorkspace' in javascript
     assert '/api/v1/auth/tenon/prepare' in redirect
@@ -282,59 +331,104 @@ def test_about_does_not_invent_a_version_for_uninstalled_source(monkeypatch):
     assert product_version() == "Unavailable (unpackaged source)"
 
 
-def test_web_shell_exposes_continuation_first_navigation():
-    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
-
+def test_web_shell_opens_on_the_continuation_brief_with_search_palette():
+    html = _static("index.html")
+    javascript = _static("app.js")
+    markup = _MarkupTags(html)
     assert 'data-active-tab="overview"' in html
-    assert 'data-tab="overview"' in html
-    assert 'data-tab="search"' in html
-    assert 'id="search-trigger"' in html
-    assert "Continuation queue" in html
+    assert 'id="search-trigger"' in html and 'aria-haspopup="dialog"' in html
+    dialog = markup.by_id("search-dialog")
+    assert dialog[0] == "dialog" and dialog[1].get("aria-labelledby") == "search-dialog-title"
+    search_input = markup.by_id("search-input")[1]
+    assert search_input.get("role") == "combobox" and search_input.get("aria-controls") == "search-results"
+    assert markup.by_id("search-results")[1].get("role") == "listbox"
     assert "private archive" not in html
+    assert 'aria-activedescendant' in javascript
+    assert 'if (event.isComposing || event.keyCode === 229) return;' in javascript
+    assert 'event.key === "/" && !typing' in javascript
+    assert '(event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k"' in javascript
+    assert 'requestedTab === "search" || Boolean(q)' in javascript
 
 
 def test_web_client_loads_handoff_and_surfaces_checkpoint_contract():
-    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
-
+    javascript = _static("app.js")
     assert "/handoff" in javascript
     assert "function parseCheckpoint" in javascript
-    assert 'checkpointCell("boundary", t("Boundary")' in javascript
-    assert 'checkpointCell("next", t("Next")' in javascript
-    assert 'checkpointCell("blocker", t("Blocker")' in javascript
+    labels = javascript.split("function checkpointGrid", 1)[1].split("}", 1)[0]
+    for key, label in (("verified", "Verified"), ("boundary", "Boundary"), ("next", "Next"), ("blocker", "Blocker")):
+        assert f'{key}: t("{label}")' in labels
+    assert 'order = ["next", "blocker", "boundary", "verified"]' in javascript
     assert "event.metaKey || event.ctrlKey" in javascript
 
 
-def test_web_shell_uses_soft_cards_without_console_style_color_rails():
-    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
-    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
-    stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
+def test_detail_sheet_is_a_modal_dialog_with_back_stack_and_history():
+    html = _static("index.html")
+    javascript = _static("app.js")
+    css = _static("styles.css")
+    markup = _MarkupTags(html)
+    sheet = markup.by_id("drawer")[1]
+    assert sheet.get("role") == "dialog" and sheet.get("aria-modal") == "true"
+    assert sheet.get("aria-labelledby") == "drawer-title" and "inert" in sheet
+    assert {"drawer-back", "drawer-close", "drawer-title", "drawer-content"}.issubset({attributes.get("id") for _, attributes in markup.within("drawer")})
+    assert "async function sheetBack()" in javascript
+    assert 'mode === "push" && wasOpen' in javascript
+    assert "state._sheetPushed && window.history.state?.inthub === \"sheet\"" in javascript
+    assert 'window.addEventListener("popstate", () => applyRoute(readRoute()))' in javascript
+    assert 'if (event.key === "Escape") { event.preventDefault(); closeDrawer(); return; }' in javascript
+    assert "width: min(700px, calc(100vw - 16px))" in _block(css, ".sheet")
+    assert "transform: none" in _block(css, ".sheet.open")
 
-    assert "tenon-arrival-1" in html
+
+def test_web_shell_uses_soft_cards_without_console_style_color_rails():
+    javascript = _static("app.js")
+    stylesheet = _static("styles.css")
     assert "--shadow-card:" in stylesheet
     assert ".checkpoint-blocker.is-clear" in stylesheet
+    assert ".checkpoint-blocker.is-blocked" in stylesheet
     assert 'clearBlocker ? " is-clear"' in javascript
     assert "box-shadow: inset 3px 0 0" not in stylesheet
     assert "box-shadow: inset 0 -2px 0" not in stylesheet
-    assert "background: rgba(25, 28, 24, 0.97)" not in stylesheet
+    # Checkpoint cells share hairlines inside one card rather than nesting cards.
+    grid = _block(stylesheet, ".checkpoint-grid")
+    assert "gap: 1px" in grid and "background: var(--border)" in grid
+    assert "border-radius" not in _block(stylesheet, ".checkpoint")
 
 
 def test_continuation_brief_does_not_repeat_snap_context_footer():
-    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
-    stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
-
+    javascript = _static("app.js")
+    stylesheet = _static("styles.css")
     assert "brief-context" not in javascript
     assert "brief-context" not in stylesheet
     assert "Checkpoint constraint:" not in javascript
     assert '<strong>${esc(t("Constraints:"))}</strong>' in javascript
 
 
+def test_overview_offers_a_copyable_markdown_brief():
+    javascript = _static("app.js")
+    assert "data-copy-brief" in javascript
+    assert "function briefMarkdown()" in javascript
+    assert 'copyText(briefMarkdown(), t("Brief copied."))' in javascript
+
+
+def test_first_run_guide_matches_the_documented_install_and_offers_inline_token():
+    javascript = _static("app.js")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    install = re.search(r'const INSTALL_COMMAND = "([^"]+)";', javascript).group(1)
+    assert install in readme
+    guide = javascript.split("function renderSetupGuide", 1)[1].split("/* ---- Project selector", 1)[0]
+    assert '"itt init"' in guide and '"itt push"' in guide
+    assert "itt auth login --api-base-url" in guide and "data-create-token" in guide
+    assert 'data-copy="${esc(text)}"' in javascript.split("function commandSnippet", 1)[1].split("function detailSection", 1)[0]
+
+
 def test_web_shell_uses_monochrome_continuity_logo_and_explicit_account_icon():
-    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
-    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
-    stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
+    html = _static("index.html")
+    javascript = _static("app.js")
+    stylesheet = _static("styles.css")
 
     assert html.count('class="brand-mark"') == 3
-    assert html.count('src="/inthub-mark.svg?rev=3"') == 3
+    assert html.count('src="/inthub-mark.svg?rev=3"') == 4
+    assert 'class="auth-mark brand-mark"' in html
     assert "brand-mark-rail" not in html + stylesheet
     import xml.etree.ElementTree as ET
     mark = ET.parse(STATIC_DIR / "inthub-mark.svg").getroot()
@@ -354,8 +448,8 @@ def test_web_shell_uses_monochrome_continuity_logo_and_explicit_account_icon():
 
 
 def test_timeline_uses_concise_snap_titles_and_structured_event_rows():
-    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
-    stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
+    javascript = _static("app.js")
+    stylesheet = _static("styles.css")
 
     assert "function conciseSnapTitle" in javascript
     assert "function renderTimeline" in javascript
@@ -367,11 +461,12 @@ def test_timeline_uses_concise_snap_titles_and_structured_event_rows():
     assert "extractCheckpointParts(snap?.why)" in javascript
     assert ".timeline-events::before" in stylesheet
     assert ".detail-title-snap" in stylesheet
+    assert 'status.key === "blocked" ? stateBadge(status) : ""' in javascript
 
 
 def test_intents_are_grouped_by_lifecycle_with_collapsed_history():
-    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
-    stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
+    javascript = _static("app.js")
+    stylesheet = _static("styles.css")
 
     assert 'other.filter((intent) => intent.status === "suspend")' in javascript
     assert 'other.filter((intent) => intent.status === "done")' in javascript
@@ -379,13 +474,13 @@ def test_intents_are_grouped_by_lifecycle_with_collapsed_history():
     assert 'class="object-archive intent-archive"' in javascript
     assert "Active objectives" in javascript
     assert "Resolved history" in javascript
-    assert ".intent-entry" in stylesheet
+    assert ".list-row" in stylesheet
     assert ".object-archive" in stylesheet
 
 
 def test_decisions_surface_current_constraints_scope_and_deprecated_history():
-    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
-    stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
+    javascript = _static("app.js")
+    stylesheet = _static("styles.css")
 
     assert "function decisionScope" in javascript
     assert "function decisionConstraint" in javascript
@@ -393,16 +488,17 @@ def test_decisions_surface_current_constraints_scope_and_deprecated_history():
     assert "No Intent scope recorded" in javascript
     assert "Deprecated history" in javascript
     assert "Current cross-Intent constraint" in javascript
-    assert ".decision-constraint" in stylesheet
-    assert ".decision-detail-scope" in stylesheet
+    assert 'statusBadge(decision.status, "decision")' in javascript
+    assert ".decision-row" in stylesheet
+    assert ".decision-scope" in stylesheet
 
 
 def test_login_page_matches_the_continuity_workspace_and_keeps_one_auth_path():
-    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
-    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
-    stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
+    html = _static("index.html")
+    javascript = _static("app.js")
+    stylesheet = _static("styles.css")
 
-    auth = html.split('id="auth-gate"', 1)[1].split('<dialog class="about-dialog"', 1)[0]
+    auth = html.split('id="auth-gate"', 1)[1].split('<dialog class="search-dialog"', 1)[0]
     assert 'class="auth-introduction"' in auth
     assert '<h1 id="auth-title" class="heading-with-help">Sign in to IntHub' in auth
     assert "Continue with your project context intact." in auth
@@ -420,21 +516,21 @@ def test_login_page_matches_the_continuity_workspace_and_keeps_one_auth_path():
     assert "auth-trajectory" not in auth + stylesheet
     assert "auth-preview" not in auth + stylesheet
     assert "auth-assurances" not in auth + stylesheet
-    assert "No repository access is requested" in (STATIC_DIR / "help.js").read_text()
-    assert '.auth-stage {' in stylesheet and 'width: min(448px, 100%)' in stylesheet
+    assert "No repository access is requested" in _static("help.js")
+    assert '.auth-stage {' in stylesheet and 'width: min(400px, 100%)' in _block(stylesheet, ".auth-panel")
     assert 'align-items: safe center' in stylesheet
-    assert 'grid-template-columns: 22px minmax(0, 1fr)' in stylesheet
+    assert 'width: 100%' in _block(stylesheet, ".tenon-login")
     assert '.tenon-login.is-loading .tenon-login-spinner' in stylesheet
     assert 'setTenonLoginLoading(true)' in javascript
-    translations = (STATIC_DIR / "i18n.js").read_text()
+    translations = _static("i18n.js")
     assert '"Sign in to IntHub": "登录 IntHub"' in translations
     assert '"Continue with your project context intact.": "保留项目上下文，继续工作。"' in translations
 
 
 def test_tenon_login_has_immediate_loading_feedback_and_recovers_from_history():
-    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
-    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
-    stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
+    html = _static("index.html")
+    javascript = _static("app.js")
+    stylesheet = _static("styles.css")
 
     assert 'class="tenon-login-spinner"' in html
     assert 'aria-live="polite"' in html
@@ -448,10 +544,10 @@ def test_tenon_login_has_immediate_loading_feedback_and_recovers_from_history():
 
 
 def test_product_brand_and_about_follow_tenon_standard():
-    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
-    javascript = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
-    stylesheet = (STATIC_DIR / "styles.css").read_text(encoding="utf-8")
-    mark = (STATIC_DIR / "tenon-mark.svg").read_text(encoding="utf-8")
+    html = _static("index.html")
+    javascript = _static("app.js")
+    stylesheet = _static("styles.css")
+    mark = _static("tenon-mark.svg")
 
     assert html.count('class="product-publisher-mark"') == 3
     assert html.count('data-about-open') == 2
@@ -472,6 +568,6 @@ def test_product_brand_and_about_follow_tenon_standard():
     assert 'state.config?.productVersion || t("Unavailable")' in javascript
     assert 'el.aboutDialog.showModal()' in javascript
     assert 'el.aboutDialog.close()' in javascript
-    assert 'if (el.aboutDialog.open || el.tokenDialog.open) return' in javascript
+    assert 'if (el.aboutDialog.open || el.tokenDialog.open || el.searchDialog.open) return' in javascript
     assert 'fill="#f06b32"' in mark
     assert 'M13 16H51V28H38V48H26V28H13Z' in mark

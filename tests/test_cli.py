@@ -508,17 +508,17 @@ class TestHub:
         assert config["authMode"] == "none"
         html = urlopen(f"{inthub_web_server}/").read().decode("utf-8")
         assert "IntHub" in html
-        assert 'id="sidebar-body"' in html
+        assert 'id="detail-content"' in html and 'id="search-dialog"' in html
         deep_link = urlopen(f"{inthub_web_server}/projects/demo").read().decode("utf-8")
         assert "IntHub" in deep_link
         js = urlopen(f"{inthub_web_server}/app.js").read().decode("utf-8")
         assert "Raw JSON" in js
-        assert "Linked Decisions" in js
+        assert "Linked decisions" in js
         assert "Resolved history" in js
         assert "itt push" in js
         css = urlopen(f"{inthub_web_server}/styles.css").read().decode("utf-8")
-        assert ".badge.status-cancelled" in css
-        assert ".intent-entry-cancelled" in css
+        assert ".status-cancelled" in css
+        assert ".list-row" in css
 
 
 # ---------------------------------------------------------------------------

@@ -2,195 +2,163 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="color-scheme" content="light dark">
-    <meta name="theme-color" content="#f6f6f6">
+    <meta name="theme-color" content="#fafafa">
     <title>IntHub</title>
     <link rel="icon" type="image/svg+xml" href="/tenon-mark.svg">
     <link rel="preload" href="/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <script src="/theme.js?rev=tenon-arrival-1"></script>
-    <link rel="stylesheet" href="/styles.css?rev=workspace-header-3">
+    <script src="/theme.js?rev=continuity-3"></script>
+    <link rel="stylesheet" href="/styles.css?rev=continuity-3">
   </head>
   <body>
     <a class="skip-link" href="#detail-content">Skip to project content</a>
 
     <div class="shell" id="shell" data-active-tab="overview">
       <header class="app-header">
-        <div class="header-context">
-          <a class="brand" data-brand-link href="/" aria-label="IntHub, by Tenon, home">
-            <img class="brand-mark" src="/inthub-mark.svg?rev=3" alt="" width="32" height="32">
-            <span class="brand-wordmark">IntHub<img class="product-publisher-mark" src="/tenon-mark.svg" alt="" width="64" height="64"></span>
-          </a>
+        <div class="header-bar">
+          <div class="header-context">
+            <a class="brand" data-brand-link href="/" aria-label="IntHub, by Tenon, home">
+              <img class="brand-mark" src="/inthub-mark.svg?rev=3" alt="" width="32" height="32">
+              <span class="brand-wordmark">IntHub<img class="product-publisher-mark" src="/tenon-mark.svg" alt="" width="64" height="64"></span>
+            </a>
 
-          <span class="header-divider" aria-hidden="true"></span>
+            <span class="header-slash" aria-hidden="true"></span>
 
-          <div class="project-picker" id="project-picker">
-            <button class="project-picker-trigger" id="project-picker-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
-              <span class="project-picker-copy">
-                <span class="project-picker-eyebrow" id="project-picker-eyebrow">Project</span>
-                <span class="project-picker-label" id="project-picker-label">No projects yet</span>
-              </span>
-              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+            <div class="project-picker" id="project-picker">
+              <button class="project-picker-trigger" id="project-picker-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="project-picker-dropdown">
+                <span class="project-picker-copy">
+                  <span class="project-picker-eyebrow" id="project-picker-eyebrow">Project</span>
+                  <span class="project-picker-label" id="project-picker-label">No projects yet</span>
+                </span>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6.5 8 3.5-3.5L13.5 8M6.5 12l3.5 3.5 3.5-3.5"/></svg>
+              </button>
+              <div class="project-picker-dropdown" id="project-picker-dropdown" role="listbox" aria-label="Projects"></div>
+            </div>
+          </div>
+
+          <div class="header-actions">
+            <button class="command-trigger" id="search-trigger" type="button" aria-label="Search project" aria-haspopup="dialog">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="m13.2 13.2 3.8 3.8"/></svg>
+              <span class="command-trigger-label">Search…</span>
+              <kbd>⌘K</kbd>
             </button>
-            <div class="project-picker-dropdown" id="project-picker-dropdown" role="listbox"></div>
+
+            <nav class="header-resources" aria-label="Intent resources">
+              <a class="header-resource-link" data-product-link="skill" href="https://www.skills.sh/dozybot001/intent/intent-cli" target="_blank" rel="noopener noreferrer">Intent Skill</a>
+              <a class="header-resource-link" data-product-link="repository" href="https://github.com/dozybot001/Intent" target="_blank" rel="noopener noreferrer">Official repository<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3h8v8M13 3 3 13"/></svg></a>
+            </nav>
+
+            <div class="header-utilities">
+              <div class="sync-indicator is-unsynced" id="sync-indicator">
+                <span class="sync-dot" aria-hidden="true"></span>
+                <span id="sync-chip">Checking sync</span>
+              </div>
+
+              <div class="header-menu-control resources-control">
+                <button class="icon-button" id="resources-menu-trigger" data-resources-trigger type="button" aria-label="Intent resources" aria-expanded="false" aria-controls="resources-menu">
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h5.5L10 6l1.5-1.5H17v11h-5.5L10 17l-1.5-1.5H3zM10 6v11"/></svg>
+                </button>
+                <div class="header-menu resources-menu" id="resources-menu" role="group" aria-label="Intent resources" inert>
+                  <div class="menu-section menu-actions">
+                    <a class="menu-action" data-product-link="skill" href="https://www.skills.sh/dozybot001/intent/intent-cli" target="_blank" rel="noopener noreferrer">Intent Skill</a>
+                    <a class="menu-action" data-product-link="repository" href="https://github.com/dozybot001/Intent" target="_blank" rel="noopener noreferrer">Official repository</a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="header-menu-control settings-control">
+                <button class="icon-button" id="settings-menu-trigger" data-settings-trigger type="button" aria-label="Settings" aria-expanded="false" aria-controls="settings-menu">
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 2-.5 2-1.5.9-2-.6-2 3.4 1.5 1.4v1.8L2 12.3l2 3.4 2-.6 1.5.9.5 2h4l.5-2 1.5-.9 2 .6 2-3.4-1.5-1.4V9.1L18 7.7l-2-3.4-2 .6-1.5-.9-.5-2Z"/><circle cx="10" cy="10" r="2.5"/></svg>
+                </button>
+                <div class="header-menu settings-menu" id="settings-menu" data-settings-menu role="group" aria-label="Settings" inert>
+                  <section class="menu-section">
+                    <span class="menu-title">Appearance</span>
+                    <div class="segmented-control" role="group" aria-label="Appearance">
+                      <button data-theme-setting="system" type="button" aria-pressed="true">System</button>
+                      <button data-theme-setting="light" type="button" aria-pressed="false">Light</button>
+                      <button data-theme-setting="dark" type="button" aria-pressed="false">Dark</button>
+                    </div>
+                  </section>
+                  <section class="menu-section">
+                    <span class="menu-title">Language</span>
+                    <div class="segmented-control" role="group" aria-label="Language">
+                      <button data-language-select="zh-CN" type="button" aria-pressed="false">中文</button>
+                      <button data-language-select="en" type="button" aria-pressed="false">English</button>
+                    </div>
+                  </section>
+                  <div class="menu-section menu-actions">
+                    <button class="menu-action" id="refresh-btn" type="button">Refresh project data</button>
+                    <button class="menu-action" data-about-open type="button">About IntHub</button>
+                  </div>
+                </div>
+              </div>
+
+              <div id="account-control" class="account-control is-hidden">
+                <button id="account-menu-trigger" class="icon-button account-menu-trigger" type="button" aria-label="Account" aria-expanded="false" aria-controls="account-actions">
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="6.5" r="3"/><path d="M3.5 17v-1a6.5 6.5 0 0 1 13 0v1"/></svg>
+                </button>
+                <div id="account-actions" class="header-menu account-actions" role="group" aria-label="Account" inert>
+                  <div class="account-identity menu-section">
+                    <strong id="account-label" class="account-label">Account</strong>
+                    <span id="account-mode" class="account-mode">Private session</span>
+                  </div>
+                  <div class="menu-section menu-actions">
+                    <button id="token-btn" class="menu-action account-action" type="button">Access token</button>
+                    <a class="menu-action account-action" href="https://account.tenon.asia/account/">Account center</a>
+                    <button id="logout-btn" class="menu-action account-action" type="button">Sign out</button>
+                  </div>
+                  <div class="menu-section menu-actions">
+                    <button id="delete-account-btn" class="menu-action account-action account-action-danger" type="button">Delete account</button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <nav class="header-resources" aria-label="Intent resources">
-          <a class="header-resource-link" data-product-link="skill" href="https://www.skills.sh/dozybot001/intent/intent-cli" target="_blank" rel="noopener noreferrer">Intent Skill</a>
-          <a class="header-resource-link" data-product-link="repository" href="https://github.com/dozybot001/Intent" target="_blank" rel="noopener noreferrer">Official repository<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3h8v8M13 3 3 13"/></svg></a>
-        </nav>
-
-        <div class="header-actions">
-          <button class="command-trigger" id="search-trigger" type="button" aria-label="Search project">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
-            <span>Search</span>
-            <kbd>⌘K</kbd>
+        <nav class="tab-bar" id="tab-bar" aria-label="Project navigation">
+          <button class="tab is-active" data-tab="overview" type="button" aria-current="page">
+            <span>Overview</span>
           </button>
-
-          <div class="sync-indicator" id="sync-indicator">
-            <span class="sync-dot" aria-hidden="true"></span>
-            <span id="sync-chip">Checking sync</span>
-          </div>
-          <span class="is-hidden" id="api-chip"></span>
-
-          <div class="header-menu-control resources-control">
-            <button class="icon-button" id="resources-menu-trigger" data-resources-trigger type="button" aria-label="Intent resources" aria-expanded="false" aria-controls="resources-menu">
-              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h5.5L10 6l1.5-1.5H17v11h-5.5L10 17l-1.5-1.5H3zM10 6v11"/></svg>
-            </button>
-            <div class="header-menu resources-menu" id="resources-menu" role="group" aria-label="Intent resources" inert>
-              <div class="menu-section menu-actions">
-                <a class="menu-action" data-product-link="skill" href="https://www.skills.sh/dozybot001/intent/intent-cli" target="_blank" rel="noopener noreferrer">Intent Skill</a>
-                <a class="menu-action" data-product-link="repository" href="https://github.com/dozybot001/Intent" target="_blank" rel="noopener noreferrer">Official repository</a>
-              </div>
-            </div>
-          </div>
-
-          <div class="header-utilities">
-            <div class="header-menu-control settings-control">
-              <button class="icon-button" id="settings-menu-trigger" data-settings-trigger type="button" aria-label="Settings" aria-expanded="false" aria-controls="settings-menu">
-                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 2-.5 2-1.5.9-2-.6-2 3.4 1.5 1.4v1.8L2 12.3l2 3.4 2-.6 1.5.9.5 2h4l.5-2 1.5-.9 2 .6 2-3.4-1.5-1.4V9.1L18 7.7l-2-3.4-2 .6-1.5-.9-.5-2Z"/><circle cx="10" cy="10" r="2.5"/></svg>
-              </button>
-              <div class="header-menu settings-menu" id="settings-menu" data-settings-menu role="group" aria-label="Settings" inert>
-                <section class="menu-section">
-                  <span class="menu-title">Appearance</span>
-                  <div class="segmented-control" role="group" aria-label="Appearance">
-                    <button data-theme-setting="system" type="button" aria-pressed="true">System</button>
-                    <button data-theme-setting="light" type="button" aria-pressed="false">Light</button>
-                    <button data-theme-setting="dark" type="button" aria-pressed="false">Dark</button>
-                  </div>
-                </section>
-                <section class="menu-section">
-                  <span class="menu-title">Language</span>
-                  <div class="segmented-control" role="group" aria-label="Language">
-                    <button data-language-select="zh-CN" type="button" aria-pressed="false">中文</button>
-                    <button data-language-select="en" type="button" aria-pressed="false">English</button>
-                  </div>
-                </section>
-                <div class="menu-section menu-actions">
-                  <button class="menu-action" id="refresh-btn" type="button">Refresh project data</button>
-                  <button class="menu-action" data-about-open type="button">About IntHub</button>
-                </div>
-              </div>
-            </div>
-
-            <div id="account-control" class="account-control is-hidden">
-              <button id="account-menu-trigger" class="icon-button account-menu-trigger" type="button" aria-label="Account" aria-expanded="false" aria-controls="account-actions">
-                <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="6.5" r="3"/><path d="M3.5 17v-1a6.5 6.5 0 0 1 13 0v1"/></svg>
-              </button>
-              <div id="account-actions" class="header-menu account-actions" role="group" aria-label="Account" inert>
-                <div class="account-identity menu-section">
-                  <strong id="account-label" class="account-label">Account</strong>
-                  <span id="account-mode" class="account-mode">Private session</span>
-                </div>
-                <div class="menu-section menu-actions">
-                  <a class="menu-action account-action" href="https://account.tenon.asia/account/">Account center</a>
-                  <button id="token-btn" class="menu-action account-action" type="button">Access token</button>
-                  <button id="logout-btn" class="menu-action account-action account-action-muted" type="button">Sign out</button>
-                  <button id="delete-account-btn" class="menu-action account-action account-action-muted" type="button">Delete account</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+          <button class="tab" data-tab="intents" type="button">
+            <span>Intents</span>
+            <span class="tab-count" id="intent-count"></span>
+          </button>
+          <button class="tab" data-tab="snaps" type="button">
+            <span>Timeline</span>
+            <span class="tab-count" id="snap-count"></span>
+          </button>
+          <button class="tab" data-tab="decisions" type="button">
+            <span>Decisions</span>
+            <span class="tab-count" id="decision-count"></span>
+          </button>
+        </nav>
       </header>
 
-      <div class="main">
-        <nav class="primary-nav" aria-label="Project navigation">
-          <div class="nav-context">
-            <span class="nav-context-label" id="nav-context-label">Project memory</span>
-            <span class="nav-context-rule" aria-hidden="true"></span>
+      <main class="page" id="detail-pane">
+        <div class="page-content" id="detail-content" tabindex="-1">
+          <div class="page-skeleton" aria-label="Loading continuation brief">
+            <i></i><i></i><i></i>
           </div>
+        </div>
+      </main>
 
-          <div class="tab-bar primary-nav-list">
-            <button class="tab is-active" data-tab="overview" type="button">
-              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14v11H3z"/><path d="M6 8h8M6 11h5"/></svg>
-              <span>Overview</span>
-            </button>
-            <button class="tab" data-tab="intents" type="button">
-              <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="6.5"/><circle cx="10" cy="10" r="2"/></svg>
-              <span>Intents</span>
-              <span class="tab-count" id="intent-count"></span>
-            </button>
-            <button class="tab" data-tab="snaps" type="button">
-              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4.5h12M4 10h12M4 15.5h12"/><circle cx="7" cy="4.5" r="1.5"/><circle cx="13" cy="10" r="1.5"/><circle cx="9" cy="15.5" r="1.5"/></svg>
-              <span>Timeline</span>
-              <span class="tab-count" id="snap-count"></span>
-            </button>
-            <button class="tab" data-tab="decisions" type="button">
-              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4 10 4 4 8-8"/></svg>
-              <span>Decisions</span>
-              <span class="tab-count" id="decision-count"></span>
-            </button>
-            <button class="tab nav-search" data-tab="search" type="button">
-              <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
-              <span>Search</span>
-            </button>
-          </div>
-
-          <div class="nav-foot">
-            <span class="nav-foot-label">Continuity status</span>
-            <span class="nav-foot-value" id="nav-health">Waiting for project</span>
-          </div>
-        </nav>
-
-        <aside class="sidebar" id="sidebar" aria-label="Project index">
-          <header class="index-header">
-            <h1 class="index-title" id="sidebar-title">Continuation queue</h1>
-            <span class="index-kicker" id="sidebar-kicker">Current work</span>
-          </header>
-          <div class="sidebar-body" id="sidebar-body">
-            <div class="skeleton-list" aria-label="Loading project data">
-              <i></i><i></i><i></i>
-            </div>
-          </div>
-        </aside>
-
-        <main class="detail-pane" id="detail-pane">
-          <button class="back-btn" id="back-btn" type="button">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12.5 4.5-5.5 5.5 5.5 5.5"/></svg>
-            Back to list
+      <div class="sheet-overlay" id="drawer-overlay"></div>
+      <aside class="sheet" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" aria-hidden="true" tabindex="-1" inert>
+        <header class="sheet-header">
+          <button class="icon-button sheet-back is-hidden" id="drawer-back" type="button" aria-label="Back">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10H4m5-5-5 5 5 5"/></svg>
           </button>
-          <div class="detail-content" id="detail-content" tabindex="-1">
-            <div class="overview-skeleton" aria-label="Loading continuation brief">
-              <i></i><i></i><i></i><i></i>
-            </div>
-          </div>
-        </main>
-      </div>
-
-      <div class="drawer-overlay" id="drawer-overlay"></div>
-      <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Related object detail" aria-hidden="true" tabindex="-1" inert>
-        <div class="drawer-header">
-          <span>Related context</span>
-          <button class="drawer-close" id="drawer-close" type="button" aria-label="Close related detail">
+          <span class="sheet-title" id="drawer-title">Details</span>
+          <button class="icon-button sheet-close" id="drawer-close" type="button" aria-label="Close details">
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg>
           </button>
-        </div>
-        <div class="drawer-content" id="drawer-content"></div>
+        </header>
+        <div class="sheet-body" id="drawer-content"></div>
       </aside>
 
-      <div class="status-toast muted" id="status-line" role="status" aria-live="polite">Loading…</div>
+      <div class="status-toast" id="status-line" role="status" aria-live="polite"></div>
     </div>
 
     <div class="auth-gate is-hidden" id="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-title">
@@ -245,6 +213,7 @@
         <div class="auth-layout">
           <div class="auth-panel">
             <div class="auth-content">
+              <img class="auth-mark brand-mark" src="/inthub-mark.svg?rev=3" alt="" width="48" height="48">
               <div class="auth-introduction">
                 <h1 id="auth-title" class="heading-with-help">Sign in to IntHub<button class="help-trigger" data-help="auth" type="button" aria-label="Explanation" aria-expanded="false"><span aria-hidden="true">i</span></button></h1>
                 <p>Continue with your project context intact.</p>
@@ -260,8 +229,30 @@
             </div>
           </div>
         </div>
+
+        <footer class="auth-footer">
+          <span>Goals, checkpoints and decisions for agent-driven development.</span>
+        </footer>
       </section>
     </div>
+
+    <dialog class="search-dialog" id="search-dialog" aria-labelledby="search-dialog-title">
+      <div class="search-panel">
+        <header class="search-heading">
+          <h2 id="search-dialog-title" class="heading-with-help">Search project<button class="help-trigger" data-help="search" type="button" aria-label="Explanation" aria-expanded="false"><span aria-hidden="true">i</span></button></h2>
+          <kbd>Esc</kbd>
+        </header>
+        <form class="search-bar" id="search-form" role="search">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="m13.2 13.2 3.8 3.8"/></svg>
+          <input type="search" id="search-input" role="combobox" aria-expanded="true" aria-controls="search-results" aria-autocomplete="list" aria-label="Search project memory" placeholder="Goal, boundary, decision…" autocomplete="off" spellcheck="false">
+        </form>
+        <div class="search-results" id="search-results" role="listbox" aria-label="Search results"></div>
+        <footer class="search-footer">
+          <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+          <span><kbd>↵</kbd> Open</span>
+        </footer>
+      </div>
+    </dialog>
 
     <dialog class="about-dialog" id="about-dialog" aria-labelledby="about-title">
       <div class="about-card dialog-layout">
@@ -298,15 +289,15 @@
         <input id="token-output" type="text" readonly aria-label="New CLI token">
         </div>
         <div class="token-dialog-actions">
-          <button id="token-copy" type="button">Copy token</button>
-          <button id="token-close" value="close">Done</button>
+          <button id="token-copy" class="button button-secondary" type="button">Copy token</button>
+          <button id="token-close" class="button button-primary" value="close">Done</button>
         </div>
       </form>
     </dialog>
 
     <div id="help-popover" class="help-popover" role="tooltip" popover="manual" tabindex="0" hidden></div>
-    <script src="/i18n.js?rev=tenon-arrival-1" defer></script>
-    <script src="/help.js?rev=private-workspace-1" defer></script>
-    <script src="/app.js?rev=workspace-header-2" defer></script>
+    <script src="/i18n.js?rev=continuity-3" defer></script>
+    <script src="/help.js?rev=continuity-3" defer></script>
+    <script src="/app.js?rev=continuity-3" defer></script>
   </body>
 </html>
