@@ -8,8 +8,10 @@ function Install-IntentCli {
     # would turn harmless stderr output into errors on Windows PowerShell 5.1.
     $ErrorActionPreference = "Continue"
     $Repo = "https://github.com/dozybot001/Intent.git"
-    $ReleaseTag = if ($env:INTENT_VERSION) { $env:INTENT_VERSION } else { "v7.0.1" }
-    $Spec = "intent-cli @ git+$Repo@$ReleaseTag"
+    $ReleaseTag = if ($env:INTENT_VERSION) { $env:INTENT_VERSION } else { "v7.1.0" }
+    # Releases before 7.1.0 were published under the distribution name intent-cli.
+    $Dist = if ($ReleaseTag -match '^v([0-6]\.|7\.0\.)') { "intent-cli" } else { "intent-history" }
+    $Spec = "$Dist @ git+$Repo@$ReleaseTag"
     $Home_ = if ($env:INTENT_HOME) { $env:INTENT_HOME } else { Join-Path $env:LOCALAPPDATA "Intent" }
     $VenvDir = Join-Path $Home_ "venv"
 
@@ -27,6 +29,32 @@ function Install-IntentCli {
     }
     if (-not $py) { throw "Python 3.9+ not found. Install it from https://www.python.org/downloads/ (enable 'Add to PATH'), then retry." }
     Info "Python $(& $py -c 'import platform; print(platform.python_version())')"
+
+    # Intent 7.0 was installed as intent-cli. Remove that install (only one that
+    # provides `itt`) so a stale second `itt` cannot come back on a later upgrade.
+    if ($Dist -eq "intent-history") {
+        if (Test-Command "uv") {
+            $tool = $null; $legacy = $false
+            foreach ($line in @(& uv tool list 2>$null)) {
+                if ($line -match '^([^-\s]\S*)') { $tool = $Matches[1] }
+                elseif ($tool -eq "intent-cli" -and $line -match '^- itt(\.exe)?$') { $legacy = $true }
+            }
+            if ($legacy) {
+                Info "Removing the previous intent-cli installation (uv)..."
+                & uv tool uninstall intent-cli *> $null
+            }
+        }
+        if (Test-Command "pipx") {
+            try {
+                $old = ((& pipx list --json 2>$null) -join "`n" | ConvertFrom-Json).venvs.'intent-cli'
+                $apps = @($old.metadata.main_package.apps)
+                if ($old -and (($apps -contains "itt") -or ($apps -contains "itt.exe"))) {
+                    Info "Removing the previous intent-cli installation (pipx)..."
+                    & pipx uninstall intent-cli *> $null
+                }
+            } catch { }
+        }
+    }
 
     if (Test-Command "uv") {
         Info "Installing Intent $ReleaseTag with uv..."

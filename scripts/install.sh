@@ -6,8 +6,13 @@
 set -euo pipefail
 
 REPO="https://github.com/dozybot001/Intent.git"
-RELEASE_TAG="${INTENT_VERSION:-v7.0.1}"
-SPEC="intent-cli @ git+${REPO}@${RELEASE_TAG}"
+RELEASE_TAG="${INTENT_VERSION:-v7.1.0}"
+# Releases before 7.1.0 were published under the distribution name intent-cli.
+case "$RELEASE_TAG" in
+  v[0-6].*|v7.0.*) DIST="intent-cli" ;;
+  *) DIST="intent-history" ;;
+esac
+SPEC="${DIST} @ git+${REPO}@${RELEASE_TAG}"
 VENV_DIR="${INTENT_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/intent}/venv"
 BIN_DIR="${INTENT_BIN_DIR:-$HOME/.local/bin}"
 
@@ -29,15 +34,34 @@ done
   || die "Python 3.9+ not found. Install it (for example 'brew install python' or 'sudo apt install python3'), then retry."
 info "Python $("$PYTHON" -c 'import platform; print(platform.python_version())')"
 
-if command -v uv >/dev/null 2>&1; then
+HAVE_UV=0; HAVE_PIPX=0
+command -v uv >/dev/null 2>&1 && HAVE_UV=1
+if command -v pipx >/dev/null 2>&1 || "$PYTHON" -m pipx --version >/dev/null 2>&1; then HAVE_PIPX=1; fi
+pipx_cmd() { if command -v pipx >/dev/null 2>&1; then pipx "$@"; else "$PYTHON" -m pipx "$@"; fi; }
+
+# Intent 7.0 was installed as intent-cli. Remove that install (only one that
+# provides `itt`) so a stale second `itt` cannot come back on a later upgrade.
+if [ "$DIST" = "intent-history" ]; then
+  if [ "$HAVE_UV" = 1 ] && uv tool list 2>/dev/null \
+    | awk '/^[^- ]/ {tool=$1} tool=="intent-cli" && $1=="-" && $2=="itt" {found=1} END {exit !found}'; then
+    info "Removing the previous intent-cli installation (uv)..."
+    uv tool uninstall intent-cli >/dev/null 2>&1 || true
+  fi
+  if [ "$HAVE_PIPX" = 1 ] && pipx_cmd list --json 2>/dev/null | "$PYTHON" -c '
+import json, sys
+venv = json.load(sys.stdin).get("venvs", {}).get("intent-cli")
+sys.exit(0 if venv and "itt" in venv["metadata"]["main_package"]["apps"] else 1)' 2>/dev/null; then
+    info "Removing the previous intent-cli installation (pipx)..."
+    pipx_cmd uninstall intent-cli >/dev/null 2>&1 || true
+  fi
+fi
+
+if [ "$HAVE_UV" = 1 ]; then
   info "Installing Intent ${RELEASE_TAG} with uv..."
   uv tool install --force --python "$PYTHON" "$SPEC"
-elif command -v pipx >/dev/null 2>&1; then
+elif [ "$HAVE_PIPX" = 1 ]; then
   info "Installing Intent ${RELEASE_TAG} with pipx..."
-  pipx install --force --python "$PYTHON" "$SPEC"
-elif "$PYTHON" -m pipx --version >/dev/null 2>&1; then
-  info "Installing Intent ${RELEASE_TAG} with pipx..."
-  "$PYTHON" -m pipx install --force --python "$PYTHON" "$SPEC"
+  pipx_cmd install --force --python "$PYTHON" "$SPEC"
 else
   info "uv and pipx not found; installing Intent ${RELEASE_TAG} into ${VENV_DIR}..."
   "$PYTHON" -m venv --clear "$VENV_DIR" \
