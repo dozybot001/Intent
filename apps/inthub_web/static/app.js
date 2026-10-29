@@ -34,6 +34,7 @@ const el = {
   searchForm: document.getElementById("search-form"),
   searchInput: document.getElementById("search-input"),
   searchResults: document.getElementById("search-results"),
+  searchStatus: document.getElementById("search-status"),
   syncChip: document.getElementById("sync-chip"),
   syncIndicator: document.getElementById("sync-indicator"),
   tabBar: document.getElementById("tab-bar"),
@@ -100,7 +101,12 @@ function icon(name) {
 /* ---- Helpers ---- */
 
 function productDeletionDestination(result) {
-  const target = new URL(result?.url || "");
+  let target;
+  try {
+    target = new URL(result?.url || "");
+  } catch {
+    throw new Error(t("Tenon returned an invalid deletion destination."));
+  }
   if (target.origin !== "https://account.tenon.asia" || target.pathname !== "/account/delete/"
       || target.username || target.password || target.hash
       || [...target.searchParams].length !== 1 || !/^[A-Za-z0-9_-]{43}$/.test(target.searchParams.get("request") || "")
@@ -131,10 +137,11 @@ function relativeDate(v) {
   if (!v) return t("Never synced");
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return String(v);
-  const seconds = Math.round((d.getTime() - Date.now()) / 1000);
+  // Clock skew can put fresh server times slightly in the future.
+  const seconds = Math.min(0, Math.round((d.getTime() - Date.now()) / 1000));
   const abs = Math.abs(seconds);
   const formatter = new Intl.RelativeTimeFormat(window.IntHubI18n.language, { numeric: "auto" });
-  if (abs < 60) return formatter.format(seconds, "second");
+  if (abs < 60) return t("just now");
   if (abs < 3600) return formatter.format(Math.round(seconds / 60), "minute");
   if (abs < 86400) return formatter.format(Math.round(seconds / 3600), "hour");
   if (abs < 2592000) return formatter.format(Math.round(seconds / 86400), "day");
@@ -148,11 +155,10 @@ function shortDay(v) {
   if (d.toDateString() === today.toDateString()) {
     return new Intl.DateTimeFormat(window.IntHubI18n.language, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
   }
-  return new Intl.DateTimeFormat(window.IntHubI18n.language, {
-    month: "short",
-    day: "numeric",
-    year: d.getFullYear() === today.getFullYear() ? undefined : "numeric",
-  }).format(d);
+  // Earlier years use the compact numeric form so the date column never overflows.
+  return new Intl.DateTimeFormat(window.IntHubI18n.language, d.getFullYear() === today.getFullYear()
+    ? { month: "short", day: "numeric" }
+    : { year: "2-digit", month: "numeric", day: "numeric" }).format(d);
 }
 
 function plural(count, one, other, values = {}) {
@@ -236,8 +242,9 @@ function projectIdFromRemoteId(rId) {
   return String(rId || "").split("__", 1)[0] || "";
 }
 
+// Requests stay same-origin (CSP connect-src 'self'); apiBaseUrl is only for CLI snippets.
 function apiUrl(path) {
-  return `${state.config.apiBaseUrl}${path}`;
+  return path;
 }
 
 function configUrl() {
@@ -335,6 +342,13 @@ function showAuthGate(message = "") {
   closeHeaderMenus();
   closeDrawer({ history: "none" });
   if (el.searchDialog.open) el.searchDialog.close();
+  for (const view of ["projects", "project", "detail", "sheet", "search"]) beginViewRequest(view);
+  el.detailContent.innerHTML = "";
+  el.searchResults.innerHTML = "";
+  el.searchInput.value = "";
+  el.accountLabel.textContent = "";
+  state._searchResults = null;
+  state._detailCache = new Map();
   el.shell.inert = true;
   state._authMessage = window.IntHubI18n.keyFor(message);
   state.authenticated = false;
@@ -426,10 +440,12 @@ function writeRoute(mode = "replace", entry = "page") {
   if (mode === "none") return "none";
   const url = routeUrl();
   if (mode === "push" && window.history.pushState && url !== `${window.location.pathname}${window.location.search}`) {
-    window.history.pushState({ inthub: entry }, "", url);
+    window.history.pushState({ inthub: entry, sheetPushed: entry === "sheet" }, "", url);
     return "pushed";
   }
-  window.history.replaceState({ ...(window.history.state || {}), inthub: entry }, "", url);
+  const previous = window.history.state || {};
+  const sheetPushed = entry === "sheet" && previous.inthub === "sheet" && Boolean(previous.sheetPushed);
+  window.history.replaceState({ ...previous, inthub: entry, sheetPushed }, "", url);
   return "replaced";
 }
 
@@ -456,6 +472,15 @@ function setActiveTabUI() {
     if (btn.dataset.tab === state.activeTab) btn.setAttribute("aria-current", "page");
     else btn.removeAttribute("aria-current");
   }
+  revealActiveTab();
+}
+
+// Scroll only the tab strip (never the page) so narrow screens show the active tab.
+function revealActiveTab() {
+  const bar = el.tabBar;
+  const tab = bar.querySelector?.(".tab.is-active");
+  if (!tab || bar.scrollWidth <= bar.clientWidth) return;
+  bar.scrollLeft = Math.max(0, tab.offsetLeft - bar.offsetLeft - (bar.clientWidth - tab.offsetWidth) / 2);
 }
 
 function switchTab(tab, { history = "push" } = {}) {
@@ -655,12 +680,13 @@ function checkpointGrid(checkpoint, order = ["next", "blocker", "boundary", "ver
 
 /* ---- Shared render pieces ---- */
 
-function pageHeader({ eyebrow = "", title, titleHtml = "", meta = [], actions = "" }) {
+function pageHeader({ eyebrow = "", title, help = "", meta = [], actions = "" }) {
+  const heading = `<h1 class="page-title">${esc(title)}</h1>`;
   return `
     <header class="page-header">
       <div class="page-heading">
         ${eyebrow ? `<span class="eyebrow">${esc(eyebrow)}</span>` : ""}
-        <h1 class="page-title">${titleHtml || esc(title)}</h1>
+        ${help ? `<div class="heading-with-help">${heading}${helpButton(help)}</div>` : heading}
         ${meta.length ? `<p class="page-meta">${meta.map((item) => `<span>${item}</span>`).join("")}</p>` : ""}
       </div>
       ${actions ? `<div class="page-actions">${actions}</div>` : ""}
@@ -809,11 +835,12 @@ function pausedRow(intent) {
     </button>`;
 }
 
-function decisionRows(decisions) {
+function decisionRows(decisions, limit = 5) {
   if (!decisions.length) {
     return `<div class="inline-empty">${esc(t("N/A — no active Decision constrains future work."))}</div>`;
   }
   return `<div class="list-card">${decisions
+    .slice(0, limit)
     .map((decision, index) => `
       <button class="list-row decision-row" type="button" data-detail-type="decision" data-remote-id="${esc(decision.remote_id)}">
         <span class="decision-index">${String(index + 1).padStart(2, "0")}</span>
@@ -888,8 +915,8 @@ function renderProjectSummary() {
 
       <div class="overview-columns">
         <section class="section">
-          ${sectionHeader(t("Active decisions"), decisions.length)}
-          ${decisionRows(decisions)}
+          ${sectionHeader(t("Active decisions"), decisions.length, decisions.length > 5 ? `<button class="link-button" type="button" data-tab-jump="decisions">${esc(t("View all"))}${icon("arrow")}</button>` : "")}
+          ${decisionRows([...decisions].reverse())}
         </section>
         <section class="section">
           ${sectionHeader(t("Recent activity"), undefined, state.overview.recent_snaps?.length ? `<button class="link-button" type="button" data-tab-jump="snaps">${esc(t("View timeline"))}${icon("arrow")}</button>` : "")}
@@ -1165,7 +1192,7 @@ function renderSnapsTab() {
   const filter = `
     <div class="timeline-toolbar">
       <details class="timeline-filter">
-        <summary class="timeline-filter-trigger" aria-label="${esc(t("Filter timeline by Intent"))}"><span>${esc(selected ? truncate(selected.label, 44) : t("All Intents"))}</span>${icon("chevronDown")}</summary>
+        <summary class="timeline-filter-trigger" title="${esc(t("Filter timeline by Intent"))}"><span>${esc(selected ? truncate(selected.label, 44) : t("All Intents"))}</span>${icon("chevronDown")}</summary>
         <div class="timeline-filter-menu">${optionHtml("", t("All Intents"), allSnaps.length)}${options.map(option => optionHtml(option.key, option.label, option.count)).join("")}</div>
       </details>
     </div>`;
@@ -1207,9 +1234,10 @@ function renderDecisionsTab() {
   const active = [...(state.overview.active_decisions || [])].reverse();
   const deprecated = [...(state.overview.deprecated_decisions || [])].reverse();
   const header = pageHeader({
-    titleHtml: `<span class="heading-with-help">${esc(t("Decisions"))}${helpButton("decisions")}</span>`,
+    title: t("Decisions"),
+    help: "decisions",
     meta: active.length || deprecated.length
-      ? [esc(t("{count} active", {count: active.length})), esc(t("{count} deprecated", {count: deprecated.length}))]
+      ? [esc(t("{count} in effect", {count: active.length})), esc(t("{count} deprecated", {count: deprecated.length}))]
       : [],
   });
 
@@ -1338,7 +1366,7 @@ async function openDetail(type, rId, { mode = "reset", history = "auto" } = {}) 
   if (!wasOpen) openDrawer();
   syncSelected();
   const routed = writeRoute(history === "auto" ? (wasOpen ? "replace" : "push") : history, "sheet");
-  if (!wasOpen) state._sheetPushed = routed === "pushed";
+  if (!wasOpen) state._sheetPushed = routed === "pushed" || (routed === "none" && Boolean(window.history.state?.sheetPushed));
 
   const cacheKey = `${type}:${rId}`;
   const cached = state._detailCache?.get(cacheKey);
@@ -1554,7 +1582,8 @@ function renderSetupGuide(mode) {
     <div class="setup-page setup-guide">
       ${pageHeader({
         eyebrow: mode === "unlinked" ? t("Welcome") : projectName || t("Project"),
-        titleHtml: `<span class="heading-with-help">${esc(mode === "unlinked" ? t("Get started with IntHub") : t("Complete the first sync"))}${helpButton("setup")}</span>`,
+        title: mode === "unlinked" ? t("Get started with IntHub") : t("Complete the first sync"),
+        help: "setup",
         meta: [esc(t("Sync semantic history from the Intent CLI, then continue from the brief here."))],
       })}
       <ol class="setup-steps">
@@ -1684,6 +1713,7 @@ async function loadProject(projectId, { detail = null, history = "replace" } = {
   el.decisionCount.textContent = (overview.active_decisions?.length || 0) + (overview.deprecated_decisions?.length || 0) || "";
   el.snapCount.textContent = overview.total_snaps ?? overview.recent_snaps?.length ?? "";
   updateSyncChip();
+  revealActiveTab();
 
   if (!hasHistory()) {
     renderSetupGuide("unsynced");
@@ -1757,8 +1787,18 @@ function searchOptions() {
   return [...el.searchResults.querySelectorAll("[role=option]")];
 }
 
+function setSearchStatus(message = "", { visible = true, html = "" } = {}) {
+  el.searchStatus.innerHTML = html || esc(message);
+  el.searchStatus.classList.toggle("visually-hidden", !visible);
+}
+
+function searchGroup(key, label, optionsHtml) {
+  return `<div role="group" aria-labelledby="search-group-${key}"><div class="search-group-label" id="search-group-${key}" role="presentation">${esc(label)}</div>${optionsHtml}</div>`;
+}
+
 function setActiveSearchOption(index) {
   const options = searchOptions();
+  el.searchInput.setAttribute("aria-expanded", String(options.length > 0));
   if (!options.length) {
     el.searchInput.removeAttribute("aria-activedescendant");
     return;
@@ -1803,9 +1843,11 @@ function renderSearchSuggestions() {
       ${meta ? `<span class="search-result-meta">${esc(meta)}</span>` : ""}
       ${side ? `<span class="search-result-side">${esc(side)}</span>` : ""}
     </div>`;
+  const synced = Boolean(state.overview) && hasHistory();
   el.searchResults.innerHTML = `
-    ${active.length ? `<div class="search-group-label">${esc(t("Active work"))}</div>${active.map((intent) => option(`data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}"`, "intent", esc(intent.what), parseCheckpoint(intent.latest_snap).next ? `${t("Next")} · ${truncate(parseCheckpoint(intent.latest_snap).next, 90)}` : "", intent.id)).join("")}` : ""}
-    ${state.overview ? `<div class="search-group-label">${esc(t("Go to"))}</div>${tabs.map(([tab, label, iconName]) => option(`data-tab-jump="${tab}"`, iconName, esc(label))).join("")}` : `<div class="search-empty">${esc(t("Link a project to search its history."))}</div>`}`;
+    ${active.length ? searchGroup("active", t("Active work"), active.map((intent) => option(`data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}"`, "intent", esc(intent.what), parseCheckpoint(intent.latest_snap).next ? `${t("Next")} · ${truncate(parseCheckpoint(intent.latest_snap).next, 90)}` : "", intent.id)).join("")) : ""}
+    ${synced ? searchGroup("goto", t("Go to"), tabs.map(([tab, label, iconName]) => option(`data-tab-jump="${tab}"`, iconName, esc(label))).join("")) : ""}`;
+  setSearchStatus(synced ? "" : t("Link a project to search its history."), { visible: !synced });
   setActiveSearchOption(0);
 }
 
@@ -1815,8 +1857,9 @@ function renderSearchResults(result) {
   const matches = result.matches || [];
   const query = result.query || state.searchQuery;
   if (!matches.length) {
-    el.searchResults.innerHTML = `<div class="search-empty">${esc(t("No matches found."))}</div>`;
-    el.searchInput.removeAttribute("aria-activedescendant");
+    el.searchResults.innerHTML = "";
+    setSearchStatus(t("No matches found."));
+    setActiveSearchOption(0);
     return;
   }
   const groups = [
@@ -1829,7 +1872,7 @@ function renderSearchResults(result) {
     .map(([type, label]) => {
       const items = matches.filter((m) => m.object_type === type);
       if (!items.length) return "";
-      return `<div class="search-group-label">${esc(label)}</div>${items.map((m) => {
+      return searchGroup(type, label, items.map((m) => {
         const title = type === "snap" ? conciseSnapTitle(m) : m.what || m.title || m.id;
         const meta = type === "snap"
           ? intentForSnap(m)?.what || m.intent_id || ""
@@ -1841,10 +1884,23 @@ function renderSearchResults(result) {
             <span class="search-result-meta">${esc(meta)}</span>
             <span class="search-result-side">${esc(m.id)}</span>
           </div>`;
-      }).join("")}`;
+      }).join(""));
     })
     .join("");
+  setSearchStatus(plural(matches.length, "{count} result", "{count} results"), { visible: false });
   setActiveSearchOption(0);
+}
+
+async function submitSearch() {
+  const query = el.searchInput.value.trim();
+  window.clearTimeout(state._searchTimer);
+  const fresh = !query || (state._searchResults && state._searchResultQuery === query
+    && state._searchResultProject === state.currentProjectId && !state._searchBusy);
+  if (!fresh) {
+    await runSearch(query);
+    if (el.searchInput.value.trim() !== query) return;
+  }
+  activateSearchOption(el.searchResults.querySelector("[role=option].is-active"));
 }
 
 function scheduleSearch(delay = 180) {
@@ -1866,7 +1922,11 @@ async function runSearch(query, button = null) {
   state._searchBusy = true;
   if (button) setButtonBusy(button, true, "Searching…", "Retry");
   container.setAttribute("aria-busy", "true");
-  if (!container.querySelector("[data-detail-type]")) container.innerHTML = `<div class="search-empty loading">${esc(t("Searching…"))}</div>`;
+  if (!container.querySelector("[data-detail-type]")) {
+    container.innerHTML = "";
+    setSearchStatus(t("Searching…"));
+    setActiveSearchOption(0);
+  }
   const current = () => ownsViewRequest("search", request) && state.currentProjectId === projectId;
   try {
     const result = await fetchJson(apiUrl(`/api/v1/search?project_id=${encodeURIComponent(projectId)}&q=${encodeURIComponent(query)}`));
@@ -1877,7 +1937,9 @@ async function runSearch(query, button = null) {
   } catch (error) {
     if (!current()) return;
     state._searchResults = null;
-    container.innerHTML = `<div class="search-empty"><p>${esc(error.message)}</p><button class="secondary-btn" type="button" data-retry-search>${esc(t("Retry"))}</button></div>`;
+    container.innerHTML = "";
+    setActiveSearchOption(0);
+    setSearchStatus("", { html: `<p>${esc(error.message)}</p><button class="secondary-btn" type="button" data-retry-search>${esc(t("Retry"))}</button>` });
   } finally {
     if (current()) {
       state._searchBusy = false;
@@ -1975,12 +2037,10 @@ function localizeWorkspace() {
   try {
     for (const button of document.querySelectorAll("[data-idle-copy]")) if (button.dataset.idleCopy) button.textContent = t(button.disabled ? button.dataset.loadingCopy : button.dataset.idleCopy);
     localizeViewLoadingCopy();
-    if (state._projectPending && ownsViewRequest("project", state._projectPending)) {
-      el.detailContent.querySelector(".page-skeleton")?.setAttribute("aria-label", t("Loading continuation brief"));
-      return;
-    }
-    const pagePending = el.detailPane.getAttribute("aria-busy") === "true";
-    renderProjectSelector();
+    const projectPending = Boolean(state._projectPending && ownsViewRequest("project", state._projectPending));
+    el.detailContent.querySelector(".page-skeleton")?.setAttribute("aria-label", t("Loading continuation brief"));
+    const pagePending = projectPending || el.detailPane.getAttribute("aria-busy") === "true";
+    if (!projectPending) renderProjectSelector();
     if (!pagePending) {
       if (hasHistory()) renderView();
       else if (state.authenticated) renderSetupGuide(state.projects.length ? "unsynced" : "unlinked");
@@ -1996,11 +2056,10 @@ function localizeWorkspace() {
     for (const node of document.querySelectorAll("details")) if (expanded.includes(node.dataset.archive || node.className)) node.open = true;
     window.scrollTo?.(0, pageScroll);
     el.drawerContent.scrollTop = sheetScroll;
-    for (const node of document.querySelectorAll(".search-empty.loading")) node.textContent = t("Searching…");
     el.aboutVersion.textContent = t(state.config?.productVersion || "Unavailable");
     el.authError.textContent = t(state._authMessage || "");
     el.accountMode.textContent = t("Private session");
-    if (state._statusMessage) el.statusLine.textContent = t(state._statusMessage);
+    if (state._statusMessage && el.statusLine.classList.contains("is-visible")) el.statusLine.textContent = t(state._statusMessage);
     if (state.config) updateSyncChip();
     setTenonLoginLoading(el.tenonLogin.classList.contains("is-loading"));
   } finally { state._localizing = false; }
@@ -2038,7 +2097,9 @@ function bindEvents() {
   });
   document.addEventListener("focusin", event => {
     for (const menu of headerMenus()) if (!menu.panel.contains(event.target) && !menu.trigger.contains(event.target)) closeHeaderMenu(menu);
+    if (!el.projectPicker.contains(event.target)) toggleProjectPicker(false);
   });
+  window.setInterval?.(() => { if (state.config && state.overview) updateSyncChip(); }, 60000);
   document.addEventListener("keydown", event => {
     const openMenu = headerMenus().find(entry => entry.panel.classList.contains("is-open"));
     if (event.key === "Escape" && openMenu) {
@@ -2089,7 +2150,9 @@ function bindEvents() {
   });
 
   el.searchTrigger.addEventListener("click", () => openSearch());
-  el.searchInput.addEventListener("input", () => scheduleSearch());
+  // Pinyin and other IME compositions search once, when the text is committed.
+  el.searchInput.addEventListener("input", (event) => { if (!event.isComposing) scheduleSearch(); });
+  el.searchInput.addEventListener("compositionend", () => scheduleSearch());
   el.searchInput.addEventListener("keydown", (event) => {
     if (event.isComposing || event.keyCode === 229) return;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -2097,26 +2160,23 @@ function bindEvents() {
       setActiveSearchOption((state._searchActive || 0) + (event.key === "ArrowDown" ? 1 : -1));
     } else if (event.key === "Enter") {
       event.preventDefault();
-      const active = el.searchResults.querySelector("[role=option].is-active");
-      if (active) activateSearchOption(active);
-      else runSearch(el.searchInput.value.trim());
+      submitSearch();
     }
   });
   el.searchForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    const active = el.searchResults.querySelector("[role=option].is-active");
-    if (active) activateSearchOption(active);
-    else runSearch(el.searchInput.value.trim());
+    submitSearch();
+  });
+  document.getElementById("search-close")?.addEventListener("click", closeSearch);
+  el.searchStatus.addEventListener("click", (event) => {
+    const retry = event.target.closest("[data-retry-search]");
+    if (retry) runSearch(el.searchInput.value.trim(), retry);
   });
   el.searchResults.addEventListener("pointermove", (event) => {
     const option = event.target.closest("[role=option]");
     if (option && !option.classList.contains("is-active")) setActiveSearchOption(searchOptions().indexOf(option));
   });
   el.searchResults.addEventListener("click", (event) => {
-    if (event.target.closest("[data-retry-search]")) {
-      runSearch(el.searchInput.value.trim(), event.target.closest("[data-retry-search]"));
-      return;
-    }
     activateSearchOption(event.target.closest("[role=option]"));
   });
   el.searchDialog.addEventListener("click", (event) => {
@@ -2238,7 +2298,6 @@ function bindEvents() {
   el.refreshBtn.addEventListener("click", async () => {
     if (el.refreshBtn.disabled) return;
     setButtonBusy(el.refreshBtn, true, "Refreshing project data", "Refresh project data");
-    el.refreshBtn.setAttribute("aria-label", t("Refreshing project data"));
     try {
       await loadProjects({ ...readRoute(), detail: null });
       closeHeaderMenus(true);
@@ -2247,7 +2306,6 @@ function bindEvents() {
       setStatus(err.message, true);
     } finally {
       setButtonBusy(el.refreshBtn, false, "Refreshing project data", "Refresh project data");
-      el.refreshBtn.setAttribute("aria-label", t("Refresh project data"));
     }
   });
 
@@ -2310,21 +2368,21 @@ function bindEvents() {
       el.detailContent.querySelector(".timeline-filter-trigger")?.focus();
       return;
     }
-    if (e.target.closest("#load-more-snaps")) {
+    const loadMore = e.target.closest("#load-more-snaps, #load-more-intent-archive");
+    if (loadMore) {
+      const snaps = loadMore.id === "load-more-snaps";
+      const selector = snaps ? ".timeline-entry" : ".intent-archive .list-row";
+      const shown = el.detailContent.querySelectorAll(selector).length;
       state._pageState ||= {};
-      state._pageState.snaps = (state._pageState.snaps || PAGE_SIZE) + PAGE_SIZE;
+      if (snaps) state._pageState.snaps = (state._pageState.snaps || PAGE_SIZE) + PAGE_SIZE;
+      else {
+        state._pageState.intentArchive = (state._pageState.intentArchive || PAGE_SIZE) + PAGE_SIZE;
+        state._pageState.intentArchiveOpen = true;
+      }
       const scroll = window.scrollY;
       renderView();
       window.scrollTo?.(0, scroll);
-      return;
-    }
-    if (e.target.closest("#load-more-intent-archive")) {
-      state._pageState ||= {};
-      state._pageState.intentArchive = (state._pageState.intentArchive || PAGE_SIZE) + PAGE_SIZE;
-      state._pageState.intentArchiveOpen = true;
-      const scroll = window.scrollY;
-      renderView();
-      window.scrollTo?.(0, scroll);
+      el.detailContent.querySelectorAll(selector)[shown]?.focus({ preventScroll: true });
       return;
     }
     const card = e.target.closest("[data-detail-type][data-remote-id]");
@@ -2340,10 +2398,17 @@ function bindEvents() {
 
   el.drawerClose.addEventListener("click", () => closeDrawer());
   el.drawerBack.addEventListener("click", () => sheetBack().catch((error) => setStatus(error.message, true)));
-  el.drawerOverlay.addEventListener("click", () => closeDrawer());
+  el.drawerOverlay.addEventListener("click", (event) => { if (event.detail <= 1) closeDrawer(); });
+  // Clicking the backdrop must not pull focus out of the sheet.
+  el.drawerOverlay.addEventListener("mousedown", (event) => event.preventDefault());
 
   document.addEventListener("keydown", (event) => {
     if (el.aboutDialog.open || el.tokenDialog.open || el.searchDialog.open) return;
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k" && !el.shell.inert) {
+      event.preventDefault();
+      openSearch();
+      return;
+    }
     if (sheetIsOpen()) {
       if (event.key === "Escape") { event.preventDefault(); closeDrawer(); return; }
       if (event.key === "Tab") {
@@ -2377,7 +2442,7 @@ function bindEvents() {
       return;
     }
     const typing = event.target.matches?.("input, textarea, select, [contenteditable]");
-    if (((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") || (event.key === "/" && !typing && !event.metaKey && !event.ctrlKey && !event.altKey)) {
+    if (event.key === "/" && !typing && !event.metaKey && !event.ctrlKey && !event.altKey) {
       event.preventDefault();
       openSearch();
       return;
@@ -2394,8 +2459,13 @@ function bindEvents() {
 async function init(bind = true) {
   let authError = "";
   if (bind) bindEvents();
+  if (!/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || "")) {
+    for (const hint of document.querySelectorAll(".command-trigger kbd")) hint.textContent = "Ctrl K";
+  }
   try {
-    state.config = await fetch(configUrl()).then((r) => r.json());
+    const response = await fetch(configUrl(), { credentials: "same-origin", cache: "no-store" });
+    if (!response.ok) throw new ApiRequestError(t("Could not load data. Try again."), response.status, "CONFIG_UNAVAILABLE");
+    state.config = await response.json();
     authError = callbackErrorMessage();
     const route = readRoute();
     state.activeTab = route.tab;
@@ -2409,11 +2479,12 @@ async function init(bind = true) {
       showAuthGate(authError);
       return;
     }
-    setStatus(err.message, true);
+    const message = err instanceof ApiRequestError ? err.message : t("Could not load data. Try again.");
+    setStatus(message, true);
     el.detailContent.innerHTML = emptyState({
       iconName: "blocker",
       title: t("Failed to initialize."),
-      body: err.message,
+      body: message,
       extra: `<button type="button" class="secondary-btn" data-retry-init>${esc(t("Retry"))}</button>`,
     });
   }

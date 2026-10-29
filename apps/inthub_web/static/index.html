@@ -8,13 +8,12 @@
     <title>IntHub</title>
     <link rel="icon" type="image/svg+xml" href="/tenon-mark.svg">
     <link rel="preload" href="/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <script src="/theme.js?rev=continuity-3"></script>
-    <link rel="stylesheet" href="/styles.css?rev=continuity-3">
+    <script src="/theme.js?rev=continuity-4"></script>
+    <link rel="stylesheet" href="/styles.css?rev=continuity-4">
   </head>
   <body>
-    <a class="skip-link" href="#detail-content">Skip to project content</a>
-
     <div class="shell" id="shell" data-active-tab="overview">
+      <a class="skip-link" href="#detail-content">Skip to project content</a>
       <header class="app-header">
         <div class="header-bar">
           <div class="header-context">
@@ -215,7 +214,7 @@
             <div class="auth-content">
               <img class="auth-mark brand-mark" src="/inthub-mark.svg?rev=3" alt="" width="48" height="48">
               <div class="auth-introduction">
-                <h1 id="auth-title" class="heading-with-help">Sign in to IntHub<button class="help-trigger" data-help="auth" type="button" aria-label="Explanation" aria-expanded="false"><span aria-hidden="true">i</span></button></h1>
+                <div class="heading-with-help"><h1 id="auth-title">Sign in to IntHub</h1><button class="help-trigger" data-help="auth" type="button" aria-label="Explanation" aria-expanded="false"><span aria-hidden="true">i</span></button></div>
                 <p>Continue with your project context intact.</p>
               </div>
               <a class="tenon-login is-hidden" id="tenon-login" href="/auth/redirect">
@@ -239,14 +238,16 @@
     <dialog class="search-dialog" id="search-dialog" aria-labelledby="search-dialog-title">
       <div class="search-panel">
         <header class="search-heading">
-          <h2 id="search-dialog-title" class="heading-with-help">Search project<button class="help-trigger" data-help="search" type="button" aria-label="Explanation" aria-expanded="false"><span aria-hidden="true">i</span></button></h2>
-          <kbd>Esc</kbd>
+          <div class="heading-with-help"><h2 id="search-dialog-title">Search project</h2><button class="help-trigger" data-help="search" type="button" aria-label="Explanation" aria-expanded="false"><span aria-hidden="true">i</span></button></div>
+          <kbd class="search-esc">Esc</kbd>
+          <button class="search-close" id="search-close" type="button">Cancel</button>
         </header>
         <form class="search-bar" id="search-form" role="search">
           <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="m13.2 13.2 3.8 3.8"/></svg>
-          <input type="search" id="search-input" role="combobox" aria-expanded="true" aria-controls="search-results" aria-autocomplete="list" aria-label="Search project memory" placeholder="Goal, boundary, decision…" autocomplete="off" spellcheck="false">
+          <input type="search" id="search-input" role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list" aria-label="Search project memory" placeholder="Goal, boundary, decision…" autocomplete="off" spellcheck="false" autofocus>
         </form>
         <div class="search-results" id="search-results" role="listbox" aria-label="Search results"></div>
+        <div class="search-status" id="search-status" role="status" aria-live="polite"></div>
         <footer class="search-footer">
           <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
           <span><kbd>↵</kbd> Open</span>
@@ -283,10 +284,10 @@
 
     <dialog class="token-dialog" id="token-dialog" aria-labelledby="token-dialog-title">
       <form method="dialog" class="token-dialog-card dialog-layout">
-        <header class="dialog-heading"><h2 id="token-dialog-title" class="heading-with-help">New access token<button class="help-trigger" data-help="token" type="button" aria-label="Explanation" aria-expanded="false"><span aria-hidden="true">i</span></button></h2></header>
+        <header class="dialog-heading"><div class="heading-with-help"><h2 id="token-dialog-title">New access token</h2><button class="help-trigger" data-help="token" type="button" aria-label="Explanation" aria-expanded="false"><span aria-hidden="true">i</span></button></div></header>
         <div class="dialog-body">
         <p>This secret is shown once. Paste it into <code>itt auth login</code>; IntHub will not display it again.</p>
-        <input id="token-output" type="text" readonly aria-label="New CLI token">
+        <input id="token-output" type="text" readonly aria-label="New CLI token" autofocus>
         </div>
         <div class="token-dialog-actions">
           <button id="token-copy" class="button button-secondary" type="button">Copy token</button>
@@ -296,8 +297,8 @@
     </dialog>
 
     <div id="help-popover" class="help-popover" role="tooltip" popover="manual" tabindex="0" hidden></div>
-    <script src="/i18n.js?rev=continuity-3" defer></script>
-    <script src="/help.js?rev=continuity-3" defer></script>
-    <script src="/app.js?rev=continuity-3" defer></script>
+    <script src="/i18n.js?rev=continuity-4" defer></script>
+    <script src="/help.js?rev=continuity-4" defer></script>
+    <script src="/app.js?rev=continuity-4" defer></script>
   </body>
 </html>

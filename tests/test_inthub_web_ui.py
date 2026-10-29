@@ -247,7 +247,7 @@ def test_theme_and_local_font_cover_all_entry_pages_without_external_loading():
     for name in ("index.html", "auth-redirect.html"):
         html = _static(name)
         assert 'content="light dark"' in html
-        assert 'src="/theme.js?rev=continuity-3"' in html
+        assert re.search(r'src="/theme\.js\?rev=[\w.-]+"', html)
         assert html.index('/theme.js?') < html.index('/styles.css?')
         assert 'data-theme-switch' in html or 'data-theme-setting' in html
         assert 'href="/InterVariable.woff2"' in html
@@ -270,15 +270,19 @@ def test_static_assets_carry_one_current_cache_revision():
         assert references
         for asset, revision in references:
             assert revision, (name, asset)
+    # One revision per release for every asset that changes together.
     index = _static("index.html")
     revisions = set(re.findall(r'/(?:app|i18n|help|styles|theme)\.(?:js|css)\?rev=([\w.-]+)"', index))
-    assert revisions == {"continuity-3"}
+    assert len(revisions) == 1
+    redirect = _static("auth-redirect.html")
+    assert set(re.findall(r'/(?:i18n|styles|theme)\.(?:js|css)\?rev=([\w.-]+)"', redirect)) == revisions
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js unavailable for frontend logic tests")
 def test_bilingual_rendering_preserves_user_content_and_immediate_loading():
-    subprocess.run(["node", str(Path(__file__).with_name("inthub_web_logic.cjs"))], check=True, capture_output=True, text=True)
-    subprocess.run(["node", str(Path(__file__).with_name("inthub_theme_logic.cjs"))], check=True, capture_output=True, text=True)
+    for script in ("inthub_web_logic.cjs", "inthub_theme_logic.cjs"):
+        result = subprocess.run(["node", str(Path(__file__).with_name(script))], capture_output=True, text=True)
+        assert result.returncode == 0, f"{script} failed:\n{result.stdout}\n{result.stderr}"
 
 
 def test_updated_standard_uses_fixed_redirect_help_and_shared_dialog_layout():
@@ -290,7 +294,12 @@ def test_updated_standard_uses_fixed_redirect_help_and_shared_dialog_layout():
     assert 'href="/auth/redirect"' in html
     assert 'class="heading-with-help"' in html
     assert 'data-help="auth"' in html and 'data-help="token"' in html and 'data-help="search"' in html
-    assert 'helpButton("decisions")' in javascript and 'helpButton("setup")' in javascript
+    assert 'help: "decisions"' in javascript and 'help: "setup"' in javascript
+    # Help buttons sit beside headings so they never become part of the heading's name.
+    markup = _MarkupTags(html)
+    for heading in ("auth-title", "search-dialog-title", "token-dialog-title"):
+        assert not [tag for tag, attributes in markup.within(heading) if tag == "button"], heading
+    assert '${help ? `<div class="heading-with-help">${heading}${helpButton(help)}</div>` : heading}' in javascript
     assert 'gap: max(6px, 0.28em)' in _block(css, ".heading-with-help")
     popover = _block(css, ".help-popover")
     assert 'border-radius: 12px' in popover and 'box-shadow: var(--help-shadow)' in popover
@@ -500,7 +509,7 @@ def test_login_page_matches_the_continuity_workspace_and_keeps_one_auth_path():
 
     auth = html.split('id="auth-gate"', 1)[1].split('<dialog class="search-dialog"', 1)[0]
     assert 'class="auth-introduction"' in auth
-    assert '<h1 id="auth-title" class="heading-with-help">Sign in to IntHub' in auth
+    assert '<div class="heading-with-help"><h1 id="auth-title">Sign in to IntHub</h1>' in auth
     assert "Continue with your project context intact." in auth
     assert 'id="auth-settings-menu-trigger"' in auth
     assert 'data-theme-setting' in auth and 'data-language-select' in auth

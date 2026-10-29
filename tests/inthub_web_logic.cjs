@@ -90,6 +90,8 @@ vm.runInContext(`
   assert.equal(el.deleteAccountBtn.textContent, '正在打开账号管理…');
   setButtonBusy(el.deleteAccountBtn, false, 'Opening account management…', 'Delete account');
   assert.equal(t('About IntHub'), '关于 IntHub');
+  assert.equal(relativeDate(new Date(Date.now() + 90000).toISOString()), '刚刚');
+  assert.equal(t('Synced {time}', {time: relativeDate(new Date().toISOString())}), '刚刚同步');
   assert.equal(t('Load more ({count})', {count: 7}), '加载更多（7）');
   assert.equal(highlight('<b>Pay</b> pay', 'pay'), '&lt;b&gt;<mark>Pay</mark>&lt;/b&gt; <mark>pay</mark>');
   assert.equal(highlight('a & b', ''), 'a &amp; b');
@@ -384,7 +386,12 @@ async function headerMenuCases() {
     assert.equal(el.accountLabel.textContent,'Actual signed-in user');
     assert.equal(el.tokenBtn.classList.contains('is-hidden'),false);
     el.drawer.classList.add('open');
+    el.detailContent.innerHTML = 'private project brief';
+    el.searchResults.innerHTML = 'private search result';
     showAuthGate();
+    assert.equal(el.detailContent.innerHTML, '');
+    assert.equal(el.searchResults.innerHTML, '');
+    assert.equal(el.accountLabel.textContent, '');
     assert.equal(el.shell.inert,true);
     assert.equal(el.drawer.inert,true);
     assert.equal(el.drawer.classList.contains('open'),false);
@@ -484,7 +491,13 @@ async function viewControllerCases() {
     assert.ok(el.drawerContent.innerHTML.includes('data-retry-detail="sheet"'));
 
     routes.length = 0;
-    window.history.state = {inthub:'sheet'};
+    closeDrawer();
+    assert.equal(routes.join(), 'back');
+    // A sheet entry restored by Forward is still one this page pushed.
+    window.history.state = {inthub:'sheet', sheetPushed:true};
+    responses.set('/api/v1/snaps/p__snap-008', {promise:Promise.resolve({id:'snap-008', name:'forward'})});
+    await openDetail('snap','p__snap-008', {history:'none'});
+    routes.length = 0;
     closeDrawer();
     assert.equal(routes.join(), 'back');
     assert.equal(el.drawer.inert, true);
@@ -551,10 +564,25 @@ async function viewControllerCases() {
     assert.ok(searchMarkup.indexOf('intent-002') < searchMarkup.indexOf('decision-001'));
     assert.ok(searchMarkup.includes('<mark>Pay</mark> &lt;safely&gt;'));
     assert.ok(searchMarkup.includes('role="option"'));
+    assert.ok(searchMarkup.includes('role="group" aria-labelledby="search-group-intent"'));
+    assert.equal(el.searchStatus.innerHTML, '2 个结果');
+    assert.equal(el.searchStatus.classList.contains('visually-hidden'), true);
+    // Enter right after typing searches the typed text first instead of opening a stale highlight.
+    el.searchInput.value = 'button';
+    let opened = null;
+    const savedActivate = activateSearchOption;
+    activateSearchOption = option => {opened = option;};
+    responses.set('/api/v1/search?project_id=p&q=button', {promise:Promise.resolve({matches:[]})});
+    await submitSearch();
+    assert.equal(state._searchResultQuery, 'button');
+    assert.equal(opened, null);
+    activateSearchOption = savedActivate;
     responses.set('/api/v1/search?project_id=p&q=goal', {promise:Promise.reject(new Error('offline'))});
     await runSearch('goal');
     assert.equal(state._searchBusy, false);
-    assert.ok(el.searchResults.innerHTML.includes('data-retry-search'));
+    assert.ok(el.searchStatus.innerHTML.includes('data-retry-search'));
+    assert.equal(el.searchResults.innerHTML, '');
+    assert.equal(el.searchInput.getAttribute('aria-expanded'), 'false');
     el.searchDialog.open = false;
 
     state.activeTab = 'overview';
