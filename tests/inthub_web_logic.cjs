@@ -133,6 +133,35 @@ vm.runInContext(`
   assert.equal(continuationHealth([{latest_snap: {what: 'Verified: done. Boundary: UI only. Next: review. Blocker: waiting for access.'}}]).ready, false);
   assert.equal(continuationHealth([{latest_snap: {what: 'Verified: done. Boundary: UI only. Next: review. Blocker: waiting for access.'}}]).label, '1 个目标被阻塞');
 
+  const recordedSnap = {id:'snap-009', what:'Made publication atomic', why:'Consumers must not see partial releases. Next: prose that must be ignored.', created_at:'2026-10-05T00:00:00Z',
+    checkpoint: {verified:' Release suite passes ', boundary:'Publisher <only>', next:'Switch staging', blocker:'none', constraints:'Keep rollback'}};
+  const recorded = parseCheckpoint(recordedSnap);
+  assert.equal(recorded.verified, 'Release suite passes');
+  assert.equal(recorded.next, 'Switch staging');
+  assert.equal(recorded.constraints, 'Keep rollback');
+  assert.equal(recorded.context, recordedSnap.why);
+  assert.equal(conciseSnapTitle(recordedSnap), 'Made publication atomic');
+  assert.equal(conciseSnapTitle({what: 'Verified: legacy title. Next: step.'}), 'legacy title');
+  const partial = parseCheckpoint({what:'Shipped receipts', why:'Boundary: prose boundary. Blocker: prose blocker.', checkpoint:{next:'Port refunds'}});
+  assert.deepEqual([partial.verified, partial.boundary, partial.next, partial.blocker], ['Shipped receipts', '', 'Port refunds', '']);
+  for (const checkpoint of [null, [], 'Next: x', {}, {next: '  '}, {next: 7}]) {
+    assert.equal(parseCheckpoint({what:'Verified: legacy. Next: legacy step.', checkpoint}).next, 'legacy step');
+  }
+  const cells = {verified:'v', boundary:'b', next:'n', blocker:'none'};
+  assert.equal(continuationHealth([{latest_snap: {what:'w', checkpoint: cells}}]).ready, true);
+  assert.equal(continuationHealth([{latest_snap: {what:'w', checkpoint: {...cells, blocker:'waiting for access'}}}]).label, '1 个目标被阻塞');
+  assert.equal(continuationHealth([{latest_snap: {what:'Verified: prose.', why:'', checkpoint: {boundary:'b', next:'n', blocker:'none'}}}]).label, '1 个检查点待补充');
+  assert.equal(continuationHealth([{latest_snap: {what:'Verified: done. Boundary: UI only. Next: review. Blocker: none.', checkpoint: {}}}]).ready, true);
+  const recordedDetail = buildSnapDetailHtml({project_id: 'p', snap: recordedSnap, intent: {id:'intent-001', what:'Ship', status:'active'}});
+  const cellValue = (html, key) => html.split('checkpoint-' + key)[1].split('<p class="checkpoint-value">')[1].split('</p>')[0];
+  assert.equal(cellValue(recordedDetail, 'next'), 'Switch staging');
+  assert.equal(cellValue(recordedDetail, 'boundary'), 'Publisher &lt;only&gt;');
+  assert.equal(cellValue(recordedDetail, 'blocker'), 'none');
+  assert.ok(!recordedDetail.includes('Publisher <only>'));
+  assert.ok(recordedDetail.includes('Keep rollback'));
+  assert.ok(recordedDetail.includes('detail-title-snap" tabindex="-1">Made publication atomic</h2>'));
+  assert.ok(recordedDetail.includes(formatText(recordedSnap.why)));
+
   state.overview = {
     project: {id:'p', name:'Checkout <beta>'},
     history: {project_id:'p', revision:'b'.repeat(64), last_synced_at:'2026-10-04T00:00:00Z'},
@@ -141,7 +170,8 @@ vm.runInContext(`
   state.handoff = {
     intents: [{id:'intent-002', remote_id:'p__intent-002', project_id:'p', status:'active', what:'Ship <Apple Pay>', why:'Mobile users convert better.',
       latest_snap: {id:'snap-004', what:'Verified: sheet confirms payments. Boundary: web only. Next: run QA. Blocker: waiting for APM access. Constraints: never trust client totals.', why:'', created_at:'2026-10-04T00:00:00Z'}}],
-    suspended_intents: [{id:'intent-001', remote_id:'p__intent-001', project_id:'p', status:'suspend', what:'Port receipts', latest_snap: {id:'snap-001', what:'Next: port refund template.'}}],
+    suspended_intents: [{id:'intent-001', remote_id:'p__intent-001', project_id:'p', status:'suspend', what:'Port receipts', latest_snap: {id:'snap-001', what:'Next: port refund template.'}},
+      {id:'intent-003', remote_id:'p__intent-003', project_id:'p', status:'suspend', what:'Refund exports', latest_snap: {id:'snap-005', what:'Mapped refund rows', checkpoint: {next:'export CSV for finance'}}}],
     active_decisions: [{id:'decision-001', remote_id:'p__decision-001', what:'Use PaymentIntents only', why:'One SCA path.'}],
   };
   renderProjectSummary();
@@ -153,6 +183,7 @@ vm.runInContext(`
   assert.ok(brief.includes('health-pill is-warning'));
   assert.ok(brief.includes('data-detail-type="snap" data-remote-id="p__snap-004"'));
   assert.ok(brief.includes('Port receipts'));
+  assert.ok(brief.includes('<b>下一步</b> export CSV for finance'));
   assert.ok(brief.includes('Use PaymentIntents only'));
   const markdown = briefMarkdown();
   assert.ok(markdown.startsWith('# Checkout <beta> · 接续简报'));

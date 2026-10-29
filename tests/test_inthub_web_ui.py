@@ -7,6 +7,7 @@ import subprocess
 import pytest
 
 from apps.inthub_web import product_version
+from intent_cli import store
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -247,7 +248,7 @@ def test_theme_and_local_font_cover_all_entry_pages_without_external_loading():
     for name in ("index.html", "auth-redirect.html"):
         html = _static(name)
         assert 'content="light dark"' in html
-        assert 'src="/theme.js?rev=continuity-3"' in html
+        assert 'src="/theme.js?rev=checkpoint-4"' in html
         assert html.index('/theme.js?') < html.index('/styles.css?')
         assert 'data-theme-switch' in html or 'data-theme-setting' in html
         assert 'href="/InterVariable.woff2"' in html
@@ -272,7 +273,7 @@ def test_static_assets_carry_one_current_cache_revision():
             assert revision, (name, asset)
     index = _static("index.html")
     revisions = set(re.findall(r'/(?:app|i18n|help|styles|theme)\.(?:js|css)\?rev=([\w.-]+)"', index))
-    assert revisions == {"continuity-3"}
+    assert revisions == {"checkpoint-4"}
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js unavailable for frontend logic tests")
@@ -359,6 +360,17 @@ def test_web_client_loads_handoff_and_surfaces_checkpoint_contract():
         assert f'{key}: t("{label}")' in labels
     assert 'order = ["next", "blocker", "boundary", "verified"]' in javascript
     assert "event.metaKey || event.ctrlKey" in javascript
+
+
+def test_web_checkpoint_keys_match_the_stored_snap_contract():
+    javascript = _static("app.js")
+    keys = re.search(r"const CHECKPOINT_KEYS = \[([^\]]*)\];", javascript).group(1)
+    assert tuple(re.findall(r'"(\w+)"', keys)) == store.CHECKPOINT_FIELDS
+    # Display and continuation health must read one checkpoint source.
+    for function in ("parseCheckpoint", "continuationHealth", "conciseSnapTitle"):
+        body = javascript.split(f"function {function}(", 1)[1].split("\n}\n", 1)[0]
+        assert "snapCheckpointParts(" in body
+        assert "extractCheckpointParts(" not in body
 
 
 def test_detail_sheet_is_a_modal_dialog_with_back_stack_and_history():

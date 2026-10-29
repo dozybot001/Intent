@@ -126,6 +126,8 @@ def search_project(db_path, project_id, query, account_id=None):
     if q:
         for collection, objects in _snapshot(head).items():
             for obj in objects:
-                if q in f"{obj['what']} {obj['why']}".lower():
+                # Only Snaps carry the validated checkpoint contract.
+                checkpoint = obj.get("checkpoint", {}) if collection == "snaps" else {}
+                if q in " ".join((obj["what"], obj["why"], *checkpoint.values())).lower():
                     matches.append({**_entry(project_id, obj), "object_type": collection[:-1]})
     return {"project_id": project_id, "query": query, "matches": matches}

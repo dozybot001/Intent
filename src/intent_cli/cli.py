@@ -5,6 +5,7 @@ import sys
 
 from intent_cli.output import error
 from intent_cli.store import (
+    CHECKPOINT_FIELDS,
     InvalidObjectIdError,
     StorageSecurityError,
     StoredObjectIntegrityError,
@@ -258,6 +259,8 @@ def main():
     p.add_argument("--intent", default=None)
     p.add_argument("--why", default="")
     p.add_argument("--origin", default=None, metavar="LABEL")
+    for name in CHECKPOINT_FIELDS:
+        p.add_argument(f"--{name}", default=None, metavar="TEXT")
 
     # --- decision ---
     p_decision = sub.add_parser("decision")

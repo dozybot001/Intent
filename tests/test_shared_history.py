@@ -16,13 +16,32 @@ from apps.inthub_api.auth import upsert_github_account
 from apps.inthub_api.common import APIError
 from apps.inthub_api.db import connect
 from apps.inthub_api.history import link_history, push_history, read_history
-from apps.inthub_api.queries import project_overview, get_intent_detail, list_projects
+from apps.inthub_api.queries import (
+    get_intent_detail, list_projects, project_handoff, project_overview, search_project,
+)
 from apps.inthub_api.server import build_server
-from intent_cli.hub.snapshots import snapshot_sha256
+from intent_cli.hub.snapshots import snapshot_sha256, validate_snapshot
 from intent_cli.hub.versions import revision_id
 from intent_cli.commands import shared
 
 ROOT = Path(__file__).resolve().parents[1]
+CHECKPOINT = {
+    "verified": "release suite passes",
+    "boundary": "publisher only",
+    "next": "switch staging to the atomic publisher",
+    "blocker": "none",
+    "constraints": "keep the rollback path",
+}
+# Recorded before structured checkpoints existed; its identity must never drift.
+LEGACY_SNAPSHOT = {
+    "intents": [{"id": "intent-001", "object": "intent", "created_at": "2026-10-01T00:00:00+00:00",
+                 "what": "Legacy goal", "why": "Recorded before structured checkpoints", "origin": "pytest",
+                 "status": "active", "decision_ids": [], "snap_ids": ["snap-001"]}],
+    "snaps": [{"id": "snap-001", "object": "snap", "created_at": "2026-10-01T00:01:00+00:00",
+               "what": "Verified: ready. Boundary: test. Next: proceed. Blocker: none.", "why": "",
+               "intent_id": "intent-001", "origin": "pytest"}],
+    "decisions": [],
+}
 
 
 def run(directory, *args):
@@ -71,6 +90,16 @@ def bytes_of(directory):
             for path in (directory / ".intent").rglob("*.json")}
 
 
+def checkpoint_flags(checkpoint):
+    return [argument for key, value in checkpoint.items() for argument in (f"--{key}", value)]
+
+
+def push_snapshot(db, pushed, snapshot):
+    return push_history(db, {"project_name": "demo", "project_id": pushed["project_id"],
+                             "parent": pushed["revision"], "snapshot": snapshot,
+                             "revision": revision_id(pushed["revision"], snapshot)})
+
+
 def test_two_clients_share_project_without_git_or_workspaces(clients):
     source, target, db, _ = clients
     first = seed(source)
@@ -95,6 +124,76 @@ def test_two_clients_share_project_without_git_or_workspaces(clients):
     assert "workspaces" not in overview
     detail = get_intent_detail(db, first["project_id"] + "__intent-001")
     assert len(detail["snaps"]) == 2
+
+
+def test_structured_checkpoint_round_trips_between_clients_and_views(clients):
+    source, target, db, _ = clients
+    first = seed(source)
+    assert run(source, "snap", "create", "Made publication atomic", "--intent", "intent-001",
+               *checkpoint_flags(CHECKPOINT))["ok"]
+    pushed = run(source, "push")["result"]
+    assert pushed["parent"] == first["revision"]
+    assert run(target, "pull")["result"]["changed"]
+    assert bytes_of(target)[".intent/snaps/snap-002.json"] == bytes_of(source)[".intent/snaps/snap-002.json"]
+    assert "checkpoint" not in json.loads((target / ".intent/snaps/snap-001.json").read_text())
+    assert run(target, "inspect")["active_intents"][0]["checkpoint"] == CHECKPOINT
+    assert run(target, "push")["result"]["changed"] is False
+    handoff = project_handoff(db, pushed["project_id"])
+    assert handoff["intents"][0]["latest_snap"]["checkpoint"] == CHECKPOINT
+    matches = search_project(db, pushed["project_id"], "ATOMIC PUBLISHER")["matches"]
+    assert [match["id"] for match in matches] == ["snap-002"]
+
+
+def test_legacy_snapshot_without_checkpoint_keeps_its_identity():
+    snapshot = copy.deepcopy(LEGACY_SNAPSHOT)
+    assert validate_snapshot(snapshot) == LEGACY_SNAPSHOT
+    assert snapshot_sha256(snapshot) == "5230b01c16a78c1dd275195a773e128f24f0b8f7e609a5f62fe463003dd54061"
+    assert revision_id(None, snapshot) == "a1cb556bc55bf0ba14c4e1c1db7441c5a3329687ac30ff36d4aa5b1563bc666a"
+
+
+def test_server_keeps_checkpoints_write_once_and_well_formed(clients):
+    source, _, db, _ = clients
+    first = seed(source)
+    remote = read_history(db, "demo")["snapshot"]
+
+    migrated = copy.deepcopy(remote)
+    migrated["snaps"][0]["checkpoint"] = {"next": "proceed"}
+    with pytest.raises(APIError) as failure:
+        push_snapshot(db, first, migrated)
+    assert failure.value.code == "HISTORY_CONFLICT"
+
+    malformed = copy.deepcopy(remote)
+    malformed["snaps"].append({**remote["snaps"][0], "id": "snap-002", "checkpoint": {"Next": "case variant"}})
+    malformed["intents"][0]["snap_ids"].append("snap-002")
+    with pytest.raises(APIError) as failure:
+        push_snapshot(db, first, malformed)
+    assert failure.value.code == "INVALID_SNAPSHOT"
+
+    accepted = copy.deepcopy(malformed)
+    accepted["snaps"][1]["checkpoint"] = dict(CHECKPOINT)
+    second = push_snapshot(db, first, accepted)
+    rewritten = copy.deepcopy(accepted)
+    rewritten["snaps"][1]["checkpoint"]["blocker"] = "waiting for access"
+    with pytest.raises(APIError) as failure:
+        push_snapshot(db, second, rewritten)
+    assert failure.value.code == "HISTORY_CONFLICT"
+    assert read_history(db, "demo")["revision"] == second["revision"]
+
+
+def test_client_rejects_remote_snapshot_with_malformed_checkpoint(clients, monkeypatch, capsys):
+    source, _, db, url = clients
+    seed(source)
+    before = bytes_of(source)
+    remote = copy.deepcopy(read_history(db, "demo"))
+    remote["snapshot"]["snaps"][0]["checkpoint"] = {"next": ""}
+    remote["snapshot_sha256"] = snapshot_sha256(remote["snapshot"])
+    remote["revision"] = revision_id(remote["parent"], remote["snapshot"])
+    monkeypatch.chdir(source)
+    monkeypatch.setattr(shared, "http_json", lambda *a, **k: remote)
+    with pytest.raises(SystemExit):
+        shared.cmd_pull(SimpleNamespace(project=None, api_base_url=url, token=None, dry_run=False))
+    assert json.loads(capsys.readouterr().out)["error"]["code"] == "INVALID_REMOTE_SNAPSHOT"
+    assert bytes_of(source) == before
 
 
 def test_noop_preview_empty_and_offline_do_not_create_remote_history(clients):

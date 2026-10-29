@@ -7,6 +7,8 @@ from intent_cli.commands.common import now_utc, require_init, workspace_mutation
 from intent_cli.output import error, success
 from intent_cli.origin import detect_origin
 from intent_cli.store import (
+    CHECKPOINT_FIELDS,
+    CHECKPOINT_FIELD_MAX_CHARS,
     VALID_STATUSES,
     create_object,
     ensure_local_git_exclude,
@@ -107,6 +109,7 @@ def cmd_inspect(args):
             "why": obj.get("why", ""),
             "snap_count": len(snap_ids),
             "has_more": len(snap_ids) > history_limit,
+            "checkpoint": latest_snap.get("checkpoint") if latest_snap else None,
             "latest_snap": latest_snap,
         }
         if args.history is not None:
@@ -381,9 +384,36 @@ def cmd_intent_cancel(args):
     success("intent.cancel", _intent_result_for_json(obj), warnings)
 
 
+def _checkpoint_from_args(args):
+    """Return the optional structured checkpoint, or exit before any write."""
+    checkpoint = {}
+    for name in CHECKPOINT_FIELDS:
+        value = getattr(args, name, None)
+        if value is None:
+            continue
+        value = value.strip()
+        if not value:
+            error(
+                "INVALID_INPUT",
+                f"--{name} must not be blank.",
+                details={"field": name},
+                suggested_fix="Omit the flag when that cell is unknown; use --blocker none when nothing blocks.",
+            )
+        if len(value) > CHECKPOINT_FIELD_MAX_CHARS:
+            error(
+                "INVALID_INPUT",
+                f"--{name} exceeds {CHECKPOINT_FIELD_MAX_CHARS} characters.",
+                details={"field": name, "length": len(value), "limit": CHECKPOINT_FIELD_MAX_CHARS},
+                suggested_fix="Keep the checkpoint cell concise and move supporting detail into --why.",
+            )
+        checkpoint[name] = value
+    return checkpoint
+
+
 @workspace_mutation
 def cmd_snap_create(args):
     base = require_init()
+    checkpoint = _checkpoint_from_args(args)
     if args.intent:
         intent_id = args.intent
         inferred = False
@@ -434,6 +464,9 @@ def cmd_snap_create(args):
         "intent_id": intent_id,
         "origin": origin,
     }
+    # Omitted rather than empty, so Snaps without a checkpoint keep the legacy shape.
+    if checkpoint:
+        snap["checkpoint"] = checkpoint
     create_object(base, "snap", obj_id, snap)
 
     intent.setdefault("snap_ids", []).append(obj_id)
