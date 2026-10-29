@@ -43,7 +43,7 @@ itt maintenance close failed --turn TOKEN --reason REASON
 - **Snap：**仅一个 Intent 内只追加的已验证里程碑、结论、纠正或检查点。可独立验证/取代的结论拆开，同一结论的证据合并，跨 Intent 分别写 Snap。跳过日常日志，纠正追加后续 Snap。
 - **Decision：**未来处理不同问题的 Intent 仍须遵守的稀缺规则。用户明确的持久规则已确认；推断的实现选择保留在局部或省略。必要澄清整个流程最多一次简短批量询问，不逐候选打断。
 
-Intent `what` 命名目标，`why` 解释动机；Snap 字段保留已验证变化及推理。变化且仍开放或即将暂停的 Intent，最新 Snap 应独立回答 **Verified / Boundary / Next / Blocker / Constraints**，没有 blocker 写 `none`。未变化且准确的检查点不重写。
+Intent `what` 命名目标，`why` 解释动机；Snap 字段保留已验证变化及推理。变化且仍开放或即将暂停的 Intent，最新 Snap 应通过 `--verified`、`--boundary`、`--next`、`--blocker`（没有 blocker 写 `none`）和 `--constraints` 独立回答 **Verified / Boundary / Next / Blocker / Constraints**，不把标签写进 `what`/`why`；inspect 以条目的 `checkpoint` 返回这些格（旧 Snap 仍写在正文中）。未变化且准确的检查点不重写。
 
 一轮问答结束不代表 Intent 结束。验证目标解决且保留完成证据/延期边界才 done；主动放弃带原因 cancel；真正暂停先保存检查点再 suspend。
 

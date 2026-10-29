@@ -7,6 +7,7 @@ import subprocess
 import pytest
 
 from apps.inthub_web import product_version
+from intent_cli import store
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -368,6 +369,17 @@ def test_web_client_loads_handoff_and_surfaces_checkpoint_contract():
         assert f'{key}: t("{label}")' in labels
     assert 'order = ["next", "blocker", "boundary", "verified"]' in javascript
     assert "event.metaKey || event.ctrlKey" in javascript
+
+
+def test_web_checkpoint_keys_match_the_stored_snap_contract():
+    javascript = _static("app.js")
+    keys = re.search(r"const CHECKPOINT_KEYS = \[([^\]]*)\];", javascript).group(1)
+    assert tuple(re.findall(r'"(\w+)"', keys)) == store.CHECKPOINT_FIELDS
+    # Display and continuation health must read one checkpoint source.
+    for function in ("parseCheckpoint", "continuationHealth", "conciseSnapTitle"):
+        body = javascript.split(f"function {function}(", 1)[1].split("\n}\n", 1)[0]
+        assert "snapCheckpointParts(" in body
+        assert "extractCheckpointParts(" not in body
 
 
 def test_detail_sheet_is_a_modal_dialog_with_back_stack_and_history():

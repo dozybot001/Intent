@@ -196,6 +196,42 @@ RELATION_FIELDS = {
     "snap": {},
     "decision": {"intent_ids": "intent"},
 }
+# Optional structured continuation checkpoint on a Snap. Keys are exact and
+# lowercase so every reader shows the same cells; an absent key means the
+# author did not record that cell.
+CHECKPOINT_FIELDS = ("verified", "boundary", "next", "blocker", "constraints")
+CHECKPOINT_FIELD_MAX_CHARS = 2000
+
+
+def _validate_checkpoint(checkpoint, path):
+    """Validate the optional Snap checkpoint display contract."""
+    if not isinstance(checkpoint, dict) or not checkpoint:
+        raise StoredObjectSchemaError(
+            path,
+            "field 'checkpoint' must be a non-empty object",
+            field="checkpoint",
+        )
+    for key, value in checkpoint.items():
+        if key not in CHECKPOINT_FIELDS:
+            raise StoredObjectSchemaError(
+                path,
+                f"field 'checkpoint' has unsupported key {key!r}; "
+                f"allowed keys: {', '.join(CHECKPOINT_FIELDS)}",
+                field="checkpoint",
+            )
+        if not isinstance(value, str) or not value.strip():
+            raise StoredObjectSchemaError(
+                path,
+                f"field 'checkpoint.{key}' must be a non-blank string",
+                field=f"checkpoint.{key}",
+            )
+        if len(value) > CHECKPOINT_FIELD_MAX_CHARS:
+            raise StoredObjectSchemaError(
+                path,
+                f"field 'checkpoint.{key}' exceeds "
+                f"{CHECKPOINT_FIELD_MAX_CHARS} characters",
+                field=f"checkpoint.{key}",
+            )
 
 
 def _validate_object_schema(
@@ -266,6 +302,8 @@ def _validate_object_schema(
                 "field 'intent_id' is not a valid intent ID",
                 field="intent_id",
             ) from exc
+        if "checkpoint" in obj:
+            _validate_checkpoint(obj["checkpoint"], path)
 
     return obj
 

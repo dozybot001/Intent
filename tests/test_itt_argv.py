@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import os
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -62,6 +63,44 @@ def test_runner_passes_data_as_argv_without_shell_evaluation(tmp_path):
         "create",
         semantic_text,
     ]
+    assert not marker.exists()
+
+
+def test_runner_transports_checkpoint_flags_to_the_real_cli(tmp_path):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    real_itt = bin_dir / "itt"
+    real_itt.write_text(f'#!/bin/sh\nexec {shlex.quote(sys.executable)} -m intent_cli "$@"\n', encoding="utf-8")
+    real_itt.chmod(0o755)
+    project = tmp_path / "project"
+    project.mkdir()
+    marker = tmp_path / "must-not-exist"
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
+    env["PYTHONPATH"] = os.pathsep.join((str(REPO_ROOT / "src"), str(REPO_ROOT)))
+    checkpoint = {
+        "verified": f"literal $(touch {marker}) and 'quotes'",
+        "next": "换行\n与 $HOME 保持为数据",
+        "blocker": "none; `rm -rf ~` stays text",
+    }
+
+    def run(argv):
+        result = subprocess.run(
+            [sys.executable, str(RUNNER_PATH), _encode(argv)],
+            capture_output=True, text=True, env=env, cwd=project,
+        )
+        return json.loads(result.stdout)
+
+    assert run(["init"])["ok"]
+    assert run(["intent", "create", "Goal"])["ok"]
+    created = run([
+        "snap", "create", "Milestone", "--intent", "intent-001",
+        *[argument for key, value in checkpoint.items() for argument in (f"--{key}", value)],
+    ])
+
+    assert created["result"]["checkpoint"] == checkpoint
+    stored = json.loads((project / ".intent" / "snaps" / "snap-001.json").read_text(encoding="utf-8"))
+    assert stored["checkpoint"] == checkpoint
     assert not marker.exists()
 
 

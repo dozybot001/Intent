@@ -101,6 +101,51 @@ def test_valid_object_round_trip_stays_in_type_directory(storage, object_type):
     assert (storage / store.SUBDIRS[object_type] / f"{obj_id}.json").is_file()
 
 
+def test_snap_checkpoint_round_trips_at_its_size_limit(storage):
+    obj = _object("snap", "snap-001")
+    obj["checkpoint"] = {
+        "verified": "界" * store.CHECKPOINT_FIELD_MAX_CHARS,
+        "blocker": "none",
+    }
+
+    store.create_object(storage, "snap", "snap-001", obj)
+
+    assert store.read_object(storage, "snap", "snap-001") == obj
+
+
+@pytest.mark.parametrize(
+    ("checkpoint", "field"),
+    [
+        (None, "checkpoint"),
+        ([], "checkpoint"),
+        ("Next: prose", "checkpoint"),
+        ({}, "checkpoint"),
+        ({"Next": "case variant"}, "checkpoint"),
+        ({"next": "ok", "risk": "unknown key"}, "checkpoint"),
+        ({"next": 1}, "checkpoint.next"),
+        ({"blocker": None}, "checkpoint.blocker"),
+        ({"boundary": "  \n "}, "checkpoint.boundary"),
+        ({"verified": "x" * (store.CHECKPOINT_FIELD_MAX_CHARS + 1)}, "checkpoint.verified"),
+    ],
+)
+def test_malformed_snap_checkpoint_is_rejected_on_write_and_read(storage, checkpoint, field):
+    obj = _object("snap", "snap-001")
+    obj["checkpoint"] = checkpoint
+    path = storage / "snaps" / "snap-001.json"
+
+    with pytest.raises(store.StoredObjectSchemaError) as created:
+        store.create_object(storage, "snap", "snap-001", obj)
+    assert created.value.field == field
+    assert not path.exists()
+
+    _write_json(path, obj)
+    with pytest.raises(store.StoredObjectSchemaError) as read:
+        store.read_object(storage, "snap", "snap-001")
+    assert read.value.field == field
+    issues = store.load_graph_once(storage, tolerant=True)["load_issues"]
+    assert [(issue["code"], issue["field"]) for issue in issues] == [("OBJECT_SCHEMA_ERROR", field)]
+
+
 def test_read_and_write_reject_out_of_boundary_ids_before_io(storage, tmp_path):
     victim = tmp_path / "victim.json"
     original = json.dumps(_object("intent", "intent-001"))

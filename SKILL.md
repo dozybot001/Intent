@@ -45,7 +45,7 @@ Routine success and no-op stay silent. Briefly disclose unresolved/partial recor
 - **Snap:** one append-only verified milestone, conclusion, correction, or checkpoint within one Intent. Split independently verifiable/supersedable conclusions; combine evidence for the same conclusion. Cross-Intent work needs separate Snaps. Skip routine logs; correct with a later Snap.
 - **Decision:** a rare rule binding future Intents on different problems. Explicit durable user rules are confirmed; inferred implementation choices stay local or omitted. Essential clarification is at most one short batch per workflow, not an interruption per candidate.
 
-Intent `what` names the goal, `why` its motivation. Snap fields preserve the verified change and reasoning. A changed open or paused Intent's latest Snap must independently answer **Verified / Boundary / Next / Blocker / Constraints** (blocker `none` when absent). An unchanged accurate checkpoint needs no rewrite.
+Intent `what` names the goal, `why` its motivation. Snap fields preserve the verified change and reasoning. A changed open or paused Intent's latest Snap must independently answer **Verified / Boundary / Next / Blocker / Constraints** with `--verified`, `--boundary`, `--next`, `--blocker` (`none` when absent) and `--constraints`, not labels in `what`/`why`; inspect returns them as each entry's `checkpoint` (older Snaps keep them as text). An unchanged accurate checkpoint needs no rewrite.
 
 A query ending does not end the Intent. Mark done only after verified resolution and recorded completion/deferred boundaries; cancel deliberate abandonment with a reason; suspend a real pause after its checkpoint.
 

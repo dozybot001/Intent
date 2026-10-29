@@ -375,6 +375,24 @@ def test_entry_context_is_bounded_and_clipping_is_explicit(project):
     assert "Inspect the selected Intent" in output
 
 
+def test_entry_context_carries_bounded_latest_checkpoint(project):
+    root, base = project
+    intent(base)
+    snap = {"id": "snap-001", "object": "snap", "created_at": datetime.now(timezone.utc).isoformat(),
+            "what": "Verified milestone", "why": "", "origin": "pytest", "intent_id": "intent-001",
+            "checkpoint": {"next": "review the publisher", "constraints": "c" * 900}}
+    with store.workspace_write_lock(base):
+        store.create_object(base, "snap", "snap-001", snap)
+        linked = store.read_object(base, "intent", "intent-001")
+        linked["snap_ids"].append("snap-001")
+        store.update_object(base, "intent", "intent-001", linked)
+    output = handle_event(event(root), root)["hookSpecificOutput"]["additionalContext"]
+    records = json.loads(output[output.index("{"):])
+    latest = records["active_intents"][0]["latest_snap"]
+    assert latest["checkpoint"] == {"next": "review the publisher", "constraints": "c" * 800}
+    assert records["context_truncated"] is True
+
+
 def test_receipt_retention_is_bounded(project):
     root, base = project
     for number in range(MAX_TURNS + 3):

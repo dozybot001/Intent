@@ -52,7 +52,9 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 
 | 命令 | 作用 |
 |---|---|
-| `itt snap create WHAT [--why W]` | 创建语义快照。自动挂载到 active intent；多个时需指定 `--intent ID`。 |
+| `itt snap create WHAT [--why W] [--verified T] [--boundary T] [--next T] [--blocker T] [--constraints T]` | 创建语义快照。自动挂载到 active intent；多个时需指定 `--intent ID`。可选参数以结构化字段记录接续检查点。 |
+
+检查点参数写入 Snap 的可选 `checkpoint` 对象：`verified`（当前已验证的事实及证据）、`boundary`（本次工作覆盖什么、哪些仍未验证）、`next`（下一步具体动作）、`blocker`（阻塞项，没有写 `none`）、`constraints`（下一个 Agent 必须遵守的约束）。只传该格正文，不加 `Next:` 一类标签。值会去除首尾空白，不能为空，每项最多 2000 个字符。未传的参数直接缺省而不是写空值；不带任何检查点参数创建的 Snap 保持旧结构。IntHub 直接展示已记录的格，只对没有 `checkpoint` 的旧 Snap 解析正文中的 `标签：`。
 
 ### Decision
 
@@ -154,12 +156,13 @@ stateDiagram-v2
 | `why` | ✓ | ✓ | ✓ | Intent: 为什么要做。Snap: 为什么这么做。Decision: 为什么有这个约束。 |
 | `status` | ✓ | | ✓ | Intent: `active` / `suspend` / `done` / `cancelled`。Decision: `active` / `deprecated`。 |
 | `intent_id` | | ✓ | | 所属 intent |
+| `checkpoint` | | ✓ | | 可选的接续检查点，由检查点参数写入：`verified`、`boundary`、`next`、`blocker`、`constraints` 中的任意项，每项为非空字符串且最多 2000 个字符；未记录时不存在该字段 |
 | `snap_ids` | ✓ | | | 有序子 snap 列表 |
 | `decision_ids` | ✓ | | | 关联 decision（创建时自动挂载） |
 | `intent_ids` | | | ✓ | 关联 intent（创建时自动挂载） |
 | `reason` | ✓ | | ✓ | intent 取消或 decision 废弃的原因（通过 `--reason` 设置） |
 
-通过 CLI 创建后，`what`、`why`、`origin`、`created_at` 等描述性字段视为写一次。
+通过 CLI 创建后，`what`、`why`、`origin`、`checkpoint`、`created_at` 等描述性字段视为写一次。
 后续命令可能推进 `status`，补充 `reason`，以及追加自动维护的关系字段（如 `snap_ids`、`decision_ids`、`intent_ids`）。
 
 ### Origin 检测
@@ -194,7 +197,7 @@ stateDiagram-v2
 
 ### `inspect`
 
-`inspect` 返回接续已记录工作所需的上下文。`active_intents` 和 `suspended` 会包含目标的 `why`、存在时的完整最新 Snap 对象、`snap_count` 和 `has_more`；`active_decisions` 也会包含每项 Decision 的 `why`。在默认视图中，若 `latest_snap` 之前还有更早的 Snap，`has_more` 为 true。
+`inspect` 返回接续已记录工作所需的上下文。`active_intents` 和 `suspended` 会包含目标的 `why`、存在时的完整最新 Snap 对象、`snap_count`、`has_more` 和 `checkpoint`：即最新 Snap 的结构化检查点，该 Snap 未记录时为 `null`（旧 Snap 仍可能把这些内容写在 `latest_snap` 正文中）。`active_decisions` 也会包含每项 Decision 的 `why`。在默认视图中，若 `latest_snap` 之前还有更早的 Snap，`has_more` 为 true。
 
 ```json
 {
@@ -206,6 +209,12 @@ stateDiagram-v2
       "why": "部分发布会让工作区处于不一致状态",
       "snap_count": 3,
       "has_more": true,
+      "checkpoint": {
+        "verified": "发布测试通过；消费方只会看到完整产物",
+        "boundary": "只改发布器；回滚工具未改动",
+        "next": "把 staging 切换到原子发布器",
+        "blocker": "none"
+      },
       "latest_snap": {
         "id": "snap-003",
         "object": "snap",
@@ -213,7 +222,13 @@ stateDiagram-v2
         "what": "将产物发布改为原子切换",
         "why": "消费方不应观察到部分发布结果",
         "intent_id": "intent-001",
-        "origin": "codex"
+        "origin": "codex",
+        "checkpoint": {
+          "verified": "发布测试通过；消费方只会看到完整产物",
+          "boundary": "只改发布器；回滚工具未改动",
+          "next": "把 staging 切换到原子发布器",
+          "blocker": "none"
+        }
       }
     }
   ],
@@ -231,6 +246,7 @@ stateDiagram-v2
       "why": "旧链路难以恢复",
       "snap_count": 0,
       "has_more": false,
+      "checkpoint": null,
       "latest_snap_id": null,
       "latest_snap": null
     }

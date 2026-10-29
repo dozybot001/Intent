@@ -748,6 +748,70 @@ class TestSnap:
         r = _run(workspace, "snap", "create", "S", "--intent", "intent-999")
         assert r["error"]["code"] == "OBJECT_NOT_FOUND"
 
+    def test_create_records_structured_checkpoint(self, workspace):
+        _run(workspace, "intent", "create", "Goal")
+        r = _run(
+            workspace,
+            "snap", "create", "Made publication atomic", "--intent", "intent-001",
+            "--why", "consumers must not see partial releases",
+            "--constraints", "  keep the rollback path  ",
+            "--blocker", "none",
+            "--next", "switch staging to the new publisher",
+            "--boundary", "发布器之外未改动",
+            "--verified", "release suite passes",
+        )
+        assert r["ok"] is True
+        expected = {
+            "verified": "release suite passes",
+            "boundary": "发布器之外未改动",
+            "next": "switch staging to the new publisher",
+            "blocker": "none",
+            "constraints": "keep the rollback path",
+        }
+        assert r["result"]["checkpoint"] == expected
+        assert list(r["result"]["checkpoint"]) == list(intent_store.CHECKPOINT_FIELDS)
+        assert r["result"]["what"] == "Made publication atomic"
+        assert r["result"]["why"] == "consumers must not see partial releases"
+        stored = json.loads((workspace / ".intent" / "snaps" / "snap-001.json").read_text())
+        assert stored == r["result"]
+
+    def test_create_partial_checkpoint_omits_unrecorded_cells(self, workspace):
+        _run(workspace, "intent", "create", "Goal")
+        r = _run(workspace, "snap", "create", "S", "--next", "review", "--blocker", "waiting for access")
+        assert r["result"]["checkpoint"] == {"next": "review", "blocker": "waiting for access"}
+
+    def test_create_without_checkpoint_keeps_legacy_shape(self, workspace):
+        _run(workspace, "intent", "create", "Goal")
+        r = _run(workspace, "snap", "create", "Verified: legacy prose", "--why", "Next: unchanged")
+        stored = json.loads((workspace / ".intent" / "snaps" / "snap-001.json").read_text())
+        assert "checkpoint" not in r["result"]
+        assert set(stored) == {"id", "object", "created_at", "what", "why", "intent_id", "origin"}
+
+    @pytest.mark.parametrize(
+        ("flag", "value", "message"),
+        [
+            ("--next", "   ", "must not be blank"),
+            ("--blocker", "", "must not be blank"),
+            ("--verified", "x" * (intent_store.CHECKPOINT_FIELD_MAX_CHARS + 1), "exceeds"),
+        ],
+    )
+    def test_create_rejects_unusable_checkpoint_before_writing(self, workspace, flag, value, message):
+        _run(workspace, "intent", "create", "Goal")
+        r = _run(workspace, "snap", "create", "S", "--intent", "intent-001", flag, value)
+        assert r["ok"] is False
+        assert r["error"]["code"] == "INVALID_INPUT"
+        assert message in r["error"]["message"]
+        assert r["error"]["details"]["field"] == flag.removeprefix("--")
+        assert list((workspace / ".intent" / "snaps").iterdir()) == []
+        intent = json.loads((workspace / ".intent" / "intents" / "intent-001.json").read_text())
+        assert intent["snap_ids"] == []
+
+    def test_create_accepts_checkpoint_cell_at_size_limit(self, workspace):
+        _run(workspace, "intent", "create", "Goal")
+        value = "界" * intent_store.CHECKPOINT_FIELD_MAX_CHARS
+        r = _run(workspace, "snap", "create", "S", "--verified", value)
+        assert r["result"]["checkpoint"] == {"verified": value}
+
 
 # ---------------------------------------------------------------------------
 # Decision commands
@@ -912,6 +976,38 @@ class TestInspect:
             "snap-001", "snap-002",
         ]
         assert target["latest_snap_id"] == "snap-002"
+
+    def test_inspect_surfaces_latest_structured_checkpoint(self, workspace):
+        _run(workspace, "intent", "create", "Structured")
+        _run(workspace, "intent", "create", "Legacy")
+        _run(workspace, "intent", "create", "Empty")
+        _run(workspace, "snap", "create", "Older", "--intent", "intent-001",
+             "--next", "superseded step")
+        _run(workspace, "snap", "create", "Latest", "--intent", "intent-001",
+             "--verified", "suite passes", "--boundary", "CLI only",
+             "--next", "review", "--blocker", "none")
+        _run(workspace, "snap", "create", "Verified: prose. Next: prose step.",
+             "--intent", "intent-002")
+        _run(workspace, "intent", "suspend", "intent-002")
+
+        r = _run(workspace, "inspect")
+
+        entries = {entry["id"]: entry for entry in r["active_intents"] + r["suspended"]}
+        assert entries["intent-001"]["checkpoint"] == {
+            "verified": "suite passes", "boundary": "CLI only",
+            "next": "review", "blocker": "none",
+        }
+        assert entries["intent-001"]["checkpoint"] == entries["intent-001"]["latest_snap"]["checkpoint"]
+        assert entries["intent-002"]["checkpoint"] is None
+        assert entries["intent-002"]["latest_snap"]["what"] == "Verified: prose. Next: prose step."
+        assert entries["intent-003"]["checkpoint"] is None
+
+        focused = _run(workspace, "inspect", "--intent", "intent-001", "--history", "2")
+        target = focused["active_intents"][0]
+        assert target["checkpoint"]["next"] == "review"
+        assert [snap.get("checkpoint") for snap in target["recent_snaps"]] == [
+            {"next": "superseded step"}, target["checkpoint"],
+        ]
 
     def test_history_rejects_invalid_target_or_limit(self, workspace):
         _run(workspace, "intent", "create", "Done")

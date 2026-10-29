@@ -13,7 +13,9 @@ Read before the first `itt` command in an authorized workflow. Continuous mainte
 
 `itt init` defaults to project-local continuous maintenance. Legacy histories need `itt maintenance on`; `off` affects only the resolved root. Hook installation never grants host trust. `maintenance close` uses the ordinary JSON contract and safe argv adapter. `maintenance hook` is the host-only stdin/native-output protocol: do not invoke it manually, invent a turn token, or expect its output to contain `ok`.
 
-Local writes use `itt intent create WHAT [--why WHY]`, `itt snap create WHAT --intent ID [--why WHY]`, and `itt decision create WHAT [--why WHY]`. Lifecycle commands are `itt intent activate/suspend/done ID`, `itt intent cancel ID [--reason TEXT]`, and `itt decision deprecate ID [--reason TEXT]`; the slash notation means choose one subcommand. Pass these as argv arrays, not interpolated shell strings.
+Local writes use `itt intent create WHAT [--why WHY]`, `itt snap create WHAT --intent ID [--why WHY] [--verified TEXT] [--boundary TEXT] [--next TEXT] [--blocker TEXT] [--constraints TEXT]`, and `itt decision create WHAT [--why WHY]`. Lifecycle commands are `itt intent activate/suspend/done ID`, `itt intent cancel ID [--reason TEXT]`, and `itt decision deprecate ID [--reason TEXT]`; the slash notation means choose one subcommand. Pass these as argv arrays, not interpolated shell strings.
+
+Each checkpoint flag is one argv item holding only that cell's text, without a `Next:`-style label: non-blank, at most 2,000 characters, stored write-once in the Snap's `checkpoint`. Omit a flag whose cell is unknown; use `--blocker none` when nothing blocks. Inspect returns the latest Snap's cells as each entry's `checkpoint` (`null` for older Snaps, whose cells may remain in `latest_snap` text).
 
 Never automatically log in/out, start a hub, expose tokens, alter remotes, push, or pull. Network writes require the separate sync workflow; downloads require the separate pull workflow. Intent failure neither authorizes unrelated repair nor blocks otherwise authorized main work.
 

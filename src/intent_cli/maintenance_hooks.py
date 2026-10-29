@@ -152,6 +152,11 @@ def _context(base, key, entry, graph):
                 if snap and any(len(snap.get(name, "")) > 1400 for name in ("what", "why")):
                     records["context_truncated"] = True
                 item["latest_snap"] = {name: snap.get(name, "")[:1400] for name in ("id", "what", "why")} if snap else None
+                checkpoint = snap.get("checkpoint") if snap else None
+                if checkpoint:
+                    if any(len(value) > 800 for value in checkpoint.values()):
+                        records["context_truncated"] = True
+                    item["latest_snap"]["checkpoint"] = {key: value[:800] for key, value in checkpoint.items()}
                 item["snap_count"] = len(ids)
             collection = "active_decisions" if kind == "decision" else "active_intents" if obj["status"] == "active" else "suspended"
             records[collection].append(item)

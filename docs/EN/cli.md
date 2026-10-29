@@ -52,7 +52,9 @@ The normal loop is read once → preserve important verified milestones → clos
 
 | Command | What it does |
 |---|---|
-| `itt snap create WHAT [--why W]` | Create a semantic snapshot. Auto-attaches to active intent; if multiple, specify `--intent ID`. |
+| `itt snap create WHAT [--why W] [--verified T] [--boundary T] [--next T] [--blocker T] [--constraints T]` | Create a semantic snapshot. Auto-attaches to active intent; if multiple, specify `--intent ID`. The optional flags record the continuation checkpoint as structured fields. |
+
+The checkpoint flags write the Snap's optional `checkpoint` object: `verified` (what is now verified, with evidence), `boundary` (what the current work covers and leaves unverified), `next` (the next concrete step), `blocker` (what blocks progress, or `none`), and `constraints` (rules the next agent must keep). Pass only the cell text, without a `Next:`-style label. Values are trimmed, must be non-blank, and are limited to 2,000 characters each. Omitted flags stay absent rather than empty, and a Snap created without any checkpoint flag keeps the legacy shape. IntHub shows recorded cells directly and parses `Label:` text only for Snaps that have no `checkpoint`.
 
 ### Decision
 
@@ -154,12 +156,13 @@ stateDiagram-v2
 | `why` | ✓ | ✓ | ✓ | Intent: why this goal. Snap: why this approach. Decision: why this constraint. |
 | `status` | ✓ | | ✓ | Intent: `active` / `suspend` / `done` / `cancelled`. Decision: `active` / `deprecated`. |
 | `intent_id` | | ✓ | | Parent intent |
+| `checkpoint` | | ✓ | | Optional continuation cells from the checkpoint flags: any of `verified`, `boundary`, `next`, `blocker`, `constraints`, each a non-blank string of at most 2,000 characters. Absent when none was recorded. |
 | `snap_ids` | ✓ | | | Ordered list of child snaps |
 | `decision_ids` | ✓ | | | Linked decisions (auto-attached on create) |
 | `intent_ids` | | | ✓ | Linked intents (auto-attached on create) |
 | `reason` | ✓ | | ✓ | Why an intent was cancelled or a decision was deprecated (set via `--reason`) |
 
-Once created through the CLI, descriptive fields such as `what`, `why`, `origin`, and `created_at` are treated as write-once.
+Once created through the CLI, descriptive fields such as `what`, `why`, `origin`, `checkpoint`, and `created_at` are treated as write-once.
 Later commands may advance `status`, add `reason`, and append auto-maintained relationship fields such as `snap_ids`, `decision_ids`, and `intent_ids`.
 
 ### Origin detection
@@ -194,7 +197,7 @@ All successful commands except `inspect` and host-only `maintenance hook` use:
 
 ### `inspect`
 
-`inspect` returns the context needed to resume recorded work. `active_intents` and `suspended` include the goal's `why`, its complete latest Snap object when one exists, `snap_count`, and `has_more`; `active_decisions` includes each decision's `why`. In the default view, `has_more` is true when older Snaps exist beyond `latest_snap`.
+`inspect` returns the context needed to resume recorded work. `active_intents` and `suspended` include the goal's `why`, its complete latest Snap object when one exists, `snap_count`, `has_more`, and `checkpoint`: the latest Snap's structured checkpoint, or `null` when that Snap was recorded without one (older Snaps may still carry the cells as text in `latest_snap`). `active_decisions` includes each decision's `why`. In the default view, `has_more` is true when older Snaps exist beyond `latest_snap`.
 
 ```json
 {
@@ -206,6 +209,12 @@ All successful commands except `inspect` and host-only `maintenance hook` use:
       "why": "partial releases left the workspace inconsistent",
       "snap_count": 3,
       "has_more": true,
+      "checkpoint": {
+        "verified": "release tests pass; consumers only see complete artifacts",
+        "boundary": "publisher only; rollback tooling is unchanged",
+        "next": "switch staging to the atomic publisher",
+        "blocker": "none"
+      },
       "latest_snap": {
         "id": "snap-003",
         "object": "snap",
@@ -213,7 +222,13 @@ All successful commands except `inspect` and host-only `maintenance hook` use:
         "what": "Made artifact publication atomic",
         "why": "consumers must never observe a partial release",
         "intent_id": "intent-001",
-        "origin": "codex"
+        "origin": "codex",
+        "checkpoint": {
+          "verified": "release tests pass; consumers only see complete artifacts",
+          "boundary": "publisher only; rollback tooling is unchanged",
+          "next": "switch staging to the atomic publisher",
+          "blocker": "none"
+        }
       }
     }
   ],
@@ -231,6 +246,7 @@ All successful commands except `inspect` and host-only `maintenance hook` use:
       "why": "the legacy path is difficult to recover",
       "snap_count": 0,
       "has_more": false,
+      "checkpoint": null,
       "latest_snap_id": null,
       "latest_snap": null
     }

@@ -596,14 +596,34 @@ function extractCheckpointParts(value) {
   return { fields, context, structured: matches.length > 0 };
 }
 
-function parseCheckpoint(snap) {
+const CHECKPOINT_KEYS = ["verified", "boundary", "next", "blocker", "constraints"];
+
+function recordedCheckpointFields(checkpoint) {
+  if (!checkpoint || typeof checkpoint !== "object" || Array.isArray(checkpoint)) return null;
+  const fields = {};
+  for (const key of CHECKPOINT_KEYS) {
+    const value = typeof checkpoint[key] === "string" ? checkpoint[key].trim() : "";
+    if (value) fields[key] = value;
+  }
+  return Object.keys(fields).length ? fields : null;
+}
+
+// A recorded snap.checkpoint is the explicit contract: absent cells stay missing
+// instead of being guessed from prose. Legacy Snaps fall back to text labels.
+function snapCheckpointParts(snap) {
+  const recorded = recordedCheckpointFields(snap?.checkpoint);
+  if (recorded) return { fields: recorded, context: String(snap?.why || "").trim(), recorded: true };
   const what = extractCheckpointParts(snap?.what);
   const why = extractCheckpointParts(snap?.why);
-  const fields = { ...why.fields, ...what.fields };
   const context = [what.structured ? what.context : "", why.context]
     .filter(Boolean)
     .filter((value, index, values) => values.indexOf(value) === index)
     .join(" · ");
+  return { fields: { ...why.fields, ...what.fields }, context, recorded: false };
+}
+
+function parseCheckpoint(snap) {
+  const { fields, context } = snapCheckpointParts(snap);
   return {
     verified: fields.verified || snap?.what || "",
     boundary: fields.boundary || "",
@@ -615,8 +635,9 @@ function parseCheckpoint(snap) {
 }
 
 function conciseSnapTitle(snap, maxLength = 86) {
-  const checkpoint = parseCheckpoint(snap);
-  const source = String(checkpoint.verified || snap?.what || "")
+  const { fields, recorded } = snapCheckpointParts(snap);
+  // With a recorded checkpoint WHAT stays a clean milestone; legacy WHAT may hold the whole checkpoint.
+  const source = String((recorded ? snap?.what || fields.verified : fields.verified || snap?.what) || "")
     .replace(/\s+/g, " ")
     .replace(/^(?:verified(?: state)?|已验证(?:到)?(?:的?状态)?|验证结果|当前状态)\s*[:：]\s*/i, "")
     .trim();
@@ -650,10 +671,7 @@ function timelineState(checkpoint) {
 
 function continuationHealth(intents) {
   if (!intents.length) return { ready: false, label: t("No active objective") };
-  const checkpoints = intents.map(intent => ({
-    ...extractCheckpointParts(intent.latest_snap?.why).fields,
-    ...extractCheckpointParts(intent.latest_snap?.what).fields,
-  }));
+  const checkpoints = intents.map(intent => snapCheckpointParts(intent.latest_snap).fields);
   const incomplete = checkpoints.filter(checkpoint => !checkpoint.verified || !checkpoint.boundary || !checkpoint.next || !checkpoint.blocker).length;
   if (incomplete) return { ready: false, label: plural(incomplete, "{count} incomplete checkpoint", "{count} incomplete checkpoints") };
   const blocked = checkpoints.filter(checkpoint => !isClearBlocker(checkpoint.blocker)).length;
