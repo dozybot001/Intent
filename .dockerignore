@@ -11,13 +11,11 @@ __pycache__
 *.egg-info
 htmlcov
 .github
-.agents
-.claude-plugin
+.claude
+.codex
 deploy
 docs
 scripts
-showcase
 tests
 SKILL.md
 SKILL_CN.md
-CLAUDE.md

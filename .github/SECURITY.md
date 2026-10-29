@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 6.x     | :white_check_mark: |
-| < 6.0   | :x: |
+| 7.x     | :white_check_mark: |
+| < 7.0   | :x: |
 
 ## Reporting a Vulnerability
 
@@ -17,13 +17,13 @@ We will acknowledge reports within 7 days and provide an update on the fix timel
 
 - **Intent CLI** (`itt`): runs locally, reads and writes `.intent/` JSON files, and communicates with IntHub via HTTP.
 - **`.intent/` data**: may contain goals, implementation rationale, decisions, repository metadata, and an IntHub configuration. `itt init` adds `.intent/` to that clone's Git-local `.git/info/exclude` and reports a warning if it cannot; it does not edit the shared `.gitignore`. Users should still review the directory before sharing it or staging ignored files explicitly.
-- **Hub credentials**: the current CLI accepts `--token` or `INTHUB_TOKEN` without persisting the credential. Older releases could write a plaintext `auth_token` to `.intent/hub.json`; inspect and remove that legacy field before committing or sharing the directory. A later `itt hub link` or `itt hub sync` also rewrites the config without the legacy token.
+- **Hub credentials**: `itt auth login` stores an account access token through Git's configured credential helper, scoped to one IntHub endpoint; its protection is that helper's (for example the macOS Keychain, or plaintext with `credential.helper=store`). `--token` and `INTHUB_TOKEN` are never persisted and are only sent to the endpoint given on the command line, the user-level endpoint, or loopback, never to an endpoint named only by a shared `.intent/hub.json`. Remote IntHub URLs must use HTTPS. Tokens never enter `.intent/`.
 - **IntHub Local**: binds to `127.0.0.1` by default and stores synchronized snapshots in an unencrypted SQLite database under `~/.inthub/inthub.db` unless configured otherwise.
 
 ## IntHub Local Trust Boundary
 
-The bundled IntHub Local service is a single-user browser and read model for a trusted machine. The current server does not enforce bearer-token authentication and sends `Access-Control-Allow-Origin: *`. It does not provide multi-user authorization, tenant isolation, transport security, or encryption at rest.
+The bundled IntHub Local service is a single-user browser and read model for a trusted machine. It has no accounts: anything that can reach it can read and write its history. To keep other websites in your browser out, it answers only same-origin requests on loopback host names (no CORS headers, `Host` checked against 127.0.0.1/localhost to defeat DNS rebinding, JSON-only request bodies), and the server refuses to start unauthenticated on a non-loopback interface. It does not provide transport security or encryption at rest.
 
-Do not bind IntHub Local to a LAN or public interface, publish it through a reverse proxy, or treat a configured client token as server-side access control. If remote or multi-user deployment is required, place an independently reviewed authentication and TLS boundary in front of it and assess the API and stored data for that environment.
+Do not bind IntHub Local to a LAN or public interface or publish it through a reverse proxy. For remote or multi-user use, deploy the authenticated profile instead.
 
-The repository also contains an authenticated production profile. It requires a server-side token digest, limits browser cookies to read access, restricts CORS, binds the app to loopback behind TLS, and uses an isolated PostgreSQL database. This is a single-deployment access boundary, not tenant isolation or multi-account authorization. Follow the [production deployment guide](../docs/EN/inthub-production.md) and rotate the access token after suspected disclosure.
+The hosted service (https://inthub.tenon.asia) uses that authenticated profile: Tenon OIDC sign-in (PKCE, nonce, single-use state), host-only `Secure` `SameSite=Strict` session cookies, per-account history isolation, account access tokens that are stored as hashes and can be revoked, same-origin checks on browser writes, a strict Content-Security-Policy, and PostgreSQL bound to a private network behind TLS. Browser sessions are read-only for history; only account access tokens can push. Revoke a token from the account menu after any suspected disclosure.

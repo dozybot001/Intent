@@ -132,7 +132,7 @@ The long-term shape is analogous to Git and GitHub, while serving a different ki
 - **Intent** is the local, open semantic-history substrate. It owns portable objects, lifecycle rules, validation, and agent-readable recovery.
 - **IntHub** is the organization and collaboration surface. It turns multiple local histories into browsable handoffs, shared context, and eventually a networked ecosystem.
 
-The current IntHub Local is deliberately a local proof of this boundary, not a claim that remote collaboration is already complete. Intent must remain useful without IntHub; IntHub should amplify Intent rather than becoming a prerequisite for recording.
+Today IntHub is a private, per-account history browser (hosted, or local via `itt hub start`); shared team spaces and other collaboration features are not built yet. Intent must remain useful without IntHub; IntHub should amplify Intent rather than becoming a prerequisite for recording.
 
 ## 5. Project boundaries
 
@@ -175,7 +175,7 @@ sequenceDiagram
 
 In traditional development, semantics lived in the programmer's head. In the agent era, sessions are interrupted, agents are swapped, and context is lost between turns. Intent makes this handoff structural — not verbal.
 
-The loop requires explicit one-time enablement and currently runs as a Skill/agent instruction contract. Codex entry hooks and closure receipts remain an [integration design](../../references/codex-hooks.md), not a deployed platform guarantee. Each turn assesses critical semantic change; unchanged turns write nothing rather than reverting to per-query logging.
+The loop requires explicit one-time enablement and currently runs as a Skill/agent instruction contract. Project-local Codex hooks supply the opening context and a Stop closure check once the user trusts them ([details and limits](../../references/codex-hooks.md)); they check closure, not semantic quality. Each turn assesses critical semantic change; unchanged turns write nothing rather than reverting to per-query logging.
 
 ## 7. Judging whether this works
 

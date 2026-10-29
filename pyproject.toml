@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61", "setuptools-scm>=8"]
+requires = ["setuptools>=77", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -29,6 +29,8 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/dozybot001/Intent"
 Repository = "https://github.com/dozybot001/Intent"
+Issues = "https://github.com/dozybot001/Intent/issues"
+Changelog = "https://github.com/dozybot001/Intent/tree/main/docs/releases"
 
 [project.scripts]
 itt = "intent_cli.cli:main"
@@ -54,3 +56,5 @@ include = ["intent_cli*", "apps*"]
 "apps.inthub_web" = ["static/*"]
 
 [tool.setuptools_scm]
+# Source archives (GitHub ZIP, git archive) carry no tags.
+fallback_version = "0.0.0+unknown"
