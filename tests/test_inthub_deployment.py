@@ -300,10 +300,18 @@ def test_gitee_bootstrap_only_installs_the_stable_launcher():
     assert "docker compose" not in bootstrap
 
 
-def test_github_has_no_actions_workflows():
-    workflow_directory = REPOSITORY_ROOT / ".github" / "workflows"
-
-    assert not workflow_directory.exists() or not list(workflow_directory.iterdir())
+def test_github_workflows_are_test_only():
+    # GitHub only runs tests; production builds come from an exact Gitee commit.
+    workflows = sorted((REPOSITORY_ROOT / ".github" / "workflows").glob("*.y*ml"))
+    assert workflows
+    for path in workflows:
+        text = path.read_text(encoding="utf-8")
+        assert re.search(r"(?m)^permissions:\n  contents: read$", text), path.name
+        for forbidden in ("secrets.", "id-token", "docker push", "docker login", "gitee",
+                          "ssh", "deploy/inthub/release", "twine upload", "gh-pages", "pages:"):
+            assert forbidden not in text.lower(), (path.name, forbidden)
+        for action in re.findall(r"uses:\s*(\S+)", text):
+            assert re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", action), action
 
 
 def test_remote_release_verifies_and_loads_but_never_builds_or_pulls():

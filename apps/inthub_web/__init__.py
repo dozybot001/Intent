@@ -10,6 +10,6 @@ def product_version():
     if release_version:
         return release_version
     try:
-        return version("intent-cli")
+        return version("intent-history")
     except PackageNotFoundError:
         return "Unavailable (unpackaged source)"

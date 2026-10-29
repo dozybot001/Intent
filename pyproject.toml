@@ -3,7 +3,7 @@ requires = ["setuptools>=77", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "intent-cli"
+name = "intent-history"
 dynamic = ["version"]
 description = "Semantic history for agent-driven development. Records what you did and why."
 requires-python = ">=3.9"

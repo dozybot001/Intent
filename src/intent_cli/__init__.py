@@ -5,7 +5,8 @@ from importlib.metadata import PackageNotFoundError, version
 
 def _resolve_version():
     try:
-        return version("intent-cli")
+        # "intent-cli" on PyPI is an unrelated project.
+        return version("intent-history")
     except PackageNotFoundError:
         return "0.0.0-dev"
 

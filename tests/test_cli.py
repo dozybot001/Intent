@@ -168,7 +168,7 @@ def _global_auth_env(tmp_path):
 def _expected_cli_version():
     from importlib.metadata import version
     try:
-        return version("intent-cli")
+        return version("intent-history")
     except Exception:
         from intent_cli import __version__
         return __version__
