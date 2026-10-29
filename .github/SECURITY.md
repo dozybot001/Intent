@@ -9,7 +9,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in Intent CLI or IntHub, use [GitHub's private vulnerability reporting](https://github.com/dozybot001/Intent/security/advisories/new) when that option is available. Otherwise, open a minimal [issue](https://github.com/dozybot001/Intent/issues) asking the maintainer for a private contact channel without including exploit details. Do not disclose user data, credentials, or an unpatched exploit in a public issue. Public, non-sensitive hardening suggestions may use the regular issue tracker directly.
+If you discover a security vulnerability in Intent CLI or IntHub, report it privately through [GitHub's private vulnerability reporting](https://github.com/dozybot001/Intent/security/advisories/new) (repository **Security** tab → **Report a vulnerability**). Do not disclose user data, credentials, or an unpatched exploit in a public issue. Public, non-sensitive hardening suggestions may use the regular issue tracker directly.
 
 We will acknowledge reports within 7 days and provide an update on the fix timeline.
 

@@ -123,7 +123,7 @@ Web 会话不能写入。旧 workspace 的 link/sync/snapshot 接口、恢复参
 | 项目 | 标准值 |
 |---|---|
 | 公网域名 | `https://inthub.tenon.asia` |
-| 生产主机 | `ubuntu@122.51.14.35` |
+| 生产主机 | 通过 SSH 别名 `agenthub-prod` 访问（地址只保存在运维者的 SSH 配置中） |
 | 本机 SSH alias | `agenthub-prod` |
 | 本机 Gitee 写入 alias | `inthub-gitee` |
 | Gitee 生产源码 | `https://gitee.com/dozybot/Intent.git` |

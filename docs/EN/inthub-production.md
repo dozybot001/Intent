@@ -133,7 +133,7 @@ Sources: [server history](../../apps/inthub_api/history.py),
 | Surface | Standard value |
 |---|---|
 | Public URL | `https://inthub.tenon.asia` |
-| Production host | `ubuntu@122.51.14.35` |
+| Production host | reached through the `agenthub-prod` SSH alias (address kept in the operator's SSH config) |
 | Local SSH alias | `agenthub-prod` |
 | Local Gitee write alias | `inthub-gitee` |
 | Gitee production source | `https://gitee.com/dozybot/Intent.git` |
