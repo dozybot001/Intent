@@ -77,7 +77,7 @@ Continuous local maintenance is the normal mode. `itt init` enables it for a new
 
 The agent reads once at turn start, preserves verified important milestones, and closes with `recorded`, `no-op`, or `failed`. Independent objectives remain separate Intents. No continuation-critical change means a silent no-op, not a new Snap or a repeated permission request.
 
-Project-local entry/Stop hooks and durable turn receipts implement the normal-path closure check for Codex (the default) or, when chosen explicitly, Claude Code. Review/trust the generated definitions in the host's `/hooks`; configuration alone does not prove host execution. The gate allows one closure-only retry, then reports incomplete recording and releases the task. It cannot guarantee semantic quality, crash/cancellation recovery, or operation in unsupported hosts. See hook integration and limits for [Codex](references/codex-hooks.md) and [Claude Code](references/claude-code-hooks.md). Automatic maintenance never grants login, push/pull, publication, or cross-project permission.
+Project-local Codex entry/Stop hooks and durable turn receipts implement the normal-path closure check. Review/trust the generated definitions in Codex `/hooks`; configuration alone does not prove host execution. The gate allows one closure-only retry, then reports incomplete recording and releases the task. It cannot guarantee semantic quality, crash/cancellation recovery, or operation in unsupported hosts. See [hook integration and limits](references/codex-hooks.md). Automatic maintenance never grants login, push/pull, publication, or cross-project permission.
 
 Whenever an open goal is recorded, its latest Snap should remain a self-contained checkpoint: verified state, current boundary, next step, and blockers or local constraints. Zero writes is valid, and there is no per-turn object quota. Decision candidates should be confirmed together when needed rather than interrupting every turn.
 
@@ -108,8 +108,6 @@ git clone https://github.com/dozybot001/Intent.git
 npx skills add dozybot001/Intent -g --all
 ```
 
-Claude Code can install the same Skill as a plugin: run `/plugin marketplace add dozybot001/Intent`, then `/plugin install intent-cli@intent`. The plugin carries instructions only, no hooks.
-
 Requires Python 3.9+. Git is used by source installation and secure credential helpers, not by local semantic history. The install script handles pipx automatically.
 Re-run the installer anytime to upgrade or repair an existing `itt` install.
 
@@ -125,9 +123,7 @@ itt maintenance status
 itt maintenance off
 ```
 
-`itt init` also enables continuous maintenance and creates project-local Codex hooks. Review them in Codex `/hooks` before relying on the Stop gate. Normal turns need no extra user ceremony.
-
-Claude Code users choose that host explicitly: `itt init --host claude-code` (existing history: `itt maintenance on --host claude-code`) merges Intent's two hooks into `.claude/settings.local.json` without touching other settings, and `itt maintenance status --host claude-code` reports them. `itt maintenance off` removes only Intent's entries. Trust the folder in Claude Code and confirm both hooks in `/hooks` (restart the session if they are missing); see [Claude Code setup and limits](references/claude-code-hooks.md). Other projects are never enabled automatically.
+`itt init` also enables continuous maintenance and creates project-local hooks. Review them in Codex `/hooks` before relying on the Stop gate. Normal turns need no extra user ceremony.
 
 `itt init` creates `.intent/` and adds it to this clone's Git-local `.git/info/exclude`; it does **not** edit the shared `.gitignore`. The command returns a warning if the local exclude cannot be updated. Review the files before intentionally sharing them, and add `.intent/` to `.gitignore` separately if the whole team should inherit that rule.
 
@@ -179,6 +175,20 @@ IntHub Local binds to `127.0.0.1` by default. Its current local API does not enf
 Internet deployments use one account path: Tenon sign-in, database-backed Web sessions, account-scoped CLI access tokens, account-isolated projects, PostgreSQL, a loopback app port, and Caddy TLS. See [IntHub Production Deployment](docs/EN/inthub-production.md).
 
 > **Tips:** Continuous maintenance is project-local and quiet. “Use Intent to record this work in `.intent/`” remains available for one-off recording; “Resume this project through Intent” starts read-only recovery. IntHub push/pull always needs a separate explicit request. A trusted Stop hook checks closure, not semantic completeness.
+
+### Claude Code
+
+Codex is the default host. Claude Code users choose it explicitly, once per project:
+
+```bash
+cd your-project
+itt init --host claude-code
+# Existing history: enable once
+itt maintenance on --host claude-code
+itt maintenance status --host claude-code
+```
+
+This merges Intent's two hooks (`UserPromptSubmit` for opening context, `Stop` for the closure check) into `.claude/settings.local.json` without touching other settings, and `itt maintenance off` removes only Intent's entries. Trust the folder in Claude Code, then confirm both hooks in `/hooks` (restart the session if they are missing); configuration alone does not prove execution. Claude Code can also install the same Skill as a plugin: `/plugin marketplace add dozybot001/Intent`, then `/plugin install intent-cli@intent`. The plugin carries instructions only, no hooks, and never enables a project. See [Claude Code setup and limits](references/claude-code-hooks.md).
 
 ## Docs
 
