@@ -3,7 +3,7 @@
 import hashlib
 import secrets
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from urllib.parse import urlsplit
 
 from apps.inthub_api.auth import _expires_at, _is_expired, _sha256, public_account, safe_return_to

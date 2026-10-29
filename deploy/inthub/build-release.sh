@@ -205,6 +205,7 @@ docker run \
     --cap-drop ALL \
     --security-opt no-new-privileges:true \
     --env INTHUB_REQUIRE_AUTH=0 \
+    --env INTHUB_ALLOW_UNAUTHENTICATED=1 \
     --env INTHUB_SERVE_WEB=1 \
     "${APP_IMAGE}" >/dev/null
 

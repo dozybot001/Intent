@@ -345,7 +345,10 @@ def test_tenon_account_login_uses_pkce_database_session_and_logout(tmp_path, rol
         assert dict(callback_headers)["Location"] == "/projects/demo?tab=snaps"
         cookies = [value for name, value in callback_headers if name == "Set-Cookie"]
         session_cookie = next(value.split(";", 1)[0] for value in cookies if "ith_ses_" in value)
-        assert "SameSite=Strict" in next(value for value in cookies if "ith_ses_" in value)
+        session_header = next(value for value in cookies if "ith_ses_" in value)
+        assert session_cookie.startswith("__Host-inthub_session=")
+        assert "Path=/;" in session_header and "Secure" in session_header and "Domain" not in session_header
+        assert "SameSite=Strict" in session_header
         assert "Max-Age=2592000" in next(value for value in cookies if "ith_ses_" in value)
         assert oauth.exchange["code"] == "temporary-code"
         assert oauth.exchange["redirect_uri"] == (
@@ -362,11 +365,17 @@ def test_tenon_account_login_uses_pkce_database_session_and_logout(tmp_path, rol
 
         status, _, body = _request_json(
             f"{base}/api/v1/auth/me",
-            headers={"Cookie": session_cookie},
+            headers={"Cookie": 'theme={"mode":"dark"}; ' + session_cookie},
         )
         assert status == 200
         assert body["result"]["account"]["display_name"] == "Dozy"
         assert body["result"]["account"]["role"] == ("admin" if role == "admin" else "member")
+        # The pre-prefix cookie name is never trusted, so a sibling site cannot plant it.
+        status, _, _ = _request_json(
+            f"{base}/api/v1/auth/me",
+            headers={"Cookie": "inthub_session=" + session_cookie.split("=", 1)[1]},
+        )
+        assert status == 401
 
         status, _, body = _request_json(
             f"{base}/api/v1/projects",
@@ -482,7 +491,7 @@ def test_api_rejects_disallowed_origins_and_oversized_bodies(tmp_path):
         assert body["error"]["code"] == "ORIGIN_DENIED"
 
         status, _, body = _request_json(
-            f"{base}/api/v1/hub/link",
+            f"{base}/api/v2/history",
             method="POST",
             payload={"too": "large"},
         )
@@ -492,3 +501,93 @@ def test_api_rejects_disallowed_origins_and_oversized_bodies(tmp_path):
         server.shutdown()
         thread.join()
         server.server_close()
+
+
+def _serving(handler):
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server, thread
+
+
+def _stop(server, thread):
+    server.shutdown()
+    thread.join()
+    server.server_close()
+
+
+def test_local_mode_serves_only_same_origin_pages_on_loopback_names(tmp_path):
+    server, thread = _serving(make_handler(str(tmp_path / "inthub.db"), serve_web=True))
+    own_origin = f"http://127.0.0.1:{server.server_port}"
+    try:
+        status, headers, body = _raw_request(server, "/api/v1/projects", headers={"Origin": "https://evil.example"})
+        assert status == 403 and json.loads(body)["error"]["code"] == "ORIGIN_DENIED"
+        assert "Access-Control-Allow-Origin" not in dict(headers)
+        status, headers, _ = _raw_request(server, "/api/v2/link", method="OPTIONS", headers={
+            "Origin": "https://evil.example", "Access-Control-Request-Method": "POST",
+        })
+        assert status == 403 and "Access-Control-Allow-Origin" not in dict(headers)
+        status, headers, _ = _raw_request(server, "/api/v1/projects", headers={"Origin": own_origin})
+        assert status == 200 and "Access-Control-Allow-Origin" not in dict(headers)
+        assert dict(headers)["Server"] == "IntHub"
+        # DNS rebinding keeps the attacker's name in Host.
+        status, _, body = _raw_request(server, "/api/v1/projects", headers={"Host": "rebind.evil.example"})
+        assert status == 403 and json.loads(body)["error"]["code"] == "HOST_DENIED"
+        assert _raw_request(server, "/api/v1/projects", headers={"Host": f"localhost:{server.server_port}"})[0] == 200
+        # A form-encodable body is never accepted as JSON.
+        status, _, _ = _raw_request(server, "/api/v2/link", method="POST",
+                                    headers={"Content-Type": "text/plain"}, body=json.dumps({"project_name": "planted"}))
+        assert status == 415
+        assert _get_json(f"{own_origin}/api/v1/projects")["result"]["projects"] == []
+    finally:
+        _stop(server, thread)
+
+
+def test_requests_fail_closed_before_reading_untrusted_bodies(tmp_path):
+    server, thread = _serving(make_handler(str(tmp_path / "inthub.db")))
+    try:
+        status, _, body = _raw_request(server, "/api/v2/history", method="POST",
+                                       headers={"Content-Type": "application/json"}, body="[" * 100000)
+        assert status == 400 and json.loads(body)["error"]["code"] == "INVALID_INPUT"
+        assert _raw_request(server, "/not-an-api", method="POST", body="x" * 1024)[0] == 404
+        assert _raw_request(server, "/not-a-page")[0] == 404
+        status, headers, body = _raw_request(server, "/api/v1/projects", method="PUT")
+        assert status == 405 and json.loads(body)["error"]["code"] == "METHOD_NOT_ALLOWED"
+        assert "POST" in dict(headers)["Allow"]
+        status, _, body = _raw_request(server, "/api/v2/link", method="POST",
+                                       headers={"Content-Type": "application/json"}, body="x" * (17 * 1024))
+        assert status == 413
+    finally:
+        _stop(server, thread)
+
+
+def test_sign_in_preparation_is_rate_limited_per_client(tmp_path):
+    server, thread = _serving(make_handler(
+        str(tmp_path / "inthub.db"), tenon_client_id="client", tenon_client_secret="secret",
+        oauth_client=FakeTenonOIDCClient(), public_api_base_url="https://inthub.example",
+    ))
+    try:
+        statuses = [
+            _raw_request(server, "/api/v1/auth/tenon/prepare", method="POST",
+                         headers={"Content-Type": "application/json", "X-Forwarded-For": "203.0.113.9"}, body="{}")[0]
+            for _ in range(31)
+        ]
+        assert statuses[:30] == [200] * 30 and statuses[30] == 429
+        assert _raw_request(server, "/api/v1/auth/tenon/prepare", method="POST",
+                            headers={"Content-Type": "application/json", "X-Forwarded-For": "203.0.113.10"}, body="{}")[0] == 200
+    finally:
+        _stop(server, thread)
+
+
+def test_unauthenticated_server_refuses_public_interfaces(monkeypatch):
+    calls = []
+    monkeypatch.setattr(server_module, "run_server", lambda *args, **kwargs: calls.append(args))
+    for name in ("INTHUB_TENON_CLIENT_ID", "INTHUB_TENON_CLIENT_SECRET", "INTHUB_REQUIRE_AUTH", "INTHUB_ALLOW_UNAUTHENTICATED"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr("sys.argv", ["inthub", "--host", "0.0.0.0"])
+    with pytest.raises(SystemExit):
+        server_module.main()
+    assert calls == []
+    monkeypatch.setenv("INTHUB_ALLOW_UNAUTHENTICATED", "1")
+    server_module.main()
+    assert calls and calls[0][0] == "0.0.0.0"

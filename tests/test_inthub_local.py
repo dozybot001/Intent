@@ -1,5 +1,8 @@
 from contextlib import contextmanager
 from pathlib import Path
+import os
+import subprocess
+import sys
 
 from apps.inthub_local import launcher
 
@@ -63,3 +66,27 @@ def test_run_local_opens_browser_and_creates_db_dir(monkeypatch, tmp_path):
     assert db_path.parent.is_dir()
 
 
+
+
+def test_local_hub_imports_without_hosted_only_dependencies(tmp_path):
+    # `itt hub start` must work from a plain CLI install without server extras.
+    script = """
+import importlib.abc, sys
+class Block(importlib.abc.MetaPathFinder):
+    def find_spec(self, name, path=None, target=None):
+        if name.split('.')[0] in {'httpx', 'authlib', 'psycopg', 'psycopg_binary'}:
+            raise ImportError(name=name)
+sys.meta_path.insert(0, Block())
+from apps.inthub_local.launcher import build_local_server
+server = build_local_server('127.0.0.1', 0, sys.argv[1])
+server.server_close()
+print('ok')
+"""
+    root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(tmp_path / "inthub.db")],
+        cwd=root, env={**os.environ, "PYTHONPATH": f"{root}{os.pathsep}{root / 'src'}"},
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "ok"

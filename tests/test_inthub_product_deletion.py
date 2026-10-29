@@ -167,7 +167,7 @@ def test_http_start_requires_local_session_same_origin_and_execute_requires_cent
     thread.start()
     base = f"http://127.0.0.1:{server.server_port}"
     start = "/api/auth/tenon/delete/start"
-    headers = {"Origin": "https://inthub.tenon.asia", "Cookie": "inthub_session=" + session["token"]}
+    headers = {"Origin": "https://inthub.tenon.asia", "Cookie": "__Host-inthub_session=" + session["token"]}
     try:
         assert httpx.post(base + start, json={}, headers={"Origin": "https://evil.example"}).status_code == 403
         assert httpx.post(base + start, json={}, headers={"Origin": headers["Origin"]}).status_code == 401

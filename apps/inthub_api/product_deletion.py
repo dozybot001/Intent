@@ -5,8 +5,6 @@ import re
 import time
 from urllib.parse import parse_qsl, quote, urlsplit
 
-import httpx
-
 from apps.inthub_api.common import APIError, now_utc
 from apps.inthub_api.db import connect
 from apps.inthub_api.tenon import ISSUER, _identity_lock
@@ -84,11 +82,15 @@ def delete_product_account(db_target, proof):
 
 
 class ProductDeletionClient:
-    def __init__(self, client_id, client_secret, request=httpx.post):
+    def __init__(self, client_id, client_secret, request=None):
         if not client_id or not client_secret:
             raise ValueError("Tenon product deletion requires confidential client credentials.")
         encoded = quote(client_id, safe="") + ":" + quote(client_secret, safe="")
         self.authorization = "Basic " + base64.b64encode(encoded.encode()).decode()
+        if request is None:
+            # Hosted-only dependency: IntHub Local imports this module without httpx.
+            import httpx
+            request = httpx.post
         self.request = request
 
     def call(self, action, payload):
