@@ -3,6 +3,7 @@
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -64,6 +65,8 @@ def test_readable_views_and_errors_for_people(project):
     assert "Next: Run the A/B test" in log
     show = _itt(project, "show", "intent-001", env=text).stdout
     assert "Snaps (2)" in show and "Decisions (1)" in show
+    snap = _itt(project, "show", "snap-001", env=text).stdout  # checkpoint without --verified
+    assert re.search(r"^ +Verified +Guest flow works in staging$", snap, re.M)
     failure = _itt(project, "show", "intent-404", env=text)
     assert failure.returncode == 1 and failure.stdout == ""
     assert failure.stderr.startswith("error: intent-404 not found.")

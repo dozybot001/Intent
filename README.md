@@ -2,208 +2,132 @@
 
 [中文](README_CN.md) | English
 
-A semantic history layer above Git for development. It records **goals**, **semantic snapshots**, and **decisions**.
+[![tests](https://github.com/dozybot001/Intent/actions/workflows/test.yml/badge.svg)](https://github.com/dozybot001/Intent/actions/workflows/test.yml)
+![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)
+![status: beta](https://img.shields.io/badge/status-beta-orange)
+![license: MIT](https://img.shields.io/badge/license-MIT-green)
 
-## Why
+**Your coding agent forgets where you left off. Intent keeps the goal, the latest verified checkpoint and the standing decisions in `.intent/`, so the next session (or another agent) continues the work instead of rediscovering it.**
 
-Git records how code changes. But it doesn't record **why you're on this path**, what you decided along the way, or where you left off.
+Git records how code changed. Intent records *why*, what is verified, and what comes next, as a small semantic history next to your code.
 
-Intent adds that missing layer: **semantic history** — a small set of formal objects that preserve product formation history and survive context loss.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/inthub-overview-dark.png">
+  <img alt="IntHub continuation brief: each open goal with its next step, blocker, boundary and verified state" src="docs/assets/inthub-overview-light.png">
+</picture>
 
-> Development is moving from *writing code* to *guiding agents and distilling decisions*. The history layer should reflect that.
+## Why not just AGENTS.md or agent memory?
 
-```mermaid
-flowchart LR
-  subgraph traditional["Traditional Coding"]
-    direction TB
-    H1["Human"]
-    C1["Code"]
-    H1 -->|"Git"| C1
-  end
-  subgraph agent["Agent Driven Development"]
-    direction TB
-    H2["Human"]
-    AG["Agent"]
-    C2["Code"]
-    H2 -."❌ no semantic history".-> AG
-    AG -->|"Git"| C2
-  end
-  subgraph withintent["Agent with Intent"]
-    direction TB
-    H3["Human"]
-    AG2["Agent"]
-    C3["Code"]
-    H3 -->|"Intent"| AG2
-    AG2 -->|"Git"| C3
-  end
-  traditional ~~~ agent ~~~ withintent
-```
+| You may already use | It holds | Intent adds |
+|---|---|---|
+| `AGENTS.md`, `CLAUDE.md`, Cursor rules | How to work in this repository | Where the work stands: current goal, verified state, next step, blocker |
+| Built-in agent memory | Per-tool, opaque notes | Plain JSON in your project that any agent (and you) can read |
+| Issues, PRs, ADRs | Team plans and reviews | Checkpoints captured during the work, plus decisions that attach to new goals automatically |
+| Git history | What changed in the code | The reasoning, and the boundary of what is actually done |
 
-## Three objects, one graph
+## How it works
 
-| Object | What it captures |
+Three kinds of objects, all append-only:
+
+| Object | Captures |
 |---|---|
-| 🎯 **Intent** | A goal summarized from the interaction |
-| 📸 **Snap** | A semantic snapshot — what was done and why |
-| 🔶 **Decision** | A long-lived constraint that spans multiple intents |
+| **Intent** | One goal and why it matters |
+| **Snap** | A verified checkpoint: `Verified`, `Boundary`, `Next`, `Blocker`, `Constraints` |
+| **Decision** | A durable rule that binds future goals (for example "payments go through PaymentIntents only") |
 
-Objects link automatically. Relationships are bidirectional and append-only.
+With continuous maintenance on, each agent turn opens with the current state (injected by a project hook), the agent records a Snap only when something meaningful is verified, and the turn closes as `recorded`, `no-op` or `failed`. Quiet turns write nothing. A Stop hook checks that the turn was closed; it cannot judge semantic quality.
 
-```mermaid
-flowchart LR
-  D1["🔶 Decision 1"]
-  D2["🔶 Decision 2"]
-
-  subgraph Intent1["🎯 Intent 1"]
-    direction LR
-    S1["📸 Snap 1"] --> S2["📸 Snap 2"] --> S3["📸 ..."]
-  end
-
-  subgraph Intent2["🎯 Intent 2"]
-    direction LR
-    S4["📸 Snap 1"] --> S5["📸 Snap 2"] --> S6["📸 ..."]
-  end
-
-  D1 -- auto-attach --> Intent1
-  D1 -- auto-attach --> Intent2
-  D2 -- auto-attach --> Intent2
-```
-
-## Record and resume
-
-Early versions used a **Snap–Query** model where the agent autonomously captured a snapshot after each interaction. In self-use, that produced too many low-value records and interrupted the natural flow of work. Intent therefore treats semantic change—not a query, file, command, commit, or tool call—as the recording boundary.
-
-Continuous local maintenance is the normal mode. `itt init` enables it for a new project; existing histories use `itt maintenance on` once. `itt maintenance off` disables only that project. Installation does not enable unrelated or legacy projects.
-
-The agent reads once at turn start, preserves verified important milestones, and closes with `recorded`, `no-op`, or `failed`. Independent objectives remain separate Intents. No continuation-critical change means a silent no-op, not a new Snap or a repeated permission request.
-
-Project-local Codex entry/Stop hooks and durable turn receipts implement the normal-path closure check. Review/trust the generated definitions in Codex `/hooks`; configuration alone does not prove host execution. The gate allows one closure-only retry, then reports incomplete recording and releases the task. It cannot guarantee semantic quality, crash/cancellation recovery, or operation in unsupported hosts. See [hook integration and limits](references/codex-hooks.md). Automatic maintenance never grants login, push/pull, publication, or cross-project permission.
-
-Whenever an open goal is recorded, its latest Snap should remain a self-contained checkpoint: verified state, current boundary, next step, and blockers or local constraints. Zero writes is valid, and there is no per-turn object quota. Decision candidates should be confirmed together when needed rather than interrupting every turn.
-
-To resume, explicitly ask the agent to recover the project through Intent. It starts with `itt inspect`; if the latest checkpoint is not enough and `has_more` is true, it can narrowly read recent history with `itt inspect --intent ID --history 3`. Merely inspecting or explaining recovery state is read-only.
-
-## What success means
-
-Intent is designed around two goals, not established comparative claims:
-
-| Goal | What still needs to be validated in real use |
-|---|---|
-| Low-disruption recording | Recording takes little time and context, does not interrupt normal development, and avoids command-log noise. |
-| Useful continuation | A later session or another agent can recover the goal and its rationale, the latest meaningful milestone, and active long-lived decisions with less re-explanation. |
-
-Historical self-use shows that earlier workflows ran end to end, but it is not evidence for the current continuation contract. The current version is evaluated with natural continuation cases that distinguish facts supplied by Intent from facts later rediscovered in code or re-explained by the user. See the [dogfooding protocol](docs/EN/dogfooding.md).
-
-## Quick Start
+## Quick start
 
 ```bash
-# macOS / Linux
+# 1. Install the CLI (macOS / Linux). Re-run any time to upgrade.
 curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.sh | bash
 
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.ps1 | iex
-
-# Clone repo & add agent skill
-git clone https://github.com/dozybot001/Intent.git
+# 2. Add the agent skill (needs Node.js)
 npx skills add dozybot001/Intent -g --all
+
+# 3. Turn it on in a project (Git is optional)
+cd your-project
+itt init                       # Codex hooks (default)
+itt init --host claude-code    # or Claude Code hooks
 ```
 
-Requires Python 3.9+. Git is used by source installation and secure credential helpers, not by local semantic history. The install script handles pipx automatically.
-Re-run the installer anytime to upgrade or repair an existing `itt` install.
+Then trust the project hooks once: in Codex open `/hooks`; in Claude Code trust the folder and confirm both hooks in `/hooks`. Work as usual. To pick up later, tell the agent: *"Resume this project through Intent."*
 
-Initialize Intent in the project directory you want to record (Git is optional):
+Windows (PowerShell): `irm https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.ps1 | iex`.
+With pipx or uv: `pipx install "intent-history @ git+https://github.com/dozybot001/Intent.git@v7.1.0"` (or `uv tool install …`). Requires Python 3.9+ and Git.
+
+## Try it by hand
 
 ```bash
-cd your-project
 itt init
-# Existing history: enable once
-itt maintenance on
-# Project-local control
-itt maintenance status
-itt maintenance off
+itt intent create "Add Apple Pay to the web checkout" --why "Apple Pay users convert 2x on mobile Safari"
+itt snap create "Payment sheet confirms PaymentIntents in test mode" \
+  --next "Handle shipping-method changes server-side" --blocker none
+itt decision create "Payments go through the PaymentIntent API only" --why "One SCA path"
+itt inspect
 ```
 
-`itt init` also enables continuous maintenance and creates project-local hooks. Review them in Codex `/hooks` before relying on the Stop gate. Normal turns need no extra user ceremony.
+In a terminal, `itt` prints readable text; agents and scripts get JSON (`--json` forces it).
 
-`itt init` creates `.intent/` and adds it to this clone's Git-local `.git/info/exclude`; it does **not** edit the shared `.gitignore`. The command returns a warning if the local exclude cannot be updated. Review the files before intentionally sharing them, and add `.intent/` to `.gitignore` separately if the whole team should inherit that rule.
+```text
+Active
+  intent-001  Add Apple Pay to the web checkout
+              Next         Handle shipping-method changes server-side
+              Blocker      none
+              Verified     Payment sheet confirms PaymentIntents in test mode
+              snap-001 · 2026-10-30 00:25 · 1 snap
 
-Sign in once, then synchronize one shared semantic history per project:
-
-```bash
-itt auth login
-cd your-project
-itt status
-itt push
+Decisions
+  decision-001  Payments go through the PaymentIntent API only
 ```
 
-Git is optional. The directory name supplies the default project name; use `itt remote add origin https://inthub.tenon.asia --project NAME` when local copies have different names. This remote belongs to Intent and is independent of a code repository's GitHub/Gitee origin. Global credentials still use the secure Git credential helper; tokens never enter `.intent/`. Push creates the remote project when needed and uploads a version identified by its parent and snapshot checksum. Unchanged snapshots create no extra versions. `itt status` reports `empty`, `up_to_date`, `ahead`, `behind`, or `diverged`; `--local` works offline. No staging area, manual commit, branch, force-push, or automatic merge is required.
+`itt log` lists checkpoints like `git log`; `itt show ID` shows one object with its relations.
 
-To restore the same account-private project into another local directory:
+## Works with
 
-```bash
-cd another-checkout
-itt init
-itt remote add origin https://inthub.tenon.asia --project your-project
-itt pull
+| Host | Support |
+|---|---|
+| **Codex** | Skill plus project hooks (opening context and Stop closure check): `itt init` |
+| **Claude Code** | Skill (or plugin: `/plugin marketplace add dozybot001/Intent`, then `/plugin install intent-cli@intent`) plus project hooks: `itt init --host claude-code`. See [setup and limits](references/claude-code-hooks.md). |
+| **Cursor and other agents** | Skill instructions only, best effort |
 
-# Optional preview without applying changes
-itt pull --dry-run
+Hooks are written to project-local files (`.codex/hooks.json`, `.claude/settings.local.json`) and never enable other projects. `itt maintenance off` turns recording off for one project.
 
-# Inspect local/remote synchronization state
-itt status
-```
+## What is stored, and what it costs
 
-Pull restores a complete validated shared snapshot. An unchanged local baseline can advance; local changes stay intact when the remote is unchanged. Divergence is reported without overwriting either side. Repeated pull/push is a no-op. Synchronization uses one shared project history; no workspace or Git-provider branches remain.
+- `.intent/` holds plain JSON (`intents/`, `snaps/`, `decisions/`). `itt init` excludes it from Git in this clone only (`.git/info/exclude`) because it may contain internal reasoning; commit it deliberately if your team wants it in Git.
+- Each hooked turn adds a compact opening context (hard-capped) and one `itt maintenance close` call. No network access happens unless you push or pull.
 
-Pull requires an IntHub service version that provides the account-private snapshot endpoint. Passing isolated or test-environment checks does not by itself validate restoration of real account history.
+## Browse and share with IntHub (optional)
 
-To browse semantic history in a browser, start **IntHub Local** (works from any directory):
+- **Locally:** `itt hub start`, then `itt remote add origin http://127.0.0.1:7210 --project NAME` and `itt push`. IntHub Local serves only same-origin requests on loopback.
+- **Hosted:** [inthub.tenon.asia](https://inthub.tenon.asia), operated by 榫卯 Tenon AI. Sign in with a Tenon account, create an access token in the account menu, run `itt auth login`, then `itt push`. Projects are private to your account; deleting the account from the same menu removes its cloud data (your local `.intent/` is untouched).
+- **Restore elsewhere:** `itt init`, `itt remote add origin URL --project NAME`, `itt pull`.
 
-```bash
-itt hub start
-```
+Today a project has one shared history: push and pull fast-forward, and if two copies record in parallel, `itt status` reports `diverged` without changing either side. Git-style branches and merges are the next milestone ([design](docs/EN/semantic-git.md)).
 
-Then, in your project repo:
+## Status
 
-```bash
-itt remote add origin http://127.0.0.1:7210 --project your-project
-itt push
-```
+Intent is **beta** (7.x). Within a major version the `.intent/` format and the JSON output stay compatible; breaking changes come with a new major version and a migration. Recording and continuation flows are covered by tests on Python 3.9 to 3.14. Whether Intent measurably reduces re-explaining in real work is still being validated with natural continuation cases; see the [dogfooding protocol](docs/EN/dogfooding.md).
 
-IntHub Local binds to `127.0.0.1` by default. Its current local API does not enforce bearer-token authentication and returns permissive CORS headers, so use it only on a trusted machine and do not expose it through a public interface or reverse proxy.
+## FAQ
 
-Internet deployments use one account path: Tenon sign-in, database-backed Web sessions, account-scoped CLI access tokens, account-isolated projects, PostgreSQL, a loopback app port, and Caddy TLS. See [IntHub Production Deployment](docs/EN/inthub-production.md).
+**Does it replace Git, issues or docs?** No. It records the reasoning and the state of work that those tools don't.
 
-> **Tips:** Continuous maintenance is project-local and quiet. “Use Intent to record this work in `.intent/`” remains available for one-off recording; “Resume this project through Intent” starts read-only recovery. IntHub push/pull always needs a separate explicit request. A trusted Stop hook checks closure, not semantic completeness.
+**What if the agent records noise?** Zero writes is a valid outcome; the skill records only verified milestones, never per command or per file. Objects are append-only: corrections are new Snaps.
 
-### Claude Code
+**Is `pip install intent-cli` this project?** No, that PyPI name belongs to an unrelated tool. Intent's distribution is `intent-history`; the command is `itt`.
 
-Codex is the default host. Claude Code users choose it explicitly, once per project:
-
-```bash
-cd your-project
-itt init --host claude-code
-# Existing history: enable once
-itt maintenance on --host claude-code
-itt maintenance status --host claude-code
-```
-
-This merges Intent's two hooks (`UserPromptSubmit` for opening context, `Stop` for the closure check) into `.claude/settings.local.json` without touching other settings, and `itt maintenance off` removes only Intent's entries. Trust the folder in Claude Code, then confirm both hooks in `/hooks` (restart the session if they are missing); configuration alone does not prove execution. Claude Code can also install the same Skill as a plugin: `/plugin marketplace add dozybot001/Intent`, then `/plugin install intent-cli@intent`. The plugin carries instructions only, no hooks, and never enables a project. See [Claude Code setup and limits](references/claude-code-hooks.md).
+**Windows?** The CLI and installer support Windows. Claude Code hooks need Git Bash.
 
 ## Docs
 
-- [Vision](docs/EN/vision.md) — why semantic history matters
-- [Continuation Case](docs/EN/continuation-case.md) — a reproducible interruption-to-resumption walkthrough
-- [Dogfooding Protocol](docs/EN/dogfooding.md) — source-labelled validation on natural continuations
-- [CLI Design](docs/EN/cli.md) — object model, commands, JSON contract
-- [IntHub Production Deployment](docs/EN/inthub-production.md) — PostgreSQL, authentication, TLS, backup, and rollback
+- [Vision](docs/EN/vision.md): why semantic history matters
+- [Continuation case](docs/EN/continuation-case.md): an interruption-to-resumption walkthrough
+- [CLI reference](docs/EN/cli.md): commands, objects and the JSON contract
+- [Codex hooks](references/codex-hooks.md) and [Claude Code hooks](references/claude-code-hooks.md)
+- [Dogfooding protocol](docs/EN/dogfooding.md)
+- Maintainers: [IntHub production deployment](docs/EN/inthub-production.md)
 
-## Community
-
-- [Contributing](.github/CONTRIBUTING.md)
-- [Code of Conduct](.github/CODE_OF_CONDUCT.md)
-- [Security Policy](.github/SECURITY.md)
-
-## License
-
-MIT
+[Contributing](.github/CONTRIBUTING.md) · [Code of conduct](.github/CODE_OF_CONDUCT.md) · [Security](.github/SECURITY.md) · MIT License

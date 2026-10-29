@@ -164,7 +164,10 @@ def snap_title(snap, limit=110):
 
 
 def _checkpoint_lines(snap, indent):
-    checkpoint = checkpoint_of(snap)
+    checkpoint = dict(checkpoint_of(snap))
+    if checkpoint and snap and not checkpoint.get("verified"):
+        # A Snap's WHAT is its verified milestone, as IntHub shows it.
+        checkpoint["verified"] = snap.get("what", "")
     lines = []
     for key, label in CHECKPOINT_LABELS:
         value = checkpoint.get(key)
