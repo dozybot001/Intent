@@ -253,7 +253,8 @@ def _stage_snapshot(base, new, snapshot, hub_config):
             if obj_id in seen:
                 raise PullApplyError(f"Pull snapshot contains duplicate ID {obj_id}.")
             seen.add(obj_id)
-            store.create_object(new, object_type, obj_id, obj)
+        # One directory scan per type: per-object scans made pulls quadratic.
+        store.create_objects(new, object_type, values)
     report = store.validate_graph(store.load_graph_once(new))
     if not report["healthy"]:
         raise PullApplyError("Pull snapshot has invalid object relationships or statuses.")

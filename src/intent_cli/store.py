@@ -664,6 +664,26 @@ def create_object(base, object_type, obj_id, data):
     _create_json_atomic(path, data)
 
 
+def create_objects(base, object_type, objects):
+    """Create many objects like create_object, scanning the directory only once."""
+    subdir, _resolved_subdir = _safe_object_dir(base, object_type)
+    occupied = {entry.name.casefold() for entry in subdir.iterdir()}
+    for data in objects:
+        obj_id = data.get("id") if isinstance(data, dict) else None
+        path = _safe_object_path(base, object_type, obj_id)
+        _validate_object_schema(
+            data, path, object_type, obj_id, require_object_type=True,
+        )
+        if path.name.casefold() in occupied:
+            raise StoredObjectWriteConflictError(
+                path,
+                "a case-insensitive destination name is already occupied",
+                conflicts=_casefold_name_conflicts(path.parent, path.name),
+            )
+        _create_json_atomic(path, data)
+        occupied.add(path.name.casefold())
+
+
 def update_object(base, object_type, obj_id, data):
     """Atomically replace an existing canonical object, never create one."""
     path = _safe_object_path(base, object_type, obj_id)

@@ -148,6 +148,22 @@ def test_install_replaces_complete_snapshot_and_hub_without_moving_lock(storage)
     assert (storage / ".write.lock").stat().st_ino == lock_before.st_ino
 
 
+def test_install_does_not_rescan_a_directory_per_object(storage, monkeypatch):
+    """Scanning once per created object made large pulls quadratic."""
+    snapshot = _snapshot(2)
+    extra = [{**snapshot["snaps"][0], "id": f"snap-{n:03d}", "what": f"Snap {n}"} for n in range(3, 203)]
+    snapshot["snaps"] += extra
+    snapshot["intents"][0]["snap_ids"] += [snap["id"] for snap in extra]
+    scans = []
+    real = store._casefold_name_conflicts
+    monkeypatch.setattr(store, "_casefold_name_conflicts",
+                        lambda directory, name: scans.append(name) or real(directory, name))
+    with store.workspace_write_lock(storage, operation="pull"):
+        restore.install_snapshot(storage, snapshot, _hub(2))
+    _assert_installed(storage, snapshot, _hub(2))
+    assert len(scans) < 10
+
+
 def test_install_preserves_extra_files_directories_and_links(storage, tmp_path):
     outside = tmp_path / "outside"
     outside.mkdir()
