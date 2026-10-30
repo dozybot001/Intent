@@ -10,6 +10,7 @@ import webbrowser
 
 from intent_cli.hub.client import http_json
 from intent_cli.hub.credentials import (
+    credentials_file,
     erase_access_token,
     global_api_base_url,
     load_access_token,
@@ -102,7 +103,7 @@ def cmd_auth_login(args):
     token = _login_token(args, api_base_url)
     projects = http_json("GET", f"{api_base_url}/api/v1/projects", token=token)
     previous_token = load_access_token(api_base_url)
-    store_access_token(api_base_url, token)
+    credential_store = store_access_token(api_base_url, token)
     try:
         write_global_hub_config(api_base_url)
     except Exception:
@@ -119,7 +120,8 @@ def cmd_auth_login(args):
         {
             "api_base_url": api_base_url,
             "authenticated": True,
-            "credential_store": "git-credential-helper",
+            "credential_store": credential_store,
+            **({"credential_path": str(credentials_file())} if credential_store == "file" else {}),
             "project_count": len(projects.get("projects", [])),
         },
     )

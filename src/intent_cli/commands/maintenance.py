@@ -7,7 +7,7 @@ from pathlib import Path
 from intent_cli import store
 from intent_cli.commands.common import require_init
 from intent_cli.maintenance import MaintenanceError, close_turn, read_state, write_state
-from intent_cli.maintenance_hooks import host_status, install_host_hooks, remove_claude_hooks, run_hook
+from intent_cli.maintenance_hooks import host_status, install_host_hooks, remove_claude_hooks, remove_codex_hooks, run_hook
 from intent_cli.output import AGENT_ENVIRONMENT, json_mode, success
 
 HOST_FOLDERS = (("codex", ".codex"), ("claude-code", ".claude"))
@@ -61,6 +61,11 @@ def choose_host(explicit=None, root=None):
     return "codex"
 
 
+def _reported_host(explicit, root):
+    """Reading status never asks: the configured host, the running agent, or Codex."""
+    return explicit or _configured_host(root) or ("claude-code" if os.environ.get("CLAUDECODE") else "codex")
+
+
 def setup_warning(host, field="hooks.setup"):
     return f"Hooks are configured, not verified running. Follow {field}: {SETUP_ACTIONS[host]}; verify actual host execution."
 
@@ -100,7 +105,7 @@ def cmd_maintenance(args):
         return
     if args.sub == "status":
         base = store.intent_dir()
-        args.host = choose_host(args.host, base.parent.resolve()) if base.exists() else (args.host or "codex")
+        args.host = _reported_host(args.host, base.parent.resolve())
         if not base.exists():
             success("maintenance.status", {"root": str(base.parent.resolve()), "initialized": False, "enabled": False})
             return
@@ -121,6 +126,14 @@ def cmd_maintenance(args):
                     "note": "Local adapter observations, not attestation of this current desktop session or semantic quality.",
                 }}, warnings)
         return
+    if args.sub == "off" and getattr(args, "remove_hooks", False):
+        # Also for a project whose .intent/ is already gone: what is left of it is these files.
+        root = store.intent_dir().parent.resolve()
+        remove_claude_hooks(root)
+        remove_codex_hooks(root)
+        if not store.intent_dir().exists():
+            success("maintenance.off", {"root": str(root), "enabled": False, "mode": "continuous", "hooks": None})
+            return
     base = require_init()
     if args.sub in {"on", "off"}:
         host = choose_host(args.host, base.parent.resolve())

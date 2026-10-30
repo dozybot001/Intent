@@ -46,7 +46,7 @@ Intent 之间还可以建立关系：组成、衍生、继承、依赖、对立�
 curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.sh | bash
 
 # 2. 为你使用的 Agent 安装 skill（需要 Node.js；也可以用 -a cursor 等）
-npx skills add dozybot001/Intent -g -a claude-code -a codex
+npx skills add dozybot001/Intent -g -a claude-code -a codex -y
 
 # 3. 在项目中启用（Git 可选）
 cd your-project

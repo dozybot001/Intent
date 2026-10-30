@@ -16,7 +16,7 @@ const ORIGIN_NAMES = {
 };
 const INSTALL_COMMAND = "curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.sh | bash";
 // Two agents by default: --all would create dozens of agent folders in the home directory.
-const SKILL_COMMAND = "npx skills add dozybot001/Intent -g -a claude-code -a codex";
+const SKILL_COMMAND = "npx skills add dozybot001/Intent -g -a claude-code -a codex -y";
 // The CLI's default endpoint: there `itt auth login` needs no URL and a push names the project after its directory.
 const HOSTED_INTHUB = "https://inthub.tenon.asia";
 // Account and Settings open in a dialog over the current page, and team pages have paths of their own;

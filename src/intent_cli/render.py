@@ -328,26 +328,47 @@ def _status(result):
         "up_to_date": green("Up to date with origin."),
         "ahead": "Ahead of origin. Run `itt push` to publish your history.",
         "behind": "Origin has newer history. Run `itt pull` to update.",
-        "diverged": yellow("Local history and origin have diverged; neither was changed."),
+        "diverged": yellow("Local history and origin have diverged; neither was changed. Run `itt pull --rebase`, then `itt push`."),
         "empty": "Local history and origin are both empty.",
     }
     return [f"Project {bold(result['project_name'])} on {result['api_base_url']} · {_counts(result.get('counts'))}",
             *_renamed(result), messages.get(result.get("state"), result.get("state", ""))]
 
 
+DRY_RUN_STATES = {
+    "ahead": "local history is ahead of origin",
+    "behind": "origin has newer history",
+    "up_to_date": "local history and origin match",
+    "empty": "local history and origin are both empty",
+    "diverged": "local history and origin have diverged",
+}
+
+
 def _push(result):
     if result.get("dry_run"):
-        return [f"Dry run: origin is {result['state'].replace('_', ' ')}; "
+        return [f"Dry run: {DRY_RUN_STATES[result['state']]}; "
                 + ("a push would publish new history." if result.get("changed") else "nothing to push.")]
     if not result.get("changed"):
         return [*_renamed(result), "Everything up to date."]
     return [*_renamed(result), f"Pushed {result['project_name']} → revision {result['revision'][:8]}"]
 
 
+def _rebased(result):
+    renumbered = result.get("renumbered") or {}
+    lines = [f"  {old} → {new}" for old, new in renumbered.items()]
+    lines += [f"  {item['id']} stays {item['kept']} (this copy said {item['local']})" for item in result.get("conflicts") or []]
+    return lines
+
+
 def _pull(result):
     if result.get("dry_run"):
-        return [f"Dry run: origin is {result['state'].replace('_', ' ')}; "
+        if "renumbered" in result:
+            return ["Dry run: a rebase would put local work on top of origin:", *_rebased(result)]
+        return [f"Dry run: {DRY_RUN_STATES[result['state']]}; "
                 + ("a pull would update local history." if result.get("changed") else "nothing to pull.")]
+    if result.get("state") == "rebased":
+        return [*_renamed(result), f"Rebased local work on revision {result['revision'][:8]} · {_counts(result.get('counts'))}",
+                *_rebased(result), dim("  Run: itt push")]
     if not result.get("changed"):
         return [*_renamed(result), "Already up to date."]
     return [*_renamed(result), f"Pulled {result['project_name']} revision {result['revision'][:8]} · {_counts(result.get('counts'))}"]
@@ -364,16 +385,21 @@ def _auth(action):
         url = result["api_base_url"]
         if action == "auth.logout":
             return [f"Removed the stored token for {url}." if result.get("credential_removed") else f"No stored token for {url}."]
+        if action == "auth.login" and result.get("credential_store") == "file":
+            return [f"Signed in to {url} · {_plural(result.get('project_count', 0), 'project')}",
+                    dim(f"  No Git credential helper here, so the token is in {result['credential_path']}, readable only by you.")]
         if not result.get("authenticated"):
             return [f"Not signed in to {url}.", dim("  Sign in with: itt auth login")]
         return [f"Signed in to {url} · {_plural(result.get('project_count', 0), 'project')}"]
     return render
 
 
-def _hooks_line(hooks):
+def _hooks_line(hooks, observations=None):
     if not hooks:
         return []
     state = "configured" if hooks.get("configured") else "not configured"
+    if hooks.get("configured") and observations is not None:
+        state += ", closure checked" if observations.get("stop_checked_receipt") else ", seen running" if observations.get("entry_seen") else ", not seen running yet"
     line = f"Hooks ({hooks.get('host')}): {state}"
     if hooks.get("path"):
         line += dim(f"  {hooks['path']}")
@@ -408,7 +434,7 @@ def _maintenance(action):
         if action == "maintenance.status" and not result.get("initialized"):
             return [f"Intent is not initialized in {result['root']}.", dim("  Run: itt init")]
         enabled = "on" if result.get("enabled") else "off"
-        lines = [f"Continuous maintenance is {bold(enabled)} for {result['root']}"] + _hooks_line(result.get("hooks"))
+        lines = [f"Continuous maintenance is {bold(enabled)} for {result['root']}"] + _hooks_line(result.get("hooks"), result.get("observations"))
         if action == "maintenance.on" and (result.get("hooks") or {}).get("configured"):
             lines += _next_steps(result.get("hooks"))
         return lines

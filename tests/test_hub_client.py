@@ -1,6 +1,7 @@
 import http.client
 import io
 import json
+import socket
 import sys
 import threading
 from contextlib import contextmanager
@@ -345,3 +346,14 @@ def test_http_error_invalid_unicode_or_nonfinite_number_keeps_status_and_bounded
     assert response["truncated"] is True
     assert len(captured.out) < 10000
     assert captured.err == ""
+
+
+def test_a_refused_connection_says_what_to_do_next(capsys):
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    with pytest.raises(SystemExit):
+        http_json("GET", f"http://127.0.0.1:{port}/api", attempts=1)
+    output = json.loads(capsys.readouterr().out)
+    assert output["error"]["code"] == "NETWORK_ERROR" and "Nothing is answering" in output["error"]["message"]
+    assert "itt hub start" in output["error"]["suggested_fix"] and "operation ID" not in output["error"]["suggested_fix"]

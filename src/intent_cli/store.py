@@ -132,6 +132,9 @@ def _safe_object_dir(base, object_type):
         raise UnsafeStoragePathError(
             subdir, f"{object_type} storage directory must not be a symlink"
         )
+    if not subdir.exists():
+        # Git keeps no empty folders, so a clone of a committed .intent/ can lack one.
+        subdir.mkdir()
     if not subdir.is_dir():
         raise UnsafeStoragePathError(
             subdir, f"{object_type} storage path is not a directory"

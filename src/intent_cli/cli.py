@@ -128,10 +128,7 @@ def _invoke(command, args):
         error(
             "CREDENTIAL_STORE_ERROR",
             str(exc),
-            suggested_fix=(
-                "Configure a Git credential helper (for example osxkeychain, "
-                "manager, or libsecret) and retry."
-            ),
+            suggested_fix="Check that the Intent config folder is writable, then retry.",
         )
     except KeyboardInterrupt:
         sys.exit(130)
@@ -216,7 +213,9 @@ def main():
     p_maintenance = sub.add_parser("maintenance", help="turn per-turn agent recording on or off")
     s_maintenance = p_maintenance.add_subparsers(dest="sub")
     for name in ("status", "on", "off"):
-        s_maintenance.add_parser(name).add_argument("--host", choices=HOSTS, default=None)
+        p = s_maintenance.add_parser(name)
+        p.add_argument("--host", choices=HOSTS, default=None)
+    p.add_argument("--remove-hooks", action="store_true", help="also remove Intent's hooks from this project's agent settings")
     p = s_maintenance.add_parser("close")
     p.add_argument("outcome", choices=("recorded", "no-op", "failed"))
     p.add_argument("--turn", required=True)
@@ -252,6 +251,7 @@ def main():
     p.add_argument("--api-base-url", default=None)
     p.add_argument("--token", default=None)
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--rebase", action="store_true", help="after parallel work, put local objects on top of the remote")
 
     # --- hub ---
     p_hub = sub.add_parser("hub", help="run IntHub locally (hub start)")
@@ -341,6 +341,8 @@ def main():
     p.add_argument("id")
     p.add_argument("--reason", default="")
 
+    if argv[:1] == ["help"]:
+        argv = [*argv[1:], "--help"]
     args = parser.parse_args(argv)
     if args.command == "maintenance" and getattr(args, "sub", None) == "hook":
         set_format("json")  # host protocol, never human text

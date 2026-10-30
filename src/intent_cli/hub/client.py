@@ -56,13 +56,20 @@ def _transport_failure(method, url, exc, attempts, timeout):
     """Emit one structured failure after bounded transport retries are exhausted."""
     reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
     timed_out = isinstance(reason, (TimeoutError, socket.timeout))
+    target = urllib.parse.urlsplit(url)
+    origin = f"{target.scheme}://{target.netloc}"
+    local = target.hostname in {"127.0.0.1", "localhost", "::1"}
+    if timed_out:
+        message = f"{origin} did not respond within {timeout:g} seconds."
+    elif isinstance(reason, ConnectionRefusedError):
+        message = f"Nothing is answering at {origin}."
+    elif isinstance(reason, socket.gaierror):
+        message = f"Could not find the host {target.hostname}."
+    else:
+        message = f"Could not reach {origin}."
     error(
         "NETWORK_TIMEOUT" if timed_out else "NETWORK_ERROR",
-        (
-            f"IntHub did not respond within {timeout:g} seconds."
-            if timed_out
-            else f"Could not complete the IntHub request to {url}."
-        ),
+        message,
         details={
             "url": url,
             "reason": type(reason).__name__,
@@ -71,8 +78,9 @@ def _transport_failure(method, url, exc, attempts, timeout):
             "completion_unknown": method.upper() not in {"GET", "HEAD"},
         },
         suggested_fix=(
-            "Check IntHub status before deciding whether to retry. The command "
-            "already retried its current operation ID."
+            "Start it with `itt hub start`, or check `itt remote`."
+            if local else
+            "Check your connection and `itt remote`. Local history is unaffected; `itt status --local` works offline."
         ),
     )
 

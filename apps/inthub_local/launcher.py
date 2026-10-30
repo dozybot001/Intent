@@ -2,6 +2,7 @@
 
 import argparse
 from contextlib import contextmanager
+import errno
 from importlib import resources
 from pathlib import Path
 import webbrowser
@@ -53,13 +54,18 @@ def run_local(
     database_path.parent.mkdir(parents=True, exist_ok=True)
 
     with resolve_static_dir() as static_dir:
-        server = build_local_server(
-            host,
-            port,
-            database_path,
-            default_project_id=default_project_id,
-            web_static_dir=static_dir,
-        )
+        try:
+            server = build_local_server(
+                host,
+                port,
+                database_path,
+                default_project_id=default_project_id,
+                web_static_dir=static_dir,
+            )
+        except OSError as exc:
+            if exc.errno != errno.EADDRINUSE:
+                raise
+            raise SystemExit(f"Port {port} is already in use. IntHub Local may already be running; otherwise pass --port.") from exc
         url = public_base_url(host, server.server_port)
         print(
             f"IntHub Local is running at {url} (data: {database_path})\n"

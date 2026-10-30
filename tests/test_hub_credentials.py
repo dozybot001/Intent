@@ -1,4 +1,6 @@
 import json
+import os
+import stat
 import subprocess
 
 import pytest
@@ -6,6 +8,7 @@ import pytest
 from intent_cli.hub.credentials import (
     CredentialStoreError,
     GlobalHubConfigError,
+    credentials_file,
     erase_access_token,
     global_api_base_url,
     global_config_path,
@@ -81,12 +84,34 @@ def test_git_credential_helper_round_trip(monkeypatch, tmp_path):
     assert load_access_token(api_base_url) is None
 
 
-def test_store_fails_when_no_credential_helper_persists(monkeypatch, tmp_path):
+def test_a_machine_without_a_helper_keeps_the_token_in_a_private_file(monkeypatch, tmp_path):
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(tmp_path / "missing-gitconfig"))
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    url = "https://inthub.tenon.asia"
 
+    assert store_access_token(url, "ith_pat_filed") == "file"
+    path = credentials_file()
+    if os.name == "posix":
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert load_access_token(url) == "ith_pat_filed"
+    assert load_access_token("https://other.example") is None, "a token stays with its endpoint"
+
+    store_access_token("https://other.example", "ith_pat_other")
+    erase_access_token(url)
+    assert load_access_token(url) is None and load_access_token("https://other.example") == "ith_pat_other"
+    erase_access_token("https://other.example")
+    assert not path.exists()
+
+
+def test_a_symlinked_credentials_file_is_refused(monkeypatch, tmp_path):
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(tmp_path / "missing-gitconfig"))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    path = credentials_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.symlink_to(tmp_path / "elsewhere")
     with pytest.raises(CredentialStoreError):
-        store_access_token("https://inthub.tenon.asia", "ith_pat_unstored")
+        store_access_token("https://inthub.tenon.asia", "ith_pat_filed")
+    assert load_access_token("https://inthub.tenon.asia") is None
 
 
 def test_store_rejects_credential_protocol_injection():

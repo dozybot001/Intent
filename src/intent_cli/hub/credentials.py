@@ -1,5 +1,6 @@
 """Global IntHub endpoint and account credential helpers."""
 
+import contextlib
 import json
 import os
 import subprocess
@@ -153,8 +154,46 @@ def _run_git_credential(action, request):
     return result
 
 
-def load_access_token(api_base_url):
-    """Load an account token through Git's configured credential helper."""
+def credentials_file():
+    """Where a token goes on a machine with no Git credential helper, as `gh` does."""
+    return global_config_path().with_name("credentials.json")
+
+
+def _file_tokens():
+    path = credentials_file()
+    if path.is_symlink() or not path.is_file():
+        return {}
+    try:
+        tokens = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return tokens if isinstance(tokens, dict) else {}
+
+
+def _write_file_tokens(tokens):
+    path = credentials_file()
+    if path.is_symlink():
+        raise CredentialStoreError(f"Credentials file must not be a symlink: {path}")
+    try:
+        if not tokens:
+            path.unlink(missing_ok=True)
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temporary = tempfile.mkstemp(dir=path.parent, prefix=".credentials-")
+        try:
+            os.fchmod(descriptor, 0o600) if hasattr(os, "fchmod") else None
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                json.dump(tokens, handle, indent=2)
+            os.replace(temporary, path)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(temporary)
+            raise
+    except OSError as exc:
+        raise CredentialStoreError(f"Could not write {path}.") from exc
+
+
+def _helper_token(api_base_url):
     try:
         result = _run_git_credential("fill", _credential_request(api_base_url))
     except (OSError, subprocess.SubprocessError):
@@ -168,28 +207,38 @@ def load_access_token(api_base_url):
     return None
 
 
+def load_access_token(api_base_url):
+    """Load an account token from Git's credential helper, or the fallback file."""
+    return _helper_token(api_base_url) or _file_tokens().get(normalize_api_base_url(api_base_url))
+
+
 def store_access_token(api_base_url, token):
-    """Store an account token through Git's configured credential helper."""
+    """Store a token with Git's credential helper if there is one; return where it went."""
     if not isinstance(token, str) or not token:
         raise CredentialStoreError("An IntHub account token is required.")
     if any(ord(char) < 32 or ord(char) == 127 for char in token):
         raise CredentialStoreError("IntHub account token contains control characters.")
     request = _credential_request(api_base_url, token)
     try:
-        result = _run_git_credential("approve", request)
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise CredentialStoreError("Could not invoke Git's credential helper.") from exc
-    if result.returncode != 0 or load_access_token(api_base_url) != token:
-        raise CredentialStoreError(
-            "Git's credential helper did not persist the IntHub account token."
-        )
+        stored = _run_git_credential("approve", request).returncode == 0 and _helper_token(api_base_url) == token
+    except (OSError, subprocess.SubprocessError):
+        stored = False
+    key = normalize_api_base_url(api_base_url)
+    tokens = _file_tokens()
+    if stored:
+        if tokens.pop(key, None) is not None:
+            _write_file_tokens(tokens)
+        return "git-credential-helper"
+    _write_file_tokens({**tokens, key: token})
+    return "file"
 
 
 def erase_access_token(api_base_url):
-    """Remove the account token from Git's configured credential helper."""
+    """Remove the account token from wherever it was stored."""
+    tokens = _file_tokens()
+    if tokens.pop(normalize_api_base_url(api_base_url), None) is not None:
+        _write_file_tokens(tokens)
     try:
-        result = _run_git_credential("reject", _credential_request(api_base_url))
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise CredentialStoreError("Could not invoke Git's credential helper.") from exc
-    if result.returncode != 0:
-        raise CredentialStoreError("Git's credential helper could not remove the token.")
+        _run_git_credential("reject", _credential_request(api_base_url))
+    except (OSError, subprocess.SubprocessError):
+        pass

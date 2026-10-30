@@ -46,7 +46,7 @@ With continuous maintenance on, each agent turn opens with the current state (in
 curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.sh | bash
 
 # 2. Add the agent skill for your agents (needs Node.js; -a cursor etc. also work)
-npx skills add dozybot001/Intent -g -a claude-code -a codex
+npx skills add dozybot001/Intent -g -a claude-code -a codex -y
 
 # 3. Turn it on in a project (Git is optional)
 cd your-project

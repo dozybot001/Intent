@@ -1430,3 +1430,19 @@ class TestAtomicWrites:
             f"intent-{index:03d}" for index in range(1, 9)
         }
         assert _run(workspace, "doctor")["result"]["healthy"] is True
+
+
+def test_a_clone_of_a_committed_history_lacks_empty_folders(tmp_path):
+    env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1] / "src"), ITT_FORMAT="json")
+    run = lambda *args: subprocess.run([sys.executable, "-m", "intent_cli", *args], cwd=tmp_path, env=env, capture_output=True, text=True)
+    assert run("init", "--host", "codex").returncode == 0
+    assert run("intent", "create", "Goal").returncode == 0
+    (tmp_path / ".intent" / "decisions").rmdir()
+    assert json.loads(run("inspect").stdout)["ok"] is True
+    assert (tmp_path / ".intent" / "decisions").is_dir()
+
+
+def test_help_is_a_command_too():
+    result = subprocess.run([sys.executable, "-m", "intent_cli", "help"], capture_output=True, text=True,
+                            env=dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1] / "src")))
+    assert result.returncode == 0 and "usage" in result.stdout.lower()

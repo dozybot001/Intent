@@ -7,6 +7,7 @@ import os
 from pathlib import Path, PureWindowsPath
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 
@@ -730,3 +731,29 @@ def test_claude_code_plugin_serves_the_single_root_skill_without_hooks():
         for link in re.findall(r"\]\((references/[^)#]+)", text):
             assert (SOURCE / link).is_file(), link
         assert "references/claude-code-hooks.md" in text
+
+
+def test_off_can_remove_the_hooks_too_even_after_intent_is_deleted(tmp_path):
+    assert cli(tmp_path, "init", "--host", "codex")["ok"]
+    assert cli(tmp_path, "maintenance", "on", "--host", "claude-code")["ok"]
+    hooks = tmp_path / ".codex" / "hooks.json"
+    settings = tmp_path / ".claude" / "settings.local.json"
+    data = json.loads(hooks.read_text())
+    data["hooks"]["Stop"].append({"hooks": [{"type": "command", "command": "echo mine"}]})
+    hooks.write_text(json.dumps(data))
+    assert cli(tmp_path, "maintenance", "off")["ok"]
+    assert hooks.exists() and settings.exists() is False, "plain off keeps Codex's reviewed definitions"
+
+    shutil.rmtree(tmp_path / ".intent")
+    result = cli(tmp_path, "maintenance", "off", "--remove-hooks")
+    assert result["ok"] and result["result"]["enabled"] is False
+    remaining = json.loads(hooks.read_text())["hooks"]
+    assert list(remaining) == ["Stop"] and "echo mine" in hooks.read_text() and "intent_cli" not in hooks.read_text()
+
+
+def test_status_reads_without_asking_which_agent(tmp_path, monkeypatch):
+    assert cli(tmp_path, "init", "--host", "codex")["ok"]
+    assert cli(tmp_path, "maintenance", "status")["result"]["hooks"]["host"] == "codex"
+    monkeypatch.setattr("builtins.input", lambda *_: pytest.fail("status must never prompt"))
+    from intent_cli.commands.maintenance import _reported_host
+    assert _reported_host(None, tmp_path) == "codex"

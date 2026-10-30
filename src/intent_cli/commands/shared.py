@@ -7,6 +7,7 @@ from intent_cli import identity
 from intent_cli.commands.common import require_init
 from intent_cli.hub.client import http_json
 from intent_cli.hub.credentials import normalize_api_base_url, GlobalHubConfigError
+from intent_cli.hub.rebase import rebase_snapshot
 from intent_cli.hub.restore import install_snapshot
 from intent_cli.hub.runtime import hub_api_base, hub_auth_token, hub_auth_configured, load_hub
 from intent_cli.hub.snapshots import SnapshotError, require_fast_forward, snapshot_sha256, validate_snapshot
@@ -208,8 +209,10 @@ def cmd_push(args):
     name, followed = _followed(name, remote)
     relation = _relation(config, snapshot, digest, remote)
     if relation in {"behind", "diverged"}:
-        error("NON_FAST_FORWARD", "Remote history changed. Pull first; divergent histories require explicit resolution.",
-              details={"state": relation, "remote_revision": remote["revision"]})
+        error("NON_FAST_FORWARD", "Remote history changed since this copy last synced.",
+              details={"state": relation, "remote_revision": remote["revision"]},
+              suggested_fix="Run `itt pull`, then push." if relation == "behind"
+              else "Run `itt pull --rebase` to put local work on top of the remote, then `itt push`.")
     if args.dry_run:
         success("push", {"dry_run": True, "state": relation, "changed": relation == "ahead", "project_name": name, **followed})
         return
@@ -252,22 +255,38 @@ def cmd_pull(args):
     if remote["revision"] is None:
         error("SNAPSHOT_NOT_FOUND", "This remote project has no shared semantic history.")
     relation = _relation(config, snapshot, digest, remote)
+    rebased = None
     if relation == "diverged":
-        error("HISTORY_DIVERGED", "Both local and remote history changed. Neither was overwritten.",
-              details={"remote_revision": remote["revision"], "local_revision": config.get("revision")})
+        if not args.rebase:
+            error("HISTORY_DIVERGED", "Both local and remote history changed. Neither was overwritten.",
+                  details={"remote_revision": remote["revision"], "local_revision": config.get("revision")},
+                  suggested_fix="Run `itt pull --rebase` to put local work on top of the remote, then `itt push`.")
+        try:
+            rebased, renumbered, conflicts = rebase_snapshot(snapshot, remote["snapshot"])
+        except SnapshotError as exc:
+            error("HISTORY_CONFLICT", str(exc), details={"remote_revision": remote["revision"]})
     if relation == "behind":
         try:
             require_fast_forward(snapshot, remote["snapshot"])
         except SnapshotError as exc:
             error("REMOTE_HISTORY_CONFLICT", str(exc))
     if args.dry_run:
-        success("pull", {"dry_run": True, "changed": relation == "behind", "state": relation})
+        success("pull", {"dry_run": True, "changed": relation == "behind" or rebased is not None, "state": relation,
+                         **({"renumbered": renumbered, "conflicts": conflicts} if rebased else {})})
         return
     with workspace_write_lock(base, operation="pull.apply"):
         current, _, _, current_hash = _state(base, args)
         if current != config or current_hash != digest:
             error("LOCAL_STATE_CHANGED", "Local history or configuration changed during download.")
         updated = _config(api, name, remote)
+        if rebased:
+            # The baseline is now the remote head, so what stays on top is an ordinary push.
+            install_snapshot(base, rebased, updated)
+            success("pull", {"project_name": name, **followed, "project_id": remote["project_id"],
+                "revision": remote["revision"], "changed": True, "state": "rebased",
+                "renumbered": renumbered, "conflicts": conflicts,
+                "counts": {k: len(v) for k, v in rebased.items()}})
+            return
         if relation == "behind":
             install_snapshot(base, remote["snapshot"], updated)
         elif relation == "up_to_date" and updated != config:

@@ -194,14 +194,21 @@ def install_host_hooks(root, host):
 
 
 def remove_claude_hooks(root):
+    _remove_hooks(_claude_path(root), posix=True)
+
+
+def remove_codex_hooks(root):
+    _remove_hooks(_hooks_path(root), posix=os.name != "nt")
+
+
+def _remove_hooks(path, posix):
     """Remove only Intent's handlers; drop the settings file only if nothing else remains."""
-    path = _claude_path(root)
     if not path.exists():
         return
     data = _hooks_data(path)
     changed = False
     for event, groups in list(data["hooks"].items()):
-        kept = _without_ours(groups, posix=True)
+        kept = _without_ours(groups, posix=posix)
         if kept != groups:
             changed = True
             if kept:

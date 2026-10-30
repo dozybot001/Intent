@@ -80,7 +80,7 @@ function Install-IntentCli {
     & itt version *> $null
     if ($LASTEXITCODE -ne 0) { throw "Installation finished, but 'itt version' failed. Open a new terminal and retry." }
     Info "Installed Intent $ReleaseTag. Next: run 'itt init' in a project."
-    Info "Agent skill (needs Node.js): npx skills add dozybot001/Intent -g -a claude-code -a codex"
+    Info "Agent skill (needs Node.js): npx skills add dozybot001/Intent -g -a claude-code -a codex -y"
 }
 
 try {

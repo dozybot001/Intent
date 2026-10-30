@@ -20,7 +20,8 @@ from apps.inthub_api.queries import (
     get_intent_detail, list_projects, project_handoff, project_overview, search_project,
 )
 from apps.inthub_api.server import build_server
-from intent_cli.hub.snapshots import snapshot_sha256, validate_snapshot
+from intent_cli.hub.rebase import rebase_snapshot
+from intent_cli.hub.snapshots import SnapshotError, snapshot_sha256, validate_snapshot
 from intent_cli.hub.versions import revision_id
 from intent_cli.commands import shared
 
@@ -244,6 +245,83 @@ def test_divergence_preserves_both_snapshots_and_does_not_duplicate_versions(cli
     assert bytes_of(target) == before
     remote = read_history(db, "demo")
     assert remote["snapshot"]["snaps"][-1]["what"] == "other result"
+
+
+def diverge(source, target):
+    seed(source)
+    assert run(target, "pull")["ok"]
+    assert run(target, "snap", "create", "desktop result", "--intent", "intent-001")["ok"]
+    assert run(target, "intent", "create", "Desktop goal")["ok"]
+    assert run(target, "snap", "create", "desktop detail", "--intent", "intent-002")["ok"]
+    assert run(target, "decision", "create", "Use the desktop rule", "--from", "intent-002")["ok"]
+    assert run(source, "snap", "create", "laptop result", "--intent", "intent-001")["ok"]
+    assert run(source, "push")["ok"]
+
+
+def test_rebase_puts_local_work_on_top_and_both_copies_converge(clients):
+    source, target, db, _ = clients
+    diverge(source, target)
+    assert "itt pull --rebase" in run(target, "pull")["error"]["suggested_fix"]
+    assert "itt pull --rebase" in run(target, "push")["error"]["suggested_fix"]
+
+    before = bytes_of(target)
+    preview = run(target, "pull", "--rebase", "--dry-run")["result"]
+    assert preview["dry_run"] is True and preview["state"] == "diverged"
+    assert preview["renumbered"] == {"intent-002": "intent-002", "snap-002": "snap-003", "snap-003": "snap-004", "decision-001": "decision-001"}
+    assert bytes_of(target) == before
+
+    result = run(target, "pull", "--rebase")["result"]
+    assert result["state"] == "rebased" and result["changed"] is True and result["conflicts"] == []
+    # The remote's objects keep their IDs; what only this copy had follows them, with its references.
+    assert run(target, "show", "snap-002")["result"]["object"]["what"] == "laptop result"
+    assert run(target, "show", "snap-003")["result"]["object"]["what"] == "desktop result"
+    assert run(target, "show", "intent-001")["result"]["object"]["snap_ids"] == ["snap-001", "snap-002", "snap-003"]
+    assert run(target, "show", "snap-004")["result"]["object"]["intent_id"] == "intent-002"
+    assert run(target, "doctor")["result"]["healthy"] is True
+    assert run(target, "status")["result"]["state"] == "ahead"
+    assert run(target, "push")["result"]["changed"] is True
+
+    assert run(source, "pull")["result"]["changed"] is True
+    assert run(source, "status")["result"]["state"] == "up_to_date"
+    assert run(target, "status")["result"]["state"] == "up_to_date"
+    remote = read_history(db, "demo")["snapshot"]
+    assert [len(remote[kind]) for kind in ("intents", "snaps", "decisions")] == [2, 4, 1]
+
+
+def test_rebase_keeps_a_local_close_on_an_object_both_copies_share(clients):
+    source, target, _, _ = clients
+    seed(source)
+    assert run(target, "pull")["ok"]
+    assert run(source, "intent", "create", "Second goal")["ok"]
+    assert run(source, "push")["ok"]
+    assert run(target, "intent", "done", "intent-001")["ok"]
+    result = run(target, "pull", "--rebase")["result"]
+    assert result["state"] == "rebased" and result["conflicts"] == [] and result["renumbered"] == {}
+    assert run(target, "show", "intent-001")["result"]["object"]["status"] == "done"
+    assert run(target, "show", "intent-002")["result"]["object"]["what"] == "Second goal"
+    assert run(target, "push")["ok"]
+
+
+def _snapshot(**intent):
+    created = "2026-10-01T00:00:00+00:00"
+    return {
+        "intents": [{"id": "intent-001", "object": "intent", "created_at": created, "what": "Goal", "why": "", "origin": "pytest",
+                     "status": "active", "decision_ids": [], "snap_ids": ["snap-001"], **intent}],
+        "snaps": [{"id": "snap-001", "object": "snap", "created_at": created, "what": "Step", "why": "", "origin": "pytest", "intent_id": "intent-001"}],
+        "decisions": [],
+    }
+
+
+def test_rebase_reports_a_status_it_could_not_keep():
+    merged, renumbered, conflicts = rebase_snapshot(_snapshot(status="suspend"), _snapshot(status="done"))
+    assert merged["intents"][0]["status"] == "done" and renumbered == {}
+    assert conflicts == [{"id": "intent-001", "kept": "done", "local": "suspend"}]
+
+
+def test_rebase_refuses_what_it_cannot_combine():
+    # The Snap is shared while its Intent is not, so nothing can say where it belongs now.
+    with pytest.raises(SnapshotError, match="cannot be combined"):
+        rebase_snapshot(_snapshot(created_at="2020-01-01T00:00:00+00:00"), _snapshot())
 
 
 def test_lost_push_response_converges_without_second_version(clients):
