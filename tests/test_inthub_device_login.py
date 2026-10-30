@@ -103,8 +103,8 @@ def test_guessing_codes_and_flooding_are_limited(hub):
     ana = Person(hub, "ana")
     codes = [ana.post("/api/v1/auth/device/lookup", {"code": "BCDF-GHJK"})[0] for _ in range(21)]
     assert codes[:20] == [404] * 20 and codes[20] == 429
-    statuses = [request(hub.url + "/api/v1/auth/device/start", "POST", {"name": "x"})[0] for _ in range(31)]
-    assert statuses[:30] == [200] * 30 and statuses[30] == 429
+    statuses = [request(hub.url + "/api/v1/auth/device/start", "POST", {"name": "x"})[0] for _ in range(11)]
+    assert statuses[:10] == [200] * 10 and statuses[10] == 429
 
 
 def test_the_cli_signs_in_with_a_code_and_stores_the_token(hub, monkeypatch, capsys):

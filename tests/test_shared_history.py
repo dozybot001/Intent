@@ -302,6 +302,21 @@ def test_rebase_keeps_a_local_close_on_an_object_both_copies_share(clients):
     assert run(target, "push")["ok"]
 
 
+def test_rebase_keeps_a_snap_recorded_before_the_other_copy_closed_the_intent(clients):
+    source, target, _, _ = clients
+    seed(source)
+    assert run(target, "pull")["ok"]
+    assert run(target, "snap", "create", "last local step", "--intent", "intent-001")["ok"]
+    assert run(source, "intent", "done", "intent-001")["ok"]
+    assert run(source, "push")["ok"]
+    result = run(target, "pull", "--rebase")["result"]
+    assert result["state"] == "rebased" and result["renumbered"] == {"snap-002": "snap-002"}
+    assert run(target, "show", "intent-001")["result"]["object"]["status"] == "done"
+    assert run(target, "show", "intent-001")["result"]["object"]["snap_ids"] == ["snap-001", "snap-002"]
+    assert run(target, "push")["ok"], "the hub accepts it too"
+    assert run(source, "pull")["result"]["changed"] is True
+
+
 def _snapshot(**intent):
     created = "2026-10-01T00:00:00+00:00"
     return {

@@ -602,6 +602,9 @@ def test_no_control_falls_back_to_the_browsers_own_look():
     # Selects are listboxes of our own, in the top layer so a dialog or a scrolling pane cannot clip them.
     assert "<select" not in html + javascript and "<option" not in html + javascript
     assert 'role="listbox" popover="manual"' in javascript and "position: fixed" in _rule(css, ".select-menu")
+    # An id equal to the name makes form.elements[name] a list, whose value reads empty.
+    for identifier, name in re.findall(r'selectField\(\{ id: "([^"]+)", name: "([^"]+)"', javascript):
+        assert identifier != name
     assert "aria-selected" in javascript and all(key in javascript for key in ("ArrowDown", "Home:", "End:"))
     # Hints use the page's popover, not the browser's title tooltip. The form's own title attributes stay out too.
     assert not re.search(r'<[a-z][^>]*\stitle="', html + javascript)

@@ -18,7 +18,7 @@ LOGIN_TTL = timedelta(minutes=10)
 POLL_SECONDS = 3
 TOKEN_TTL_SECONDS = 90 * 24 * 60 * 60
 NAME_MAX = 100
-PENDING_MAX = 1000
+PENDING_MAX = 100_000
 VERIFICATION_PATH = "/device"
 # Consonants only: no digits to confuse with letters, and no accidental words.
 CODE_ALPHABET = "BCDFGHJKLMNPQRSTVWXZ"

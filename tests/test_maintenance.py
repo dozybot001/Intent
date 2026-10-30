@@ -751,6 +751,25 @@ def test_off_can_remove_the_hooks_too_even_after_intent_is_deleted(tmp_path):
     assert list(remaining) == ["Stop"] and "echo mine" in hooks.read_text() and "intent_cli" not in hooks.read_text()
 
 
+def test_a_moved_project_hears_that_its_hooks_are_stale(tmp_path):
+    root = tmp_path / "before"
+    root.mkdir()
+    assert cli(root, "init", "--host", "claude-code")["ok"]
+    moved = tmp_path / "after"
+    root.rename(moved)
+    event = {"hook_event_name": "UserPromptSubmit", "session_id": "s", "prompt_id": "t", "prompt": "hi", "cwd": str(moved)}
+    result = cli(moved, "maintenance", "hook", "--host", "claude-code", "--root", str(root), stdin=json.dumps(event))
+    assert "itt maintenance on" in result["systemMessage"] and str(root) in result["systemMessage"]
+    stop = {**event, "hook_event_name": "Stop"}
+    assert cli(moved, "maintenance", "hook", "--host", "claude-code", "--root", str(root), stdin=json.dumps(stop)) == {}
+    # A project nested in a hooked one is simply not this hook's.
+    nested = moved / "nested"
+    nested.mkdir()
+    assert cli(nested, "init", "--host", "claude-code")["ok"]
+    inner = {**event, "cwd": str(nested)}
+    assert cli(nested, "maintenance", "hook", "--host", "claude-code", "--root", str(moved), stdin=json.dumps(inner)) == {}
+
+
 def test_status_reads_without_asking_which_agent(tmp_path, monkeypatch):
     assert cli(tmp_path, "init", "--host", "codex")["ok"]
     assert cli(tmp_path, "maintenance", "status")["result"]["hooks"]["host"] == "codex"

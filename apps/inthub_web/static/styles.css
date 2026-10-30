@@ -4860,6 +4860,10 @@ html:has(.settings-dialog[open]) {
   font-size: 12.5px;
 }
 
+.site-footer[hidden] {
+  display: none;
+}
+
 .site-footer a {
   color: inherit;
   text-decoration: none;

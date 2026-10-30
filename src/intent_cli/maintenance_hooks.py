@@ -303,6 +303,9 @@ def handle_event(event, expected_root=None, host="codex"):
         return {}
     root = base.parent.resolve()
     if expected_root is not None and root != Path(expected_root).resolve():
+        # A nested project is not this hook's; a project that moved still needs to hear about it.
+        if event["hook_event_name"] == "UserPromptSubmit" and not Path(expected_root).exists():
+            return {"systemMessage": f"Intent hooks still point at {expected_root}. Run `itt maintenance on` here to update them."}
         return {}
     # Disabled projects are a read-only no-op, including after mid-turn revoke.
     if not read_state(base)["enabled"]:

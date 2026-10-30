@@ -230,7 +230,7 @@ def make_handler(
     # A visitor's read parses a whole snapshot, with no account to answer for it.
     visitor_limiter = _RateLimiter(limit=300, window_seconds=60)
     # A code has 20^8 values and lives ten minutes; these keep guessing and polling cheap.
-    device_start_limiter = _RateLimiter(limit=30, window_seconds=60)
+    device_start_limiter = _RateLimiter(limit=10, window_seconds=60)
     device_poll_limiter = _RateLimiter(limit=120, window_seconds=60)
     device_code_limiter = _RateLimiter(limit=20, window_seconds=60)
     # Twenty requests a second from one address is far above any person or Agent.

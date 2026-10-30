@@ -99,11 +99,14 @@ def require_fast_forward(before, after):
                     raise SnapshotError(f"Remote history rewrote {old['id']}.{relation}.")
             if not _relations_grow_only(old, new):
                 raise SnapshotError(f"Remote history rewrote {old['id']}.relations.")
-            # A finished object may still gain relation records (for example a
-            # successor of a duplicate), but nothing it already says may change.
+            # A finished object may still gain relation records (a successor of a
+            # duplicate) and references (a Snap another copy recorded before it
+            # heard of the close); the checks above keep those append-only. Nothing
+            # else it says may change.
+            growing = {"relations", "snap_ids", "decision_ids", "intent_ids"}
             if old.get("status") in {"done", "cancelled", "deprecated"} and {
-                k: v for k, v in old.items() if k != "relations"
-            } != {k: v for k, v in new.items() if k != "relations"}:
+                k: v for k, v in old.items() if k not in growing
+            } != {k: v for k, v in new.items() if k not in growing}:
                 raise SnapshotError(f"Remote history changed terminal object {old['id']}.")
             if "reason" in old and new.get("reason") != old["reason"]:
                 raise SnapshotError(f"Remote history rewrote {old['id']}.reason.")

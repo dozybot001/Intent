@@ -75,6 +75,7 @@ const el = {
   siteContent: document.getElementById("site-content"),
   skipLink: document.querySelector(".skip-link"),
   statusLine: document.getElementById("status-line"),
+  siteFooter: document.getElementById("site-footer"),
   reportLink: document.getElementById("report-link"),
   authPitch: document.getElementById("auth-pitch"),
   authStart: document.getElementById("auth-start"),
@@ -3487,7 +3488,8 @@ function metaParts(parts) {
 }
 
 /* Select: the browser's popup ignores the page's look, so this is a listbox of our own. The value lives in a
-   hidden input, which forms and change listeners read like any field. */
+   hidden input, which forms and change listeners read like any field. Its id must differ from its name:
+   a form lists both under one key, and form.elements[name].value then reads empty. */
 function selectField({ id, name = "", value, options, label = "", className = "", attrs = "" }) {
   const selected = options.find((option) => String(option.value) === String(value)) || options[0];
   return `
@@ -3798,8 +3800,6 @@ function closeSettingsDialog({ history = "auto" } = {}) {
   state._pane = "";
   state._tokens = null;
   state._tokensError = "";
-  state._teams = null;
-  state._teamsError = "";
   state._usage = null;
   if (el.settingsDialog.open) el.settingsDialog.close();
   el.settingsDialogBody.innerHTML = "";
@@ -3876,8 +3876,8 @@ function tokenFormHtml() {
         <input class="text-field" id="token-name" name="token-name" type="text" value="${esc(draft.name ?? "itt")}" maxlength="100" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="token-form-error">
       </div>
       <div class="settings-field">
-        <label class="field-label" for="token-days">${esc(t("Expires in"))}</label>
-        ${selectField({ id: "token-days", name: "token-days", value: days, options: TOKEN_LIFETIMES.map((value) => ({ value, label: plural(value, "{count} day", "{count} days") })) })}
+        <label class="field-label" for="token-lifetime">${esc(t("Expires in"))}</label>
+        ${selectField({ id: "token-lifetime", name: "token-days", value: days, options: TOKEN_LIFETIMES.map((value) => ({ value, label: plural(value, "{count} day", "{count} days") })) })}
       </div>
       <button class="button button-primary" type="submit">${iconLabel("key", t("Generate token"))}</button>
       <p class="field-error" id="token-form-error" role="alert" hidden></p>
@@ -4055,6 +4055,7 @@ async function loadUsage() {
   }
   const list = el.settingsDialogBody.querySelector?.("#usage-list");
   if (list) list.innerHTML = usageListHtml();
+  else renderSettingsDialog();
 }
 
 /* Teams: the list in Settings, and each team's own page. */
@@ -4289,8 +4290,8 @@ function teamMembersPane(data) {
     ${admin ? settingsBlock("invite", t("Invite people"), `
       <form class="settings-form invite-form" data-invite-form novalidate>
         <div class="settings-field">
-          <label class="field-label" for="invite-role">${esc(t("Role"))}</label>
-          ${selectField({ id: "invite-role", name: "invite-role", value: state._inviteRole || "member", options: roleOptions() })}
+          <label class="field-label" for="invite-role-select">${esc(t("Role"))}</label>
+          ${selectField({ id: "invite-role-select", name: "invite-role", value: state._inviteRole || "member", options: roleOptions() })}
         </div>
         <button class="button button-primary" type="submit">${iconLabel("link", t("Create invite link"))}</button>
         <p class="field-error" role="alert" hidden></p>
@@ -6307,6 +6308,8 @@ async function init(bind = true) {
     const response = await fetch(configUrl(), { credentials: "same-origin", cache: "no-store" });
     if (!response.ok) throw new ApiRequestError(t("Could not load data. Try again."), response.status, "CONFIG_UNAVAILABLE");
     state.config = await response.json();
+    // A local hub is the user's own: the hosted service's terms say nothing about it.
+    el.siteFooter.hidden = !state.config.authRequired;
     authError = callbackErrorMessage();
     const route = readRoute();
     state.activeTab = route.tab;

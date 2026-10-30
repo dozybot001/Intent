@@ -181,7 +181,7 @@ def _write_file_tokens(tokens):
         path.parent.mkdir(parents=True, exist_ok=True)
         descriptor, temporary = tempfile.mkstemp(dir=path.parent, prefix=".credentials-")
         try:
-            os.fchmod(descriptor, 0o600) if hasattr(os, "fchmod") else None
+            # mkstemp creates the file readable only by its owner.
             with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
                 json.dump(tokens, handle, indent=2)
             os.replace(temporary, path)
@@ -208,8 +208,8 @@ def _helper_token(api_base_url):
 
 
 def load_access_token(api_base_url):
-    """Load an account token from Git's credential helper, or the fallback file."""
-    return _helper_token(api_base_url) or _file_tokens().get(normalize_api_base_url(api_base_url))
+    """Load an account token. The file holds one only when the helper could not, so it comes first."""
+    return _file_tokens().get(normalize_api_base_url(api_base_url)) or _helper_token(api_base_url)
 
 
 def store_access_token(api_base_url, token):

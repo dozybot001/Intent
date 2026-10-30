@@ -1,10 +1,11 @@
 """What keeps a hosted hub safe to open: quotas, rate limits, suspension, takedown and the check before going public."""
 
 import json
+import time
 
 import pytest
 
-from apps.inthub_api import admin, limits
+from apps.inthub_api import admin, db, limits
 from apps.inthub_api.db import connect
 from apps.inthub_api.secret_scan import find_secrets
 from apps.inthub_api.tenon import account_for_identity
@@ -62,14 +63,21 @@ def test_usage_lists_the_viewers_teams(hub):
     assert request(hub.url + "/api/v1/usage")[0] == 401
 
 
-def test_migration_counts_what_is_already_stored(hub):
+def test_storage_is_counted_in_bytes_by_pushes_and_by_the_migration(hub):
     ana = Person(hub, "ana")
     pid = ana.link("app")
-    ana.push("app", pid, snapshot("Ship"))
+    ana.push("app", pid, snapshot("把语义历史推送到托管服务"))
+    stored = "SELECT stored_bytes FROM projects WHERE id = ?"
     with connect(hub.db) as conn:
-        before = conn.execute("SELECT stored_bytes FROM projects WHERE id = ?", (pid,)).fetchone()["stored_bytes"]
-        counted = conn.execute("SELECT SUM(LENGTH(snapshot_json)) AS total FROM semantic_versions WHERE project_id = ?", (pid,)).fetchone()["total"]
-    assert before == counted
+        pushed = conn.execute(stored, (pid,)).fetchone()["stored_bytes"]
+        text = conn.execute("SELECT snapshot_json FROM semantic_versions WHERE project_id = ?", (pid,)).fetchone()["snapshot_json"]
+        # As a database at schema 7 would look: nothing counted yet.
+        conn.execute("UPDATE projects SET stored_bytes = 0")
+        conn.execute("DELETE FROM schema_migrations WHERE version = 8")
+    assert pushed == len(text.encode("utf-8")) > len(text)
+    db.migrate_target(hub.db, require_backward_compatible=True)
+    with connect(hub.db) as conn:
+        assert conn.execute(stored, (pid,)).fetchone()["stored_bytes"] == pushed
 
 
 def test_one_address_cannot_flood_the_api_or_tenon(hub):
@@ -141,6 +149,18 @@ def test_credentials_are_found_by_kind(text, kind):
     found = find_secrets(snapshot(text))
     assert found[0]["id"] == "intent-001" and kind in found[0]["kinds"]
     assert text not in json.dumps(found)
+
+
+def test_a_credential_after_a_line_break_is_still_found():
+    assert find_secrets(snapshot("Key:\nghp_" + "a1" * 18))[0]["kinds"] == ["GitHub token"]
+    assert find_secrets(snapshot("Key:\tAKIA" + "ABCDEFGHIJKLMNOP"))[0]["kinds"] == ["AWS access key"]
+
+
+@pytest.mark.parametrize("fragment", ["a.", "sk-", "ghp_", "x://", "a:", "-----BEGIN ", "xoxb-", "ith_pat_"])
+def test_a_crafted_field_cannot_stall_the_scan(fragment):
+    started = time.monotonic()
+    find_secrets(snapshot(fragment * (2_000_000 // len(fragment))))
+    assert time.monotonic() - started < 2
 
 
 def test_ordinary_prose_is_not_a_secret():

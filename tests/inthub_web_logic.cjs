@@ -1312,8 +1312,9 @@ async function settingsCases() {
     // A listbox of our own: the value sits in a hidden input and every option is a button.
     assert.ok(page.includes('value="itt"') && !page.includes('<select') && !page.includes('<option'));
     assert.ok(page.includes('<input type="hidden" name="token-days" value="90">'));
-    assert.ok(page.includes('id="token-days" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-controls="token-days-options"'));
-    assert.ok(page.includes('<span class="select-value">90 天</span>') && page.includes('id="token-days-options" role="listbox" popover="manual"'));
+    assert.ok(page.includes('id="token-lifetime" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-controls="token-lifetime-options"'));
+    assert.ok(page.includes('for="token-lifetime"'));
+    assert.ok(page.includes('<span class="select-value">90 天</span>') && page.includes('id="token-lifetime-options" role="listbox" popover="manual"'));
     assert.ok(page.includes('data-value="90" aria-selected="true"') && page.includes('data-value="365" aria-selected="false"') && page.includes('<span>365 天</span>'));
     assert.ok(page.includes('laptop') && page.includes('ci-runner') && page.includes('从未使用') && page.includes('最近使用'));
     assert.ok(!page.includes('old-macbook') && !page.includes('stale-runner'), 'revoked and expired tokens are not listed');

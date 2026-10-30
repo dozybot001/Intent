@@ -854,8 +854,9 @@ def migrate_db(conn, *, require_backward_compatible=True):
             conn.execute("ALTER TABLE projects ADD COLUMN suspended_at TEXT")
         if "suspended_at" not in observed["accounts"]:
             conn.execute("ALTER TABLE accounts ADD COLUMN suspended_at TEXT")
-        conn.execute("""UPDATE projects SET stored_bytes = COALESCE(
-            (SELECT SUM(LENGTH(v.snapshot_json)) FROM semantic_versions v WHERE v.project_id = projects.id), 0)""")
+        size = "OCTET_LENGTH(v.snapshot_json)" if conn.backend == "postgresql" else "LENGTH(CAST(v.snapshot_json AS BLOB))"
+        conn.execute(f"""UPDATE projects SET stored_bytes = COALESCE(
+            (SELECT SUM({size}) FROM semantic_versions v WHERE v.project_id = projects.id), 0)""")
         conn.execute("""INSERT INTO schema_migrations
             (version, name, checksum, backward_compatible, applied_at)
             VALUES (?, ?, ?, ?, ?)""",

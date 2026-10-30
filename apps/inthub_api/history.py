@@ -194,13 +194,14 @@ def push_history(db_path, payload, account_id=None):
         accepted = now_utc()
         changes = semantic_changes(head["snapshot"], snapshot)
         stored = json.dumps(snapshot, ensure_ascii=False)
-        require_storage(conn, project, len(stored))
+        size = len(stored.encode("utf-8"))
+        require_storage(conn, project, size)
         conn.execute("""INSERT INTO semantic_versions
             (project_id, revision, parent, snapshot_json, created_at, pushed_by, pusher_json, changes_json)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (pid, expected_revision, head["revision"], stored, accepted,
              account_id, _declared_pusher(payload.get("pusher")), json.dumps(summarize(changes))))
-        conn.execute("UPDATE projects SET stored_bytes = stored_bytes + ? WHERE id = ?", (len(stored), pid))
+        conn.execute("UPDATE projects SET stored_bytes = stored_bytes + ? WHERE id = ?", (size, pid))
         conn.execute("UPDATE semantic_heads SET revision = ? WHERE project_id = ?", (expected_revision, pid))
         _record_verified(conn, pid, expected_revision, changes, account_id)
         repository = payload.get("repository")
