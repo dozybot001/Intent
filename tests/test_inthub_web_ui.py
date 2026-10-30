@@ -448,6 +448,84 @@ def test_first_run_guide_matches_the_documented_install_and_offers_inline_token(
     assert '"itt init"' in guide and '"itt push"' in guide
     assert "itt auth login --api-base-url" in guide and "data-create-token" in guide
     assert 'data-copy="${esc(text)}"' in javascript.split("function commandSnippet", 1)[1].split("function detailSection", 1)[0]
+    # The Skill step matches the README and never installs for every agent: --all creates about 50 agent folders in ~.
+    skill = re.search(r'const SKILL_COMMAND = "([^"]+)";', javascript).group(1)
+    assert skill in readme and "--all" not in skill and "cmd: [SKILL_COMMAND]" in guide
+    assert guide.index("cmd: [INSTALL_COMMAND]") < guide.index("cmd: [SKILL_COMMAND]") < guide.index('cmd: ["itt init"]')
+    # On the CLI's default endpoint login needs no URL and a push alone creates the project.
+    hosted = re.search(r'const HOSTED_INTHUB = "([^"]+)";', javascript).group(1)
+    credentials = (ROOT / "src" / "intent_cli" / "hub" / "credentials.py").read_text(encoding="utf-8")
+    assert f'OFFICIAL_INTHUB_API_BASE_URL = "{hosted}"' in credentials
+    assert 'hosted ? "itt auth login"' in guide and 'optional: { desc: t("Optional: to use a different project name, link it first."), cmd: [linkCmd] }' in guide
+    assert "Resume this project through Intent." in readme and "setup-resume" in guide
+
+
+def _rules(css):
+    """Innermost rule blocks as (selector, body), with comments and media query wrappers dropped."""
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    return [(" ".join(selector.split()), body) for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", css)]
+
+
+def _rule(css, selector):
+    bodies = [body for name, body in _rules(css) if name == selector]
+    assert len(bodies) == 1, (selector, len(bodies))
+    return bodies[0]
+
+
+def test_snippet_copy_button_is_placed_against_the_pre():
+    css = _static("styles.css")
+    snippet = _static("app.js").split("function commandSnippet", 1)[1].split("function detailSection", 1)[0]
+    # Markup: the button is the pre's sibling inside the wrapper it is positioned against, and copies the plain text.
+    assert '<div class="snippet"><pre class="command-snippet">${shown}</pre><button class="icon-button copy-button"' in snippet
+    assert 'data-copy="${esc(text)}"' in snippet and '<span class="command-word">${word}</span>' in snippet
+    assert "display: inline-block" in _rule(css, ".command-word") and "max-width: 100%" in _rule(css, ".command-word")
+    # The wrapper's box is the pre's box: no padding or border on it, and no margin on the pre anywhere
+    # (an empty state once pushed the pre 8px down and the button straddled its top border).
+    wrapper = _rule(css, ".snippet")
+    assert "position: relative" in wrapper and not re.search(r"(?<![-\w])(padding|border)[\w-]*\s*:", wrapper)
+    for selector, body in _rules(css):
+        if ".command-snippet" in selector:
+            assert all(value.strip() == "0" for value in re.findall(r"(?<![-\w])margin[\w-]*\s*:\s*([^;]+);", body)), selector
+    assert "margin-top: 16px" in _rule(css, ".empty-state .snippet")
+    # Centred on the first line, so a one-line snippet has the button in its middle.
+    pre = _rule(css, ".command-snippet")
+    assert "padding: var(--snippet-pad) 48px var(--snippet-pad) 14px" in pre and "line-height: var(--snippet-line)" in pre
+    button = _rule(css, ".snippet > .copy-button")
+    assert "top: calc(1px + var(--snippet-pad) + (var(--snippet-line) - 30px) / 2)" in button and "height: 30px" in button
+    pad = float(re.search(r"--snippet-pad:\s*([\d.]+)px", wrapper).group(1))
+    line = float(re.search(r"--snippet-line:\s*([\d.]+)px", wrapper).group(1))
+    assert 1 + pad + (line - 30) / 2 + 15 == (2 * (1 + pad) + line) / 2
+
+
+def test_text_columns_shrink_instead_of_pushing_text_out_of_their_box():
+    css = _static("styles.css")
+    # An implicit grid column grows to its widest nowrap line: Decision rows ran 110px past their card and
+    # the filter menus scrolled sideways instead of ending long Intent titles in an ellipsis.
+    for selector in (".row-main", ".timeline-filter-menu"):
+        assert "grid-template-columns: minmax(0, 1fr)" in _rule(css, selector), selector
+    # Once the title can shrink, the count or Intent ID beside it must not (it broke into "intent-" / "007").
+    side = _rule(css, ".timeline-filter-option small")
+    assert "flex: none" in side and "white-space: nowrap" in side
+
+
+def test_filter_menus_hang_from_the_page_header_and_stay_on_the_page():
+    css = _static("styles.css")
+    assert any("position: relative" in body for selector, body in _rules(css) if selector == ".page-header")
+    assert "position: static" in _rule(css, ".page-header .timeline-filter")
+    # One rule only: no phone override pinning the menu to its trigger's left edge (it ran 233px off a 390px screen).
+    menu = _rule(css, ".timeline-filter-menu")
+    assert "right: 0" in menu and "width: min(380px, 100%)" in menu
+
+
+def test_small_surfaces_size_to_their_content():
+    css = _static("styles.css")
+    # left: 50% caps a toast's shrink-to-fit width at half the viewport, so short messages wrapped on phones.
+    assert "width: max-content" in _rule(css, ".status-toast")
+    # The token dialog holds a sentence and a field; the About dialog's fixed height left a tall empty gap.
+    assert "height: fit-content" in _rule(css, ".token-dialog")
+    assert "height: auto" in _rule(css, ".token-dialog .dialog-layout")
+    # With nothing listed, the search message sits under the field instead of at the foot of the phone panel.
+    assert "display: none" in _rule(css, ".search-results:not(:has(*))")
 
 
 def test_web_shell_uses_monochrome_continuity_logo_and_explicit_account_icon():
@@ -664,8 +742,8 @@ def test_timeline_pages_from_the_snaps_endpoint_and_search_reports_truncation():
 
 def test_static_revision_names_the_flow_release():
     for name in ("index.html", "auth-redirect.html"):
-        assert "rev=continuity-5" not in _static(name) and "rev=flow-6" not in _static(name)
-        assert "rev=flow-8" in _static(name)
+        assert "rev=continuity-5" not in _static(name) and "rev=flow-8" not in _static(name)
+        assert "rev=flow-9" in _static(name)
 
 
 

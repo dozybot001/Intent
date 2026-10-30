@@ -116,6 +116,10 @@ vm.runInContext(`
   assert.ok(el.detailContent.innerHTML.includes('1 snap<'));
   assert.equal(state.searchQuery, 'unsent user query');
   assert.equal(el.tokenOutput.value, 'sensitive clipboard value');
+  // A new token opens scrolled to its start, not to the tail select() would show in a narrow field.
+  el.tokenOutput.scrollLeft = 120;
+  selectToken();
+  assert.equal(el.tokenOutput.scrollLeft, 0);
   assert.equal(plural(1, '{count} blocked objective', '{count} blocked objectives'), '1 blocked objective');
   assert.equal(plural(2, '{count} blocked objective', '{count} blocked objectives'), '2 blocked objectives');
   setButtonBusy(el.tokenBtn, true, 'Creating token…', 'Access token');
@@ -202,13 +206,44 @@ vm.runInContext(`
   el.shell.classList.remove('is-empty');
   renderSetupGuide('unlinked');
   const guide = el.detailContent.innerHTML;
-  assert.ok(guide.includes(INSTALL_COMMAND.replace(/&/g, '&amp;').replace(/\\|/g, '|')));
+  assert.ok(guide.includes('data-copy="' + INSTALL_COMMAND.replace(/&/g, '&amp;') + '"'));
   assert.ok(guide.includes('itt init'));
   assert.ok(guide.includes('data-create-token'));
-  assert.ok(guide.includes('itt auth login --api-base-url &#39;https://inthub.example&#39;'));
+  assert.ok(guide.includes('data-copy="itt auth login --api-base-url &#39;https://inthub.example&#39;"'));
   assert.ok(guide.includes("--project &#39;Team&#39;\\\\&#39;&#39;s checkout&#39;"));
   assert.ok(guide.includes('itt push'));
   assert.equal(el.shell.classList.contains('is-empty'), true);
+  // The Skill comes right after the CLI, for two agents only: --all would create about 50 agent folders in the home directory.
+  assert.ok(guide.includes('npx skills add dozybot001/Intent -g -a claude-code -a codex'));
+  assert.ok(!guide.includes('--all'));
+  assert.ok(guide.indexOf('curl -fsSL') < guide.indexOf('npx skills add') && guide.indexOf('npx skills add') < guide.indexOf('itt init'));
+  assert.ok(guide.includes('--host codex / claude-code'));
+  assert.ok(guide.includes('<p class="setup-resume">'));
+  // Any endpoint but the CLI default needs its URL at login and the remote before the push.
+  assert.ok(guide.includes('data-copy="itt remote add origin &#39;https://inthub.example&#39; --project &#39;Team&#39;\\\\&#39;&#39;s checkout&#39;\\nitt push"'));
+  assert.ok(!guide.includes('setup-step-note'));
+  state.config = {apiBaseUrl: 'https://inthub.tenon.asia/', authRequired: true};
+  renderSetupGuide('unlinked');
+  const hostedGuide = el.detailContent.innerHTML;
+  assert.ok(hostedGuide.includes('<pre class="command-snippet">itt auth login</pre>'));
+  assert.ok(!hostedGuide.includes('--api-base-url'));
+  assert.ok(hostedGuide.includes('<pre class="command-snippet">itt push</pre>'));
+  assert.ok(hostedGuide.includes('<p class="setup-step-note">可选：如需使用其他项目名，请先关联。</p><div class="snippet"><pre class="command-snippet">itt remote add origin'));
+  // An existing hosted project still links first: its directory need not carry the project's name.
+  renderSetupGuide('unsynced');
+  assert.ok(el.detailContent.innerHTML.includes('--project &#39;Team&#39;\\\\&#39;&#39;s checkout&#39;\\nitt push"'));
+  // IntHub Local has no login and always needs the remote.
+  state.config = {apiBaseUrl: 'http://127.0.0.1:7317', authRequired: false};
+  renderSetupGuide('unlinked');
+  const localGuide = el.detailContent.innerHTML;
+  assert.ok(!localGuide.includes('itt auth login') && !localGuide.includes('setup-step-note'));
+  assert.ok(localGuide.includes('data-copy="itt remote add origin &#39;http://127.0.0.1:7317&#39; --project &#39;Team&#39;\\\\&#39;&#39;s checkout&#39;\\nitt push"'));
+  // The copy button is the pre's sibling inside the wrapper the stylesheet positions it against.
+  assert.match(commandSnippet(['itt init', 'itt push']), /^<div class="snippet"><pre class="command-snippet">itt init\\nitt push<\\/pre><button class="icon-button copy-button" type="button" data-copy="itt init\\nitt push" aria-label="复制命令">/);
+  // A hyphenated word is one unbreakable block on screen; the copied command stays plain text.
+  const flagged = commandSnippet(['itt intent relate ID --depends-on OTHER', 'itt auth login --api-base-url &#39;x&#39;'.replace(/&#39;/g, "'")]);
+  assert.ok(flagged.includes('itt intent relate ID <span class="command-word">--depends-on</span> OTHER\\nitt auth login <span class="command-word">--api-base-url</span> &#39;x&#39;</pre>'));
+  assert.ok(flagged.includes('data-copy="itt intent relate ID --depends-on OTHER\\nitt auth login --api-base-url &#39;x&#39;"'));
   state.config = {authMode: 'tenon', apiBaseUrl: '', productVersion: '6.0.1'};
 
   // Timeline filter choices come from the Intents (every Intent with Snaps), most recently active first.

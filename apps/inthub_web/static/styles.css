@@ -965,6 +965,7 @@ kbd {
 }
 
 .page-header {
+  position: relative;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -1446,6 +1447,7 @@ kbd {
 
 .row-main {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 3px;
   min-width: 0;
 }
@@ -1679,6 +1681,12 @@ kbd {
   position: relative;
 }
 
+/* In a page header the menu hangs from the header's right edge, not from the trigger: the trigger can
+   wrap anywhere on a narrow screen, the header always spans the page. */
+.page-header .timeline-filter {
+  position: static;
+}
+
 .timeline-filter-trigger {
   display: inline-flex;
   align-items: center;
@@ -1724,8 +1732,9 @@ kbd {
   right: 0;
   z-index: 30;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
-  width: min(380px, calc(100vw - 32px));
+  width: min(380px, 100%);
   max-height: min(420px, 50dvh);
   padding: 6px;
   overflow-y: auto;
@@ -1754,10 +1763,13 @@ kbd {
   white-space: nowrap;
 }
 
+/* The count or Intent ID stays whole; the title gives way and ends in an ellipsis. */
 .timeline-filter-option small {
+  flex: none;
   color: var(--muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .timeline-filter-option:hover,
@@ -2701,9 +2713,13 @@ kbd {
   height: 18px;
 }
 
-.empty-state .command-snippet,
 .empty-state .secondary-btn {
   margin-top: 8px;
+}
+
+/* The space above goes on the wrapper: the copy button is positioned against it, so the pre starts at its top edge. */
+.empty-state .snippet {
+  margin-top: 16px;
 }
 
 .empty-state.loading {
@@ -2812,35 +2828,57 @@ kbd {
   margin-top: 8px;
 }
 
-.command-snippet {
-  min-width: 0;
-  margin: 0;
-  padding: 11px 48px 11px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--ink);
-  background: var(--code-bg);
-  font-size: 12.5px;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+.setup-step .setup-step-note {
+  margin-top: 14px;
 }
 
+.setup-resume {
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* A command and its copy button. The wrapper carries any outer spacing and the pre has none,
+   so the wrapper's box is the pre's box and the button can be placed against it. */
 .snippet {
+  --snippet-pad: 11px;
+  --snippet-line: 21px;
   position: relative;
   min-width: 0;
   margin-top: 8px;
 }
 
-.copy-button {
+.command-snippet {
+  min-width: 0;
+  margin: 0;
+  padding: var(--snippet-pad) 48px var(--snippet-pad) 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  background: var(--code-bg);
+  font-size: 12.5px;
+  line-height: var(--snippet-line);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.command-word {
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* Centred on the first line (1px border + padding + half a line): in the middle of a one-line
+   snippet, and level with the first command of a longer one. */
+.snippet > .copy-button {
   position: absolute;
-  top: 6px;
+  top: calc(1px + var(--snippet-pad) + (var(--snippet-line) - 30px) / 2);
   right: 6px;
   width: 30px;
   height: 30px;
 }
 
-.copy-button svg {
+.snippet > .copy-button svg {
   width: 15px;
   height: 15px;
 }
@@ -3223,6 +3261,14 @@ kbd {
   display: none;
 }
 
+.search-results:not(:has(*)) {
+  display: none;
+}
+
+.search-results:not(:has(*)) + .search-status {
+  padding-top: 12px;
+}
+
 .search-status.is-note {
   padding: 10px 16px;
   border-top: 1px solid var(--border);
@@ -3388,6 +3434,18 @@ kbd {
 .dialog-body {
   min-height: 0;
   overflow-y: auto;
+}
+
+/* The token dialog holds a sentence and a field: it takes their height, not the About dialog's fixed one.
+   fit-content as in the UA sheet; auto would stretch a modal dialog between its insets. */
+.token-dialog {
+  height: fit-content;
+  max-height: var(--dialog-height);
+}
+
+.token-dialog .dialog-layout {
+  height: auto;
+  max-height: calc(var(--dialog-height) - 2px);
 }
 
 .about-heading,
@@ -3855,6 +3913,7 @@ kbd {
   bottom: max(20px, env(safe-area-inset-bottom));
   left: 50%;
   z-index: 300;
+  width: max-content;
   max-width: min(480px, calc(100vw - 32px));
   padding: 10px 16px;
   border-radius: 10px;
@@ -4132,11 +4191,6 @@ kbd {
   .search-close {
     display: inline-flex;
     align-items: center;
-  }
-
-  .timeline-filter-menu {
-    right: auto;
-    left: 0;
   }
 
   .flow-legend {

@@ -9,6 +9,10 @@ const PAGE_SIZE = 30;
 // One timeline page from /projects/{id}/snaps; the overview only carries the newest Snaps.
 const SNAP_PAGE_SIZE = 50;
 const INSTALL_COMMAND = "curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.sh | bash";
+// Two agents by default: --all would create dozens of agent folders in the home directory.
+const SKILL_COMMAND = "npx skills add dozybot001/Intent -g -a claude-code -a codex";
+// The CLI's default endpoint: there `itt auth login` needs no URL and a push names the project after its directory.
+const HOSTED_INTHUB = "https://inthub.tenon.asia";
 
 const state = {
   config: null,
@@ -913,9 +917,12 @@ function emptyState({ iconName = "intent", title = "", body = "", extra = "" }) 
     </div>`;
 }
 
+// Each hyphenated word (--depends-on, -g, claude-code) is one inline block, so a narrow screen never breaks a
+// line after its hyphen; a word wider than the line still wraps inside its block. Copy uses the plain text.
 function commandSnippet(lines) {
   const text = lines.join("\n");
-  return `<div class="snippet"><pre class="command-snippet">${esc(text)}</pre><button class="icon-button copy-button" type="button" data-copy="${esc(text)}" aria-label="${esc(t("Copy command"))}">${icon("copy")}</button></div>`;
+  const shown = esc(text).replace(/\S*-\S*/g, (word) => `<span class="command-word">${word}</span>`);
+  return `<div class="snippet"><pre class="command-snippet">${shown}</pre><button class="icon-button copy-button" type="button" data-copy="${esc(text)}" aria-label="${esc(t("Copy command"))}">${icon("copy")}</button></div>`;
 }
 
 function detailSection(title, body, count) {
@@ -2845,28 +2852,42 @@ function renderSetupGuide(mode) {
   const projectName = state.projects.find(p => p.id === state.currentProjectId)?.name;
   const shellArg = value => `'${String(value).replaceAll("'", "'\\''")}'`;
   const linkCmd = `itt remote add origin ${shellArg(state.config.apiBaseUrl)} --project ${projectName ? shellArg(projectName) : "PROJECT"}`;
+  const hosted = String(state.config.apiBaseUrl || "").replace(/\/+$/, "") === HOSTED_INTHUB;
   const steps = [];
   if (mode === "unlinked") {
     steps.push(
       { title: t("Install the Intent CLI"), desc: t("Requires Python 3.9+. Re-run any time to upgrade."), cmd: [INSTALL_COMMAND] },
-      { title: t("Initialize your project"), desc: t("Run once per project; Git is optional."), cmd: ["itt init"] },
+      // Without the Skill an agent never records anything.
+      { title: t("Add the agent skill"), desc: t("Needs Node.js. Installs for Claude Code and Codex; add -a cursor and so on for other agents."), cmd: [SKILL_COMMAND] },
+      { title: t("Initialize your project"), desc: t("Detects the agent you use, or asks; --host codex / claude-code overrides that. Git is optional."), cmd: ["itt init"] },
     );
   }
   if (state.config.authRequired) {
     steps.push({
       title: t("Sign in from the CLI"),
       desc: t("Create an access token, then paste it when the CLI asks. It is shown once."),
-      cmd: [`itt auth login --api-base-url ${shellArg(state.config.apiBaseUrl)}`],
+      cmd: [hosted ? "itt auth login" : `itt auth login --api-base-url ${shellArg(state.config.apiBaseUrl)}`],
       token: true,
     });
   }
-  steps.push({
-    title: t("Link and push"),
-    desc: mode === "unlinked"
-      ? t("Choose a shared project name, then push its semantic history.")
-      : t("Ensure CLI points here, then push the next snapshot."),
-    cmd: [linkCmd, "itt push"],
-  });
+  if (hosted && mode === "unlinked") {
+    // The hosted site is the CLI default: a push alone creates the project, named after the directory.
+    steps.push({
+      title: t("Push"),
+      desc: t("Creates the project under this directory's name and pushes its semantic history."),
+      cmd: ["itt push"],
+      optional: { desc: t("Optional: to use a different project name, link it first."), cmd: [linkCmd] },
+    });
+  } else {
+    // Any other endpoint (IntHub Local, a self-hosted hub) and an existing project need the remote first.
+    steps.push({
+      title: t("Link and push"),
+      desc: mode === "unlinked"
+        ? t("Choose a shared project name, then push its semantic history.")
+        : t("Ensure CLI points here, then push the next snapshot."),
+      cmd: [linkCmd, "itt push"],
+    });
+  }
 
   el.detailContent.innerHTML = `
     <div class="setup-page setup-guide">
@@ -2884,9 +2905,11 @@ function renderSetupGuide(mode) {
             <div>
               ${commandSnippet(step.cmd)}
               ${step.token ? `<div class="setup-step-actions"><button class="button button-secondary" type="button" data-create-token>${icon("key")}${esc(t("Create access token"))}</button></div>` : ""}
+              ${step.optional ? `<p class="setup-step-note">${esc(step.optional.desc)}</p>${commandSnippet(step.optional.cmd)}` : ""}
             </div>
           </li>`).join("")}
       </ol>
+      <p class="setup-resume">${esc(t("Once the project hooks are trusted, tell the agent “Resume this project through Intent.” to continue later."))}</p>
     </div>`;
 }
 
@@ -3008,7 +3031,7 @@ async function loadProject(projectId, { detail = null, history = "replace" } = {
 
   el.intentCount.textContent = (overview.active_intents?.length || 0) + (overview.other_intents?.length || 0) || "";
   el.decisionCount.textContent = (overview.active_decisions?.length || 0) + (overview.deprecated_decisions?.length || 0) || "";
-  el.snapCount.textContent = overview.total_snaps ?? overview.recent_snaps?.length ?? "";
+  el.snapCount.textContent = (overview.total_snaps ?? overview.recent_snaps?.length ?? 0) || "";
   updateSyncChip();
   revealActiveTab();
 
@@ -3316,6 +3339,14 @@ function toggleHeaderMenu(trigger, { focus = null } = {}) {
   }
 }
 
+// Focus and select the whole token like select() does, but keep its start (ith_pat_…) in view:
+// select() leaves a narrow field showing only the tail.
+function selectToken() {
+  el.tokenOutput.focus();
+  el.tokenOutput.setSelectionRange(0, el.tokenOutput.value.length, "backward");
+  el.tokenOutput.scrollLeft = 0;
+}
+
 async function createAccessToken(button) {
   if (button.disabled) return;
   const idle = button === el.tokenBtn ? "Access token" : "Create access token";
@@ -3330,7 +3361,7 @@ async function createAccessToken(button) {
     state._tokenReturnFocus = button === el.tokenBtn ? el.accountMenuTrigger : button;
     closeHeaderMenus();
     el.tokenDialog.showModal();
-    el.tokenOutput.select();
+    selectToken();
   } catch (err) {
     setStatus(err.message, true);
   } finally {
@@ -3538,7 +3569,7 @@ function bindEvents() {
       await navigator.clipboard.writeText(el.tokenOutput.value);
       setStatus(t("Token copied."));
     } catch {
-      el.tokenOutput.select();
+      selectToken();
       setStatus(t("Copy failed. Select and copy the token manually."), true);
     } finally {
       setButtonBusy(el.tokenCopy, false, "Copying…", "Copy token");
