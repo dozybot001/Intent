@@ -84,7 +84,6 @@ const el = {
   authGate: document.getElementById("auth-gate"),
   authError: document.getElementById("auth-error"),
   tenonLogin: document.getElementById("tenon-login"),
-  tenonLoginLabel: document.getElementById("tenon-login-label"),
   aboutDialog: document.getElementById("about-dialog"),
   aboutClose: document.getElementById("about-close"),
   aboutVersion: document.getElementById("about-version"),
@@ -361,17 +360,18 @@ async function copyText(text, message) {
 
 /* ---- Authentication ---- */
 
-function setTenonLoginLoading(loading) {
-  el.tenonLogin.classList.toggle("is-loading", loading);
-  el.tenonLogin.setAttribute("aria-busy", String(loading));
-  if (loading) {
-    el.tenonLogin.setAttribute("aria-disabled", "true");
-  } else {
-    el.tenonLogin.removeAttribute("aria-disabled");
+const LOGIN_LABELS = { github: "Continue with GitHub", apple: "Continue with Apple", email: "Continue with email" };
+const LAST_LOGIN_METHOD = "inthub.last-method";
+
+function setTenonLoginLoading(active = "") {
+  for (const link of el.tenonLogin.querySelectorAll("[data-login-method]")) {
+    const method = link.dataset.loginMethod, loading = method === active;
+    link.classList.toggle("is-loading", loading);
+    link.setAttribute("aria-busy", String(loading));
+    if (active) link.setAttribute("aria-disabled", "true");
+    else link.removeAttribute("aria-disabled");
+    link.querySelector("[data-login-label]").textContent = t(loading ? "Opening sign-in…" : LOGIN_LABELS[method]);
   }
-  el.tenonLoginLabel.textContent = loading
-    ? t("Connecting to Tenon…")
-    : t("Sign in with Tenon");
 }
 
 function showAuthGate(message = "") {
@@ -397,9 +397,14 @@ function showAuthGate(message = "") {
   el.authError.classList.toggle("is-hidden", !message);
   el.tenonLogin.classList.remove("is-hidden");
   const returnTo = `${window.location.pathname}${window.location.search}`;
-  el.tenonLogin.href = `/auth/redirect?return_to=${encodeURIComponent(returnTo)}`;
-  setTenonLoginLoading(false);
-  window.setTimeout(() => el.tenonLogin.focus(), 0);
+  let lastMethod = null;
+  try { lastMethod = window.localStorage.getItem(LAST_LOGIN_METHOD); } catch { /* The marker is only a convenience. */ }
+  for (const link of el.tenonLogin.querySelectorAll("[data-login-method]")) {
+    link.href = `/auth/redirect?method=${link.dataset.loginMethod}&return_to=${encodeURIComponent(returnTo)}`;
+    link.querySelector(".last-used").classList.toggle("is-hidden", link.dataset.loginMethod !== lastMethod);
+  }
+  setTenonLoginLoading();
+  window.setTimeout(() => el.tenonLogin.querySelector("[data-login-method]").focus(), 0);
 }
 
 function hideAuthGate() {
@@ -3968,7 +3973,7 @@ function localizeWorkspace() {
     el.accountMode.textContent = t("Private session");
     if (state._statusMessage && el.statusLine.classList.contains("is-visible")) el.statusLine.textContent = t(state._statusMessage);
     if (state.config) updateSyncChip();
-    setTenonLoginLoading(el.tenonLogin.classList.contains("is-loading"));
+    setTenonLoginLoading(el.tenonLogin.querySelector(".is-loading")?.dataset.loginMethod);
   } finally { state._localizing = false; }
 }
 
@@ -4104,16 +4109,19 @@ function bindEvents() {
   });
 
   el.tenonLogin.addEventListener("click", (event) => {
-    if (el.tenonLogin.classList.contains("is-loading")) {
+    const link = event.target.closest("[data-login-method]");
+    if (!link) return;
+    if (el.tenonLogin.querySelector(".is-loading")) {
       event.preventDefault();
       return;
     }
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    setTenonLoginLoading(true);
+    try { window.localStorage.setItem(LAST_LOGIN_METHOD, link.dataset.loginMethod); } catch { /* The marker is only a convenience. */ }
+    setTenonLoginLoading(link.dataset.loginMethod);
   });
 
   window.addEventListener("pageshow", () => {
-    setTenonLoginLoading(false);
+    setTenonLoginLoading();
     // Coming back from Tenon's deletion page restores the button.
     for (const button of document.querySelectorAll("[data-delete-account]")) setButtonBusy(button, false, "Opening account management…", "Delete account");
   });

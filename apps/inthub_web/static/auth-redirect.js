@@ -6,14 +6,18 @@
   const retry = document.getElementById("transition-retry");
   const back = document.getElementById("transition-return");
   const title = document.getElementById("transition-title");
-  const candidate = new URLSearchParams(location.search).get("return_to") || "/";
+  const params = new URLSearchParams(location.search);
+  const candidate = params.get("return_to") || "/";
+  // The method only selects the central page, so it can join the prepared request here.
+  const method = ["apple", "github", "email"].includes(params.get("method")) ? params.get("method") : "";
+  const waiting = { apple: "Connecting to Apple…", github: "Connecting to GitHub…" }[method] || "Opening sign-in…";
   const returnTo = candidate.startsWith("/") && !candidate.startsWith("//") && !/[\\\x00-\x1f\x7f]/.test(candidate)
     && !candidate.startsWith("/auth/redirect") ? candidate : "/";
   back.href = returnTo;
   let controller = null;
   let errorKey = "";
   function render() {
-    title.textContent = i18n.t(errorKey ? "Sign-in could not be completed." : "Connecting to Tenon…");
+    title.textContent = i18n.t(errorKey ? "Sign-in could not be completed." : waiting);
     error.textContent = i18n.t(errorKey);
   }
   async function prepare() {
@@ -37,6 +41,7 @@
       const url = new URL(body.result.authorizationUrl);
       if (url.origin !== "https://account.tenon.asia" || url.pathname !== "/api/auth/oauth2/authorize"
           || url.username || url.password || url.hash) throw new Error("invalid destination");
+      if (method) url.searchParams.set("tenon_method", method);
       location.replace(url.href);
     } catch (failure) {
       errorKey = failure.name === "AbortError" ? "Login request timed out. Try again." : "Could not prepare Tenon sign-in. Try again.";

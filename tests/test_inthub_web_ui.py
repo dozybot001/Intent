@@ -305,7 +305,7 @@ def test_updated_standard_uses_fixed_redirect_help_and_shared_dialog_layout():
     css = _static("styles.css")
     redirect = _static("auth-redirect.js")
     help_script = _static("help.js")
-    assert 'href="/auth/redirect"' in html
+    assert 'href="/auth/redirect?method=github"' in html
     assert 'class="heading-with-help"' in html
     assert 'data-help="auth"' in html and 'data-help="token"' in html and 'data-help="search"' in html
     assert 'help: "decisions"' in javascript and 'help: "setup"' in javascript
@@ -681,8 +681,10 @@ def test_login_page_matches_the_continuity_workspace_and_keeps_one_auth_path():
     assert 'data-about-open' in auth
     assert 'class="brand brand-on-auth"' in auth
     assert html.count('id="tenon-login"') == 1
-    assert 'id="tenon-login" href="/auth/redirect"' in auth
-    assert 'id="tenon-login-label" aria-live="polite"' in auth
+    for method in ("github", "apple", "email"):
+        assert f'data-login-method="{method}" href="/auth/redirect?method={method}"' in auth
+    assert 'data-login-label aria-live="polite"' in auth
+    assert "creates a Tenon Account" in auth
     assert 'class="tenon-login-spinner"' in auth
     assert 'id="auth-error" role="alert"' in auth
     assert 'data-help="auth"' in auth
@@ -695,7 +697,7 @@ def test_login_page_matches_the_continuity_workspace_and_keeps_one_auth_path():
     assert 'align-items: safe center' in stylesheet
     assert 'width: 100%' in _block(stylesheet, ".tenon-login")
     assert '.tenon-login.is-loading .tenon-login-spinner' in stylesheet
-    assert 'setTenonLoginLoading(true)' in javascript
+    assert 'setTenonLoginLoading(link.dataset.loginMethod)' in javascript
     translations = _static("i18n.js")
     assert '"Sign in to IntHub": "登录 IntHub"' in translations
     assert '"Continue with your project context intact.": "保留项目上下文，继续工作。"' in translations
@@ -710,7 +712,7 @@ def test_tenon_login_has_immediate_loading_feedback_and_recovers_from_history():
     assert 'aria-live="polite"' in html
     assert "function setTenonLoginLoading" in javascript
     assert 'setAttribute("aria-busy", String(loading))' in javascript
-    assert 't("Connecting to Tenon…")' in javascript
+    assert 'url.searchParams.set("tenon_method", method)' in _static("auth-redirect.js")
     assert 'window.addEventListener("pageshow"' in javascript
     assert 'event.preventDefault()' in javascript
     assert ".tenon-login.is-loading" in stylesheet
@@ -807,10 +809,10 @@ def test_timeline_pages_from_the_snaps_endpoint_and_search_reports_truncation():
     assert queries.SEARCH_LIMIT == 50
 
 
-def test_static_revision_names_the_settings_release():
+def test_static_revision_names_the_login_release():
     for name in ("index.html", "auth-redirect.html"):
-        assert "rev=flow-9" not in _static(name) and "rev=continuity-5" not in _static(name)
-        assert "rev=settings-1" in _static(name)
+        assert "rev=flow-9" not in _static(name) and "rev=settings-1" not in _static(name)
+        assert "rev=login-1" in _static(name)
 
 
 
