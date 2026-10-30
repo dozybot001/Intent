@@ -61,13 +61,18 @@ def _is_neutral(color):
     return rgb[0:2].lower() == rgb[2:4].lower() == rgb[4:6].lower()
 
 
-def test_header_groups_preferences_and_account_actions_in_separate_menus():
+def test_header_keeps_settings_and_account_things_in_separate_menus():
     html = _static("index.html")
     header = html.split('<header class="app-header">', 1)[1].split('</header>', 1)[0]
     markup = _MarkupTags(header)
-    assert 'id="settings-menu-trigger"' in header
+    trigger = re.search(r'<button[^>]*id="settings-menu-trigger"[^>]*>', header).group(0)
+    assert 'aria-label="Settings"' in trigger
     assert 'id="account-menu-trigger"' in header
     assert 'data-theme-switch' not in header and 'data-language-switch' not in header
+    assert "Preferences" not in html and "Preferences" not in _static("i18n.js")
+    # Visitors keep the gear; the account control gives way to a small Sign in button.
+    assert header.index('id="settings-menu-trigger"') < header.index('id="sign-in-button"') < header.index('id="account-control"')
+    assert 'id="sign-in-button" class="button button-secondary button-small is-hidden"' in header
     settings = markup.within("settings-menu")
     assert any("data-theme-setting" in attributes for _, attributes in settings)
     assert any("data-language-select" in attributes for _, attributes in settings)
@@ -75,11 +80,12 @@ def test_header_groups_preferences_and_account_actions_in_separate_menus():
     assert any("data-about-open" in attributes for _, attributes in settings)
     account = markup.within("account-actions")
     ids = {attributes.get("id") for _, attributes in account}
-    # 7.3: Settings replaces Access token; Delete account lives on the settings page, not in the menu.
-    assert {"account-label", "account-settings-link", "logout-btn"}.issubset(ids)
-    assert not {"token-btn", "delete-account-btn"} & ids
-    assert any(tag == "a" and attributes.get("href") == "/settings" for tag, attributes in account)
+    # Account things only: who you are, the account pages, Tenon and Sign out.
+    assert {"account-label", "account-mode", "logout-btn"}.issubset(ids)
+    assert not {"token-btn", "delete-account-btn", "account-settings-link"} & ids
+    assert [attributes["href"] for tag, attributes in account if tag == "a" and "data-route" in attributes] == ["/account", "/account/tokens", "/account/teams"]
     assert any(attributes.get("href") == "https://account.tenon.asia/account/" for _, attributes in account)
+    assert "/settings" not in html
     assert not any("data-theme-setting" in attributes or "data-language-select" in attributes for _, attributes in account)
     assert header.index('id="settings-menu-trigger"') < header.index('id="account-menu-trigger"')
     assert 'id="auth-settings-menu"' in html
@@ -561,14 +567,18 @@ def test_token_dialog_opens_on_copy_token_with_a_read_only_field():
     assert "selectToken()" not in create and ".select()" not in create
 
 
-def test_account_settings_have_their_own_route_without_project_tabs():
+def test_site_pages_have_their_own_routes_without_project_chrome():
     html = _static("index.html")
     css = _static("styles.css")
     javascript = _static("app.js")
-    assert 'const ACCOUNT_PATH = "/settings";' in javascript
-    assert 'if (state.page === "account") return ACCOUNT_PATH;' in javascript
-    assert '<div class="page-content is-hidden" id="account-content" tabindex="-1"></div>' in html
-    assert "display: none" in _rule(css, ".shell.is-account .tab-bar")
+    assert 'const ACCOUNT_PATHS = { profile: "/account", tokens: "/account/tokens", teams: "/account/teams" };' in javascript
+    assert '"/settings"' not in javascript and "accountContent" not in javascript and "is-account" not in javascript + css
+    assert '<div class="page-content is-hidden" id="site-content" tabindex="-1"></div>' in html
+    # Home, account, team and invite pages hide what belongs to a project, search included.
+    hidden = _rule(css, ".shell.is-site .tab-bar, .shell.is-site .sync-indicator, .shell.is-site .command-trigger")
+    assert "display: none" in hidden
+    # The server answers these paths with the app, so only the client knows them; every link stays a real link.
+    assert 'a[data-route]' in javascript and "event.metaKey || event.ctrlKey || event.shiftKey || event.altKey" in javascript
     # The profile is read-only and edited in Tenon; Delete account keeps its Tenon flow on this page.
     assert 'const TENON_ACCOUNT_URL = "https://account.tenon.asia/account/";' in javascript and 'href="${TENON_ACCOUNT_URL}"' in javascript
     assert "data-delete-account" in javascript and '"/api/auth/tenon/delete/start"' in javascript
@@ -576,15 +586,57 @@ def test_account_settings_have_their_own_route_without_project_tabs():
     assert "const TOKEN_LIFETIMES = [30, 90, 365];" in javascript and "const DEFAULT_TOKEN_DAYS = 90;" in javascript
     assert "!token.revoked_at" in javascript
     leaving = javascript.split("function setPage", 1)[1].split("\n}\n", 1)[0]
-    assert "state._newToken = null;" in leaving and 'el.accountContent.innerHTML = "";' in leaving
+    assert "forgetShownSecrets();" in leaving and 'el.siteContent.innerHTML = "";' in leaving
     assert "token-dialog" not in javascript.split("function generateAccessToken", 1)[1].split("\n}\n", 1)[0]
+
+
+def test_settings_share_one_layout_with_one_pair_of_edges():
+    full = _static("styles.css")
+    css = full.split("@media (max-width: 1180px)", 1)[0]
+    javascript = _static("app.js")
+    layout = _rule(css, ".settings-layout")
+    assert "grid-template-columns: 200px minmax(0, 720px)" in layout and "justify-content: center" in layout
+    # Account, a team and the project tab all go through the same helper.
+    assert javascript.count("= settingsLayout({") == 3
+    # Nothing inside a pane adds side padding or a narrower measure: the two edges are the pane's.
+    for selector in (".settings-pane", ".settings-block-title", ".settings-lead", ".settings-list", ".settings-row", ".settings-form"):
+        body = _rule(css, selector)
+        assert "max-width" not in body and "padding-left" not in body and "padding-right" not in body and "border-left" not in body, selector
+    assert "padding: 14px 0" in _rule(css, ".settings-row")
+    assert "border-block: 1px solid var(--border)" in _rule(css, ".settings-list")
+    assert "align-items: center" in _rule(css, ".settings-row")
+    # No nested cards: a pane has no surface of its own.
+    for selector in (".settings-pane", ".settings-list", ".settings-row"):
+        assert "background" not in _rule(css, selector) and "box-shadow" not in _rule(css, selector), selector
+    # The active link is a neutral fill, never a bar.
+    active = _rule(css, '.settings-nav-item[aria-current="page"]')
+    assert "background: var(--surface-selected)" in active and "border" not in active
+    mobile = full.split("@media (max-width: 720px)", 1)[1].split("@media (hover: none)", 1)[0]
+    assert "overflow-x: auto" in _block(mobile, ".settings-nav") and "grid-template-columns: minmax(0, 1fr)" in _block(mobile, ".settings-layout")
+    assert ".settings-card" not in css and ".settings-page" not in css and ".profile-card" not in css and ".token-row" not in css
+
+
+def test_visitors_read_public_projects_without_account_requests():
+    javascript = _static("app.js")
+    # The sign-in gate is the answer to a 401 everywhere but the probes that ask whether one is needed.
+    assert "async function fetchJson(url, { gate = true, ...options } = {})" in javascript
+    assert 'if (r.status === 401 && gate && state.config?.authRequired) showAuthGate();' in javascript
+    assert 'await fetchJson(apiUrl("/api/v1/auth/me"), { gate: false })' in javascript
+    assert "/overview`), { gate: false })" in javascript
+    visitor = javascript.split("async function openAsVisitor", 1)[1].split("\n}\n", 1)[0]
+    assert "/api/v1/projects\"" not in visitor and "loadProjects" not in visitor and "/api/v1/auth/tokens" not in visitor
+    # Picking and managing need an account.
+    assert "el.projectPickerTrigger.disabled = Boolean(state._projectBusy) || state.visitor;" in javascript
+    assert 'return state.overview?.project?.permission === "admin";' in javascript
+    assert 'if (state.activeTab === "settings" && !canManageProject())' in javascript
+    assert 'data-tab="settings"' in _static("index.html") and '<button class="tab is-hidden" data-tab="settings"' in _static("index.html")
 
 
 def test_project_settings_stay_neutral_and_delete_only_after_the_exact_name():
     css = _static("styles.css")
     javascript = _static("app.js")
     # No coloured cards or stripes: only the destructive button uses the danger colour.
-    neutral = (".settings-card", ".settings-row", ".token-row", ".token-row.is-new", ".token-secret-box", ".profile-avatar", ".confirm-dialog")
+    neutral = (".settings-nav-item", ".settings-row", ".settings-list", ".secret-box", ".monogram", ".home-row .row-meta", ".invite-card", ".confirm-dialog")
     bodies = [(name, body) for name, body in _rules(css) if name in neutral]
     assert {name for name, _ in bodies} == set(neutral)
     for name, body in bodies:
@@ -850,10 +902,10 @@ def test_timeline_pages_from_the_snaps_endpoint_and_search_reports_truncation():
     assert queries.SEARCH_LIMIT == 50
 
 
-def test_static_revision_names_the_history_release():
+def test_static_revision_names_the_teams_release():
     for name in ("index.html", "auth-redirect.html"):
-        assert "rev=login-1" not in _static(name) and "rev=settings-1" not in _static(name)
-        assert "rev=history-1" in _static(name)
+        assert "rev=history-1" not in _static(name) and "rev=settings-1" not in _static(name)
+        assert "rev=teams-1" in _static(name)
 
 
 

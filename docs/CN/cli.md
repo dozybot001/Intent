@@ -89,7 +89,7 @@ Git 可选。Intent 独立保存语义历史；代码仓库的 Git origin 不参
 |---|---|
 | `itt status [--local]` | empty / up_to_date / ahead / behind / diverged；--local 可离线使用。 |
 | `itt remote [-v]` | 查看独立的 IntHub 地址和项目。 |
-| `itt remote add origin URL --project NAME` | 设置唯一共享远端；项目名默认取语义根目录名。 |
+| `itt remote add origin URL --project NAME` | 设置唯一共享远端；项目名默认取语义根目录名。团队项目写 `团队/项目`。 |
 | `itt push [--project NAME] [--api-base-url URL] [--dry-run]` | 必要时关联项目，保存同步版本；相同内容不新增版本，预览不写远端。 |
 | `itt pull [--project NAME] [--api-base-url URL] [--dry-run]` | 本地未变化可快进，本地领先保持不变；双方变化报告分歧并保留双方。 |
 | `itt auth login / status / logout` | 全局账户认证，凭据由 credential helper 保存并跨项目复用。 |
@@ -97,7 +97,9 @@ Git 可选。Intent 独立保存语义历史；代码仓库的 Git origin 不参
 
 两个本地目录配置相同 remote/project 后共享同一历史，不创建 workspace。Intent、Snap、Decision 是版本内的内容，Snap 不等于同步版本。无需暂存区、手动 commit、分支或 rebase。
 
-在 IntHub 设置里改名的项目会被自动跟随：`status`、`push`、`pull` 按项目 ID 查找并返回 `renamed_from`，`push` 和 `pull` 会把新名字写入本地配置。itt 7.2 及更早版本按名称查找，会报 `REMOTE_CHANGED`，升级后恢复正常。在 IntHub 上删除的项目同样报 `REMOTE_CHANGED`，本地历史不受影响。
+在 IntHub 上改名或转移的项目会被自动跟随：`status`、`push`、`pull` 按项目 ID 查找并返回 `renamed_from`，`push` 和 `pull` 会把新名字写入本地配置。itt 7.2 及更早版本按名称查找，会报 `REMOTE_CHANGED`，升级后恢复正常；团队项目需要 itt 7.5。在 IntHub 上删除的项目同样报 `REMOTE_CHANGED`，本地历史不受影响。
+
+团队项目的管理员和成员可以推送，只读成员可以拉取。公开项目在网页上阅读：`pull` 只对成员开放，因为拉取内容带作者邮箱。
 
 版本 ID 由父版本与规范快照校验值计算。服务端事务锁定项目头，拒绝非快进覆盖。推送响应丢失时可按内容收敛，不新增重复版本。对象仍遵守追加和生命周期约束；没有强制覆盖或自动合并。
 
@@ -379,6 +381,8 @@ stateDiagram-v2
 | `CREDENTIAL_STORE_ERROR` | Git 已配置的 credential helper 无法保存或删除账户 token |
 | `HUB_NOT_CONFIGURED` | 缺少 IntHub API base URL |
 | `NOT_LINKED` | 远端共享项目尚未关联；正常 push 会按需自动关联 |
+| `PERMISSION_DENIED` | 账号对这个团队项目只有只读权限 |
+| `TEAM_NOT_FOUND` | 团队不存在，或账号不是它的成员 |
 | `REMOTE_CHANGED` | 远端地址或项目身份变化；用 remote add 明确选择后再同步 |
 | `NON_FAST_FORWARD` | 远端已变化，push 未覆盖；先 pull，分叉需人工处理 |
 | `HISTORY_DIVERGED` | 本地和远端同时变化；双方历史均保留 |
@@ -400,7 +404,7 @@ stateDiagram-v2
 - 显式 `--token` 和 `INTHUB_TOKEN` 会覆盖已保存凭据，且绝不会持久化到 `hub.json`
 - Pull 校验版本内容并原子恢复完整共享历史，拒绝分叉覆盖；自动维护不会隐含 pull 授权
 - IntHub Local 默认绑定 `127.0.0.1`，但当前 API 不强制校验 Bearer Token，且使用宽松 CORS；不要将它暴露到局域网或公网
-- IntHub 生产配置使用 Tenon 统一登录和有时限的只读 HttpOnly Web 会话；CLI 写入使用当前账户签发的 access token（HTTP `Bearer`），项目读取和写入均按账户隔离，生产数据库使用 PostgreSQL，详见 [IntHub 生产部署](inthub-production.md)
+- IntHub 生产配置使用 Tenon 统一登录和有时限的只读 HttpOnly Web 会话；CLI 写入使用当前账户签发的 access token（HTTP `Bearer`），项目读写按账号归属和团队角色授权，生产数据库使用 PostgreSQL，详见 [IntHub 生产部署](inthub-production.md)
 - 对象和 Hub 配置通过原子替换写入，变更命令使用带有界 owner 诊断的工作区级跨进程写锁；这会串行化 Intent CLI 写入，但不会把 `.intent/` 变成多用户数据库
 - IntHub 请求每次尝试最多等待 15 秒、最多尝试两次；随附 argv 适配器具有 60 秒进程安全超时，并始终输出一个 JSON 文档
 - 对象 ID 在路径 I/O 前校验，对象路径必须留在对应类型目录内，`.intent/` 对象存储拒绝符号链接重定向

@@ -8,12 +8,12 @@
     <title>IntHub</title>
     <link rel="icon" type="image/svg+xml" href="/tenon-mark.svg">
     <link rel="preload" href="/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <script src="/theme.js?rev=history-1"></script>
-    <link rel="stylesheet" href="/styles.css?rev=history-1">
+    <script src="/theme.js?rev=teams-1"></script>
+    <link rel="stylesheet" href="/styles.css?rev=teams-1">
   </head>
   <body>
     <div class="shell" id="shell" data-active-tab="overview">
-      <a class="skip-link" href="#detail-content">Skip to project content</a>
+      <a class="skip-link" href="#detail-content">Skip to main content</a>
       <header class="app-header">
         <div class="header-bar">
           <div class="header-context">
@@ -67,10 +67,10 @@
               </div>
 
               <div class="header-menu-control settings-control">
-                <button class="icon-button" id="settings-menu-trigger" data-settings-trigger type="button" aria-label="Preferences" aria-expanded="false" aria-controls="settings-menu">
+                <button class="icon-button" id="settings-menu-trigger" data-settings-trigger type="button" aria-label="Settings" aria-expanded="false" aria-controls="settings-menu">
                   <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 2-.5 2-1.5.9-2-.6-2 3.4 1.5 1.4v1.8L2 12.3l2 3.4 2-.6 1.5.9.5 2h4l.5-2 1.5-.9 2 .6 2-3.4-1.5-1.4V9.1L18 7.7l-2-3.4-2 .6-1.5-.9-.5-2Z"/><circle cx="10" cy="10" r="2.5"/></svg>
                 </button>
-                <div class="header-menu settings-menu" id="settings-menu" data-settings-menu role="group" aria-label="Preferences" inert>
+                <div class="header-menu settings-menu" id="settings-menu" data-settings-menu role="group" aria-label="Settings" inert>
                   <section class="menu-section">
                     <span class="menu-title">Appearance</span>
                     <div class="segmented-control" role="group" aria-label="Appearance">
@@ -93,6 +93,8 @@
                 </div>
               </div>
 
+              <button id="sign-in-button" class="button button-secondary button-small is-hidden" type="button">Sign in</button>
+
               <div id="account-control" class="account-control is-hidden">
                 <button id="account-menu-trigger" class="icon-button account-menu-trigger" type="button" aria-label="Account" aria-expanded="false" aria-controls="account-actions">
                   <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="6.5" r="3"/><path d="M3.5 17v-1a6.5 6.5 0 0 1 13 0v1"/></svg>
@@ -100,11 +102,15 @@
                 <div id="account-actions" class="header-menu account-actions" role="group" aria-label="Account" inert>
                   <div class="account-identity menu-section">
                     <strong id="account-label" class="account-label">Account</strong>
-                    <span id="account-mode" class="account-mode">Private session</span>
+                    <span id="account-mode" class="account-mode"></span>
                   </div>
                   <div class="menu-section menu-actions">
-                    <a id="account-settings-link" class="menu-action account-action" href="/settings">Settings</a>
-                    <a class="menu-action account-action" href="https://account.tenon.asia/account/">Account center</a>
+                    <a class="menu-action account-action" href="/account" data-route>Profile</a>
+                    <a class="menu-action account-action" href="/account/tokens" data-route>Access tokens</a>
+                    <a class="menu-action account-action" href="/account/teams" data-route>Teams</a>
+                  </div>
+                  <div class="menu-section menu-actions">
+                    <a class="menu-action account-action" href="https://account.tenon.asia/account/">Tenon account center</a>
                     <button id="logout-btn" class="menu-action account-action" type="button">Sign out</button>
                   </div>
                 </div>
@@ -135,7 +141,7 @@
             <span>Decisions</span>
             <span class="tab-count" id="decision-count"></span>
           </button>
-          <button class="tab" data-tab="settings" type="button">
+          <button class="tab is-hidden" data-tab="settings" type="button">
             <span>Settings</span>
           </button>
         </nav>
@@ -147,7 +153,7 @@
             <i></i><i></i><i></i>
           </div>
         </div>
-        <div class="page-content is-hidden" id="account-content" tabindex="-1"></div>
+        <div class="page-content is-hidden" id="site-content" tabindex="-1"></div>
       </main>
 
       <div class="sheet-overlay" id="drawer-overlay"></div>
@@ -191,10 +197,10 @@
               </div>
             </div>
             <div class="header-menu-control settings-control">
-              <button class="icon-button" id="auth-settings-menu-trigger" data-settings-trigger type="button" aria-label="Preferences" aria-expanded="false" aria-controls="auth-settings-menu">
+              <button class="icon-button" id="auth-settings-menu-trigger" data-settings-trigger type="button" aria-label="Settings" aria-expanded="false" aria-controls="auth-settings-menu">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 2-.5 2-1.5.9-2-.6-2 3.4 1.5 1.4v1.8L2 12.3l2 3.4 2-.6 1.5.9.5 2h4l.5-2 1.5-.9 2 .6 2-3.4-1.5-1.4V9.1L18 7.7l-2-3.4-2 .6-1.5-.9-.5-2Z"/><circle cx="10" cy="10" r="2.5"/></svg>
               </button>
-              <div class="header-menu settings-menu" id="auth-settings-menu" data-settings-menu role="group" aria-label="Preferences" inert>
+              <div class="header-menu settings-menu" id="auth-settings-menu" data-settings-menu role="group" aria-label="Settings" inert>
                 <section class="menu-section">
                   <span class="menu-title">Appearance</span>
                   <div class="segmented-control" role="group" aria-label="Appearance">
@@ -243,6 +249,7 @@
                 <p class="tenon-login-note">Signing in for the first time creates a Tenon Account. IntHub is made by Tenon AI, and the same account works with our other products. We only receive your basic profile and email address.</p>
               </div>
               <p class="auth-error is-hidden" id="auth-error" role="alert"></p>
+              <button class="auth-dismiss is-hidden" id="auth-dismiss" type="button">Back to the project</button>
             </div>
           </div>
         </div>
@@ -333,8 +340,8 @@
     </dialog>
 
     <div id="help-popover" class="help-popover" role="tooltip" popover="manual" tabindex="0" hidden></div>
-    <script src="/i18n.js?rev=history-1" defer></script>
-    <script src="/help.js?rev=history-1" defer></script>
-    <script src="/app.js?rev=history-1" defer></script>
+    <script src="/i18n.js?rev=teams-1" defer></script>
+    <script src="/help.js?rev=teams-1" defer></script>
+    <script src="/app.js?rev=teams-1" defer></script>
   </body>
 </html>

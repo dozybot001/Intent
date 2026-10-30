@@ -1,13 +1,14 @@
-"""One account-private shared history per named project; atomic fast-forward push."""
+"""One shared history per named project, owned by an account or a team; atomic fast-forward push."""
 
 import hashlib
 import json
 
+from apps.inthub_api.access import MEMBER_LEVELS, permission, project_handle, team_role
 from apps.inthub_api.common import APIError, new_id, now_utc
 from apps.inthub_api.db import connect
 from intent_cli.hub.changes import COLLECTIONS, semantic_changes, summarize
 from intent_cli.hub.snapshots import SnapshotError, require_fast_forward, snapshot_sha256, validate_snapshot
-from intent_cli.hub.versions import revision_id, validate_project_name
+from intent_cli.hub.versions import revision_id, validate_project_name, validate_project_ref
 from intent_cli.identity import FIELD_MAX_CHARS, REPOSITORY
 
 
@@ -18,16 +19,45 @@ def project_name(value):
         raise APIError("INVALID_INPUT", str(exc)) from exc
 
 
+def project_ref(value):
+    try:
+        return validate_project_ref(value)
+    except ValueError as exc:
+        raise APIError("INVALID_INPUT", str(exc)) from exc
+
+
 def _project(conn, name, account_id):
     clause = "account_id = ?" if account_id else "account_id IS NULL"
     params = (name, account_id) if account_id else (name,)
-    return conn.execute(f"SELECT * FROM projects WHERE provider = 'intent' AND repo_id = ? AND {clause}", params).fetchone()
+    return conn.execute(f"SELECT * FROM projects WHERE provider = 'intent' AND repo_id = ? AND team_id IS NULL AND {clause}", params).fetchone()
+
+
+def _team_project(conn, team_id, name):
+    return conn.execute("SELECT * FROM projects WHERE provider = 'intent' AND repo_id = ? AND team_id = ?",
+                        (name, team_id)).fetchone()
 
 
 def _project_by_id(conn, project_id, account_id):
-    clause = "account_id = ?" if account_id else "account_id IS NULL"
-    params = (project_id, account_id) if account_id else (project_id,)
-    return conn.execute(f"SELECT * FROM projects WHERE provider = 'intent' AND id = ? AND {clause}", params).fetchone()
+    """A project the viewer belongs to. Reading a public one does not count: pulls carry author emails."""
+    project = conn.execute("SELECT * FROM projects WHERE provider = 'intent' AND id = ?", (project_id,)).fetchone()
+    if project is None or (account_id is None and project["account_id"]):
+        return None
+    return project if permission(conn, project, account_id) in MEMBER_LEVELS else None
+
+
+def _team(conn, slug):
+    return conn.execute("SELECT id FROM teams WHERE slug = ?", (slug,)).fetchone()
+
+
+def _named(conn, ref, account_id):
+    """The project a CLI names, when the viewer belongs to it."""
+    slug, _, name = ref.rpartition("/")
+    if not slug:
+        return _project(conn, name, account_id)
+    team = _team(conn, slug) if account_id else None
+    if team is None or team_role(conn, team["id"], account_id) is None:
+        return None
+    return _team_project(conn, team["id"], name)
 
 
 def _local_project_id(conn, name):
@@ -43,17 +73,36 @@ def _local_project_id(conn, name):
     raise APIError("CONFLICT", "Could not allocate a local project identity.", 409)
 
 
-def link_history(db_path, name, account_id=None):
-    name = project_name(name)
-    with connect(db_path) as conn:
-        pid = new_id("proj") if account_id else _local_project_id(conn, name)
+def _link_team_project(conn, slug, name, account_id):
+    team = _team(conn, slug) if account_id else None
+    role = team_role(conn, team["id"], account_id) if team else None
+    if role is None:
+        raise APIError("TEAM_NOT_FOUND", f"Team {slug} not found, or you are not a member.", 404)
+    if _team_project(conn, team["id"], name) is None:
+        if role == "viewer":
+            raise APIError("PERMISSION_DENIED", "Read-only members cannot add projects.", 403)
         conn.execute("""INSERT INTO projects
-            (id, account_id, name, provider, repo_id, owner, repo_name, created_at)
+            (id, team_id, name, provider, repo_id, owner, repo_name, created_at)
             VALUES (?, ?, ?, 'intent', ?, ?, ?, ?) ON CONFLICT DO NOTHING""",
-            (pid, account_id, name, name, account_id or "local", name, now_utc()))
-        project = _project(conn, name, account_id)
+            (new_id("proj"), team["id"], name, name, team["id"], name, now_utc()))
+    return _team_project(conn, team["id"], name)
+
+
+def link_history(db_path, ref, account_id=None):
+    ref = project_ref(ref)
+    slug, _, name = ref.rpartition("/")
+    with connect(db_path) as conn:
+        if slug:
+            project = _link_team_project(conn, slug, name, account_id)
+        else:
+            pid = new_id("proj") if account_id else _local_project_id(conn, name)
+            conn.execute("""INSERT INTO projects
+                (id, account_id, name, provider, repo_id, owner, repo_name, created_at)
+                VALUES (?, ?, ?, 'intent', ?, ?, ?, ?) ON CONFLICT DO NOTHING""",
+                (pid, account_id, name, name, account_id or "local", name, now_utc()))
+            project = _project(conn, name, account_id)
         conn.execute("INSERT INTO semantic_heads (project_id, revision) VALUES (?, NULL) ON CONFLICT DO NOTHING", (project["id"],))
-        return {"format_version": 2, "project_id": project["id"], "project_name": name}
+        return {"format_version": 2, "project_id": project["id"], "project_name": ref}
 
 
 def _head(conn, pid):
@@ -66,16 +115,16 @@ def _head(conn, pid):
             "snapshot_sha256": snapshot_sha256(snapshot), "accepted_at": row["created_at"]}
 
 
-def read_history(db_path, name, account_id=None, project_id=None):
-    name = project_name(name)
+def read_history(db_path, ref, account_id=None, project_id=None):
+    ref = project_ref(ref)
     with connect(db_path) as conn:
-        # A clone that knows its project ID follows a rename made on IntHub.
-        project = (_project_by_id(conn, project_id, account_id) if project_id else None) or _project(conn, name, account_id)
+        # A clone that knows its project ID follows a rename or transfer made on IntHub.
+        project = (_project_by_id(conn, project_id, account_id) if project_id else None) or _named(conn, ref, account_id)
         head = _head(conn, project["id"]) if project else {
             "revision": None, "parent": None, "snapshot": None,
             "snapshot_sha256": None, "accepted_at": None}
         return {"format_version": 2, "project_id": project["id"] if project else None,
-                "project_name": project["repo_id"] if project else name, **head}
+                "project_name": project_handle(conn, project) if project else ref, **head}
 
 
 def _declared_pusher(value):
@@ -103,7 +152,7 @@ def _record_verified(conn, project_id, revision, changes, account_id):
 
 
 def push_history(db_path, payload, account_id=None):
-    name = project_name(payload.get("project_name"))
+    ref = project_ref(payload.get("project_name"))
     snapshot = payload.get("snapshot")
     try:
         validate_snapshot(snapshot)
@@ -117,10 +166,12 @@ def push_history(db_path, payload, account_id=None):
             conn.execute("BEGIN IMMEDIATE")
         project = _project_by_id(conn, payload.get("project_id"), account_id) if payload.get("project_id") else None
         if project is None:
-            if _project(conn, name, account_id) is not None:
+            if _named(conn, ref, account_id) is not None:
                 raise APIError("REMOTE_CHANGED", "Remote project identity changed; check status before relinking.", 409)
             raise APIError("NOT_LINKED", "Configure the remote project before pushing.", 404)
-        pid, name = project["id"], project["repo_id"]
+        if permission(conn, project, account_id) == "read":
+            raise APIError("PERMISSION_DENIED", "Read-only members cannot push to this project.", 403)
+        pid, name = project["id"], project_handle(conn, project)
         if conn.backend == "postgresql":
             conn.execute("SELECT project_id FROM semantic_heads WHERE project_id = ? FOR UPDATE", (pid,))
         head = _head(conn, pid)

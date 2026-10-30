@@ -104,7 +104,7 @@ Schema v5 显式增加 `product_deletion_receipts`，以及服务端登录事务
 ## 共享语义历史与兼容迁移
 
 语义同步独立于代码 Git。Schema v4 只增添 `semantic_heads` 和 `semantic_versions`，
-不删除或改写旧 workspace 数据。每个账户内按明确项目名共享一条历史；版本由 parent
+不删除或改写旧 workspace 数据。每个账户或团队内按明确项目名共享一条历史；版本由 parent
 和规范化完整快照的 SHA-256 推导。服务端在同一事务中锁住项目 head、验证追加/生命周期
 变化并推进版本；SQLite 使用 `BEGIN IMMEDIATE`，PostgreSQL 使用行锁。
 
@@ -117,6 +117,8 @@ Web 会话不能写入。旧 workspace 的 link/sync/snapshot 接口、恢复参
 `GET /api/v2/history` 也接受 `project_id`，此时按 ID 查找项目，所以本地副本能跟随改名。改名和删除只能在浏览器里做：`POST /api/v1/projects/{id}/rename` 与 `/delete` 需要会话 Cookie 和同源 JSON 请求，访问令牌会被拒绝。删除需要输入完整项目名，会删除该项目的版本、head 和旧表数据，本机 `.intent` 目录不受影响。`GET /api/v1/projects/{id}/export` 向会话或访问令牌返回当前快照和修订链。
 
 Schema v6 只做加法：`accounts.email`、`projects.repository_url`、`semantic_versions` 的 `pushed_by`、`pusher_json`、`changes_json`，以及 `verified_objects` 表。该表随项目级联删除，回滚到旧镜像后仍能删除项目。每次推送保存认证账号、CLI 声明的身份和变化摘要；更早的修订在首次被列出时补算摘要。推送账号的已验证邮箱与作者邮箱一致时，对象标为已验证。`GET /api/v1/projects/{id}/revisions` 分页返回历史，`/revisions/{revision}` 返回一次修订的语义 diff。
+
+Schema v7 只做加法：`teams`、`team_members`、`team_invites` 三张表，以及 `projects` 的 `team_id` 和 `visibility`。团队项目的 `account_id` 为 NULL，所以回滚后旧镜像既不会列出也不会删除它，也不提供公开页。所有访问判断集中在 [access.py](../../apps/inthub_api/access.py)。可见性、转移和所有团队操作都和改名、删除一样只能在浏览器里做；访问令牌只凭成员身份读取和推送。未登录的读取只开放 `VISITOR_READS` 列出的路由，且项目必须公开，每个地址每分钟 300 次；私有项目返回的 401 与不存在的项目完全相同。访客和非成员永远拿不到作者邮箱；`/api/v2/history` 和导出带完整快照，只对成员开放。邀请令牌只存 SHA-256 哈希，使用时删除该行。删除账号时，先为将失去最后一位管理员的团队指定新管理员，没有其他成员的团队一起删除。
 
 实现与验证：[history.py](../../apps/inthub_api/history.py)、
 [shared.py](../../src/intent_cli/commands/shared.py)、

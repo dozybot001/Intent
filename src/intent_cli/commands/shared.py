@@ -10,7 +10,7 @@ from intent_cli.hub.credentials import normalize_api_base_url, GlobalHubConfigEr
 from intent_cli.hub.restore import install_snapshot
 from intent_cli.hub.runtime import hub_api_base, hub_auth_token, hub_auth_configured, load_hub
 from intent_cli.hub.snapshots import SnapshotError, require_fast_forward, snapshot_sha256, validate_snapshot
-from intent_cli.hub.versions import revision_id, validate_project_name, VERSION
+from intent_cli.hub.versions import revision_id, validate_project_ref, VERSION
 from intent_cli.output import error, success
 from intent_cli.store import SUBDIRS, load_graph_once, workspace_write_lock, write_hub_config
 
@@ -35,7 +35,7 @@ def _state(base, args):
             error("HUB_STATE_INVALID", "Invalid configured endpoint.")
     name = getattr(args, "project", None) or config.get("project_name") or base.parent.name
     try:
-        validate_project_name(name)
+        validate_project_ref(name)
     except ValueError as exc:
         error("INVALID_INPUT", str(exc))
     if config.get("format_version") == 2:
@@ -71,7 +71,7 @@ def _remote(base, args, config, name):
     renamed = isinstance(result, dict) and bool(known) and result.get("project_id") == known and result.get("project_name") != name
     if renamed:
         try:
-            validate_project_name(result.get("project_name"))
+            validate_project_ref(result.get("project_name"))
         except ValueError:
             renamed = False
     if not isinstance(result, dict) or result.get("format_version") != 2 or (result.get("project_name") != name and not renamed):
@@ -153,7 +153,7 @@ def cmd_remote(args):
             api = normalize_api_base_url(args.url)
             name = args.project or base.parent.name
             try:
-                validate_project_name(name)
+                validate_project_ref(name)
             except ValueError as exc:
                 error("INVALID_INPUT", str(exc))
             if config.get("format_version") == 2 and config.get("api_base_url") == api and config.get("project_name") == name:
@@ -175,7 +175,7 @@ def cmd_link(args):
         config, name, _, _ = _state(base, args)
         name = args.project_name or name
         try:
-            validate_project_name(name)
+            validate_project_ref(name)
         except ValueError as exc:
             error("INVALID_INPUT", str(exc))
         api = hub_api_base(base, args, config)

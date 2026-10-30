@@ -89,7 +89,7 @@ Git is optional. Intent owns semantic history independently of the source reposi
 |---|---|
 | `itt status [--local]` | Report empty / up_to_date / ahead / behind / diverged; --local works offline. |
 | `itt remote [-v]` | Show IntHub endpoint and project. |
-| `itt remote add origin URL --project NAME` | Configure the shared project; default name is the semantic root directory name. |
+| `itt remote add origin URL --project NAME` | Configure the shared project; default name is the semantic root directory name. Use `TEAM/NAME` for a team's project. |
 | `itt push [--project NAME] [--api-base-url URL] [--dry-run]` | Link when needed, then save a revision. Identical content creates no version; preview has no remote writes. |
 | `itt pull [--project NAME] [--api-base-url URL] [--dry-run]` | Advance unchanged local history, preserve local-only changes, reject divergence without overwriting either side. |
 | `itt auth login / status / logout` | Account credentials are shared across projects through the credential helper. |
@@ -97,7 +97,9 @@ Git is optional. Intent owns semantic history independently of the source reposi
 
 Configure copies with the same remote/project: they share one history instead of separate workspaces. Intent/Snap/Decision remain objects within versions. No staging, manual commit, branch, rebase, force mode, or automatic merge is needed.
 
-A project renamed in IntHub's settings is followed automatically: `status`, `push` and `pull` look the project up by its ID and report `renamed_from`, and `push` and `pull` store the new name. itt 7.2 and earlier look it up by name and report `REMOTE_CHANGED` until upgraded. A project deleted on IntHub also reports `REMOTE_CHANGED`; local history is untouched.
+A project renamed or transferred on IntHub is followed automatically: `status`, `push` and `pull` look the project up by its ID and report `renamed_from`, and `push` and `pull` store the new name. itt 7.2 and earlier look it up by name and report `REMOTE_CHANGED` until upgraded; team projects need itt 7.5. A project deleted on IntHub also reports `REMOTE_CHANGED`; local history is untouched.
+
+On a team's project, admins and members can push and viewers can pull. Public projects are read on the web: `pull` is for members, because a pull carries author emails.
 
 Revision IDs hash parent and canonical snapshot checksum. Transactional project-head locking rejects competing changes. Lost push responses converge by content without duplicate revisions. Existing append-only and lifecycle constraints still apply.
 
@@ -379,6 +381,8 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 | `CREDENTIAL_STORE_ERROR` | Git's configured credential helper could not persist or remove the account token |
 | `HUB_NOT_CONFIGURED` | IntHub API base URL is missing |
 | `NOT_LINKED` | Remote shared project is not linked; normal push links it as needed |
+| `PERMISSION_DENIED` | The account has read-only access to this team project |
+| `TEAM_NOT_FOUND` | The team does not exist or the account is not a member |
 | `REMOTE_CHANGED` | Endpoint or project identity changed; select explicitly with remote add |
 | `NON_FAST_FORWARD` | Remote changed; push preserved it. Pull first; resolve divergence explicitly |
 | `HISTORY_DIVERGED` | Both local and remote changed; neither history was overwritten |
@@ -400,7 +404,7 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 - Explicit `--token` and `INTHUB_TOKEN` override the stored credential and are never persisted to `hub.json`
 - Pull validates and atomically restores shared history, rejecting divergent overwrites; automatic maintenance does not imply pull authorization
 - IntHub Local binds to `127.0.0.1` by default, but its current API does not enforce bearer-token authentication and uses permissive CORS; do not expose it to a LAN or the public internet
-- The IntHub production profile uses Tenon sign-in and bounded read-only HttpOnly Web sessions; CLI writes use an access token issued by the current account (sent as HTTP `Bearer`), all project reads and writes are account-scoped, and production uses PostgreSQL; see [IntHub Production Deployment](inthub-production.md)
+- The IntHub production profile uses Tenon sign-in and bounded read-only HttpOnly Web sessions; CLI writes use an access token issued by the current account (sent as HTTP `Bearer`), project reads and writes follow the account's ownership and team roles, and production uses PostgreSQL; see [IntHub Production Deployment](inthub-production.md)
 - Object and Hub-config replacements are atomic, and mutating object commands use a workspace-level cross-process lock with bounded owner diagnostics; this serializes Intent CLI writers but does not turn `.intent/` into a multi-user database
 - IntHub requests use a 15-second per-attempt timeout and at most two attempts; the bundled argv adapter has a 60-second process safety timeout and always emits one JSON document
 - Object IDs are validated before path I/O, object paths must remain under their type directory, and `.intent/` object storage refuses symlink redirection

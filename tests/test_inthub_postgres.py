@@ -12,13 +12,15 @@ from apps.inthub_api.auth import (
     create_web_session,
     upsert_github_account,
 )
+from apps.inthub_api.access import VISITOR
 from apps.inthub_api.common import APIError
 from apps.inthub_api.db import connect
 from apps.inthub_api.history import link_history, push_history, read_history
 from intent_cli.hub.versions import revision_id
-from apps.inthub_api.projects import delete_project, export_project, rename_project
+from apps.inthub_api.projects import delete_project, export_project, rename_project, set_visibility, transfer_project
 from apps.inthub_api.revisions import project_revisions, revision_detail
-from apps.inthub_api.queries import list_projects, project_overview
+from apps.inthub_api.queries import list_projects, project_home, project_overview
+from apps.inthub_api.teams import accept_invite, create_invite, create_team, delete_team, set_member_role, team_detail
 from apps.inthub_api.tenon import (
     account_for_identity, account_for_session as tenon_account_for_session,
     bind_existing_account, consume_attempt, create_attempt, create_session,
@@ -147,6 +149,72 @@ def test_postgresql_records_pushers_and_verifies_authors():
     delete_project(POSTGRES_URL, pid, subject, account["id"])
     with connect(POSTGRES_URL) as conn:
         assert conn.execute("SELECT count(*) AS n FROM verified_objects WHERE project_id = ?", (pid,)).fetchone()["n"] == 0
+
+
+@pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")
+def test_postgresql_teams_visibility_and_transfer():
+    suffix = os.urandom(6).hex()
+
+    def person(name):
+        return account_for_identity(POSTGRES_URL, {"sub": f"{name}-{suffix}", "name": name, "email": f"{name}-{suffix}@example.com",
+                                                   "platform_role": "user", "expires_at": time.time() + 60})["id"]
+
+    admin, member, stranger = person("admin"), person("member"), person("stranger")
+    slug = f"team-{suffix}"
+    team_id = create_team(POSTGRES_URL, "Team", slug, admin)["team"]["id"]
+    invite = create_invite(POSTGRES_URL, team_id, "member", admin)
+    token = invite["path"].split("token=")[1]
+    assert accept_invite(POSTGRES_URL, token, member)["joined"] is True
+    with pytest.raises(APIError, match="no longer valid"):
+        accept_invite(POSTGRES_URL, token, stranger)
+
+    ref = f"{slug}/app"
+    pid = link_history(POSTGRES_URL, ref, member)["project_id"]
+    assert link_history(POSTGRES_URL, ref, admin)["project_id"] == pid
+    intent = {"id": "intent-001", "object": "intent", "status": "active", "origin": "test", "created_at": "2026-10-30T00:00:00+00:00",
+              "what": "Ship", "why": "", "snap_ids": [], "decision_ids": [], "author": {"name": "Ana", "email": "ana@private.example"}}
+    snapshot = {"intents": [intent], "snaps": [], "decisions": []}
+    pushed = push_history(POSTGRES_URL, {"project_name": ref, "project_id": pid, "parent": None,
+                                         "revision": revision_id(None, snapshot), "snapshot": snapshot}, member)
+    assert pushed["project_name"] == ref
+    listed = {row["id"]: row for row in project_home(POSTGRES_URL, member)["projects"]}
+    assert listed[pid]["full_name"] == ref and listed[pid]["permission"] == "write" and listed[pid]["active_intents"] == 1
+    assert read_history(POSTGRES_URL, ref, stranger)["project_id"] is None
+
+    set_visibility(POSTGRES_URL, pid, "public", "app", admin)
+    for reader in (VISITOR, stranger):
+        overview = project_overview(POSTGRES_URL, pid, account_id=reader)
+        assert overview["project"]["permission"] == "public"
+        assert "email" not in overview["active_intents"][0]["author"]
+    assert "email" in project_overview(POSTGRES_URL, pid, account_id=member)["active_intents"][0]["author"]
+
+    assert transfer_project(POSTGRES_URL, pid, None, "app", admin)["project"]["full_name"] == "app"
+    assert read_history(POSTGRES_URL, "app", admin, project_id=pid)["project_id"] == pid
+    assert transfer_project(POSTGRES_URL, pid, team_id, "app", admin)["project"]["full_name"] == ref
+
+    # Two admins cannot demote each other at the same time: the team row is locked.
+    set_member_role(POSTGRES_URL, team_id, member, "admin", admin)
+    outcomes = []
+
+    def demote(target, actor):
+        try:
+            outcomes.append(set_member_role(POSTGRES_URL, team_id, target, "viewer", actor))
+        except APIError as exc:
+            outcomes.append(exc.code)
+
+    threads = [threading.Thread(target=demote, args=pair) for pair in ((member, admin), (admin, member))]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    with connect(POSTGRES_URL) as conn:
+        admins = conn.execute("SELECT count(*) AS n FROM team_members WHERE team_id = ? AND role = 'admin'", (team_id,)).fetchone()["n"]
+    assert admins >= 1
+
+    survivor = member if team_detail(POSTGRES_URL, team_id, member)["role"] == "admin" else admin
+    delete_team(POSTGRES_URL, team_id, slug, survivor)
+    with connect(POSTGRES_URL) as conn:
+        assert conn.execute("SELECT count(*) AS n FROM projects WHERE id = ?", (pid,)).fetchone()["n"] == 0
 
 
 @pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")

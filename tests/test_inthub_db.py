@@ -61,8 +61,8 @@ def test_schema_v1_upgrades_to_public_profile_schema_v2(tmp_path):
     migrated = db.migrate_target(db_path, require_backward_compatible=True)
     assert migrated == {
         "from_version": 1,
-        "to_version": 6,
-        "latest_known_version": 6,
+        "to_version": 7,
+        "latest_known_version": 7,
         "backward_compatible_only": True,
     }
     with sqlite3.connect(db_path) as check:
@@ -70,8 +70,12 @@ def test_schema_v1_upgrades_to_public_profile_schema_v2(tmp_path):
         profile_table = check.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'public_profiles'"
         ).fetchone()
-    assert versions == [1, 2, 3, 4, 5, 6]
+    assert versions == [1, 2, 3, 4, 5, 6, 7]
     assert profile_table is not None
+    with connect(db_path) as check:
+        # Whatever existed before teams stays private and personal.
+        projects = check.execute("SELECT visibility, team_id FROM projects").fetchall()
+    assert all(project["visibility"] == "private" and project["team_id"] is None for project in projects)
 
 
 def test_production_connection_refuses_to_migrate_as_a_startup_side_effect(

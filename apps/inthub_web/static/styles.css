@@ -324,15 +324,6 @@ kbd {
   background: var(--surface-hover);
 }
 
-.button-ghost {
-  color: var(--ink-2);
-}
-
-.button-ghost:hover:not(:disabled) {
-  color: var(--ink);
-  background: var(--surface-hover);
-}
-
 .button-small {
   min-height: 28px;
   padding: 0 10px;
@@ -649,6 +640,16 @@ select.text-field {
   cursor: progress;
 }
 
+/* A visitor reads the one project they were linked to: its name, not a control. */
+.project-picker.is-static .project-picker-trigger {
+  color: var(--ink);
+  cursor: default;
+}
+
+.project-picker.is-static .project-picker-trigger svg {
+  display: none;
+}
+
 .project-picker-trigger svg {
   width: 16px;
   height: 16px;
@@ -725,6 +726,11 @@ select.text-field {
 
 .project-picker-option.is-selected {
   background: var(--surface-selected);
+}
+
+.project-picker-home {
+  color: inherit;
+  text-decoration: none;
 }
 
 .project-picker-option-name {
@@ -895,10 +901,6 @@ select.text-field {
   background: var(--surface-hover);
 }
 
-.account-action-danger {
-  color: var(--red);
-}
-
 .segmented-control {
   display: grid;
   grid-auto-columns: minmax(0, 1fr);
@@ -941,8 +943,11 @@ select.text-field {
 }
 
 .account-mode {
+  overflow: hidden;
   color: var(--muted);
   font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* --- Tabs ---------------------------------------------------------------- */
@@ -1108,6 +1113,16 @@ select.text-field {
   color: var(--faint);
 }
 
+.page-meta > :has(> .visibility-pill)::before,
+.page-meta > :has(> .visibility-pill) + *::before {
+  content: none;
+}
+
+.meta-link {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+
 .page-actions {
   display: flex;
   align-items: center;
@@ -1147,11 +1162,6 @@ select.text-field {
   font-size: 13px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-}
-
-.section-note {
-  color: var(--muted);
-  font-size: 13px;
 }
 
 /* --- Status -------------------------------------------------------------- */
@@ -2973,6 +2983,7 @@ select.text-field {
 
 .setup-page {
   max-width: 820px;
+  margin-inline: auto;
 }
 
 .setup-steps {
@@ -3088,145 +3099,253 @@ select.text-field {
 
 /* --- Settings ------------------------------------------------------------ */
 
-.shell.is-account .tab-bar {
-  display: none;
+/* Account, a team and a project's Settings tab share this layout: links on the left, one pane
+   at a time on the right, and the pair centred so both page margins match. */
+.settings-layout {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 720px);
+  justify-content: center;
+  align-items: start;
+  gap: 24px 40px;
 }
 
-.settings-page {
-  max-width: 820px;
+.settings-title {
+  grid-column: 1 / -1;
 }
 
-.settings-section + .settings-section {
+/* The link text lines up with the page title and the pane's heading; only the fill reaches past them. */
+.settings-nav {
+  display: grid;
+  gap: 2px;
+  margin: -6px 0 0 -10px;
+}
+
+.settings-nav-item {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.settings-nav-item:hover {
+  color: var(--ink);
+  background: var(--surface-hover);
+}
+
+.settings-nav-item[aria-current="page"] {
+  color: var(--ink);
+  background: var(--surface-selected);
+}
+
+.settings-nav-item:focus-visible {
+  outline-offset: -2px;
+}
+
+/* Inside a pane everything sits on the same two edges: nothing below adds side padding. */
+.settings-pane {
+  min-width: 0;
+}
+
+.settings-block + .settings-block {
   margin-top: 36px;
 }
 
-.settings-section-title {
-  margin-bottom: 10px;
-  font-size: 15px;
+.settings-block-title {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
 .settings-lead {
-  max-width: 68ch;
-  margin-bottom: 12px;
+  margin-top: 12px;
   color: var(--muted);
   font-size: 13.5px;
   line-height: 1.6;
 }
 
-.settings-card {
-  padding: 18px 20px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow-card);
+.settings-lead a {
+  color: var(--ink);
+  text-underline-offset: 3px;
+}
+
+.settings-lead + .snippet {
+  margin-top: 12px;
+}
+
+.settings-list {
+  border-block: 1px solid var(--border);
+}
+
+.settings-block-title + .settings-list,
+.settings-block-title + .settings-slot > .settings-list {
+  border-top: 0;
+}
+
+.settings-block-title + .settings-slot > .view-loading,
+.settings-block-title + .settings-slot > .inline-empty,
+.settings-lead + .settings-slot {
+  margin-top: 12px;
 }
 
 .settings-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   flex-wrap: wrap;
-  gap: 14px 24px;
+  gap: 10px 14px;
+  padding: 14px 0;
+}
+
+.settings-list > .settings-row + .settings-row,
+.settings-list > .secret-box + .settings-row {
+  border-top: 1px solid var(--border);
 }
 
 .settings-row-copy {
   display: grid;
-  flex: 1 1 320px;
-  gap: 4px;
-  min-width: 0;
-}
-
-.settings-row-copy strong {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.settings-row-copy p {
-  color: var(--muted);
-  font-size: 13.5px;
-  line-height: 1.6;
-}
-
-.profile-card {
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
-  align-items: center;
-  gap: 4px 14px;
-}
-
-.profile-avatar {
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  color: var(--ink-2);
-  background: var(--surface-subtle);
-  font-size: 19px;
-  font-weight: 600;
-}
-
-.profile-copy {
-  display: grid;
+  flex: 1 1 220px;
   gap: 2px;
   min-width: 0;
 }
 
-.profile-name {
+.settings-row-copy strong {
   overflow-wrap: anywhere;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
 }
 
-.profile-login {
+.settings-row-copy .chip {
+  margin-left: 4px;
+}
+
+/* The separator sits in the gap and is clipped at the start of a line, so a wrapped line never opens with one. */
+.settings-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 16px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
   overflow-wrap: anywhere;
+}
+
+.settings-meta > span {
+  position: relative;
+  min-width: 0;
+}
+
+.settings-meta > span::before {
+  content: "·";
+  position: absolute;
+  left: -10px;
+  color: var(--faint);
+}
+
+.settings-row-control,
+.transfer-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.settings-row-control > svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--faint);
+}
+
+.settings-row-control .button-small {
+  min-height: 32px;
+}
+
+.settings-role {
   color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.role-select {
+  width: 116px;
+  height: 32px;
   font-size: 13px;
 }
 
-.profile-note {
-  grid-column: 1 / -1;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.6;
+.transfer-select {
+  width: 180px;
 }
 
-.profile-link {
+.settings-link {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   color: var(--ink);
+  font-size: 13.5px;
   text-underline-offset: 3px;
+  white-space: nowrap;
 }
 
-.profile-link svg {
+.settings-link svg {
   width: 13px;
   height: 13px;
   flex: 0 0 auto;
 }
 
-.profile-identity {
-  grid-column: 1 / -1;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.6;
+.settings-row-link {
+  color: inherit;
+  text-decoration: none;
 }
 
-.profile-identity-title {
-  display: block;
-  margin-bottom: 2px;
-  color: var(--ink);
-  font-size: 13.5px;
-  font-weight: 600;
+.settings-row-link:hover strong {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.settings-form {
+  margin-top: 14px;
+}
+
+.settings-form .button {
+  min-height: 36px;
+}
+
+.settings-field {
+  min-width: 0;
+}
+
+.token-form,
+.team-form,
+.invite-form {
+  display: grid;
+  align-items: end;
+  gap: 12px;
+}
+
+.token-form {
+  grid-template-columns: minmax(0, 1fr) 150px auto;
+}
+
+.team-form {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
+.invite-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.token-form .field-error,
+.team-form .field-error,
+.invite-form .field-error,
+.team-form .field-note {
+  grid-column: 1 / -1;
+  margin-top: 0;
 }
 
 .profile-email {
@@ -3236,83 +3355,24 @@ select.text-field {
   overflow-wrap: anywhere;
 }
 
-.token-form {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 150px auto;
-  align-items: end;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.token-form .button {
-  min-height: 36px;
-}
-
-.token-form .field-error {
-  grid-column: 1 / -1;
-  margin-top: 0;
-}
-
-.token-form-field {
-  min-width: 0;
-}
-
-.token-row {
+/* Shown once: a new access token, an invite link. Neutral emphasis, never a colour. */
+.secret-box {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px 16px;
-  padding: 14px 18px;
-}
-
-.token-row + .token-row {
-  border-top: 1px solid var(--border);
-}
-
-/* A new token: neutral emphasis, never a colour. */
-.token-row.is-new {
-  background: var(--surface-subtle);
-}
-
-.token-main {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.token-name {
-  overflow-wrap: anywhere;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.token-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 8px;
-  color: var(--muted);
-  font-size: 12.5px;
-}
-
-.token-meta > * + *::before {
-  content: "·";
-  margin-right: 8px;
-  color: var(--faint);
-}
-
-.token-secret-box {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px 12px;
+  gap: 8px 12px;
+  margin-bottom: 14px;
   padding: 12px 14px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: var(--surface-subtle);
 }
 
-.token-secret {
+.settings-form + .secret-box {
+  margin: 14px 0 0;
+}
+
+.secret-value {
   padding: 0;
   background: none;
   font-size: 13px;
@@ -3321,13 +3381,13 @@ select.text-field {
   user-select: all;
 }
 
-.token-secret-note {
+.secret-note {
   grid-column: 1 / -1;
   color: var(--ink-2);
   font-size: 13px;
 }
 
-.token-list-error {
+.settings-retry {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3335,8 +3395,94 @@ select.text-field {
   gap: 10px 16px;
 }
 
-.token-list:focus {
+.token-form + .settings-slot {
+  margin-top: 16px;
+}
+
+.settings-slot:focus {
   outline: none;
+}
+
+.monogram {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--ink-2);
+  background: var(--surface-subtle);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* --- Site pages ---------------------------------------------------------- */
+
+/* Home, account, team and invite pages belong to no project: its tabs, sync state and search step aside. */
+.shell.is-site .tab-bar,
+.shell.is-site .sync-indicator,
+.shell.is-site .command-trigger {
+  display: none;
+}
+
+.home-page {
+  max-width: 960px;
+  margin-inline: auto;
+}
+
+.list-row.home-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
+.home-row .row-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 0;
+}
+
+.invite-page {
+  display: grid;
+  justify-items: center;
+  padding-top: 8vh;
+}
+
+.invite-card {
+  display: grid;
+  gap: 12px;
+  width: min(440px, 100%);
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+.invite-card h1 {
+  overflow-wrap: anywhere;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.invite-card p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.invite-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 /* --- Detail sheet ---------------------------------------------------------- */
@@ -4373,6 +4519,17 @@ select.text-field {
   text-align: left;
 }
 
+.auth-dismiss {
+  color: var(--muted);
+  font-size: 13px;
+  text-underline-offset: 3px;
+}
+
+.auth-dismiss:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
 .auth-footer {
   padding: 20px var(--gutter) 28px;
   color: var(--muted);
@@ -4787,8 +4944,44 @@ select.text-field {
     padding: 16px;
   }
 
-  .settings-card {
-    padding: 16px;
+  /* Pills and wrapped lines: a line never opens with a separator. */
+  .page-meta {
+    gap: 4px 12px;
+  }
+
+  .page-meta > * + *::before {
+    content: none;
+  }
+
+  /* The name lines up with the page below it. */
+  .project-picker.is-static .project-picker-trigger {
+    padding: 0 3px;
+    border-color: transparent;
+    background: none;
+  }
+
+  .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  /* Like the tab bar: one row that scrolls, reaching both screen edges. */
+  .settings-nav {
+    display: flex;
+    gap: 4px;
+    margin: 0 -16px;
+    padding: 0 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .settings-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings-nav-item {
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
 
   .token-form {
@@ -4799,23 +4992,38 @@ select.text-field {
     grid-column: 1 / -1;
   }
 
-  .token-row {
-    padding: 14px 16px;
+  .team-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .team-form .button {
+    justify-self: start;
+  }
+
+  .transfer-control {
+    flex: 1 1 100%;
+  }
+
+  .transfer-select {
+    flex: 1 1 auto;
+    width: auto;
+  }
+
+  .list-row.home-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .list-row.home-row .row-meta {
+    grid-column: 1;
+  }
+
+  .invite-card {
+    padding: 24px 20px;
   }
 
   /* The filter menus right below already name what is selected; a long title would only wrap here. */
   .shell[data-active-tab="snaps"] .page-meta > :not(:first-child) {
     display: none;
-  }
-
-  /* One fact per line: a wrapped line never starts with a separator. */
-  .token-meta {
-    display: grid;
-    gap: 2px;
-  }
-
-  .token-meta > * + *::before {
-    content: none;
   }
 
   .setup-step::before {

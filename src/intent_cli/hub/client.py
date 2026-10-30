@@ -15,6 +15,8 @@ DEFAULT_ATTEMPTS = 2
 # A complete accepted 16 MiB sync snapshot plus its compact export envelope.
 MAX_RESPONSE_BYTES = 16 * 1024 * 1024 + 64 * 1024
 RETRYABLE_HTTP_STATUSES = {408, 425, 429, 500, 502, 503, 504}
+# Refusals an Agent has to act on, not retry, keep the server's code.
+ACCESS_ERRORS = {"PERMISSION_DENIED", "TEAM_NOT_FOUND"}
 
 
 class _NoAPIRedirects(urllib.request.HTTPRedirectHandler):
@@ -176,8 +178,9 @@ def http_json(
                 )
             server_error = response.get("error") if isinstance(response, dict) else None
             message = server_error.get("message") if isinstance(server_error, dict) else None
+            code = server_error.get("code") if isinstance(server_error, dict) else None
             error(
-                "SERVER_ERROR",
+                code if code in ACCESS_ERRORS else "SERVER_ERROR",
                 message if isinstance(message, str) and message else f"IntHub request failed with status {exc.code}.",
                 details={
                     "url": url,

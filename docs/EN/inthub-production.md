@@ -114,7 +114,7 @@ See the [implementation](../../apps/inthub_api/product_deletion.py), [isolation 
 
 Semantic synchronization is independent of source Git. Schema v4 adds only `semantic_heads`
 and `semantic_versions`, preserving all legacy workspace data. A named project has one
-account-private shared history. Revisions hash the parent and canonical full snapshot.
+shared history, owned by an account or a team. Revisions hash the parent and canonical full snapshot.
 Head validation and advancement share one transaction: SQLite uses BEGIN IMMEDIATE,
 PostgreSQL a row lock. Identical content is idempotent; divergent pushes never overwrite.
 
@@ -127,6 +127,8 @@ without product entry points. This release does not migrate or reupload local ex
 `GET /api/v2/history` also takes `project_id`: IntHub then finds the project by ID, so clones follow a rename. Renaming and deleting are browser actions: `POST /api/v1/projects/{id}/rename` and `/delete` need the session cookie and a same-origin JSON request, and access tokens are refused. Delete needs the exact project name and removes the project's versions, head and legacy rows; local `.intent` directories are untouched. `GET /api/v1/projects/{id}/export` returns the current snapshot and the revision chain to the session or an access token.
 
 Schema v6 is additive: `accounts.email`, `projects.repository_url`, `pushed_by`, `pusher_json` and `changes_json` on `semantic_versions`, and `verified_objects`. Its cascade lets an earlier image delete projects after a rollback. A push stores the authenticated account, the identity the CLI declares and a summary of the changes; older revisions get their summary the first time they are listed. An object is verified when the pushing account's verified email matches its author. `GET /api/v1/projects/{id}/revisions` pages the history and `/revisions/{revision}` returns one semantic diff.
+
+Schema v7 is additive: `teams`, `team_members`, `team_invites`, and `team_id` and `visibility` on `projects`. A team project has `account_id` NULL, so a previous image neither lists nor deletes it after a rollback, and it serves no public pages. All access decisions live in [access.py](../../apps/inthub_api/access.py). Visibility, transfer and every team change are browser actions, like rename and delete; access tokens only use the membership to read and push. Signed-out reads are limited to the routes in `VISITOR_READS` on public projects, at 300 requests a minute per address, and a private project answers 401 exactly like a missing one. Visitors and non-members never receive author emails, and `/api/v2/history` and export stay members-only because they carry the full snapshot. Invite tokens are stored as SHA-256 hashes and consumed by deleting the row. Account deletion first gives each team that would lose its last admin a new one, and deletes a team with nobody left.
 
 Sources: [server history](../../apps/inthub_api/history.py),
 [CLI synchronization](../../src/intent_cli/commands/shared.py),

@@ -7,6 +7,7 @@ from urllib.parse import parse_qsl, quote, urlsplit
 
 from apps.inthub_api.common import APIError, now_utc
 from apps.inthub_api.db import connect
+from apps.inthub_api.teams import hand_over_teams
 from apps.inthub_api.tenon import ISSUER, _identity_lock
 
 PRODUCT_ID = "inthub"
@@ -67,6 +68,7 @@ def delete_product_account(db_target, proof):
         ).fetchone()
         if mapping is not None:
             account_id = mapping["account_id"]
+            hand_over_teams(conn, account_id)
             owned = "SELECT id FROM projects WHERE account_id = ?"
             # Foreign keys are deliberately not cascaded for immutable history.
             # Delete only this account's cloud copies, never another account or

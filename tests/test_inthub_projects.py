@@ -91,7 +91,8 @@ def test_a_clone_follows_a_rename_made_on_inthub(tmp_path, pushed):
     db, url, root, project_id = pushed
     status, body = call(f"{url}/api/v1/projects/{project_id}/rename", "POST", {"name": "checkout"})
     assert status == 200 and body["result"]["project"] == {
-        "id": project_id, "name": "checkout", "created_at": body["result"]["project"]["created_at"]}
+        "id": project_id, "name": "checkout", "full_name": "checkout", "visibility": "private",
+        "created_at": body["result"]["project"]["created_at"]}
 
     assert itt(root, "status")["result"]["renamed_from"] == "payments"
     assert hub_config(root)["project_name"] == "payments"  # status never writes

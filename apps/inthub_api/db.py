@@ -17,7 +17,9 @@ from urllib.parse import urlsplit, urlunsplit
 _INITIALIZED = set()
 _INIT_LOCK = threading.Lock()
 
-LATEST_SCHEMA_VERSION = 6
+LATEST_SCHEMA_VERSION = 7
+_TEAMS_SCHEMA_NAME = "teams-and-visibility"
+_TEAMS_SCHEMA_CHECKSUM = hashlib.sha256(b"0007:teams:members:invites:project-team-visibility").hexdigest()
 _IDENTITY_SCHEMA_NAME = "revision-identity"
 _IDENTITY_SCHEMA_CHECKSUM = hashlib.sha256(b"0006:account-email:project-repository:revision-pusher-changes:verified-objects").hexdigest()
 _DELETION_SCHEMA_NAME = "product-deletion-receipts"
@@ -137,6 +139,12 @@ _IDENTITY_COLUMNS = {
 for _table, _columns in _IDENTITY_COLUMNS.items():
     _EXPECTED_SCHEMA_COLUMNS[_table] = _EXPECTED_SCHEMA_COLUMNS[_table] | _columns
 _EXPECTED_SCHEMA_COLUMNS["verified_objects"] = {"project_id", "object_id", "revision"}
+_EXPECTED_SCHEMA_COLUMNS["projects"] = _EXPECTED_SCHEMA_COLUMNS["projects"] | {"team_id", "visibility"}
+_EXPECTED_SCHEMA_COLUMNS.update({
+    "teams": {"id", "slug", "name", "created_by", "created_at"},
+    "team_members": {"team_id", "account_id", "role", "joined_at"},
+    "team_invites": {"id", "team_id", "token_hash", "role", "created_by", "created_at", "expires_at"},
+})
 
 
 def _backend_for(target):
@@ -658,6 +666,8 @@ def _validate_migration_ledger(rows):
             "backward_compatible": 1},
         6: {"name": _IDENTITY_SCHEMA_NAME, "checksum": _IDENTITY_SCHEMA_CHECKSUM,
             "backward_compatible": 1},
+        7: {"name": _TEAMS_SCHEMA_NAME, "checksum": _TEAMS_SCHEMA_CHECKSUM,
+            "backward_compatible": 1},
     }
     observed_versions = set()
     for row in rows:
@@ -790,6 +800,38 @@ def migrate_db(conn, *, require_backward_compatible=True):
             (version, name, checksum, backward_compatible, applied_at)
             VALUES (?, ?, ?, ?, ?)""",
             (6, _IDENTITY_SCHEMA_NAME, _IDENTITY_SCHEMA_CHECKSUM, 1,
+             datetime.now(timezone.utc).isoformat()))
+
+    if 7 not in applied_versions:
+        # Additive again. After a rollback the previous image ignores these
+        # columns, so team projects and public pages simply stop being reachable.
+        conn.execute("""CREATE TABLE IF NOT EXISTS teams (
+            id TEXT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
+            created_by TEXT REFERENCES accounts(id) ON DELETE SET NULL,
+            created_at TEXT NOT NULL)""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS team_members (
+            team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+            account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+            role TEXT NOT NULL CHECK (role IN ('admin', 'member', 'viewer')),
+            joined_at TEXT NOT NULL, PRIMARY KEY (team_id, account_id))""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS team_invites (
+            id TEXT PRIMARY KEY,
+            team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+            token_hash TEXT NOT NULL UNIQUE,
+            role TEXT NOT NULL CHECK (role IN ('admin', 'member', 'viewer')),
+            created_by TEXT REFERENCES accounts(id) ON DELETE SET NULL,
+            created_at TEXT NOT NULL, expires_at TEXT NOT NULL)""")
+        observed = _observed_schema_columns(conn)["projects"]
+        if "team_id" not in observed:
+            conn.execute("ALTER TABLE projects ADD COLUMN team_id TEXT REFERENCES teams(id)")
+        if "visibility" not in observed:
+            conn.execute("ALTER TABLE projects ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_team_name ON projects(team_id, provider, repo_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_team_members_account ON team_members(account_id)")
+        conn.execute("""INSERT INTO schema_migrations
+            (version, name, checksum, backward_compatible, applied_at)
+            VALUES (?, ?, ?, ?, ?)""",
+            (7, _TEAMS_SCHEMA_NAME, _TEAMS_SCHEMA_CHECKSUM, 1,
              datetime.now(timezone.utc).isoformat()))
 
     rows = _migration_rows(conn)

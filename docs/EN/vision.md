@@ -132,7 +132,7 @@ The long-term shape is analogous to Git and GitHub, while serving a different ki
 - **Intent** is the local, open semantic-history substrate. It owns portable objects, lifecycle rules, validation, and agent-readable recovery.
 - **IntHub** is the organization and collaboration surface. It turns multiple local histories into browsable handoffs, shared context, and eventually a networked ecosystem.
 
-Today IntHub is a private, per-account history browser (hosted, or local via `itt hub start`); shared team spaces and other collaboration features are not built yet. Intent must remain useful without IntHub; IntHub should amplify Intent rather than becoming a prerequisite for recording.
+Today IntHub is a history browser for individuals and teams (hosted, or local via `itt hub start`): projects are private by default, and a team shares them with roles or publishes them read-only. Merging parallel work is not built yet. Intent must remain useful without IntHub; IntHub should amplify Intent rather than becoming a prerequisite for recording.
 
 ## 5. Project boundaries
 

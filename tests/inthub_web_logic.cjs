@@ -206,7 +206,7 @@ vm.runInContext(`
   assert.ok(markdown.includes('- Port receipts (intent-001)'));
   assert.ok(markdown.includes('- Use PaymentIntents only (decision-001)'));
 
-  state.projects = [{id:'p', name:"Team's checkout"}];
+  state.projects = [{id:'p', name:"Team's checkout", full_name:"Team's checkout"}];
   state.currentProjectId = 'p';
   state.config = {apiBaseUrl: 'https://inthub.example', authRequired: true};
   el.shell.classList.remove('is-empty');
@@ -275,18 +275,21 @@ vm.runInContext(`
   assert.equal(el.projectPickerTrigger.classList.contains('action-busy'), false);
   setProjectPickerBusy(false);
   state.projects = [
-    {id:'project-one', name:'项目 <draft> & "review" ' + 'very-long-name-'.repeat(20)},
-    {id:'project-two', name:'Resume'},
+    {id:'project-one', name:'draft', full_name:'项目 <draft> & "review" ' + 'very-long-name-'.repeat(20)},
+    {id:'project-two', name:'Resume', full_name:'acme/Resume'},
   ];
   state.currentProjectId = 'project-one';
+  state.config.defaultProjectId = 'project-one';
   renderProjectSelector();
-  assert.equal(el.projectPickerLabel.textContent, state.projects[0].name);
+  assert.equal(el.projectPickerLabel.textContent, state.projects[0].full_name);
   const projectOptions = el.projectPickerDropdown.innerHTML;
   assert.ok(projectOptions.includes('&lt;draft&gt; &amp; &quot;review&quot;'));
   assert.ok(!projectOptions.includes('<draft>'));
   assert.equal((projectOptions.match(/aria-selected="true"/g) || []).length, 1);
   assert.equal((projectOptions.match(/role="option"/g) || []).length, 2);
   assert.ok(projectOptions.includes('共享语义历史'));
+  assert.ok(projectOptions.includes('acme/Resume'), 'a team project shows its full name');
+  delete state.config.defaultProjectId;
   const waitingMarkup = viewLoadingHtml();
   assert.ok(waitingMarkup.includes('class="view-loading" role="status"'));
   assert.ok(waitingMarkup.includes('class="view-loading-spinner" aria-hidden="true"'));
@@ -497,7 +500,7 @@ async function viewControllerCases() {
     const deferred = () => {let resolve, reject; const promise = new Promise((yes, no) => {resolve=yes; reject=no;}); return {promise, resolve, reject};};
     state.config = {apiBaseUrl:''};
     state.currentProjectId = 'p';
-    state.projects = [{id:'p', name:'p'}];
+    state.projects = [{id:'p', name:'p', full_name:'p'}];
     state.activeTab = 'snaps';
     state._detailCache = new Map();
     state.overview = {history:{project_id:'p',revision:'a'.repeat(64),last_synced_at:'2026-10-04T00:00:00Z'}};
@@ -601,7 +604,7 @@ async function viewControllerCases() {
 
     let crossProject = null;
     loadProject = (id, options) => {crossProject = {id, options}; return Promise.resolve();};
-    state.projects = [{id:'p', name:'p'}, {id:'other', name:'other'}];
+    state.projects = [{id:'p', name:'p', full_name:'p'}, {id:'other', name:'other', full_name:'other'}];
     await openDetail('intent','other__intent-001');
     assert.equal(crossProject.id, 'other');
     assert.deepEqual(crossProject.options.detail, {type:'intent', remoteId:'other__intent-001'});
@@ -690,7 +693,7 @@ async function viewControllerCases() {
     assert.equal(state.overview.project.id, 'p2');
     assert.equal(el.detailPane.getAttribute('aria-busy'), 'false');
 
-    state.projects = [{id:'empty', name:'empty'}];
+    state.projects = [{id:'empty', name:'empty', full_name:'empty'}];
     responses.set('/api/v1/projects/empty/overview', {promise:Promise.resolve({project:{id:'empty',name:'empty'},history:{revision:null}})});
     responses.set('/api/v1/projects/empty/handoff', {promise:Promise.resolve({intents:[]})});
     await loadProject('empty');
@@ -1195,30 +1198,55 @@ async function settingsCases() {
     const now = Date.now();
     const iso = (offset) => new Date(now + offset).toISOString();
     const day = 86400000;
+    const at = (pathname, search = '') => { window.location.pathname = pathname; window.location.search = search; return readRoute(); };
 
-    // Routes: /settings is the account page; project routes stay on / and keep their tab.
-    window.location.pathname = '/settings';
-    assert.equal(readRoute().page, 'account');
-    window.location.pathname = '/';
-    window.location.search = '?project=p&tab=settings';
-    assert.deepEqual([readRoute().page, readRoute().tab], ['project', 'settings']);
-    window.location.search = '';
+    // Routes: each account and team pane has its own path; project routes stay on / and keep their tab.
+    assert.equal([at('/account').page, at('/account').pane].join(), 'account,profile');
+    assert.equal(at('/account/tokens').pane, 'tokens');
+    assert.equal(at('/account/teams/').pane, 'teams', 'a trailing slash is the same page');
+    assert.equal([at('/teams/acme').page, at('/teams/acme').team, at('/teams/acme').pane].join(), 'team,acme,members');
+    assert.equal(at('/teams/acme/projects').pane, 'projects');
+    assert.equal(at('/teams/acme/settings').pane, 'settings');
+    assert.equal([at('/invite', '?token=abc').page, at('/invite', '?token=abc').token].join(), 'invite,abc');
+    assert.equal(at('/settings').page, 'project', '/settings shipped for a day and has no alias');
+    assert.equal(at('/account/other').page, 'project');
+    const settingsRoute = at('/', '?project=p&tab=settings&section=danger');
+    assert.equal([settingsRoute.page, settingsRoute.tab, settingsRoute.section].join(), 'project,settings,danger');
+    at('/');
 
-    // IntHub Local has no account menu, so no account settings either.
+    // IntHub Local has no accounts: those paths are ordinary project routes there.
     state.config = {authRequired: false, authMode: 'none', apiBaseUrl: 'http://127.0.0.1:7317'};
-    state.page = 'project';
-    assert.equal(showAccountSettings(), false);
-    assert.equal(state.page, 'project');
-
-    // A Tenon hub: Settings opens /settings beside the untouched project view, without the project tabs.
+    assert.equal(isSiteRoute({page: 'account'}), false);
+    assert.equal(isSiteRoute({page: 'team'}), false);
     state.config = {authRequired: true, authMode: 'tenon', apiBaseUrl: 'https://inthub.tenon.asia'};
+    assert.equal(isSiteRoute({page: 'account'}), true);
+    assert.equal(isSiteRoute({page: 'project'}), false);
+
+    // A Tenon hub: Account opens beside the untouched project view, without the project tabs.
     state.account = {id: 'acct_1', login: 'dozy', display_name: 'Dozy <QA>'};
-    state.projects = [{id: 'p', name: 'checkout'}, {id: 'q', name: 'docs'}];
+    state.projects = [{id: 'p', name: 'checkout', full_name: 'checkout'}, {id: 'q', name: 'docs', full_name: 'docs'}];
     state.currentProjectId = 'p';
     state._loadedProjectId = 'p';
     state.activeTab = 'overview';
-    state.overview = {history: {project_id: 'p', revision: 'a'.repeat(64), last_synced_at: iso(0)}, project: {id: 'p', name: 'checkout'}};
+    state.overview = {history: {project_id: 'p', revision: 'a'.repeat(64), last_synced_at: iso(0)}, project: {id: 'p', name: 'checkout', full_name: 'checkout', permission: 'admin', visibility: 'private', owner: {type: 'account', name: 'Dozy'}}};
     el.detailContent.innerHTML = 'project view';
+    showAccount();
+    assert.equal(state.page, 'account');
+    assert.equal(el.shell.classList.contains('is-site'), true);
+    assert.equal(el.detailContent.classList.contains('is-hidden'), true);
+    assert.equal(el.siteContent.classList.contains('is-hidden'), false);
+    assert.equal(el.detailContent.innerHTML, 'project view');
+    assert.equal(document.title, '账号 · IntHub');
+    assert.equal(routeUrl(), '/account');
+    let page = el.siteContent.innerHTML;
+    assert.equal((page.match(/<h1/g) || []).length, 1, 'one page title, no eyebrow');
+    assert.ok(page.includes('class="page-title settings-title">账号</h1>') && !page.includes('eyebrow'));
+    assert.ok(page.includes('class="settings-nav-item" href="/account" data-route aria-current="page">个人资料</a>'));
+    assert.ok(page.includes('href="/account/tokens" data-route>访问令牌</a>') && page.includes('href="/account/teams" data-route>团队</a>'));
+    assert.ok(page.includes('Dozy &lt;QA&gt;') && page.includes('@dozy') && !page.includes('<QA>'));
+    assert.ok(page.includes('href="https://account.tenon.asia/account/"') && page.includes('在 Tenon 中修改'));
+    assert.ok(page.includes('class="monogram"') && page.includes('data-delete-account') && page.includes('button button-danger'));
+
     reply = (url) => url === '/api/v1/auth/tokens' ? {tokens: [
       {id: 'pat_used', name: 'laptop', created_at: iso(-day), expires_at: iso(80 * day), last_used_at: iso(-3600000), revoked_at: null},
       {id: 'pat_idle', name: 'ci-runner', created_at: iso(-2 * day), expires_at: iso(20 * day), last_used_at: null, revoked_at: null},
@@ -1226,33 +1254,33 @@ async function settingsCases() {
       {id: 'pat_late', name: 'stale-runner', created_at: iso(-40 * day), expires_at: iso(-60000), last_used_at: null, revoked_at: null},
     ]} : {};
     routes.length = 0;
-    assert.equal(showAccountSettings(), true);
+    showAccount('tokens');
     await flush();
-    assert.equal(state.page, 'account');
     assert.equal(routes.join(), 'push');
-    assert.equal(routeUrl(), '/settings');
-    assert.equal(el.shell.classList.contains('is-account'), true);
-    assert.equal(el.detailContent.classList.contains('is-hidden'), true);
-    assert.equal(el.accountContent.classList.contains('is-hidden'), false);
-    assert.equal(el.detailContent.innerHTML, 'project view');
-    assert.equal(document.title, '设置 · IntHub');
-    let page = el.accountContent.innerHTML;
-    assert.ok(page.includes('Dozy &lt;QA&gt;') && page.includes('@dozy') && !page.includes('<QA>'));
-    assert.ok(page.includes('href="https://account.tenon.asia/account/"'));
+    assert.equal(routeUrl(), '/account/tokens');
+    page = el.siteContent.innerHTML;
     assert.ok(page.includes('value="itt"') && page.includes('<option value="90" selected>90 天</option>') && page.includes('<option value="365">365 天</option>'));
     assert.ok(page.includes('laptop') && page.includes('ci-runner') && page.includes('从未使用') && page.includes('最近使用'));
     assert.ok(!page.includes('old-macbook') && !page.includes('stale-runner'), 'revoked and expired tokens are not listed');
-    assert.ok(page.includes('data-delete-account') && page.includes('button button-danger'));
+    assert.equal((page.match(/class="settings-list"/g) || []).length, 1, 'one list');
+    assert.ok(page.indexOf('data-token-form') < page.indexOf('class="settings-list"'), 'the form sits on top of the list');
+    routes.length = 0;
+    window.location.pathname = '/account/tokens';
+    showAccount('tokens');
+    assert.equal(routes.join(), 'replace', 'the same pane adds no history entry');
+    window.location.pathname = '/';
+    routes.length = 0;
 
-    // Generating: a trimmed name, one of the offered lifetimes, and the secret once, on its own row at the top.
+    // Generating: a trimmed name, one of the offered lifetimes, and the secret once, under its row.
     reply = (url, options) => options.method === 'POST' ? {id: 'pat_fresh', token: 'ith_pat_SECRET', name: 'release-bot', created_at: iso(0), expires_at: iso(30 * day)} : {};
     await assert.rejects(generateAccessToken({name: '   ', days: 30}), (error) => error.message === '请输入令牌名称。' && error.code === 'INVALID_INPUT');
     calls.length = 0;
     await generateAccessToken({name: '  release-bot ', days: '30'});
     assert.deepEqual(calls[0], {url: '/api/v1/auth/tokens', method: 'POST', body: {name: 'release-bot', ttl_seconds: 30 * 86400}});
-    page = el.accountContent.innerHTML;
+    page = el.siteContent.innerHTML;
     assert.ok(page.indexOf('ith_pat_SECRET') > 0 && page.indexOf('ith_pat_SECRET') < page.indexOf('laptop'));
-    assert.ok(page.includes('token-row is-new') && page.includes('data-copy-new-token') && page.includes('请立即复制，此后不会再显示。'));
+    assert.ok(page.includes('release-bot') && page.indexOf('release-bot') < page.indexOf('ith_pat_SECRET'));
+    assert.ok(page.includes('class="secret-box"') && page.includes('data-copy-new-token') && page.includes('请立即复制，此后不会再显示。'));
     calls.length = 0;
     await generateAccessToken({name: 'x', days: 7});
     assert.equal(calls[0].body.ttl_seconds, 90 * 86400, 'only 30, 90 or 365 days');
@@ -1270,31 +1298,41 @@ async function settingsCases() {
     await runConfirm();
     assert.deepEqual(calls.map((call) => call.method + ' ' + call.url), ['POST /api/v1/auth/tokens/pat_idle/revoke']);
     assert.equal(el.confirmDialog.open, false);
-    assert.ok(!el.accountContent.innerHTML.includes('ci-runner'));
+    assert.ok(!el.siteContent.innerHTML.includes('ci-runner'));
     assert.equal(el.statusLine.textContent, '令牌已作废。');
     fetchJson = async () => { throw new ApiRequestError('gone', 404, 'OBJECT_NOT_FOUND'); };
     await revokeAccessToken('pat_fresh');
-    assert.ok(!el.accountContent.innerHTML.includes('ith_pat_SECRET'), 'already revoked is gone too');
+    assert.ok(!el.siteContent.innerHTML.includes('ith_pat_SECRET'), 'already revoked is gone too');
     fetchJson = track;
 
-    // Leaving the page drops a new secret with the list; the project view comes back as it was.
-    reply = (url, options) => options.method === 'POST' ? {id: 'pat_again', token: 'ith_pat_AGAIN', name: 'again', created_at: iso(0), expires_at: iso(90 * day)} : {};
+    // Moving to another pane or page drops a new secret; the project view comes back as it was.
+    reply = (url, options) => options.method === 'POST' ? {id: 'pat_again', token: 'ith_pat_AGAIN', name: 'again', created_at: iso(0), expires_at: iso(90 * day)} : {teams: [], tokens: []};
     await generateAccessToken({name: 'again', days: 90});
-    assert.ok(el.accountContent.innerHTML.includes('ith_pat_AGAIN'));
+    assert.ok(el.siteContent.innerHTML.includes('ith_pat_AGAIN'));
+    showAccount('profile');
+    assert.equal(state._newToken, null);
+    showAccount('tokens');
+    await flush();
+    assert.ok(!el.siteContent.innerHTML.includes('ith_pat_AGAIN'));
+    await generateAccessToken({name: 'again', days: 90});
     switchTab('settings');
     assert.equal(state.page, 'project');
     assert.equal(state._newToken, null);
-    assert.equal(el.accountContent.innerHTML, '');
+    assert.equal(el.siteContent.innerHTML, '');
+    assert.equal(el.shell.classList.contains('is-site'), false);
     assert.equal(el.detailContent.classList.contains('is-hidden'), false);
     assert.equal(document.title, 'checkout · IntHub');
     assert.equal(routeUrl(), '/?project=p&tab=settings');
 
-    // The project Settings tab: rename with inline validation, export, and a neutral danger zone.
+    // The project Settings tab uses the same layout: no title of its own, one pane per URL.
     let html = el.detailContent.innerHTML;
+    assert.ok(html.includes('class="settings-layout"') && !html.includes('<h1'));
+    assert.ok(html.includes('class="settings-nav-item" href="/?project=p&amp;tab=settings" data-route aria-current="page">常规</a>'));
+    assert.ok(html.includes('href="/?project=p&amp;tab=settings&amp;section=danger" data-route>危险操作</a>'));
+    assert.ok(!html.includes('section=members'), 'a personal project has no members section');
     assert.ok(html.includes('id="project-name"') && html.includes('value="checkout"') && html.includes('data-rename-submit disabled'));
     assert.ok(html.includes('<code>REMOTE_CHANGED</code>') && !html.includes('itt remote add'));
-    assert.ok(html.includes('class="button button-danger" type="button" data-delete-project'));
-    assert.ok(html.includes('data-export-project'));
+    assert.ok(html.includes('data-export-project') && html.includes('data-change-visibility="public"') && !html.includes('data-delete-project'));
     assert.equal(projectNameProblem(''), '请输入项目名称。');
     assert.equal(projectNameProblem('a/b'), '项目名称不能包含斜杠或控制字符。');
     assert.equal(projectNameProblem('a\\\\b'), '项目名称不能包含斜杠或控制字符。');
@@ -1308,9 +1346,35 @@ async function settingsCases() {
     assert.ok(el.detailContent.innerHTML.includes('aria-invalid="true"') && el.detailContent.innerHTML.includes('已有名为 docs 的项目。'));
     state._renameDraft = null;
 
+    // Sections are links with their own URL; an unknown one, or Members on a personal project, is General.
+    window.location.pathname = '/';
+    window.location.search = '?project=p&tab=settings&section=danger';
+    await applyRoute(readRoute());
+    assert.equal(routeUrl(), '/?project=p&tab=settings&section=danger');
+    html = el.detailContent.innerHTML;
+    assert.ok(html.includes('aria-current="page">危险操作</a>') && html.includes('class="button button-danger" type="button" data-delete-project'));
+    assert.ok(html.includes('data-transfer-project') || html.includes('正在加载…') || html.includes('href="/account/teams"'));
+    state._settingsSection = 'members';
+    assert.equal(projectSettingsSection(), 'general');
+    state._settingsSection = 'nonsense';
+    assert.equal(projectSettingsSection(), 'general');
+    state._settingsSection = '';
+    state._teams = null;
+
+    // Local hubs get neither visibility nor transfer.
+    state.config = {authRequired: false, authMode: 'none', apiBaseUrl: ''};
+    renderView();
+    assert.ok(!el.detailContent.innerHTML.includes('data-change-visibility'));
+    state._settingsSection = 'danger';
+    renderView();
+    assert.ok(!el.detailContent.innerHTML.includes('transfer-control') && el.detailContent.innerHTML.includes('data-delete-project'));
+    state._settingsSection = '';
+    state.config = {authRequired: true, authMode: 'tenon', apiBaseUrl: 'https://inthub.tenon.asia'};
+    window.location.search = '';
+
     routes.length = 0;
     calls.length = 0;
-    reply = (url, options) => ({project: {id: 'p', name: JSON.parse(options.body).name, created_at: iso(0)}});
+    reply = (url, options) => ({project: {id: 'p', name: JSON.parse(options.body).name, full_name: JSON.parse(options.body).name, created_at: iso(0), visibility: 'private'}});
     await renameProject('p', 'checkout v2');
     assert.deepEqual(calls.at(-1), {url: '/api/v1/projects/p/rename', method: 'POST', body: {name: 'checkout v2'}});
     assert.equal(state.projects[0].name, 'checkout v2');
@@ -1320,6 +1384,72 @@ async function settingsCases() {
     assert.equal(routes.join(), '', 'the URL carries the ID and stays');
     assert.equal(renameErrorMessage(new ApiRequestError('x', 409, 'NAME_TAKEN'), 'docs'), '已有名为 docs 的项目。');
     assert.equal(renameErrorMessage(new ApiRequestError('x', 400, 'INVALID_INPUT', 'Project name must be 1–120 characters.'), 'a'), 'Project name must be 1–120 characters.');
+
+    // Going public needs the typed name and says what it exposes; going private is a plain confirm.
+    const typeName = (value) => { el.confirmInput.value = value; for (const listener of el.confirmInput.events.get('input') || []) listener(); };
+    calls.length = 0;
+    confirmVisibility('public');
+    assert.equal(el.confirmTitle.textContent, '将 checkout v2 设为公开？');
+    assert.ok(el.confirmBody.textContent.includes('互联网上的任何人') && el.confirmBody.textContent.includes('作者邮箱不会向访客显示') && el.confirmBody.textContent.includes('可能会保留'));
+    assert.equal(el.confirmField.hidden, false);
+    assert.equal(el.confirmOk.disabled, true);
+    assert.equal(el.confirmOk.classList.contains('button-danger'), true);
+    typeName('checkout v2');
+    reply = () => ({project: {id: 'p', visibility: 'public'}});
+    state.activeTab = 'settings';
+    await runConfirm();
+    assert.deepEqual(calls.at(-1), {url: '/api/v1/projects/p/visibility', method: 'POST', body: {visibility: 'public', confirm: 'checkout v2'}});
+    assert.equal(state.overview.project.visibility, 'public');
+    assert.equal(state.projects[0].visibility, 'public');
+    assert.ok(el.detailContent.innerHTML.includes('data-change-visibility="private"'));
+    assert.equal(el.statusLine.textContent, '这个项目现已公开。');
+    confirmVisibility('private');
+    assert.equal(el.confirmField.hidden, true, 'no typing to make it private');
+    assert.equal(el.confirmOk.disabled, false);
+    assert.equal(el.confirmOk.classList.contains('button-danger'), false);
+    assert.equal(el.confirmOk.classList.contains('button-primary'), true);
+    await runConfirm();
+    assert.deepEqual(calls.at(-1).body, {visibility: 'private', confirm: ''});
+    assert.equal(state.overview.project.visibility, 'private');
+
+    // Transfer lists the teams I administer, and My account once it is a team's project.
+    let loaded = null;
+    loadProject = async (id, options) => { loaded = {id, options}; };
+    state._teams = [{id: 't1', name: 'Acme', role: 'admin'}, {id: 't2', name: 'Guests', role: 'member'}];
+    assert.deepEqual(transferTargets().map((target) => target.label), ['Acme']);
+    state.overview.project.owner = {type: 'team', id: 't1', slug: 'acme', name: 'Acme'};
+    state.overview.project.full_name = 'acme/checkout v2';
+    assert.deepEqual(transferTargets().map((target) => target.label), ['我的账号']);
+    state._teams = [...state._teams, {id: 't3', name: 'Beta', role: 'admin'}];
+    assert.deepEqual(transferTargets().map((target) => target.value), ['t3', 'account']);
+    assert.equal(projectSettingsSection(), 'general');
+    state._settingsSection = 'members';
+    assert.equal(projectSettingsSection(), 'members');
+    reply = (url) => url === '/api/v1/teams/t1' ? {team: {id: 't1'}, members: [{id: 'a', name: 'Ana', joined_at: iso(0), role: 'admin', email: 'ana@example.com'}]} : {};
+    renderProjectSettings();
+    await flush();
+    html = el.detailContent.innerHTML;
+    assert.ok(html.includes('Ana') && html.includes('管理员') && html.includes('href="/teams/acme" data-route') && !html.includes('data-member-role') && !html.includes('data-remove-member'), 'read-only');
+    state._settingsSection = 'danger';
+    state._projectTeam = null;
+    calls.length = 0;
+    const transferSelect = document.getElementById('transfer-target');
+    transferSelect.value = 'account';
+    const detailQuery = el.detailContent.querySelector;
+    el.detailContent.querySelector = (selector) => selector === '#transfer-target' ? transferSelect : null;
+    confirmTransfer();
+    assert.equal(el.confirmTitle.textContent, '将 checkout v2 转移到 我的账号？');
+    assert.equal(el.confirmOk.disabled, true);
+    typeName('checkout v2');
+    reply = (url) => url === '/api/v1/projects' ? {projects: state.projects} : {};
+    await runConfirm();
+    assert.deepEqual(calls.find((call) => call.url.endsWith('/transfer')), {url: '/api/v1/projects/p/transfer', method: 'POST', body: {team_id: null, confirm: 'checkout v2'}});
+    assert.deepEqual(loaded, {id: 'p', options: {history: 'replace'}});
+    assert.equal(transferErrorMessage(new ApiRequestError('x', 409, 'NAME_TAKEN')), '那里已有同名项目。');
+    assert.equal(transferErrorMessage(new ApiRequestError('x', 404, 'TEAM_NOT_FOUND')), '请选择你管理的团队。');
+    el.detailContent.querySelector = detailQuery;
+    state._settingsSection = '';
+    state.overview.project.owner = {type: 'account', name: 'Dozy'};
 
     let downloaded = null;
     downloadFile = (name, text, type) => { downloaded = {name, text, type}; };
@@ -1333,12 +1463,10 @@ async function settingsCases() {
     assert.equal(exportFileName('移动端结算'), '移动端结算.inthub-export.json');
     assert.equal(exportFileName('..'), 'project.inthub-export.json');
 
-    // Deleting waits for the exact name, then opens another project, or the empty state after the last one.
-    let loaded = null;
-    loadProject = async (id, options) => { loaded = {id, options}; };
+    // Deleting waits for the exact name, then opens the remaining project, or the empty state after the last one.
+    loaded = null;
     calls.length = 0;
     confirmDeleteProject();
-    const typeName = (value) => { el.confirmInput.value = value; for (const listener of el.confirmInput.events.get('input') || []) listener(); };
     assert.equal(el.confirmField.hidden, false);
     assert.equal(el.confirmOk.disabled, true);
     assert.equal(document.activeElement, el.confirmInput);
@@ -1387,8 +1515,633 @@ async function settingsCases() {
     downloadFile = saved.downloadFile;
     state.page = 'project';
     state.account = null;
+    state.overview = null;
+    state._teams = null;
+    state.activeTab = 'overview';
   })()`, context);
-  console.log('Account settings route and tokens, project rename/export/delete with confirmation and token dialog focus tests passed.');
+  console.log('Account panes and tokens, project settings sections, visibility, transfer, rename/export/delete with confirmation and token dialog focus tests passed.');
+}
+
+async function teamCases() {
+  await vm.runInContext(`(async () => {
+    const flush = async () => { for (let index = 0; index < 12; index++) await Promise.resolve(); };
+    window.IntHubI18n.setLanguage('zh-CN');
+    const saved = {fetchJson};
+    const calls = [];
+    let reply = () => ({});
+    fetchJson = async (url, options = {}) => {
+      calls.push({url, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : null});
+      const answer = reply(url, options);
+      if (answer instanceof Error) throw answer;
+      return answer;
+    };
+    const iso = new Date().toISOString();
+    window.location.origin = 'https://inthub.example';
+    window.location.pathname = '/';
+    window.location.search = '';
+    state.config = {authRequired: true, authMode: 'tenon', apiBaseUrl: ''};
+    state.account = {id: 'me', display_name: 'Ana', email: 'ana@example.com'};
+    state.projects = [];
+    state.currentProjectId = null;
+    state.page = 'project';
+
+    // A form with the fields and the error line these handlers read.
+    let formCount = 0;
+    const fakeForm = (fields) => {
+      const button = document.getElementById('team-submit-' + ++formCount);
+      const error = document.getElementById('team-error-' + formCount);
+      button.disabled = false;
+      error.hidden = true;
+      return {button, error, elements: Object.fromEntries(Object.entries(fields).map(([name, value]) => [name, {value, invalid: false, setAttribute() { this.invalid = true; }}])),
+        querySelector: (selector) => selector === '.field-error' ? error : selector === '[type=submit]' ? button : null};
+    };
+
+    // The URL is derived from a Latin name and left to the person otherwise; typing it stops the derivation.
+    assert.equal(slugFromName('Acme Robotics'), 'acme-robotics');
+    assert.equal(slugFromName('Café Zürich'), 'cafe-zurich');
+    assert.equal(slugFromName('  --Spaced   out--  '), 'spaced-out');
+    assert.equal(slugFromName('贝塔实验室'), '');
+    assert.equal(slugFromName('Acme 实验室'), '');
+    assert.equal(slugFromName('x'.repeat(50)).length, 39);
+    assert.equal(teamSlugProblem(''), '请输入团队 URL。');
+    assert.ok(teamSlugProblem('Acme').includes('小写字母'));
+    assert.ok(teamSlugProblem('-acme').includes('小写字母'));
+    assert.equal(teamSlugProblem('a'), '');
+    assert.equal(teamSlugProblem('a'.repeat(39)), '');
+    assert.ok(teamSlugProblem('a'.repeat(40)).includes('39'));
+    assert.equal(teamNameProblem(''), '请输入团队名称。');
+    state._teamDraft = {name: '', slug: '', edited: false};
+    const slugField = {value: ''};
+    const draftForm = {elements: {'team-slug': slugField}, querySelector: () => null};
+    updateTeamDraft({name: 'team-name', value: 'Acme Robotics', form: draftForm});
+    assert.equal(slugField.value, 'acme-robotics');
+    slugField.value = 'acme';
+    updateTeamDraft({name: 'team-slug', value: 'acme', form: draftForm});
+    updateTeamDraft({name: 'team-name', value: 'Acme Robotics Inc', form: draftForm});
+    assert.equal(slugField.value, 'acme', 'a typed URL stays');
+    updateTeamDraft({name: 'team-slug', value: '', form: draftForm});
+    updateTeamDraft({name: 'team-name', value: 'Back', form: draftForm});
+    assert.equal(slugField.value, 'back', 'clearing it starts deriving again');
+
+    // My teams, in the Account pane.
+    reply = () => ({teams: [
+      {id: 't1', slug: 'acme', name: 'Acme <Inc>', created_at: iso, role: 'admin', members: 3, projects: 1},
+      {id: 't2', slug: 'beta', name: '贝塔', created_at: iso, role: 'viewer', members: 1, projects: 2},
+    ]});
+    showAccount('teams');
+    await flush();
+    let page = el.siteContent.innerHTML;
+    assert.ok(page.includes('href="/teams/acme" data-route') && page.includes('Acme &lt;Inc&gt;') && !page.includes('Acme <Inc>'));
+    assert.ok(page.includes('管理员') && page.includes('只读成员') && page.includes('3 位成员') && page.includes('2 个项目'));
+    assert.ok(page.includes('data-team-form') && page.includes('id="new-team-slug"'));
+
+    // Creating a team goes to its page; a taken URL or a bad one stays in the form.
+    calls.length = 0;
+    let form = fakeForm({'team-name': ' ', 'team-slug': ''});
+    await createTeam(form);
+    assert.equal(calls.length, 0);
+    assert.equal(form.error.textContent, '请输入团队名称。');
+    assert.equal(form.elements['team-name'].invalid, true);
+    form = fakeForm({'team-name': 'New', 'team-slug': 'Bad'});
+    await createTeam(form);
+    assert.equal(form.elements['team-slug'].invalid, true, 'the field at fault is the one marked');
+    assert.equal(form.elements['team-name'].invalid, false);
+    form = fakeForm({'team-name': 'New', 'team-slug': 'taken'});
+    reply = () => new ApiRequestError('x', 409, 'NAME_TAKEN', 'The team URL taken is taken.');
+    await createTeam(form);
+    assert.equal(form.error.textContent, '团队 URL taken 已被占用。');
+    assert.equal(form.elements['team-slug'].invalid, true);
+    assert.equal(state.page, 'account');
+    form = fakeForm({'team-name': 'Many', 'team-slug': 'many'});
+    reply = () => new ApiRequestError('x', 409, 'TEAM_LIMIT', 'An account can create up to 50 teams.');
+    await createTeam(form);
+    assert.equal(form.error.textContent, '你创建的团队数量已达上限。');
+
+    const members = () => [
+      {id: 'me', name: 'Ana', role: 'admin', joined_at: iso, you: true, email: 'ana@example.com'},
+      {id: 'ben', name: 'Ben <Wu>', role: 'member', joined_at: iso, you: false, email: 'ben@example.com'},
+    ];
+    const detail = (role = 'admin', extra = {}) => ({
+      team: {id: 't1', slug: 'acme', name: 'Acme', created_at: iso}, role, members: members(),
+      invites: role === 'admin' ? [{id: 'inv1', role: 'viewer', created_at: iso, expires_at: iso, invited_by: 'Ana'}] : [],
+      projects: [{id: 'p1', name: 'app', full_name: 'acme/app', visibility: 'public', last_synced_at: iso}],
+      ...extra,
+    });
+    form = fakeForm({'team-name': 'Acme', 'team-slug': 'acme'});
+    calls.length = 0;
+    routes.length = 0;
+    reply = (url, options) => options.method === 'POST' ? {team: {id: 't1', slug: 'acme', name: 'Acme'}, role: 'admin'} : detail();
+    await createTeam(form);
+    await flush();
+    assert.deepEqual(calls[0], {url: '/api/v1/teams', method: 'POST', body: {name: 'Acme', slug: 'acme'}});
+    assert.equal(state.page, 'team');
+    assert.equal(routes.join(), 'push');
+    assert.equal(routeUrl(), '/teams/acme');
+    assert.equal(document.title, 'Acme · IntHub');
+
+    // Members: admins manage; everyone can leave.
+    page = el.siteContent.innerHTML;
+    assert.ok(page.includes('class="page-title settings-title">Acme</h1>') && !page.includes('eyebrow'));
+    assert.ok(page.includes('href="/teams/acme" data-route aria-current="page">成员</a>') && page.includes('href="/teams/acme/projects" data-route>项目列表</a>') && page.includes('href="/teams/acme/settings" data-route>设置</a>'));
+    assert.ok(page.includes('ana@example.com') && page.includes('class="chip">你</span>') && page.includes('Ben &lt;Wu&gt;'));
+    assert.ok(page.includes('data-member-role="ben"') && page.includes('data-remove-member="ben"') && page.includes('data-invite-form') && page.includes('data-revoke-invite="inv1"') && page.includes('data-leave-team'));
+    assert.ok(page.includes('<option value="viewer">只读成员</option>'));
+
+    // A role change is one request; a refusal puts the select back and shows the server's reason.
+    calls.length = 0;
+    reply = () => ({role: 'viewer'});
+    const select = {dataset: {memberRole: 'ben'}, value: 'viewer', disabled: false};
+    await changeMemberRole(select);
+    assert.deepEqual(calls.at(-1), {url: '/api/v1/teams/t1/members/ben/role', method: 'POST', body: {role: 'viewer'}});
+    assert.equal(el.statusLine.textContent, 'Ben <Wu> 现在是只读成员。');
+    const own = {dataset: {memberRole: 'me'}, value: 'member', disabled: false};
+    reply = () => new ApiRequestError('x', 409, 'LAST_ADMIN', 'Make another member an admin first.');
+    await changeMemberRole(own);
+    assert.equal(own.value, 'admin');
+    assert.equal(own.disabled, false);
+    assert.equal(el.statusLine.textContent, '请先把另一位成员设为管理员。');
+
+    // An invite link is built from the page's own origin and shown once, like a new token.
+    form = fakeForm({'invite-role': 'viewer'});
+    calls.length = 0;
+    reply = () => ({invite: {id: 'inv2', role: 'viewer', created_at: iso, expires_at: iso}, path: '/invite?token=ith_inv_SECRET'});
+    await createInvite(form);
+    assert.deepEqual(calls.at(-1), {url: '/api/v1/teams/t1/invites', method: 'POST', body: {role: 'viewer'}});
+    page = el.siteContent.innerHTML;
+    assert.ok(page.includes('https://inthub.example/invite?token=ith_inv_SECRET') && page.includes('data-copy-invite') && page.includes('class="secret-box"'));
+    assert.ok(page.includes('data-revoke-invite="inv2"'));
+    assert.equal(state._newInvite.url, 'https://inthub.example/invite?token=ith_inv_SECRET');
+    showTeam('acme', 'projects');
+    assert.equal(state._newInvite, null, 'moving to another pane drops it');
+    page = el.siteContent.innerHTML;
+    assert.ok(!page.includes('ith_inv_SECRET'));
+    assert.ok(page.includes('app') && page.includes('href="/?project=p1" data-route') && page.includes('公开'));
+    assert.equal(routeUrl(), '/teams/acme/projects');
+    showTeam('acme', 'members');
+    assert.ok(!el.siteContent.innerHTML.includes('ith_inv_SECRET'));
+
+    const button = document.getElementById('revoke-invite-button');
+    button.disabled = false;
+    calls.length = 0;
+    reply = () => ({revoked: true, id: 'inv1'});
+    await revokeInvite('inv1', button);
+    assert.deepEqual(calls.at(-1), {url: '/api/v1/teams/t1/invites/inv1/revoke', method: 'POST', body: {}});
+    assert.ok(!el.siteContent.innerHTML.includes('data-revoke-invite="inv1"'));
+
+    // Removing asks first and reloads; removing yourself is leaving.
+    reply = () => detail();
+    confirmRemoveMember('ben');
+    assert.equal(el.confirmTitle.textContent, '移除 Ben <Wu>？');
+    calls.length = 0;
+    await runConfirm();
+    assert.equal(calls[0].url, '/api/v1/teams/t1/members/ben/remove');
+    assert.equal(el.confirmDialog.open, false);
+    confirmRemoveMember('me');
+    assert.equal(el.confirmTitle.textContent, '退出 Acme？');
+
+    // Leaving: the last admin gets the server's reason in the dialog, and stays.
+    calls.length = 0;
+    reply = () => new ApiRequestError('x', 409, 'LAST_ADMIN', 'Make another member an admin first.');
+    await runConfirm();
+    assert.equal(el.confirmDialog.open, true);
+    assert.equal(el.confirmError.textContent, '请先把另一位成员设为管理员。');
+    assert.equal(state.page, 'team');
+    routes.length = 0;
+    reply = (url) => url === '/api/v1/projects' ? {projects: []} : url === '/api/v1/teams' ? {teams: []} : {};
+    await runConfirm();
+    assert.equal(el.confirmDialog.open, false);
+    assert.equal(state.page, 'account');
+    assert.equal(state._accountPane, 'teams');
+    assert.equal(routes[0], 'replace');
+    assert.equal(el.statusLine.textContent, '你已退出 Acme。');
+
+    // A member sees the same pages without the controls, and Settings sends them back to Members.
+    reply = () => detail('viewer', {members: members().map(({email, ...member}) => ({...member, role: member.id === 'me' ? 'viewer' : member.role}))});
+    routes.length = 0;
+    await showTeam('acme', 'settings');
+    await flush();
+    assert.equal(state._team.pane, 'members');
+    assert.equal(routes.join(), 'replace');
+    page = el.siteContent.innerHTML;
+    assert.ok(!page.includes('/teams/acme/settings') && !page.includes('data-member-role') && !page.includes('data-remove-member') && !page.includes('data-invite-form') && !page.includes('ana@example.com'));
+    assert.ok(page.includes('data-leave-team') && page.includes('只读成员'));
+
+    // Settings: edit, and delete with the typed URL and the project count.
+    state.page = 'project';
+    state._team = null;
+    reply = () => detail();
+    await showTeam('acme', 'settings');
+    await flush();
+    page = el.siteContent.innerHTML;
+    assert.ok(page.includes('data-team-settings-form') && page.includes('value="acme"') && page.includes('删除团队及其 1 个项目。') && page.includes('data-delete-team'));
+    form = fakeForm({'team-name': 'Acme 2', 'team-slug': 'acme-2'});
+    calls.length = 0;
+    routes.length = 0;
+    reply = (url, options) => options.method === 'POST' ? {team: {id: 't1', slug: 'acme-2', name: 'Acme 2', created_at: iso}} : {projects: []};
+    await saveTeam(form);
+    assert.deepEqual(calls[0], {url: '/api/v1/teams/t1', method: 'POST', body: {name: 'Acme 2', slug: 'acme-2'}});
+    assert.equal(routeUrl(), '/teams/acme-2/settings');
+    assert.equal(routes.join(), 'replace');
+    assert.equal(document.title, 'Acme 2 · IntHub');
+    assert.ok(el.siteContent.innerHTML.includes('class="page-title settings-title">Acme 2</h1>'));
+    confirmDeleteTeam();
+    assert.equal(el.confirmTitle.textContent, '删除 Acme 2？');
+    assert.ok(el.confirmBody.textContent.includes('1 个项目'));
+    assert.ok(el.confirmLabel.innerHTML.includes('acme-2'));
+    assert.equal(el.confirmOk.disabled, true);
+    el.confirmInput.value = 'acme-2';
+    for (const listener of el.confirmInput.events.get('input') || []) listener();
+    calls.length = 0;
+    reply = (url) => url === '/api/v1/projects' ? {projects: []} : url === '/api/v1/teams' ? {teams: []} : {};
+    await runConfirm();
+    assert.deepEqual(calls[0], {url: '/api/v1/teams/t1/delete', method: 'POST', body: {confirm: 'acme-2'}});
+    assert.equal(state.page, 'account');
+
+    // Teams change on these pages: leaving them drops the lists the project's Settings tab keeps.
+    state._teams = [{id: 't1', role: 'admin'}];
+    state._projectTeam = {id: 't1', data: {members: []}};
+    leaveSitePage();
+    assert.equal(state._teams, null);
+    assert.equal(state._projectTeam, null);
+
+    // A team I am not in answers 404: no team page, but no crash either.
+    state.page = 'project';
+    state._team = null;
+    reply = () => new ApiRequestError('x', 404, 'TEAM_NOT_FOUND');
+    await showTeam('other');
+    assert.ok(el.siteContent.innerHTML.includes('这个团队不存在，或者你不在其中。'));
+
+    fetchJson = saved.fetchJson;
+    setPage('project');
+    state.account = null;
+    state.projects = [];
+  })()`, context);
+  console.log('Team list, slug derivation, members, invites, leaving, last-admin refusal and team settings tests passed.');
+}
+
+async function homeAndVisitorCases() {
+  await vm.runInContext(`(async () => {
+    const flush = async () => { for (let index = 0; index < 12; index++) await Promise.resolve(); };
+    window.IntHubI18n.setLanguage('zh-CN');
+    const saved = {fetchJson, loadProject};
+    const calls = [];
+    let reply = () => ({});
+    fetchJson = async (url, options = {}) => {
+      calls.push({url, gate: options.gate});
+      const answer = reply(url, options);
+      if (answer instanceof Error) throw answer;
+      return answer;
+    };
+    const iso = new Date().toISOString();
+    const row = (id, extra = {}) => ({id, name: id, full_name: id, created_at: iso, revision: null, last_synced_at: iso, visibility: 'private', permission: 'admin', team: null, ...extra});
+    const overviewOf = (id, permission, extra = {}) => ({
+      project: {id, name: id, full_name: 'acme/' + id, created_at: iso, repository_url: null, visibility: 'public', permission, owner: {type: 'team', id: 't1', slug: 'acme', name: 'Acme'}, ...extra},
+      history: {project_id: id, revision: 'a'.repeat(64), last_synced_at: iso},
+      active_intents: [], other_intents: [], active_decisions: [], deprecated_decisions: [], recent_snaps: [],
+    });
+    const reset = () => {
+      Object.assign(state, {projects: [], currentProjectId: null, _loadedProjectId: null, overview: null, handoff: null, page: 'project', visitor: false, account: null, activeTab: 'overview', _home: null, _homeError: ''});
+      el.shell.classList.remove('is-site');
+      el.detailContent.innerHTML = '';
+      el.siteContent.innerHTML = '';
+      el.authGate.classList.add('is-hidden');
+      el.shell.inert = false;
+      window.location.pathname = '/';
+      window.location.search = '';
+      calls.length = 0;
+      routes.length = 0;
+    };
+    state.config = {authRequired: true, authMode: 'tenon', apiBaseUrl: '', defaultProjectId: null};
+    state.account = {id: 'me', display_name: 'Ana'};
+    const settingsTab = document.getElementById('settings-tab');
+    const tabQuery = el.tabBar.querySelector;
+    el.tabBar.querySelector = (selector) => selector.includes('settings') ? settingsTab : null;
+
+    // / with 2 or more projects: the home page, one list in the server's order, no project opened.
+    reset();
+    state.account = {id: 'me', display_name: 'Ana'};
+    const homeRows = [
+      row('acme-app', {full_name: 'acme/app', active_intents: 2, blocked_intents: 1, visibility: 'public'}),
+      row('notes', {active_intents: 0, blocked_intents: 0, last_synced_at: null}),
+    ];
+    let opened = [];
+    loadProject = async (id, options) => { opened.push(id); state.currentProjectId = id; };
+    reply = (url) => url === '/api/v1/projects' ? {projects: homeRows} : url === '/api/v1/home' ? {projects: homeRows} : {};
+    await loadProjects(readRoute());
+    assert.deepEqual(opened, []);
+    assert.equal(state.page, 'home');
+    assert.equal(el.shell.classList.contains('is-site'), true);
+    assert.equal(document.title, '项目列表 · IntHub');
+    assert.equal(routeUrl(), '/');
+    let page = el.siteContent.innerHTML;
+    assert.ok(page.indexOf('acme/app') < page.indexOf('notes'));
+    assert.ok(page.includes('href="/?project=acme-app" data-route') && page.includes('class="page-title">项目列表</h1>'));
+    assert.ok(page.includes('2 个进行中') && page.includes('status-dot') && page.includes('1 个被阻塞') && page.includes('公开') && page.includes('私有') && page.includes('刚刚同步') && page.includes('未同步'));
+    assert.equal((page.match(/个被阻塞/g) || []).length, 1, 'no zero-blocked pill');
+
+    // The picker: All projects first, then the full names.
+    assert.equal(el.projectPickerLabel.textContent, '全部项目');
+    let picker = el.projectPickerDropdown.innerHTML;
+    assert.ok(picker.indexOf('href="/" data-route') < picker.indexOf('acme/app'));
+    assert.ok(picker.includes('aria-selected="true"') && picker.includes('全部项目'));
+    assert.equal((picker.match(/role="option"/g) || []).length, 3);
+    assert.equal(el.projectPickerTrigger.disabled, false);
+
+    // A default project, one project, none: / opens the project, or the setup guide.
+    reset();
+    state.account = {id: 'me', display_name: 'Ana'};
+    state.config.defaultProjectId = 'notes';
+    opened = [];
+    await loadProjects(readRoute());
+    assert.deepEqual(opened, ['notes']);
+    assert.equal(state.page, 'project');
+    assert.ok(!el.projectPickerDropdown.innerHTML.includes('data-route'), 'with a default project there is no home page to link to');
+    state.config.defaultProjectId = null;
+    reset();
+    opened = [];
+    reply = (url) => url === '/api/v1/projects' ? {projects: homeRows.slice(0, 1)} : {};
+    await loadProjects(readRoute());
+    assert.deepEqual(opened, ['acme-app']);
+    assert.equal(state.page, 'project');
+    reset();
+    reply = () => ({projects: []});
+    await loadProjects(readRoute());
+    assert.equal(state.page, 'project');
+    assert.ok(el.detailContent.innerHTML.includes('setup-guide'));
+
+    // /settings shipped for a day: it is just / now, and the address follows.
+    reset();
+    window.location.pathname = '/settings';
+    reply = (url) => url === '/api/v1/projects' ? {projects: homeRows} : url === '/api/v1/home' ? {projects: homeRows} : {};
+    await loadProjects(readRoute());
+    assert.equal(state.page, 'home');
+    assert.equal(routes.join(), 'replace');
+    assert.equal(routeUrl(), '/');
+
+    // A hidden project is treated as not found, without the gate: / takes over.
+    reset();
+    window.location.search = '?project=hidden';
+    reply = (url) => url === '/api/v1/projects' ? {projects: homeRows} : url === '/api/v1/home' ? {projects: homeRows} : new ApiRequestError('gone', 404, 'PROJECT_NOT_FOUND');
+    await loadProjects(readRoute());
+    assert.equal(state.page, 'home');
+    assert.equal(calls.find((call) => call.url.endsWith('/hidden/overview')).gate, false);
+    assert.equal(el.statusLine.textContent, '这个项目不存在，或者你无权查看。');
+
+    // A signed-in non-member keeps the public project open, as a passing entry, with no Settings tab.
+    reset();
+    loadProject = saved.loadProject;
+    state.account = {id: 'me', display_name: 'Ana'};
+    window.location.search = '?project=pub';
+    const publicOverview = overviewOf('pub', 'public');
+    const handoff = {intents: []};
+    reply = (url) => url === '/api/v1/projects' ? {projects: homeRows} : url.endsWith('/overview') ? publicOverview : url.endsWith('/handoff') ? handoff : {};
+    state.activeTab = 'settings';
+    await loadProjects(readRoute());
+    assert.equal(state.currentProjectId, 'pub');
+    assert.equal(state.page, 'project');
+    assert.equal(state.activeTab, 'overview', 'Settings is not reachable by URL either');
+    assert.deepEqual(state.projects.map((project) => [project.id, Boolean(project.transient)].join()), ['acme-app,false', 'notes,false', 'pub,true']);
+    assert.equal(el.projectPickerLabel.textContent, 'acme/pub');
+    assert.equal(canManageProject(), false);
+    assert.equal(settingsTab.classList.contains('is-hidden'), true);
+    assert.equal(hasHomePage(), true, 'a passing entry does not count as one of my projects');
+    assert.ok(el.detailContent.innerHTML.includes('Acme') && !el.detailContent.innerHTML.includes('href="/teams/acme"'), 'a non-member gets no link to the team');
+    assert.ok(el.detailContent.innerHTML.includes('visibility-pill'));
+    // Moving on drops it.
+    reply = (url) => url.endsWith('/overview') ? overviewOf('acme-app', 'admin', {visibility: 'private'}) : url.endsWith('/handoff') ? handoff : {};
+    await loadProject('acme-app');
+    assert.deepEqual(state.projects.map((project) => project.id), ['acme-app', 'notes']);
+    assert.equal(canManageProject(), true);
+    assert.equal(settingsTab.classList.contains('is-hidden'), false);
+    assert.ok(el.detailContent.innerHTML.includes('href="/teams/acme" data-route'), 'a member can follow the owner to the team');
+
+    // A visitor: /api/v1/auth/me says 401 quietly, and the overview answers. No project list, no tokens, no gate.
+    reset();
+    loadProject = saved.loadProject;
+    window.location.search = '?project=pub';
+    window.history.replaceState = window.history.replaceState;
+    globalThis.fetch = async () => ({ok: true, json: async () => ({...state.config})});
+    const authRequired = new ApiRequestError('Sign in', 401, 'AUTH_REQUIRED');
+    reply = (url) => url === '/api/v1/auth/me' ? authRequired : url.endsWith('/overview') ? publicOverview : url.endsWith('/handoff') ? handoff : new Error('unexpected ' + url);
+    await init(false);
+    assert.equal(state.visitor, true);
+    assert.equal(el.authGate.classList.contains('is-hidden'), true);
+    assert.deepEqual(calls.map((call) => call.url), ['/api/v1/auth/me', '/api/v1/projects/pub/overview', '/api/v1/projects/pub/overview', '/api/v1/projects/pub/handoff']);
+    assert.equal(calls[0].gate, false);
+    assert.equal(calls[1].gate, false);
+    assert.equal(el.accountControl.classList.contains('is-hidden'), true);
+    assert.equal(el.signInButton.classList.contains('is-hidden'), false);
+    assert.equal(el.projectPickerTrigger.disabled, true);
+    assert.equal(el.projectPicker.classList.contains('is-static'), true);
+    assert.equal(el.projectPickerLabel.textContent, 'acme/pub');
+    assert.equal(canManageProject(), false);
+    assert.equal(hasHomePage(), false);
+    assert.equal(settingsTab.classList.contains('is-hidden'), true);
+
+    // Sign in opens the gate over the project, keeping it; Back returns to it.
+    el.signInButton.events.get('click')[0]();
+    assert.equal(el.authGate.classList.contains('is-hidden'), false);
+    assert.equal(el.authDismiss.classList.contains('is-hidden'), false);
+    assert.equal(state.visitor, true);
+    assert.notEqual(el.detailContent.innerHTML, '');
+    assert.equal(el.shell.inert, true);
+    el.authDismiss.events.get('click')[0]();
+    assert.equal(el.authGate.classList.contains('is-hidden'), true);
+    assert.equal(el.authDismiss.classList.contains('is-hidden'), true);
+    assert.equal(el.shell.inert, false);
+    assert.equal(document.activeElement, el.signInButton);
+
+    // Refresh reloads the project and leaves the project list alone.
+    calls.length = 0;
+    await el.refreshBtn.events.get('click')[0]();
+    assert.ok(!calls.some((call) => call.url === '/api/v1/projects'));
+    assert.ok(calls.some((call) => call.url === '/api/v1/projects/pub/overview'));
+
+    // An empty public project says so; nobody is told to run the CLI.
+    const emptyOverview = {...publicOverview, history: {project_id: 'pub', revision: null}};
+    reply = (url) => url.endsWith('/overview') ? emptyOverview : url.endsWith('/handoff') ? handoff : {};
+    await loadProject('pub');
+    assert.ok(el.detailContent.innerHTML.includes('这个项目还没有发布任何内容。'));
+    assert.ok(!el.detailContent.innerHTML.includes('setup-guide') && !el.detailContent.innerHTML.includes('itt push'));
+    assert.equal(el.shell.classList.contains('is-empty'), true);
+
+    // Whoever manages an empty project still reaches its Settings: the guide links there, and the way back works.
+    reset();
+    state.currentProjectId = 'pub';
+    state.projects = [row('pub'), row('other')];
+    const managedEmpty = {...overviewOf('pub', 'admin'), history: {project_id: 'pub', revision: null}};
+    reply = (url) => url.endsWith('/overview') ? managedEmpty : url.endsWith('/handoff') ? handoff : {};
+    await loadProject('pub');
+    assert.ok(el.detailContent.innerHTML.includes('setup-guide'));
+    assert.ok(el.detailContent.innerHTML.includes('href="/?project=pub&amp;tab=settings" data-route'));
+    switchTab('settings');
+    assert.equal(el.shell.classList.contains('is-empty'), false);
+    assert.ok(el.detailContent.innerHTML.includes('settings-layout') && el.detailContent.innerHTML.includes('data-rename-form'));
+    switchTab('overview');
+    assert.equal(el.shell.classList.contains('is-empty'), true);
+    assert.ok(el.detailContent.innerHTML.includes('setup-guide'));
+    state.activeTab = 'settings';
+    await loadProject('pub');
+    assert.ok(el.detailContent.innerHTML.includes('settings-layout'), 'the URL can name it too');
+    state.activeTab = 'overview';
+    reply = (url) => url.endsWith('/overview') ? {...managedEmpty, project: {...managedEmpty.project, permission: 'write'}} : url.endsWith('/handoff') ? handoff : {};
+    await loadProject('pub');
+    assert.ok(el.detailContent.innerHTML.includes('setup-guide') && !el.detailContent.innerHTML.includes('tab=settings'), 'a member pushes; only an admin manages');
+
+    // Without a public project the gate takes over, as it did.
+    reset();
+    window.location.search = '?project=secret';
+    reply = (url) => authRequired;
+    await init(false);
+    assert.equal(state.visitor, false);
+    assert.equal(el.authGate.classList.contains('is-hidden'), false);
+    assert.equal(el.authDismiss.classList.contains('is-hidden'), true);
+    const loginLink = document.getElementById('login-link');
+    loginLink.dataset.loginMethod = 'github';
+    loginLink.querySelector = () => document.getElementById('login-link-part');
+    el.tenonLogin.querySelectorAll = () => [loginLink];
+    for (const [pathname, search, returnTo] of [['/account/tokens', '', '%2Faccount%2Ftokens'], ['/invite', '?token=abc', '%2Finvite%3Ftoken%3Dabc']]) {
+      reset();
+      window.location.pathname = pathname;
+      window.location.search = search;
+      reply = (url) => authRequired;
+      await init(false);
+      assert.equal(el.authGate.classList.contains('is-hidden'), false);
+      assert.deepEqual(calls.map((call) => call.url), ['/api/v1/auth/me']);
+      assert.equal(loginLink.href, '/auth/redirect?method=github&return_to=' + returnTo);
+    }
+    el.tenonLogin.querySelectorAll = () => [];
+
+    // Site pages on a Tenon hub load the list but no project; on a local hub those paths are project routes.
+    reset();
+    state.account = {id: 'me', display_name: 'Ana'};
+    opened = [];
+    loadProject = async (id) => { opened.push(id); };
+    window.location.pathname = '/account';
+    reply = (url) => url === '/api/v1/projects' ? {projects: homeRows} : {};
+    await loadProjects(readRoute());
+    assert.deepEqual(opened, []);
+    assert.equal(state.currentProjectId, null);
+    assert.equal(el.projectPickerLabel.textContent, '全部项目');
+    state.config = {authRequired: false, authMode: 'none', apiBaseUrl: '', defaultProjectId: null};
+    reset();
+    window.location.pathname = '/account';
+    reply = (url) => url === '/api/v1/projects' ? {projects: homeRows.slice(0, 1)} : {};
+    await loadProjects(readRoute());
+    assert.deepEqual(opened, ['acme-app']);
+    assert.equal(state.page, 'project');
+
+    // Back and forward reach the same pages.
+    state.config = {authRequired: true, authMode: 'tenon', apiBaseUrl: '', defaultProjectId: null};
+    reset();
+    state.account = {id: 'me', display_name: 'Ana'};
+    state.projects = homeRows;
+    reply = (url) => url === '/api/v1/home' ? {projects: homeRows} : url === '/api/v1/teams/acme' ? {team: {id: 't1', slug: 'acme', name: 'Acme'}, role: 'member', members: [], invites: [], projects: []} : {tokens: [], teams: []};
+    window.location.pathname = '/account/teams';
+    await applyRoute(readRoute());
+    assert.equal(state.page, 'account');
+    assert.equal(state._accountPane, 'teams');
+    window.location.pathname = '/teams/acme';
+    await applyRoute(readRoute());
+    assert.equal(state.page, 'team');
+    window.location.pathname = '/';
+    await applyRoute(readRoute());
+    assert.equal(state.page, 'home');
+    opened = [];
+    window.location.search = '?project=notes';
+    await applyRoute(readRoute());
+    assert.equal(state.page, 'project');
+    assert.deepEqual(opened, ['notes']);
+
+    fetchJson = saved.fetchJson;
+    loadProject = saved.loadProject;
+    el.tabBar.querySelector = tabQuery;
+    delete globalThis.fetch;
+    reset();
+    state.config = {authMode: 'tenon', apiBaseUrl: '', productVersion: '6.0.1'};
+  })()`, context);
+  console.log('Home page, picker, passing public projects, visitor mode, gate fallbacks and route dispatch tests passed.');
+}
+
+async function inviteCases() {
+  await vm.runInContext(`(async () => {
+    const flush = async () => { for (let index = 0; index < 12; index++) await Promise.resolve(); };
+    window.IntHubI18n.setLanguage('zh-CN');
+    const saved = {fetchJson};
+    const calls = [];
+    let reply = () => ({});
+    fetchJson = async (url, options = {}) => {
+      calls.push({url, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : null});
+      const answer = reply(url, options);
+      if (answer instanceof Error) throw answer;
+      return answer;
+    };
+    state.config = {authRequired: true, authMode: 'tenon', apiBaseUrl: '', defaultProjectId: null};
+    state.account = {id: 'me', display_name: 'Ana'};
+    state.projects = [];
+    state.page = 'project';
+    window.location.pathname = '/invite';
+    window.location.search = '?token=ith_inv_abc';
+    const team = {id: 't1', slug: 'acme', name: 'Acme <Inc>'};
+
+    reply = () => ({team, role: 'viewer', invited_by: 'Ben', expires_at: '2026-11-06T00:00:00Z', already_member: false});
+    await applyRoute(readRoute());
+    assert.equal(calls[0].url, '/api/v1/invites/preview?token=ith_inv_abc');
+    assert.equal(document.title, '团队邀请 · IntHub');
+    assert.equal(el.shell.classList.contains('is-site'), true);
+    let page = el.siteContent.innerHTML;
+    assert.ok(page.includes('Ben 邀请你以只读成员身份加入 Acme &lt;Inc&gt;。') && !page.includes('Acme <Inc>'));
+    assert.ok(page.includes('data-accept-invite') && page.includes('暂不加入') && page.includes('href="/" data-route'));
+
+    // Accept goes to the team and leaves no token behind, in the address or in the history.
+    const button = document.getElementById('accept-invite-button');
+    button.disabled = false;
+    routes.length = 0;
+    calls.length = 0;
+    reply = (url, options) => url === '/api/v1/invites/accept' ? {team, role: 'viewer', joined: true}
+      : url === '/api/v1/projects' ? {projects: []} : {team, role: 'viewer', members: [], invites: [], projects: []};
+    await acceptInvite(button);
+    await flush();
+    assert.deepEqual(calls[0], {url: '/api/v1/invites/accept', method: 'POST', body: {token: 'ith_inv_abc'}});
+    assert.equal(routes[0], 'replace');
+    assert.ok(!routes.includes('push'));
+    assert.equal(state.page, 'team');
+    assert.equal(routeUrl(), '/teams/acme');
+    assert.equal(el.statusLine.textContent, '你已加入 Acme <Inc>。');
+
+    // Already a member: no Accept, a link to the team instead.
+    state.page = 'project';
+    reply = () => ({team, role: 'viewer', invited_by: 'Ben', expires_at: '2026-11-06T00:00:00Z', already_member: true});
+    await showInvite('ith_inv_abc');
+    page = el.siteContent.innerHTML;
+    assert.ok(page.includes('你已经在这个团队中。') && page.includes('href="/teams/acme" data-route') && !page.includes('data-accept-invite'));
+
+    // Expired, revoked, used or missing: one message and a way on.
+    reply = () => new ApiRequestError('x', 410, 'INVITE_INVALID', 'This invite link is no longer valid.');
+    await showInvite('ith_inv_old');
+    page = el.siteContent.innerHTML;
+    assert.ok(page.includes('这个邀请链接已失效。') && !page.includes('data-accept-invite') && page.includes('前往 IntHub'));
+    calls.length = 0;
+    await showInvite('');
+    assert.equal(calls.length, 0, 'no token, nothing to ask');
+    assert.ok(el.siteContent.innerHTML.includes('这个邀请链接已失效。'));
+
+    // The link can die between the preview and the click.
+    reply = () => ({team, role: 'member', invited_by: null, expires_at: '2026-11-06T00:00:00Z', already_member: false});
+    await showInvite('ith_inv_abc');
+    assert.ok(el.siteContent.innerHTML.includes('你受邀以成员身份加入 Acme &lt;Inc&gt;。'));
+    button.disabled = false;
+    reply = () => new ApiRequestError('x', 410, 'INVITE_INVALID', 'This invite link is no longer valid.');
+    await acceptInvite(button);
+    assert.ok(el.siteContent.innerHTML.includes('这个邀请链接已失效。'));
+
+    fetchJson = saved.fetchJson;
+    setPage('project');
+    state.account = null;
+    window.location.pathname = '/';
+    window.location.search = '';
+  })()`, context);
+  console.log('Invite page preview, accept, already-member and invalid-link tests passed.');
 }
 
 async function historyCases() {
@@ -1402,7 +2155,7 @@ async function historyCases() {
     window.location.search = '';
     state.page = 'project';
     state.config = {authRequired: false, authMode: 'none', apiBaseUrl: ''};
-    state.projects = [{id: 'p', name: 'checkout'}];
+    state.projects = [{id: 'p', name: 'checkout', full_name: 'checkout'}];
     state.currentProjectId = 'p';
     state._loadedProjectId = 'p';
     const hash = (mark) => mark.repeat(64);
@@ -1641,6 +2394,9 @@ async function redirectCase(destination, failure = false) {
   await viewControllerCases();
   await flowAndPagingCases();
   await settingsCases();
+  await teamCases();
+  await homeAndVisitorCases();
+  await inviteCases();
   await historyCases();
   await redirectCase('https://account.tenon.asia/api/auth/oauth2/authorize?state=fresh');
   await redirectCase('https://evil.example/authorize');

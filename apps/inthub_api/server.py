@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse, urlunparse
 from apps.inthub_web import product_version
 
+from apps.inthub_api.access import VISITOR
 from apps.inthub_api.auth import (
     account_for_access_token,
     create_account_access_token,
@@ -32,7 +33,7 @@ from apps.inthub_api.common import APIError
 from apps.inthub_api.db import check_database, describe_database
 from apps.inthub_api.history import link_history, push_history, read_history
 from apps.inthub_api.product_deletion import ProductDeletionClient, subject_for_account
-from apps.inthub_api.projects import delete_project, export_project, rename_project
+from apps.inthub_api.projects import delete_project, export_project, rename_project, set_visibility, transfer_project
 from apps.inthub_api.revisions import project_revisions, revision_detail
 from apps.inthub_api.queries import (
     SNAP_PAGE_MAX,
@@ -41,9 +42,23 @@ from apps.inthub_api.queries import (
     get_snap_detail,
     list_projects,
     project_handoff,
+    project_home,
     project_overview,
     project_snaps,
     search_project,
+)
+from apps.inthub_api.teams import (
+    accept_invite,
+    create_invite,
+    create_team,
+    delete_team,
+    list_teams,
+    preview_invite,
+    remove_member,
+    revoke_invite,
+    set_member_role,
+    team_detail,
+    update_team,
 )
 from intent_cli.store import StorageSecurityError, validate_object_id
 
@@ -54,6 +69,18 @@ AUTH_BODY_LIMIT = 16 * 1024
 # Host-only and HTTPS-only: no other *.tenon.asia site can plant this cookie.
 SESSION_COOKIE = "__Host-inthub_session"
 REVISION_PAGE_MAX = 100
+# What a signed-out visitor can ask for; the project itself must still be public.
+VISITOR_READS = re.compile(r"/api/v1/(?:projects/[^/]+/(?:overview|handoff|snaps|revisions(?:/[^/]+)?)|(?:intents|decisions|snaps)/[^/]+|search)")
+TEAM_ACTIONS = (
+    (r"/api/v1/teams", lambda db, me, body: create_team(db, body.get("name"), body.get("slug"), me)),
+    (r"/api/v1/teams/([^/]+)", lambda db, me, body, team: update_team(db, team, body.get("name"), body.get("slug"), me)),
+    (r"/api/v1/teams/([^/]+)/delete", lambda db, me, body, team: delete_team(db, team, body.get("confirm"), me)),
+    (r"/api/v1/teams/([^/]+)/invites", lambda db, me, body, team: create_invite(db, team, body.get("role"), me)),
+    (r"/api/v1/teams/([^/]+)/invites/([^/]+)/revoke", lambda db, me, body, team, invite: revoke_invite(db, team, invite, me)),
+    (r"/api/v1/teams/([^/]+)/members/([^/]+)/role", lambda db, me, body, team, member: set_member_role(db, team, member, body.get("role"), me)),
+    (r"/api/v1/teams/([^/]+)/members/([^/]+)/remove", lambda db, me, body, team, member: remove_member(db, team, member, me)),
+    (r"/api/v1/invites/accept", lambda db, me, body: accept_invite(db, body.get("token"), me)),
+)
 OAUTH_STATE_COOKIE = "inthub_oauth_state"
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 QUIET_PATHS = {"/health", "/healthz", "/readyz"}
@@ -196,6 +223,8 @@ def make_handler(
         if url and urlparse(url).hostname:
             allowed_hosts.add(urlparse(url).hostname)
     sign_in_limiter = _RateLimiter(limit=30, window_seconds=60)
+    # A visitor's read parses a whole snapshot, with no account to answer for it.
+    visitor_limiter = _RateLimiter(limit=300, window_seconds=60)
     product_deletion = deletion_client
     if tenon_configured and product_deletion is None:
         product_deletion = ProductDeletionClient(tenon_client_id, tenon_client_secret)
@@ -503,21 +532,46 @@ def make_handler(
                 raise APIError("AUTH_REQUIRED", "Sign in to continue.", status=401)
             return account
 
-        def _handle_project_admin(self, path):
-            # Renaming or deleting a project is a browser action, like deleting the
+        def _viewer(self):
+            """None on a hub without accounts, VISITOR when nobody is signed in."""
+            if not auth_required:
+                return None
+            if self.headers.get("Authorization"):
+                # A bad token gets an answer, not a visitor's view of the project.
+                return self._require_auth()["account"]["id"]
+            account = self._current_account()
+            return account["id"] if account else VISITOR
+
+        def _browser_action(self):
+            # Managing projects and teams is a browser action, like deleting the
             # account: same-origin JSON with the session. Access tokens cannot do it.
             if self.headers.get("Origin") != self._request_base_url():
                 raise APIError("ORIGIN_DENIED", "The request origin is not allowed.", 403)
             if not self.headers.get("Content-Type", "").startswith("application/json"):
                 raise APIError("INVALID_INPUT", "JSON is required.", 415)
             account_id = self._require_browser_account()["id"] if auth_required else None
+            return account_id, self._read_json_body(limit=AUTH_BODY_LIMIT)
+
+        def _handle_project_admin(self, path):
+            account_id, body = self._browser_action()
             _, _, _, _, project_id, action = path.split("/")
-            body = self._read_json_body(limit=AUTH_BODY_LIMIT)
             if action == "rename":
                 result = rename_project(db_path, project_id, body.get("name"), account_id)
-            else:
+            elif action == "delete":
                 result = delete_project(db_path, project_id, body.get("confirm"), account_id)
+            elif not auth_required:
+                raise APIError("OBJECT_NOT_FOUND", "A hub without accounts has no owners or visibility.", 404)
+            elif action == "visibility":
+                result = set_visibility(db_path, project_id, body.get("visibility"), body.get("confirm"), account_id)
+            else:
+                result = transfer_project(db_path, project_id, body.get("team_id"), body.get("confirm"), account_id)
             self._send_json(200, _json_success(result))
+
+        def _handle_team_action(self, action, route_args):
+            if not auth_required:
+                raise APIError("OBJECT_NOT_FOUND", "A hub without accounts has no teams.", 404)
+            account_id, body = self._browser_action()
+            self._send_json(200, _json_success(action(db_path, account_id, body, *route_args)))
 
         def _handle_list_account_tokens(self):
             account = self._require_browser_account()
@@ -632,6 +686,22 @@ def make_handler(
                     _json_success(list_projects(db_path, account_id=account_id)),
                     compact=True,
                 )
+                return
+
+            if path == "/api/v1/home":
+                self._send_json(200, _json_success(project_home(db_path, account_id=account_id)), compact=True)
+                return
+
+            if path == "/api/v1/teams" and auth_required:
+                self._send_json(200, _json_success(list_teams(db_path, account_id)), compact=True)
+                return
+
+            if re.fullmatch(r"/api/v1/teams/[^/]+", path) and auth_required:
+                self._send_json(200, _json_success(team_detail(db_path, path.split("/")[4], account_id)), compact=True)
+                return
+
+            if path == "/api/v1/invites/preview" and auth_required:
+                self._send_json(200, _json_success(preview_invite(db_path, query.get("token", [None])[0], account_id)))
                 return
 
             if path.startswith("/api/v1/projects/") and path.endswith("/overview"):
@@ -794,9 +864,14 @@ def make_handler(
                     token_id = parsed.path.split("/")[5]
                     self._handle_revoke_account_token(token_id)
                     return
-                if re.fullmatch(r"/api/v1/projects/[^/]+/(rename|delete)", parsed.path):
+                if re.fullmatch(r"/api/v1/projects/[^/]+/(rename|delete|visibility|transfer)", parsed.path):
                     self._handle_project_admin(parsed.path)
                     return
+                for pattern, action in TEAM_ACTIONS:
+                    match = re.fullmatch(pattern, parsed.path)
+                    if match:
+                        self._handle_team_action(action, match.groups())
+                        return
                 # Sync writes require an account PAT. Browser sessions stay
                 # read-only so a compromised page cannot mutate history.
                 context = self._require_auth(allow_cookie=False)
@@ -851,13 +926,13 @@ def make_handler(
 
                 if parsed.path.startswith("/api/"):
                     self._check_origin()
-                    context = self._require_auth(allow_cookie=True)
-                    account = context.get("account")
-                    self._route_get(
-                        parsed.path,
-                        parse_qs(parsed.query),
-                        account_id=account.get("id") if account else None,
-                    )
+                    viewer = self._viewer()
+                    if viewer == VISITOR:
+                        if not VISITOR_READS.fullmatch(parsed.path):
+                            raise APIError("AUTH_REQUIRED", "Sign in or provide a valid IntHub account access token.", status=401)
+                        if not visitor_limiter.allow(self._client_address()):
+                            raise APIError("RATE_LIMITED", "Too many requests. Wait a minute and try again.", 429)
+                    self._route_get(parsed.path, parse_qs(parsed.query), account_id=viewer)
                     return
 
                 if serve_web and self._serve_web(parsed.path):
