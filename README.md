@@ -35,6 +35,8 @@ Three kinds of objects, all append-only:
 | **Snap** | A verified checkpoint: `Verified`, `Boundary`, `Next`, `Blocker`, `Constraints` |
 | **Decision** | A durable rule that binds future goals (for example "payments go through PaymentIntents only") |
 
+Intents can also be related: part of, derived from, succeeds, depends on, conflicts with. IntHub's Flow page draws how goals branch, continue and converge, and which Intent each Decision came from ([Intent flow](docs/EN/intent-flow.md)).
+
 With continuous maintenance on, each agent turn opens with the current state (injected by a project hook), the agent records a Snap only when something meaningful is verified, and the turn closes as `recorded`, `no-op` or `failed`. Quiet turns write nothing. A Stop hook checks that the turn was closed; it cannot judge semantic quality.
 
 ## Quick start
@@ -55,7 +57,7 @@ itt init --host claude-code    # or Claude Code hooks
 Then trust the project hooks once: in Codex open `/hooks`; in Claude Code trust the folder and confirm both hooks in `/hooks`. Work as usual. To pick up later, tell the agent: *"Resume this project through Intent."*
 
 Windows (PowerShell): `irm https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.ps1 | iex`.
-With pipx or uv: `pipx install "intent-history @ git+https://github.com/dozybot001/Intent.git@v7.1.0"` (or `uv tool install …`). Requires Python 3.9+ and Git.
+With pipx or uv: `pipx install "intent-history @ git+https://github.com/dozybot001/Intent.git@v7.2.0"` (or `uv tool install …`). Requires Python 3.9+ and Git.
 
 ## Try it by hand
 
@@ -126,6 +128,8 @@ Intent is **beta** (7.x). Within a major version the `.intent/` format and the J
 - [Vision](docs/EN/vision.md): why semantic history matters
 - [Continuation case](docs/EN/continuation-case.md): an interruption-to-resumption walkthrough
 - [CLI reference](docs/EN/cli.md): commands, objects and the JSON contract
+- [Intent flow](docs/EN/intent-flow.md): relations between Intents and the Flow page
+- [Semantic Git](docs/EN/semantic-git.md): the Intent 8 design for branches and merges
 - [Codex hooks](references/codex-hooks.md) and [Claude Code hooks](references/claude-code-hooks.md)
 - [Dogfooding protocol](docs/EN/dogfooding.md)
 - Maintainers: [IntHub production deployment](docs/EN/inthub-production.md)

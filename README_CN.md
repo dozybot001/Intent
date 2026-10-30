@@ -35,6 +35,8 @@ Git 记录代码怎么变；Intent 记录*为什么*这样做、哪些已经验�
 | **Snap** | 一个经过验证的检查点：`Verified`、`Boundary`、`Next`、`Blocker`、`Constraints` |
 | **Decision** | 约束后续目标的长期规则（例如「支付只走 PaymentIntent」） |
 
+Intent 之间还可以建立关系：组成、衍生、继承、依赖、对立。IntHub 的「流转」页会画出目标如何分出、接续与汇合，以及每个 Decision 出自哪个 Intent（[意图流转](docs/CN/intent-flow.md)）。
+
 开启持续维护后，每一轮 Agent 对话开始时由项目 hook 注入当前状态；只有确实验证了有意义的进展，Agent 才记录一个 Snap；每轮以 `recorded`、`no-op` 或 `failed` 收尾。没有变化的轮次不写入任何内容。Stop hook 只检查这一轮是否完成收尾，不评判语义质量。
 
 ## 快速开始
@@ -55,7 +57,7 @@ itt init --host claude-code    # 或 Claude Code hooks
 然后信任一次项目 hooks：Codex 中打开 `/hooks`；Claude Code 中信任该目录并在 `/hooks` 确认两个 hook。之后照常工作。下次继续时告诉 Agent：*「通过 Intent 恢复这个项目。」*
 
 Windows（PowerShell）：`irm https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.ps1 | iex`。
-使用 pipx 或 uv：`pipx install "intent-history @ git+https://github.com/dozybot001/Intent.git@v7.1.0"`（或 `uv tool install …`）。需要 Python 3.9+ 和 Git。
+使用 pipx 或 uv：`pipx install "intent-history @ git+https://github.com/dozybot001/Intent.git@v7.2.0"`（或 `uv tool install …`）。需要 Python 3.9+ 和 Git。
 
 ## 手动体验
 
@@ -126,6 +128,8 @@ Intent 处于 **Beta**（7.x）。同一主版本内，`.intent/` 格式与 JSON
 - [愿景](docs/CN/vision.md)：为什么需要语义历史
 - [接续案例](docs/CN/continuation-case.md)：从中断到恢复的完整演示
 - [CLI 参考](docs/CN/cli.md)：命令、对象与 JSON 约定
+- [意图流转](docs/CN/intent-flow.md)：Intent 之间的关系与「流转」页
+- [语义版 Git](docs/CN/semantic-git.md)：Intent 8 的分支与合并设计
 - [Codex hooks](references/codex-hooks.md) 与 [Claude Code hooks](references/claude-code-hooks.md)
 - [自用验证协议](docs/CN/dogfooding.md)
 - 维护者：[IntHub 生产部署](docs/CN/inthub-production.md)
