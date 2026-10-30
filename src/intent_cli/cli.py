@@ -23,14 +23,8 @@ from intent_cli.commands.maintenance import cmd_maintenance
 from intent_cli.maintenance import MaintenanceError
 from intent_cli.maintenance_hooks import HOSTS
 from intent_cli.hub.restore import PullApplyError
-from intent_cli.commands.core import (
-    cmd_decision_create,
-    cmd_decision_deprecate,
-    cmd_doctor,
-    cmd_init,
-    cmd_inspect,
-    cmd_log,
-    cmd_show,
+from intent_cli.commands.core import cmd_doctor, cmd_init, cmd_inspect, cmd_log, cmd_show, cmd_version
+from intent_cli.commands.intents import (
     cmd_intent_activate,
     cmd_intent_cancel,
     cmd_intent_create,
@@ -38,9 +32,8 @@ from intent_cli.commands.core import (
     cmd_intent_relate,
     cmd_intent_suspend,
     cmd_intent_unrelate,
-    cmd_snap_create,
-    cmd_version,
 )
+from intent_cli.commands.records import cmd_decision_create, cmd_decision_deprecate, cmd_snap_create
 from intent_cli.commands.hub import cmd_hub_start
 from intent_cli.commands.shared import cmd_push, cmd_pull, cmd_status, cmd_remote, cmd_link, cmd_hub_status
 
