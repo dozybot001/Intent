@@ -103,10 +103,20 @@ Hooks are written to project-local files (`.codex/hooks.json`, `.claude/settings
 ## Browse and share with IntHub (optional)
 
 - **Locally:** `itt hub start`, then `itt remote add origin http://127.0.0.1:7210 --project NAME` and `itt push`. IntHub Local serves only same-origin requests on loopback.
-- **Hosted:** [inthub.tenon.asia](https://inthub.tenon.asia), operated by 榫卯 Tenon AI. Run `itt auth login`, approve the code in the browser with a Tenon account, then `itt push`. Projects are private by default. Share one with a team (`--project TEAM/NAME`) or make it public in its settings. Deleting the account from the same menu removes its cloud data (your local `.intent/` is untouched).
+- **Hosted:** [inthub.tenon.asia](https://inthub.tenon.asia), operated by 榫卯 Tenon AI. Run `itt auth login`, approve the code in the browser with a Tenon account, then `itt push`. Each account and team can keep 100 projects and 1 GB of history. Projects are private by default. Share one with a team (`--project TEAM/NAME`) or make it public in its settings. Deleting the account from the same menu removes its cloud data (your local `.intent/` is untouched).
 - **Restore elsewhere:** `itt init`, `itt remote add origin URL --project NAME`, `itt pull`.
 
-Today a project has one shared history: push and pull fast-forward, and if two copies record in parallel, `itt status` reports `diverged` without changing either side. Git-style branches and merges are the next milestone ([design](docs/EN/semantic-git.md)).
+Today a project has one shared history: push and pull fast-forward. If two copies record in parallel, `itt status` reports `diverged` and neither side changes until you run `itt pull --rebase`: the remote's objects stay as they are, your local-only objects take the next free IDs, and `itt push` shares the result. Git-style branches and merges are the next milestone ([design](docs/EN/semantic-git.md)).
+
+## Uninstall
+
+```bash
+itt maintenance off --remove-hooks    # in each project: removes Intent's hooks from the agent's settings
+rm -rf .intent                        # in each project, if you also want its history gone
+rm -rf ~/.local/share/intent ~/.local/bin/itt
+```
+
+The Skill installed with `npx skills` comes off with `npx skills remove intent-cli -g`. An IntHub token stays valid until it expires; revoke it under Settings.
 
 ## Status
 

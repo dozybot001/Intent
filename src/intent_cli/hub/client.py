@@ -16,7 +16,7 @@ DEFAULT_ATTEMPTS = 2
 MAX_RESPONSE_BYTES = 16 * 1024 * 1024 + 64 * 1024
 RETRYABLE_HTTP_STATUSES = {408, 425, 429, 500, 502, 503, 504}
 # Refusals an Agent has to act on, not retry, keep the server's code.
-ACCESS_ERRORS = {"PERMISSION_DENIED", "TEAM_NOT_FOUND"}
+ACCESS_ERRORS = {"PERMISSION_DENIED", "TEAM_NOT_FOUND", "QUOTA_EXCEEDED", "RATE_LIMITED"}
 
 
 class _NoAPIRedirects(urllib.request.HTTPRedirectHandler):

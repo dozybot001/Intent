@@ -135,8 +135,17 @@ def test_api_server_can_serve_web_shell(tmp_path, monkeypatch):
 
         html = urlopen(f"{base}/").read().decode("utf-8")
         assert "IntHub" in html
-        deep_link = urlopen(f"{base}/projects/demo").read().decode("utf-8")
-        assert "IntHub" in deep_link
+        for path in ("/settings/usage", "/settings/teams/", "/account/danger", "/device", "/invite", "/teams/acme/projects"):
+            assert 'id="site-content"' in urlopen(f"{base}{path}").read().decode("utf-8"), path
+        # A path nobody serves is a real 404, for browsers and crawlers alike.
+        for path in ("/terms", "/pricing", "/projects/demo", "/settings/other"):
+            with pytest.raises(HTTPError) as missing:
+                urlopen(f"{base}{path}")
+            assert missing.value.code == 404 and "Page not found" in missing.value.read().decode("utf-8"), path
+        robots = urlopen(f"{base}/robots.txt").read().decode("utf-8")
+        assert "Allow: /$" in robots and "Disallow: /\n" in robots
+        assert "Contact: mailto:support@tenonai.cn" in urlopen(f"{base}/.well-known/security.txt").read().decode("utf-8")
+        assert urlopen(f"{base}/favicon.ico").url.endswith("/tenon-mark.svg")
         js = urlopen(f"{base}/app.js").read().decode("utf-8")
         assert "itt push" in js
     finally:

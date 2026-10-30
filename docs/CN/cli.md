@@ -32,7 +32,7 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 | 命令 | 作用 |
 |---|---|
 | `itt maintenance status [--host H]` | 只读查询本项目开关与宿主的 hooks 配置；不指定 `--host` 时查看本项目已配置的宿主。不初始化，不假定宿主已经执行。 |
-| `itt maintenance on / off [--host H]` | 本项目开启/关闭；旧版历史需开启一次，新 init 默认开启。`on` 安装所选宿主的 hooks，`off` 同时移除 Intent 的 Claude Code 条目；不改全局设置。 |
+| `itt maintenance on / off [--host H] [--remove-hooks]` | 本项目开启/关闭；旧版历史需开启一次，新 init 默认开启。`on` 安装所选宿主的 hooks，`off` 同时移除 Intent 的 Claude Code 条目；不改全局设置。 |
 | `itt maintenance close recorded --turn TOKEN [--objects ID ...]` | Agent 提交当前轮已验证变化的回执，ID 可从开头快照差异推导。 |
 | `itt maintenance close no-op / failed --turn TOKEN --reason TEXT` | 零写入或失败如实收尾，不为回执制造 Snap。 |
 
@@ -91,8 +91,8 @@ Git 可选。Intent 独立保存语义历史；代码仓库的 Git origin 不参
 | `itt remote [-v]` | 查看独立的 IntHub 地址和项目。 |
 | `itt remote add origin URL --project NAME` | 设置唯一共享远端；项目名默认取语义根目录名。团队项目写 `团队/项目`。 |
 | `itt push [--project NAME] [--api-base-url URL] [--dry-run]` | 必要时关联项目，保存同步版本；相同内容不新增版本，预览不写远端。 |
-| `itt pull [--project NAME] [--api-base-url URL] [--dry-run]` | 本地未变化可快进，本地领先保持不变；双方变化报告分歧并保留双方。 |
-| `itt auth login / status / logout` | 全局账户认证，凭据由 credential helper 保存并跨项目复用。 |
+| `itt pull [--project NAME] [--api-base-url URL] [--dry-run] [--rebase]` | 本地未变化可快进，本地领先保持不变；双方变化报告分歧并保留双方。 |
+| `itt auth login / status / logout` | 全局账户认证：终端显示代码，在浏览器里批准。令牌由 Git credential helper 保存；没有 helper 时存入配置目录下仅本人可读的 `credentials.json`。跨项目复用。 |
 | `itt hub start` | 启动本地浏览器。 |
 
 两个本地目录配置相同 remote/project 后共享同一历史，不创建 workspace。Intent、Snap、Decision 是版本内的内容，Snap 不等于同步版本。无需暂存区、手动 commit、分支或 rebase。
@@ -385,8 +385,9 @@ stateDiagram-v2
 | `PERMISSION_DENIED` | 账号对这个团队项目只有只读权限 |
 | `TEAM_NOT_FOUND` | 团队不存在，或账号不是它的成员 |
 | `REMOTE_CHANGED` | 远端地址或项目身份变化；用 remote add 明确选择后再同步 |
-| `NON_FAST_FORWARD` | 远端已变化，push 未覆盖；先 pull，分叉需人工处理 |
-| `HISTORY_DIVERGED` | 本地和远端同时变化；双方历史均保留 |
+| `NON_FAST_FORWARD` | 远端已变化，push 未覆盖；先 pull，分叉时用 `itt pull --rebase` |
+| `HISTORY_DIVERGED` | 本地和远端同时变化；双方历史均保留，用 `itt pull --rebase` 把本地工作放到远端之上 |
+| `QUOTA_EXCEEDED` | 账号或团队达到 100 个项目或 1 GB 历史存储的上限 |
 | `HUB_STATE_INVALID` | 本地 remote 或 baseline 状态格式损坏 |
 | `INVALID_LOCAL_SNAPSHOT` | 本地 Intent 历史不是合法完整图；pull 前应运行 `itt doctor` |
 | `INVALID_REMOTE_SNAPSHOT` | 下载快照的身份、版本、schema 或对象图不合法 |

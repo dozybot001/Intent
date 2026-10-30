@@ -70,7 +70,7 @@ def test_schema_v1_upgrades_to_public_profile_schema_v2(tmp_path):
         profile_table = check.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'public_profiles'"
         ).fetchone()
-    assert versions == [1, 2, 3, 4, 5, 6, 7]
+    assert versions == [1, 2, 3, 4, 5, 6, 7, 8]
     assert profile_table is not None
     with connect(db_path) as check:
         # Whatever existed before teams stays private and personal.

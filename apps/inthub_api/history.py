@@ -6,6 +6,7 @@ import json
 from apps.inthub_api.access import MEMBER_LEVELS, permission, project_handle, team_role
 from apps.inthub_api.common import APIError, new_id, now_utc
 from apps.inthub_api.db import connect
+from apps.inthub_api.limits import require_project_slot, require_storage
 from intent_cli.hub.changes import COLLECTIONS, semantic_changes, summarize
 from intent_cli.hub.snapshots import SnapshotError, require_fast_forward, snapshot_sha256, validate_snapshot
 from intent_cli.hub.versions import revision_id, validate_project_name, validate_project_ref
@@ -81,6 +82,7 @@ def _link_team_project(conn, slug, name, account_id):
     if _team_project(conn, team["id"], name) is None:
         if role == "viewer":
             raise APIError("PERMISSION_DENIED", "Read-only members cannot add projects.", 403)
+        require_project_slot(conn, None, team["id"])
         conn.execute("""INSERT INTO projects
             (id, team_id, name, provider, repo_id, owner, repo_name, created_at)
             VALUES (?, ?, ?, 'intent', ?, ?, ?, ?) ON CONFLICT DO NOTHING""",
@@ -96,6 +98,8 @@ def link_history(db_path, ref, account_id=None):
             project = _link_team_project(conn, slug, name, account_id)
         else:
             pid = new_id("proj") if account_id else _local_project_id(conn, name)
+            if _project(conn, name, account_id) is None:
+                require_project_slot(conn, account_id)
             conn.execute("""INSERT INTO projects
                 (id, account_id, name, provider, repo_id, owner, repo_name, created_at)
                 VALUES (?, ?, ?, 'intent', ?, ?, ?, ?) ON CONFLICT DO NOTHING""",
@@ -189,11 +193,14 @@ def push_history(db_path, payload, account_id=None):
                 raise APIError("HISTORY_CONFLICT", str(exc), 409) from exc
         accepted = now_utc()
         changes = semantic_changes(head["snapshot"], snapshot)
+        stored = json.dumps(snapshot, ensure_ascii=False)
+        require_storage(conn, project, len(stored))
         conn.execute("""INSERT INTO semantic_versions
             (project_id, revision, parent, snapshot_json, created_at, pushed_by, pusher_json, changes_json)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (pid, expected_revision, head["revision"], json.dumps(snapshot, ensure_ascii=False), accepted,
+            (pid, expected_revision, head["revision"], stored, accepted,
              account_id, _declared_pusher(payload.get("pusher")), json.dumps(summarize(changes))))
+        conn.execute("UPDATE projects SET stored_bytes = stored_bytes + ? WHERE id = ?", (len(stored), pid))
         conn.execute("UPDATE semantic_heads SET revision = ? WHERE project_id = ?", (expected_revision, pid))
         _record_verified(conn, pid, expected_revision, changes, account_id)
         repository = payload.get("repository")

@@ -298,6 +298,25 @@ Application rollback does not downgrade the database. Candidate, traffic-switch,
 failure restores old Caddy/current, verifies the old slot, and removes the candidate. Incomplete
 rollback preserves the production lock and phase state so later releases fail closed.
 
+## Operations
+
+The safety nets for a public service live in the application and need no extra services:
+
+- **Quotas:** 100 projects and 1 GB of history per account or team (each push stores a whole snapshot, counted in `projects.stored_bytes`), and 10 teams created per account. Settings → Usage shows them.
+- **Rate limits:** 1200 API requests a minute per address, with lower limits on sign-in, device codes, visitor reads and Tenon's deletion callback.
+- **Check before publishing:** making a project public scans for keys, tokens, private keys and URLs with passwords, and asks for a second confirmation if it finds any.
+- **Suspension and takedown:** run inside the app container.
+
+```bash
+docker exec inthub-app-green python -m apps.inthub_api.admin find someone@example.com
+docker exec inthub-app-green python -m apps.inthub_api.admin suspend ACCOUNT_ID
+docker exec inthub-app-green python -m apps.inthub_api.admin restore ACCOUNT_ID
+docker exec inthub-app-green python -m apps.inthub_api.admin takedown PROJECT_ID
+docker exec inthub-app-green python -m apps.inthub_api.admin reinstate PROJECT_ID
+```
+
+`suspend` ends sessions, refuses tokens and sign-ins, and takes down the account's public personal projects. `takedown` makes a project private and blocks publishing it again; its members can still read and export it. `restore` and `reinstate` only lift the restriction; nothing goes public by itself. Reports reach the operator through the footer's Report this project link and support@tenonai.cn.
+
 ## Paths and interruption recovery
 
 ```text

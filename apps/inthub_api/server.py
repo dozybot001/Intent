@@ -33,6 +33,7 @@ from apps.inthub_api.common import APIError
 from apps.inthub_api.db import check_database, describe_database
 from apps.inthub_api.device import decide_device_login, describe_device_login, poll_device_login, start_device_login
 from apps.inthub_api.history import link_history, push_history, read_history
+from apps.inthub_api.limits import account_usage
 from apps.inthub_api.product_deletion import ProductDeletionClient, subject_for_account
 from apps.inthub_api.projects import delete_project, export_project, rename_project, set_visibility, transfer_project
 from apps.inthub_api.revisions import project_revisions, revision_detail
@@ -82,6 +83,8 @@ TEAM_ACTIONS = (
     (r"/api/v1/teams/([^/]+)/members/([^/]+)/remove", lambda db, me, body, team, member: remove_member(db, team, member, me)),
     (r"/api/v1/invites/accept", lambda db, me, body: accept_invite(db, body.get("token"), me)),
 )
+# Paths the web app answers itself; anything else gets a real 404.
+WEB_ROUTES = re.compile(r"/(?:account(?:/danger)?|settings(?:/teams|/usage)?|invite|device|teams/[^/]+(?:/projects|/settings)?)?/?")
 OAUTH_STATE_COOKIE = "inthub_oauth_state"
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 QUIET_PATHS = {"/health", "/healthz", "/readyz"}
@@ -230,6 +233,10 @@ def make_handler(
     device_start_limiter = _RateLimiter(limit=30, window_seconds=60)
     device_poll_limiter = _RateLimiter(limit=120, window_seconds=60)
     device_code_limiter = _RateLimiter(limit=20, window_seconds=60)
+    # Twenty requests a second from one address is far above any person or Agent.
+    api_limiter = _RateLimiter(limit=1200, window_seconds=60)
+    # Each one makes a call to Tenon, with no credentials to check first.
+    deletion_limiter = _RateLimiter(limit=30, window_seconds=60)
     product_deletion = deletion_client
     if tenon_configured and product_deletion is None:
         product_deletion = ProductDeletionClient(tenon_client_id, tenon_client_secret)
@@ -318,7 +325,7 @@ def make_handler(
                 cache_control="no-store",
             )
 
-        def _send_file(self, path):
+        def _send_file(self, path, status=200):
             body = path.read_bytes()
             content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
             if content_type.startswith("text/") or content_type in {
@@ -327,7 +334,7 @@ def make_handler(
             }:
                 content_type = f"{content_type}; charset=utf-8"
             cache_control = "no-cache" if path.suffix == ".html" else "public, max-age=3600"
-            self._send_bytes(200, body, content_type, cache_control=cache_control)
+            self._send_bytes(status, body, content_type, cache_control=cache_control)
 
         def _serve_index(self):
             self._send_file(root / "index.html")
@@ -349,8 +356,17 @@ def make_handler(
                 )
                 return True
 
-            if path == "/" or (not Path(path).suffix and not path.startswith("/api/")):
+            if WEB_ROUTES.fullmatch(path):
                 self._serve_index()
+                return True
+            if path == "/favicon.ico":
+                self._send_redirect("/tenon-mark.svg")
+                return True
+            if path == "/.well-known/security.txt":
+                self._send_file(root / "security.txt")
+                return True
+            if not Path(path).suffix and not path.startswith("/api/"):
+                self._send_file(root / "404.html", status=404)
                 return True
 
             candidate = (root / path.lstrip("/")).resolve()
@@ -567,7 +583,7 @@ def make_handler(
             elif not auth_required:
                 raise APIError("OBJECT_NOT_FOUND", "A hub without accounts has no owners or visibility.", 404)
             elif action == "visibility":
-                result = set_visibility(db_path, project_id, body.get("visibility"), body.get("confirm"), account_id)
+                result = set_visibility(db_path, project_id, body.get("visibility"), body.get("confirm"), account_id, body.get("acknowledge_secrets"))
             else:
                 result = transfer_project(db_path, project_id, body.get("team_id"), body.get("confirm"), account_id)
             self._send_json(200, _json_success(result))
@@ -577,6 +593,10 @@ def make_handler(
                 raise APIError("OBJECT_NOT_FOUND", "A hub without accounts has no teams.", 404)
             account_id, body = self._browser_action()
             self._send_json(200, _json_success(action(db_path, account_id, body, *route_args)))
+
+        def _check_rate(self):
+            if auth_required and not api_limiter.allow(self._client_address()):
+                raise APIError("RATE_LIMITED", "Too many requests. Wait a minute and try again.", 429)
 
         def _handle_device_cli(self, path):
             # The CLI has no credentials yet: the request is all it can show.
@@ -672,7 +692,8 @@ def make_handler(
                 )
             except APIError as exc:
                 LOGGER.warning("Tenon sign-in failed: %s", exc.code)
-                self._send_redirect(_login_error_return(attempt["return_to"] if attempt else "/", "tenon_failed"), [clear_state])
+                reason = "suspended" if exc.code == "ACCOUNT_SUSPENDED" else "tenon_failed"
+                self._send_redirect(_login_error_return(attempt["return_to"] if attempt else "/", reason), [clear_state])
                 return
 
             self._send_redirect(
@@ -721,6 +742,10 @@ def make_handler(
 
             if path == "/api/v1/teams" and auth_required:
                 self._send_json(200, _json_success(list_teams(db_path, account_id)), compact=True)
+                return
+
+            if path == "/api/v1/usage" and auth_required:
+                self._send_json(200, _json_success(account_usage(db_path, account_id)), compact=True)
                 return
 
             if re.fullmatch(r"/api/v1/teams/[^/]+", path) and auth_required:
@@ -849,10 +874,13 @@ def make_handler(
                 self._check_host()
                 if not parsed.path.startswith("/api/"):
                     raise APIError("OBJECT_NOT_FOUND", f"Endpoint {parsed.path} not found.", status=404)
+                self._check_rate()
                 if parsed.path == "/api/auth/tenon/delete/execute":
                     # Server-to-server from Tenon: browsers always send Origin.
                     if self.headers.get("Origin") or not product_deletion:
                         raise APIError("DELETION_AUTHORIZATION_REQUIRED", "Use Tenon's product deletion flow.", 403)
+                    if not deletion_limiter.allow(self._client_address()):
+                        raise APIError("RATE_LIMITED", "Too many requests. Wait a minute and try again.", 429)
                     payload = self._read_json_body(limit=AUTH_BODY_LIMIT, require_json=False)
                     self._send_json(200, product_deletion.execute(db_path, payload))
                     return
@@ -939,6 +967,8 @@ def make_handler(
                     )
                     return
 
+                if parsed.path == "/readyz" or parsed.path.startswith("/api/"):
+                    self._check_rate()
                 if parsed.path == "/readyz":
                     check_database(db_path)
                     self._send_json(

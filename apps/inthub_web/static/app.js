@@ -22,9 +22,10 @@ const HOSTED_INTHUB = "https://inthub.tenon.asia";
 // Account and Settings open in a dialog over the current page, and team pages have paths of their own;
 // project views stay on / with query parameters.
 const ACCOUNT_PATHS = { profile: "/account", danger: "/account/danger" };
-const SETTINGS_PATHS = { tokens: "/settings", teams: "/settings/teams" };
+const SETTINGS_PATHS = { tokens: "/settings", teams: "/settings/teams", usage: "/settings/usage" };
 const DIALOG_PATHS = { account: ACCOUNT_PATHS, settings: SETTINGS_PATHS };
 const TENON_ACCOUNT_URL = "https://account.tenon.asia/account/";
+const SUPPORT_EMAIL = "support@tenonai.cn";
 // Lifetimes the token form offers, in days.
 const TOKEN_LIFETIMES = [30, 90, 365];
 const DEFAULT_TOKEN_DAYS = 90;
@@ -74,6 +75,9 @@ const el = {
   siteContent: document.getElementById("site-content"),
   skipLink: document.querySelector(".skip-link"),
   statusLine: document.getElementById("status-line"),
+  reportLink: document.getElementById("report-link"),
+  authPitch: document.getElementById("auth-pitch"),
+  authStart: document.getElementById("auth-start"),
   settingsDialog: document.getElementById("settings-dialog"),
   settingsDialogTitle: document.getElementById("settings-dialog-title"),
   settingsDialogBody: document.getElementById("settings-dialog-body"),
@@ -151,6 +155,7 @@ const ICONS = {
   info: '<circle cx="10" cy="10" r="7"/><path d="M10 9v4.5M10 6.3v.1"/>',
   plus: '<path d="M10 4v12M4 10h12"/>',
   check: '<path d="m4.5 10.5 3.5 3.5 7.5-8"/>',
+  gauge: '<path d="M3.5 14.5a7 7 0 1 1 13 0"/><path d="m10 12 3-4"/><circle cx="10" cy="12.5" r="1"/>',
   close: '<path d="m5 5 10 10M15 5 5 15"/>',
   trash: '<path d="M3.5 5.5h13M8 5.5v-2h4v2M5 5.5l.8 11h8.4l.8-11M8.5 8.5v5M11.5 8.5v5"/>',
   edit: '<path d="m4 16 .8-3.3L13 4.5a1.7 1.7 0 0 1 2.5 2.5l-8.2 8.2Z"/><path d="m11.5 6 2.5 2.5"/>',
@@ -428,6 +433,7 @@ async function fetchJson(url, { gate = true, ...options } = {}) {
       p?.error?.code,
       p?.error?.message || "",
     );
+    error.details = p?.error?.details;
     if (r.status === 401 && gate && state.config?.authRequired) showAuthGate();
     throw error;
   }
@@ -485,6 +491,9 @@ function showAuthGate(message = "", { keepPage = false } = {}) {
   el.shell.classList.add("is-locked");
   el.authGate.classList.remove("is-hidden");
   el.authDismiss.classList.toggle("is-hidden", !keepPage);
+  // Someone reading a public project already knows what this is.
+  el.authPitch.classList.toggle("is-hidden", keepPage);
+  el.authStart.innerHTML = commandSnippet([INSTALL_COMMAND, "itt init"]);
   el.accountControl.classList.add("is-hidden");
   el.authError.textContent = message;
   el.authError.classList.toggle("is-hidden", !message);
@@ -550,6 +559,7 @@ function callbackErrorMessage() {
     tenon_denied: t("Tenon sign-in was cancelled."),
     invalid_state: t("That sign-in attempt expired. Please try again."),
     tenon_failed: t("Tenon sign-in could not be completed. Please try again."),
+    suspended: t("This account is suspended. Contact support@tenonai.cn."),
   };
   return messages[code] || t("Sign-in could not be completed.");
 }
@@ -663,6 +673,11 @@ function canManageProject() {
 
 function syncSettingsTab() {
   el.tabBar.querySelector?.('[data-tab="settings"]')?.classList.toggle("is-hidden", !canManageProject());
+  // Anyone who reads a public project can report it; its managers have no need to.
+  const project = state.overview?.project;
+  const reportable = project?.visibility === "public" && !canManageProject();
+  el.reportLink.classList.toggle("is-hidden", !reportable);
+  if (reportable) el.reportLink.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Report IntHub project ${project.id}`)}`;
 }
 
 function setActiveTabUI() {
@@ -3742,6 +3757,7 @@ function settingsNav(pane) {
   return [
     { label: t("Access tokens"), icon: "key", href: SETTINGS_PATHS.tokens, current: pane === "tokens" },
     { label: t("Teams"), icon: "users", href: SETTINGS_PATHS.teams, current: pane === "teams" },
+    { label: t("Usage"), icon: "gauge", href: SETTINGS_PATHS.usage, current: pane === "usage" },
   ];
 }
 
@@ -3784,6 +3800,7 @@ function closeSettingsDialog({ history = "auto" } = {}) {
   state._tokensError = "";
   state._teams = null;
   state._teamsError = "";
+  state._usage = null;
   if (el.settingsDialog.open) el.settingsDialog.close();
   el.settingsDialogBody.innerHTML = "";
   updateDocumentTitle();
@@ -3798,6 +3815,7 @@ function closeSettingsDialog({ history = "auto" } = {}) {
 async function loadPane() {
   if (state._pane === "tokens") await loadAccountTokens();
   else if (state._pane === "teams") await loadTeams();
+  else if (state._pane === "usage") await loadUsage();
 }
 
 function renderSettingsDialog() {
@@ -3809,7 +3827,7 @@ function renderSettingsDialog() {
   el.settingsDialogBody.innerHTML = settingsLayout({
     label: title,
     items: account ? accountNav(pane) : settingsNav(pane),
-    pane: { profile: profilePane, danger: accountDangerPane, tokens: tokensPane, teams: teamsPane }[pane](),
+    pane: { profile: profilePane, danger: accountDangerPane, tokens: tokensPane, teams: teamsPane, usage: usagePane }[pane](),
   });
 }
 
@@ -3991,6 +4009,52 @@ async function startAccountDeletion(button) {
     setStatus(error.message, true);
     setButtonBusy(button, false, "Opening account management…", "Delete account");
   }
+}
+
+function formatBytes(bytes) {
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${unit && value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+}
+
+function usageRow(owner) {
+  return settingsRow({
+    title: esc(owner.name || t("Personal")),
+    meta: metaParts([
+      t("{used} of {limit} projects", { used: owner.projects, limit: owner.projects_limit }),
+      t("{used} of {limit} history storage", { used: formatBytes(owner.storage_bytes), limit: formatBytes(owner.storage_limit) }),
+    ]),
+  });
+}
+
+function usageListHtml() {
+  if (state._usageError) return `<div class="inline-empty settings-retry"><p>${esc(state._usageError)}</p><button type="button" class="secondary-btn" data-retry-site>${iconLabel("refresh", t("Retry"))}</button></div>`;
+  return state._usage ? settingsList(state._usage.map(usageRow).join("")) : viewLoadingHtml();
+}
+
+function usagePane() {
+  return settingsBlock("usage", t("Usage"), `<div class="settings-slot" id="usage-list">${usageListHtml()}</div>`,
+    esc(t("Your account and each team have their own allowance. Deleting a project frees its storage.")));
+}
+
+async function loadUsage() {
+  const request = beginViewRequest("dialog");
+  state._usageError = "";
+  try {
+    const result = await fetchJson(apiUrl("/api/v1/usage"));
+    if (!ownsViewRequest("dialog", request)) return;
+    state._usage = result.owners;
+  } catch (error) {
+    if (!ownsViewRequest("dialog", request)) return;
+    state._usageError = error.message;
+  }
+  const list = el.settingsDialogBody.querySelector?.("#usage-list");
+  if (list) list.innerHTML = usageListHtml();
 }
 
 /* Teams: the list in Settings, and each team's own page. */
@@ -4722,6 +4786,8 @@ function confirmVisibility(visibility, trigger = null) {
   const project = currentProject();
   if (!project) return;
   const going = visibility === "public";
+  // The server stops on a likely credential once; confirming after that warning is the decision to publish anyway.
+  let acknowledged = false;
   openConfirm({
     title: () => (going ? t("Make {name} public?", { name: project.name }) : t("Make {name} private?", { name: project.name })),
     body: () => (going
@@ -4734,17 +4800,22 @@ function confirmVisibility(visibility, trigger = null) {
     action: going ? "Make public" : "Make private",
     icon: going ? "globe" : "lock",
     busy: "Saving…",
-    run: (typed) => changeVisibility(project.id, visibility, typed),
-    message: serverMessage,
+    run: (typed) => changeVisibility(project.id, visibility, typed, acknowledged),
+    message: (error) => {
+      if (error.code !== "POSSIBLE_SECRETS") return serverMessage(error);
+      acknowledged = true;
+      const objects = (error.details?.objects || []).map((object) => `${object.id} (${object.kinds.map((kind) => t(kind)).join(", ")})`);
+      return t("These may contain credentials: {list}. Check them first. Confirming again publishes anyway.", { list: objects.join(", ") });
+    },
     returnFocus: trigger,
   });
 }
 
-async function changeVisibility(projectId, visibility, confirm) {
+async function changeVisibility(projectId, visibility, confirm, acknowledgeSecrets = false) {
   await fetchJson(apiUrl(`/api/v1/projects/${encodeURIComponent(projectId)}/visibility`), {
     method: "POST",
     headers: JSON_HEADERS,
-    body: JSON.stringify({ visibility, confirm }),
+    body: JSON.stringify({ visibility, confirm, ...(acknowledgeSecrets ? { acknowledge_secrets: true } : {}) }),
   });
   state.projects = state.projects.map((project) => project.id === projectId ? { ...project, visibility } : project);
   if (state.overview?.project) state.overview.project = { ...state.overview.project, visibility };
@@ -5790,6 +5861,10 @@ function bindEvents() {
   });
 
   el.signInButton.addEventListener("click", () => showAuthGate("", { keepPage: true }));
+  el.authStart.addEventListener("click", (event) => {
+    const copy = event.target.closest?.("[data-copy]");
+    if (copy) copyText(copy.dataset.copy, t("Command copied."));
+  });
   el.authDismiss.addEventListener("click", dismissAuthGate);
 
   const siteInput = (event) => {

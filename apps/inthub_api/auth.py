@@ -119,7 +119,7 @@ def account_for_session(db_target, token):
                 s.expires_at
             FROM web_sessions AS s
             JOIN accounts AS a ON a.id = s.account_id
-            WHERE s.token_hash = ?
+            WHERE s.token_hash = ? AND a.suspended_at IS NULL
             """,
             (token_hash,),
         ).fetchone()
@@ -202,7 +202,7 @@ def account_for_access_token(db_target, token):
                 t.expires_at, t.revoked_at
             FROM account_access_tokens AS t
             JOIN accounts AS a ON a.id = t.account_id
-            WHERE t.token_hash = ?
+            WHERE t.token_hash = ? AND a.suspended_at IS NULL
             """,
             (token_hash,),
         ).fetchone()

@@ -285,6 +285,25 @@ symlink、路径逃逸、大小/checksum/平台/config digest/recipe/source 漂�
 App 回滚不自动 downgrade 数据库。若候选、切流或公网 smoke 失败，恢复旧 Caddy/current，
 验证旧槽后删除候选；回滚不完整时保留生产锁与 phase state，后续发布 fail closed。
 
+## 运营
+
+公开托管的兜底都在应用里，不需要额外服务：
+
+- **额度：** 每个账号或团队 100 个项目、1 GB 历史存储（每次推送保存完整快照，`projects.stored_bytes` 累计），每个账号最多创建 10 个团队。设置 → 用量可以看到。
+- **限流：** 单个地址每分钟 1200 次 API 请求；登录、设备码、访客读取和 Tenon 删除回调各有更低的上限。
+- **公开前检查：** 项目转公开时扫描密钥、令牌、私钥和带密码的 URL，发现后要求再次确认。
+- **封禁与下架：** 在应用容器里运行。
+
+```bash
+docker exec inthub-app-green python -m apps.inthub_api.admin find someone@example.com
+docker exec inthub-app-green python -m apps.inthub_api.admin suspend ACCOUNT_ID
+docker exec inthub-app-green python -m apps.inthub_api.admin restore ACCOUNT_ID
+docker exec inthub-app-green python -m apps.inthub_api.admin takedown PROJECT_ID
+docker exec inthub-app-green python -m apps.inthub_api.admin reinstate PROJECT_ID
+```
+
+`suspend` 清除会话，拒绝令牌和登录，并下架该账号公开的个人项目。`takedown` 把项目改为私有并禁止重新公开，成员仍可读取和导出。`restore` 和 `reinstate` 只解除限制，不会把项目恢复公开。举报通过页脚的「举报此项目」和 support@tenonai.cn 到达运营者。
+
 ## 目录与中断恢复
 
 ```text

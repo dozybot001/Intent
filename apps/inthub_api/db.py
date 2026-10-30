@@ -18,8 +18,8 @@ _INITIALIZED = set()
 _INIT_LOCK = threading.Lock()
 
 LATEST_SCHEMA_VERSION = 8
-_DEVICE_SCHEMA_NAME = "device-logins"
-_DEVICE_SCHEMA_CHECKSUM = hashlib.sha256(b"0008:device-logins").hexdigest()
+_HOSTED_SCHEMA_NAME = "device-logins-limits-suspension"
+_HOSTED_SCHEMA_CHECKSUM = hashlib.sha256(b"0008:device-logins:project-stored-bytes:account-project-suspension").hexdigest()
 _TEAMS_SCHEMA_NAME = "teams-and-visibility"
 _TEAMS_SCHEMA_CHECKSUM = hashlib.sha256(b"0007:teams:members:invites:project-team-visibility").hexdigest()
 _IDENTITY_SCHEMA_NAME = "revision-identity"
@@ -141,7 +141,8 @@ _IDENTITY_COLUMNS = {
 for _table, _columns in _IDENTITY_COLUMNS.items():
     _EXPECTED_SCHEMA_COLUMNS[_table] = _EXPECTED_SCHEMA_COLUMNS[_table] | _columns
 _EXPECTED_SCHEMA_COLUMNS["verified_objects"] = {"project_id", "object_id", "revision"}
-_EXPECTED_SCHEMA_COLUMNS["projects"] = _EXPECTED_SCHEMA_COLUMNS["projects"] | {"team_id", "visibility"}
+_EXPECTED_SCHEMA_COLUMNS["projects"] = _EXPECTED_SCHEMA_COLUMNS["projects"] | {"team_id", "visibility", "stored_bytes", "suspended_at"}
+_EXPECTED_SCHEMA_COLUMNS["accounts"] = _EXPECTED_SCHEMA_COLUMNS["accounts"] | {"suspended_at"}
 _EXPECTED_SCHEMA_COLUMNS.update({
     "teams": {"id", "slug", "name", "created_by", "created_at"},
     "team_members": {"team_id", "account_id", "role", "joined_at"},
@@ -671,7 +672,7 @@ def _validate_migration_ledger(rows):
             "backward_compatible": 1},
         7: {"name": _TEAMS_SCHEMA_NAME, "checksum": _TEAMS_SCHEMA_CHECKSUM,
             "backward_compatible": 1},
-        8: {"name": _DEVICE_SCHEMA_NAME, "checksum": _DEVICE_SCHEMA_CHECKSUM,
+        8: {"name": _HOSTED_SCHEMA_NAME, "checksum": _HOSTED_SCHEMA_CHECKSUM,
             "backward_compatible": 1},
     }
     observed_versions = set()
@@ -840,15 +841,25 @@ def migrate_db(conn, *, require_backward_compatible=True):
              datetime.now(timezone.utc).isoformat()))
 
     if 8 not in applied_versions:
-        # Additive: after a rollback the table sits unused and the CLI asks for a pasted token.
+        # Additive: after a rollback the table sits unused and the CLI asks for a pasted token,
+        # stored_bytes falls behind until the next migration, and suspensions stop applying.
         conn.execute("""CREATE TABLE IF NOT EXISTS device_logins (
             id TEXT PRIMARY KEY, device_hash TEXT NOT NULL UNIQUE, user_hash TEXT NOT NULL UNIQUE,
             name TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL,
             account_id TEXT REFERENCES accounts(id) ON DELETE CASCADE, decided_at TEXT)""")
+        observed = _observed_schema_columns(conn)
+        if "stored_bytes" not in observed["projects"]:
+            conn.execute("ALTER TABLE projects ADD COLUMN stored_bytes BIGINT NOT NULL DEFAULT 0")
+        if "suspended_at" not in observed["projects"]:
+            conn.execute("ALTER TABLE projects ADD COLUMN suspended_at TEXT")
+        if "suspended_at" not in observed["accounts"]:
+            conn.execute("ALTER TABLE accounts ADD COLUMN suspended_at TEXT")
+        conn.execute("""UPDATE projects SET stored_bytes = COALESCE(
+            (SELECT SUM(LENGTH(v.snapshot_json)) FROM semantic_versions v WHERE v.project_id = projects.id), 0)""")
         conn.execute("""INSERT INTO schema_migrations
             (version, name, checksum, backward_compatible, applied_at)
             VALUES (?, ?, ?, ?, ?)""",
-            (8, _DEVICE_SCHEMA_NAME, _DEVICE_SCHEMA_CHECKSUM, 1,
+            (8, _HOSTED_SCHEMA_NAME, _HOSTED_SCHEMA_CHECKSUM, 1,
              datetime.now(timezone.utc).isoformat()))
 
     rows = _migration_rows(conn)

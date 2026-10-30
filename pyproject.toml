@@ -38,7 +38,8 @@ itt = "intent_cli.cli:main"
 
 [project.optional-dependencies]
 server = [
-    "Authlib==1.6.12",
+    "Authlib==1.6.12; python_version < '3.10'",
+    "Authlib==1.9.1; python_version >= '3.10'",
     "httpx==0.28.1",
     "psycopg==3.2.13; python_version < '3.10'",
     "psycopg-binary==3.2.13; python_version < '3.10' and implementation_name != 'pypy'",

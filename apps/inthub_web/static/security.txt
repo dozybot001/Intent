@@ -1,0 +1,5 @@
+Contact: mailto:support@tenonai.cn
+Expires: 2027-10-31T00:00:00.000Z
+Preferred-Languages: zh, en
+Canonical: https://inthub.tenon.asia/.well-known/security.txt
+Policy: https://tenon.asia/legal/acceptable-use/

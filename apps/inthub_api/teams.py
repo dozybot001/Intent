@@ -16,7 +16,7 @@ from apps.inthub_api.queries import project_rows
 from intent_cli.hub.versions import TEAM_SLUG
 
 NAME_MAX = 80
-TEAMS_PER_ACCOUNT = 50
+TEAMS_PER_ACCOUNT = 10
 PENDING_INVITES_MAX = 50
 INVITE_TTL = timedelta(days=7)
 

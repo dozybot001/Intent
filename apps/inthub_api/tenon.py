@@ -101,6 +101,8 @@ def account_for_identity(db_target, identity, *, request_started_at=None):
             (identity.get("name"), identity.get("email"), timestamp, timestamp, account_id),
         )
         row = conn.execute("SELECT * FROM accounts WHERE id = ?", (account_id,)).fetchone()
+        if row["suspended_at"]:
+            raise APIError("ACCOUNT_SUSPENDED", "This account is suspended.", 403)
     return public_account(row)
 
 

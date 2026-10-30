@@ -8,6 +8,8 @@ from apps.inthub_api.access import permission, project_handle, team_role
 from apps.inthub_api.common import APIError, now_utc
 from apps.inthub_api.db import connect
 from apps.inthub_api.history import _head, _project, _project_by_id, _team_project, project_name
+from apps.inthub_api.limits import require_project_slot
+from apps.inthub_api.secret_scan import REPORT_MAX, find_secrets
 
 EXPORT_FORMAT_VERSION = 1
 VISIBILITIES = ("private", "public")
@@ -50,14 +52,21 @@ def rename_project(db_path, project_id, name, account_id=None):
         return {"project": _view(conn, project, repo_id=name)}
 
 
-def set_visibility(db_path, project_id, visibility, confirm, account_id):
+def set_visibility(db_path, project_id, visibility, confirm, account_id, acknowledge_secrets=False):
     if visibility not in VISIBILITIES:
         raise APIError("INVALID_INPUT", "Visibility must be private or public.")
     with connect(db_path) as conn:
         project = _managed(conn, project_id, account_id)
         # Going public cannot be taken back once someone has read it, so it is never a stray click.
-        if visibility == "public" and project["visibility"] != "public" and confirm != project["repo_id"]:
-            raise APIError("CONFIRMATION_MISMATCH", "Type the project name exactly to make it public.", 400)
+        if visibility == "public" and project["visibility"] != "public":
+            if project["suspended_at"]:
+                raise APIError("PROJECT_SUSPENDED", "This project was taken down and cannot be made public. Contact support@tenonai.cn.", 403)
+            if confirm != project["repo_id"]:
+                raise APIError("CONFIRMATION_MISMATCH", "Type the project name exactly to make it public.", 400)
+            snapshot = _head(conn, project_id)["snapshot"]
+            found = find_secrets(snapshot) if snapshot else []
+            if found and acknowledge_secrets is not True:
+                raise APIError("POSSIBLE_SECRETS", "Some objects may contain credentials.", 409, {"objects": found[:REPORT_MAX]})
         conn.execute("UPDATE projects SET visibility = ? WHERE id = ?", (visibility, project_id))
         return {"project": _view(conn, project, visibility=visibility)}
 
@@ -74,6 +83,7 @@ def transfer_project(db_path, project_id, team_id, confirm, account_id):
         if (owner, team_id or None) != (project["account_id"], project["team_id"]):
             if _name_taken(conn, project["repo_id"], owner, team_id):
                 raise APIError("NAME_TAKEN", f"A project named {project['repo_id']} already exists there.", 409)
+            require_project_slot(conn, owner, team_id)
             conn.execute("UPDATE projects SET account_id = ?, team_id = ?, owner = ? WHERE id = ?",
                          (owner, team_id or None, team_id or owner, project_id))
         return {"project": _view(conn, project, account_id=owner, team_id=team_id or None)}

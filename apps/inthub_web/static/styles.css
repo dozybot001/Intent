@@ -4617,9 +4617,67 @@ html:has(.settings-dialog[open]) {
 
 .auth-layout {
   display: grid;
+  grid-template-columns: minmax(0, 520px) minmax(0, 400px);
+  justify-content: center;
   align-items: safe center;
-  justify-items: center;
-  padding: 24px 16px 48px;
+  gap: 40px 72px;
+  padding: 24px var(--gutter) 48px;
+}
+
+.auth-layout:has(> .auth-pitch.is-hidden) {
+  grid-template-columns: minmax(0, 400px);
+}
+
+.auth-pitch {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.auth-pitch h2 {
+  font-size: 36px;
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.auth-pitch > p {
+  color: var(--ink-2);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.auth-points {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.auth-points li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.auth-points svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.auth-points strong {
+  margin-right: 4px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.auth-start {
+  min-width: 0;
 }
 
 .auth-panel {
@@ -4792,11 +4850,54 @@ html:has(.settings-dialog[open]) {
   text-decoration: underline;
 }
 
-.auth-footer {
-  padding: 20px var(--gutter) 28px;
+.site-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+  padding: 32px var(--gutter) 24px;
   color: var(--muted);
   font-size: 12.5px;
+}
+
+.site-footer a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.site-footer a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.auth-footer {
+  padding-top: 20px;
+}
+
+.not-found {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 12px;
+  min-height: 100dvh;
+  padding: 24px 16px;
   text-align: center;
+}
+
+.not-found h1 {
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.not-found p {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.not-found .button {
+  margin-top: 8px;
 }
 
 .login-transition {
@@ -4962,6 +5063,10 @@ html:has(.settings-dialog[open]) {
 }
 
 @media (max-width: 1024px) {
+  .auth-layout {
+    grid-template-columns: minmax(0, 520px);
+  }
+
   .command-trigger {
     width: 34px;
     padding: 0;
@@ -5339,6 +5444,10 @@ html:has(.settings-dialog[open]) {
 
   .setup-step::before {
     grid-row: auto;
+  }
+
+  .auth-pitch h2 {
+    font-size: 26px;
   }
 
   .auth-content {

@@ -6,10 +6,18 @@
     <meta name="color-scheme" content="light dark">
     <meta name="theme-color" content="#fafafa">
     <title>IntHub</title>
+    <meta name="description" content="Semantic history for agent-driven development: goals, verified checkpoints and decisions that carry across sessions and teammates.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="IntHub">
+    <meta property="og:title" content="IntHub">
+    <meta property="og:description" content="Semantic history for agent-driven development: goals, verified checkpoints and decisions that carry across sessions and teammates.">
+    <meta property="og:url" content="https://inthub.tenon.asia/">
+    <meta property="og:image" content="https://inthub.tenon.asia/og.png">
+    <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" type="image/svg+xml" href="/tenon-mark.svg">
     <link rel="preload" href="/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <script src="/theme.js?rev=options-1"></script>
-    <link rel="stylesheet" href="/styles.css?rev=options-1">
+    <script src="/theme.js?rev=saas-1"></script>
+    <link rel="stylesheet" href="/styles.css?rev=saas-1">
   </head>
   <body>
     <div class="shell" id="shell" data-active-tab="overview">
@@ -153,6 +161,14 @@
           </div>
         </div>
         <div class="page-content is-hidden" id="site-content" tabindex="-1"></div>
+        <footer class="site-footer">
+            <a href="https://tenon.asia/legal/terms/" target="_blank" rel="noopener noreferrer">Terms</a>
+            <a href="https://tenon.asia/privacy/" target="_blank" rel="noopener noreferrer">Privacy</a>
+            <a href="https://tenon.asia/legal/acceptable-use/" target="_blank" rel="noopener noreferrer">Acceptable use</a>
+            <a href="mailto:support@tenonai.cn">Contact</a>
+            <a class="is-hidden" id="report-link" href="mailto:support@tenonai.cn">Report this project</a>
+            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">湘ICP备2026031578号-1</a>
+        </footer>
       </main>
 
       <div class="sheet-overlay" id="drawer-overlay"></div>
@@ -222,6 +238,16 @@
         </header>
 
         <div class="auth-layout">
+          <section class="auth-pitch" id="auth-pitch" aria-labelledby="auth-pitch-title">
+            <h2 id="auth-pitch-title">Semantic history for agent-driven development</h2>
+            <p>Intent records what each session set out to do, what it verified and what it decided. IntHub keeps that history with your team, so the next session picks up where the last one stopped.</p>
+            <ul class="auth-points">
+              <li data-icon="intent"><span><strong>Intents</strong> Goals, and how they relate.</span></li>
+              <li data-icon="timeline"><span><strong>Snaps</strong> Verified checkpoints, with the next step.</span></li>
+              <li data-icon="decision"><span><strong>Decisions</strong> Rules that stay binding across sessions.</span></li>
+            </ul>
+            <div class="auth-start" id="auth-start"></div>
+          </section>
           <div class="auth-panel">
             <div class="auth-content">
               <img class="auth-mark brand-mark" src="/inthub-mark.svg?rev=3" alt="" width="48" height="48">
@@ -253,8 +279,12 @@
           </div>
         </div>
 
-        <footer class="auth-footer">
-          <span>Goals, checkpoints and decisions for agent-driven development.</span>
+        <footer class="site-footer auth-footer">
+            <a href="https://tenon.asia/legal/terms/" target="_blank" rel="noopener noreferrer">Terms</a>
+            <a href="https://tenon.asia/privacy/" target="_blank" rel="noopener noreferrer">Privacy</a>
+            <a href="https://tenon.asia/legal/acceptable-use/" target="_blank" rel="noopener noreferrer">Acceptable use</a>
+            <a href="mailto:support@tenonai.cn">Contact</a>
+            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">湘ICP备2026031578号-1</a>
         </footer>
       </section>
     </div>
@@ -335,8 +365,8 @@
     </dialog>
 
     <div id="help-popover" class="help-popover" role="tooltip" popover="manual" tabindex="0" hidden></div>
-    <script src="/i18n.js?rev=options-1" defer></script>
-    <script src="/help.js?rev=options-1" defer></script>
-    <script src="/app.js?rev=options-1" defer></script>
+    <script src="/i18n.js?rev=saas-1" defer></script>
+    <script src="/help.js?rev=saas-1" defer></script>
+    <script src="/app.js?rev=saas-1" defer></script>
   </body>
 </html>

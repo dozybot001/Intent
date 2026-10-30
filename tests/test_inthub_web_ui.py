@@ -612,6 +612,26 @@ def test_no_control_falls_back_to_the_browsers_own_look():
         assert f'type="{kind}"' not in html + javascript
 
 
+def test_visitors_see_what_this_is_and_every_page_names_its_operator():
+    html = _static("index.html")
+    javascript = _static("app.js")
+    markup = _MarkupTags(html)
+    # The sign-in page says what the product is, in the markup, and how to start.
+    pitch = markup.by_id("auth-pitch")
+    assert pitch[0] == "section" and "Semantic history for agent-driven development" in html
+    assert 'el.authStart.innerHTML = commandSnippet([INSTALL_COMMAND, "itt init"]);' in javascript
+    # Someone reading a public project who chose to sign in is not shown the pitch.
+    assert 'el.authPitch.classList.toggle("is-hidden", keepPage);' in javascript
+    # The operator's terms, privacy policy, contact and filing number, on the app and on the sign-in page.
+    assert html.count('class="site-footer') == 2
+    for target in ("https://tenon.asia/legal/terms/", "https://tenon.asia/privacy/", "https://tenon.asia/legal/acceptable-use/",
+                   "mailto:support@tenonai.cn", "https://beian.miit.gov.cn/"):
+        assert html.count(f'href="{target}"') >= 2, target
+    # Public projects can be reported; a project's managers have no need to.
+    assert 'id="report-link"' in html and 'project?.visibility === "public" && !canManageProject()' in javascript
+    assert 'property="og:image"' in html and (STATIC_DIR / "og.png").is_file()
+
+
 def test_settings_open_in_one_fixed_size_dialog_over_the_page():
     css = _static("styles.css")
     html = _static("index.html")
@@ -635,7 +655,7 @@ def test_site_pages_have_their_own_routes_without_project_chrome():
     css = _static("styles.css")
     javascript = _static("app.js")
     assert 'const ACCOUNT_PATHS = { profile: "/account", danger: "/account/danger" };' in javascript
-    assert 'const SETTINGS_PATHS = { tokens: "/settings", teams: "/settings/teams" };' in javascript
+    assert 'const SETTINGS_PATHS = { tokens: "/settings", teams: "/settings/teams", usage: "/settings/usage" };' in javascript
     assert "accountContent" not in javascript and "is-account" not in javascript + css
     assert '<div class="page-content is-hidden" id="site-content" tabindex="-1"></div>' in html
     # Home, account, team and invite pages hide what belongs to a project, search included.
@@ -967,8 +987,8 @@ def test_timeline_pages_from_the_snaps_endpoint_and_search_reports_truncation():
 
 def test_static_revision_names_the_current_interface():
     for name in ("index.html", "auth-redirect.html"):
-        assert "rev=teams-1" not in _static(name) and "rev=history-1" not in _static(name)
-        assert "rev=options-1" in _static(name)
+        assert "rev=options-1" not in _static(name) and "rev=history-1" not in _static(name)
+        assert "rev=saas-1" in _static(name)
 
 
 

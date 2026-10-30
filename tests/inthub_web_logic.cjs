@@ -1276,6 +1276,24 @@ async function settingsCases() {
     assert.equal(routes.join(), 'replace');
     assert.equal(routeUrl(), '/?project=p');
 
+    // Usage: each owner's allowance, in the units a person reads.
+    assert.equal(formatBytes(512), '512 B');
+    assert.equal(formatBytes(1536), '1.5 KB');
+    assert.equal(formatBytes(1024 ** 3), '1.0 GB');
+    assert.equal(formatBytes(300 * 1024 ** 2), '300 MB');
+    reply = (url) => url === '/api/v1/usage' ? {owners: [
+      {type: 'account', name: null, projects: 3, projects_limit: 100, storage_bytes: 1536, storage_limit: 1024 ** 3},
+      {type: 'team', name: 'Acme <Inc>', projects: 1, projects_limit: 100, storage_bytes: 0, storage_limit: 1024 ** 3},
+    ]} : {};
+    openSettingsDialog('settings', 'usage');
+    await flush();
+    assert.equal(routeUrl(), '/settings/usage');
+    page = el.settingsDialogBody.innerHTML;
+    assert.ok(page.includes('个人') && page.includes('3 / 100 个项目') && page.includes('历史存储 1.5 KB / 1.0 GB') && page.includes('Acme &lt;Inc&gt;'));
+    assert.ok(page.includes('href="/settings/usage" data-route aria-current="page"><svg'));
+    closeSettingsDialog({history: 'none'});
+    assert.equal(state._usage, null);
+
     reply = (url) => url === '/api/v1/auth/tokens' ? {tokens: [
       {id: 'pat_used', name: 'laptop', created_at: iso(-day), expires_at: iso(80 * day), last_used_at: iso(-3600000), revoked_at: null},
       {id: 'pat_idle', name: 'ci-runner', created_at: iso(-2 * day), expires_at: iso(20 * day), last_used_at: null, revoked_at: null},

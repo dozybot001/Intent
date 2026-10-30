@@ -103,10 +103,20 @@ Hooks 只写入项目内的文件（`.codex/hooks.json`、`.claude/settings.loca
 ## 用 IntHub 浏览与共享（可选）
 
 - **本地：** `itt hub start`，然后 `itt remote add origin http://127.0.0.1:7210 --project NAME` 和 `itt push`。IntHub Local 只接受回环地址上的同源请求。
-- **托管：** [inthub.tenon.asia](https://inthub.tenon.asia)，由榫卯 Tenon AI 运营。运行 `itt auth login`，用 Tenon 账号在浏览器里批准代码，再 `itt push`。项目默认私有，可以共享给团队（`--project 团队/项目`），也可以在项目设置里公开。在同一菜单删除账号会清除其云端数据（本地 `.intent/` 不受影响）。
+- **托管：** [inthub.tenon.asia](https://inthub.tenon.asia)，由榫卯 Tenon AI 运营。运行 `itt auth login`，用 Tenon 账号在浏览器里批准代码，再 `itt push`。每个账号和团队可以保存 100 个项目和 1 GB 历史。项目默认私有，可以共享给团队（`--project 团队/项目`），也可以在项目设置里公开。在同一菜单删除账号会清除其云端数据（本地 `.intent/` 不受影响）。
 - **在另一处恢复：** `itt init`、`itt remote add origin URL --project NAME`、`itt pull`。
 
-目前每个项目只有一份共享历史：push 和 pull 只做快进；如果两份副本同时记录，`itt status` 会报告 `diverged`，且不改动任何一方。Git 式的分支与合并是下一个里程碑（[设计](docs/CN/semantic-git.md)）。
+目前每个项目只有一份共享历史：push 和 pull 只做快进。如果两份副本同时记录，`itt status` 会报告 `diverged`，双方都不会被改动，直到你运行 `itt pull --rebase`：远端对象保持原样，只有本地才有的对象换用下一个空闲 ID，再用 `itt push` 共享。Git 式的分支与合并是下一个里程碑（[设计](docs/CN/semantic-git.md)）。
+
+## 卸载
+
+```bash
+itt maintenance off --remove-hooks    # 在每个项目里运行：从 Agent 设置中移除 Intent 的钩子
+rm -rf .intent                        # 在每个项目里运行，如果也想删除它的历史
+rm -rf ~/.local/share/intent ~/.local/bin/itt
+```
+
+用 `npx skills` 安装的 Skill 用 `npx skills remove intent-cli -g` 移除。IntHub 令牌在过期前一直有效，可以在设置里作废。
 
 ## 状态
 

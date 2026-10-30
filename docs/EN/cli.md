@@ -91,8 +91,8 @@ Git is optional. Intent owns semantic history independently of the source reposi
 | `itt remote [-v]` | Show IntHub endpoint and project. |
 | `itt remote add origin URL --project NAME` | Configure the shared project; default name is the semantic root directory name. Use `TEAM/NAME` for a team's project. |
 | `itt push [--project NAME] [--api-base-url URL] [--dry-run]` | Link when needed, then save a revision. Identical content creates no version; preview has no remote writes. |
-| `itt pull [--project NAME] [--api-base-url URL] [--dry-run]` | Advance unchanged local history, preserve local-only changes, reject divergence without overwriting either side. |
-| `itt auth login / status / logout` | Account credentials are shared across projects through the credential helper. |
+| `itt pull [--project NAME] [--api-base-url URL] [--dry-run] [--rebase]` | Advance unchanged local history, preserve local-only changes, reject divergence without overwriting either side. |
+| `itt auth login / status / logout` | Account sign-in: the terminal shows a code to approve in the browser. The token goes to the Git credential helper, or to a private `credentials.json` beside the Intent config when there is none, and is shared across projects. |
 | `itt hub start` | Browse IntHub Local. |
 
 Configure copies with the same remote/project: they share one history instead of separate workspaces. Intent/Snap/Decision remain objects within versions. No staging, manual commit, branch, rebase, force mode, or automatic merge is needed.
@@ -379,14 +379,15 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 | `MULTIPLE_OPEN_INTENTS` | `intent cancel` omitted the target and several intents are `active` or `suspend` |
 | `WORKSPACE_BUSY` | Another Intent command still holds the workspace write lock; details identify its PID, operation, and start time when available |
 | `GLOBAL_CONFIG_ERROR` | The user-level IntHub endpoint config is invalid or cannot be written |
-| `CREDENTIAL_STORE_ERROR` | Git's configured credential helper could not persist or remove the account token |
+| `CREDENTIAL_STORE_ERROR` | Neither Git's credential helper nor the Intent config folder could hold the account token |
 | `HUB_NOT_CONFIGURED` | IntHub API base URL is missing |
 | `NOT_LINKED` | Remote shared project is not linked; normal push links it as needed |
 | `PERMISSION_DENIED` | The account has read-only access to this team project |
 | `TEAM_NOT_FOUND` | The team does not exist or the account is not a member |
 | `REMOTE_CHANGED` | Endpoint or project identity changed; select explicitly with remote add |
-| `NON_FAST_FORWARD` | Remote changed; push preserved it. Pull first; resolve divergence explicitly |
-| `HISTORY_DIVERGED` | Both local and remote changed; neither history was overwritten |
+| `NON_FAST_FORWARD` | Remote changed; push preserved it. Pull first, with `itt pull --rebase` if the histories diverged |
+| `HISTORY_DIVERGED` | Both local and remote changed; neither history was overwritten. `itt pull --rebase` puts local work on top of the remote |
+| `QUOTA_EXCEEDED` | The account or team reached its limit of 100 projects or 1 GB of history storage |
 | `HUB_STATE_INVALID` | Local remote or baseline state is malformed |
 | `INVALID_LOCAL_SNAPSHOT` | Local Intent history is not a valid complete graph; run `itt doctor` before pulling |
 | `INVALID_REMOTE_SNAPSHOT` | The downloaded snapshot identity, version, schema, or graph is invalid |

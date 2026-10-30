@@ -15,7 +15,7 @@ RUN groupadd --gid 10001 inthub \
 
 # The pinned binary wheel carries libpq, eliminating a floating apt snapshot
 # from the release recipe while retaining an exact application dependency.
-RUN python -m pip install --no-cache-dir --index-url https://mirrors.cloud.tencent.com/pypi/simple "psycopg[binary]==3.3.4" "Authlib==1.6.12" "httpx==0.28.1"
+RUN python -m pip install --no-cache-dir --index-url https://mirrors.cloud.tencent.com/pypi/simple "psycopg[binary]==3.3.4" "Authlib==1.9.1" "httpx==0.28.1"
 
 COPY --chown=inthub:inthub . /app
 
