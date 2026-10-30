@@ -497,7 +497,29 @@ def test_claude_code_host_is_explicit_and_leaves_codex_untouched(tmp_path):
                              "--root", str(tmp_path.resolve())]
     status = cli(tmp_path, "maintenance", "status", "--host", "claude-code")["result"]
     assert status["hooks"]["configured"] and not status["observations"]["entry_seen"]
-    assert cli(tmp_path, "maintenance", "status")["result"]["hooks"]["configured"] is False
+    # Without --host, status reports the host this project is configured for.
+    assert cli(tmp_path, "maintenance", "status")["result"]["hooks"]["host"] == "claude-code"
+    assert cli(tmp_path, "maintenance", "status", "--host", "codex")["result"]["hooks"]["configured"] is False
+
+
+@pytest.mark.parametrize("environment, folders, expected", [
+    ({"CLAUDECODE": "1"}, (), "claude-code"),
+    ({"CODEX_THREAD_ID": "t"}, (".claude",), "codex"),
+    ({}, (".claude",), "claude-code"),
+    ({}, (".codex",), "codex"),
+    ({}, (".codex", ".claude"), "codex"),  # ambiguous without a terminal to ask: the documented default
+])
+def test_init_picks_the_agent_in_use(tmp_path, monkeypatch, environment, folders, expected):
+    home = tmp_path / "home"
+    for folder in folders:
+        (home / folder).mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    for name, value in environment.items():
+        monkeypatch.setenv(name, value)
+    project = tmp_path / "project"
+    project.mkdir()
+    result = cli(project, "init")
+    assert result["result"]["maintenance"]["hooks"]["host"] == expected
 
 
 def test_claude_merge_preserves_settings_and_off_removes_only_intent_entries(tmp_path):
@@ -589,7 +611,7 @@ def test_claude_entry_issues_token_and_stop_allows_one_closure_retry(claude_proj
     assert read_state(base)["turns"][key]["stop_checked"] is True
     observations = cli(root, "maintenance", "status", "--host", "claude-code")["result"]["observations"]
     assert observations["entry_seen"] and observations["stop_checked_receipt"]
-    assert cli(root, "maintenance", "status")["result"]["observations"]["entry_seen"] is False
+    assert cli(root, "maintenance", "status", "--host", "codex")["result"]["observations"]["entry_seen"] is False
 
 
 def test_claude_missing_receipt_releases_after_one_retry(claude_project):

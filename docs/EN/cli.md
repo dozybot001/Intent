@@ -21,7 +21,7 @@ The CLI is intentionally small:
 | Command | What it does |
 |---|---|
 | `itt version` | Print CLI version |
-| `itt init [--host codex\|claude-code]` | Initialize `.intent/`, enable project-local continuous maintenance, and install local hooks for the chosen host (default Codex); Git is optional |
+| `itt init [--host codex\|claude-code]` | Initialize `.intent/`, enable project-local continuous maintenance, and install local hooks for the host. Without `--host` it uses the agent running the command, else the only agent installed (`~/.codex` or `~/.claude`), else asks at a terminal, else Codex. Git is optional; the hook file is kept out of Git in this clone. |
 | `itt inspect [--intent ID] [--history N]` | Recovery view with each goal's rationale, latest snap, optional bounded history, active decisions, and full graph warnings |
 | `itt doctor` | Return the same full object-graph diagnosis with an explicit `healthy` result |
 | `itt log [--intent ID] [-n N \| --all]` | List Snaps newest first, like `git log` (default 20) |
@@ -31,7 +31,7 @@ The CLI is intentionally small:
 
 | Command | Behavior |
 |---|---|
-| `itt maintenance status [--host H]` | Read this project's flag and the chosen host's hook configuration without initializing; configuration does not attest execution. |
+| `itt maintenance status [--host H]` | Read this project's flag and the host's hook configuration without initializing; without `--host`, the host this project is configured for. Configuration does not attest execution. |
 | `itt maintenance on / off [--host H]` | Enable/disable only this project. Legacy histories need on once; new init defaults on. `on` installs the chosen host's hooks; `off` also removes Intent's Claude Code entries. No global setting changes. |
 | `itt maintenance close recorded --turn TOKEN [--objects ID ...]` | Agent acknowledges verified changed objects; IDs may be derived from the entry baseline. |
 | `itt maintenance close no-op / failed --turn TOKEN --reason TEXT` | Acknowledge zero writes or failure without manufacturing a Snap. |
@@ -341,6 +341,7 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 | `STATE_CONFLICT` | Illegal state transition |
 | `OBJECT_NOT_FOUND` | Object ID not found |
 | `INVALID_INPUT` | Invalid arguments or missing required input |
+| `AUTH_REQUIRED` | IntHub rejected the request: no access token was sent or it was not accepted; sign in with `itt auth login` |
 | `INVALID_RELATION` | A relation would relate an intent to itself, duplicate an active relation for the pair, give an intent a second parent, create a cycle, or add a part to an ended intent |
 | `INVALID_OBJECT_ID` | An explicit object ID is not a type-matching local ID such as `intent-001` |
 | `UNSAFE_STORAGE` | `.intent/`, an object directory, lock, or object file redirects through a symlink or escapes its storage boundary |

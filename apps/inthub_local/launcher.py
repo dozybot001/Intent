@@ -61,7 +61,14 @@ def run_local(
             web_static_dir=static_dir,
         )
         url = public_base_url(host, server.server_port)
-        print(f"IntHub Local listening on {url} using {database_path}")
+        print(
+            f"IntHub Local is running at {url} (data: {database_path})\n"
+            "Publish a project to it from that project's folder:\n"
+            f"  itt remote add origin {url} --project NAME\n"
+            "  itt push\n"
+            "Press Ctrl+C to stop.",
+            flush=True,
+        )
         if open_browser:
             opener = browser_opener or webbrowser.open
             opener(url)

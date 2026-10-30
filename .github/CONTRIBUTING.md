@@ -19,7 +19,7 @@ python -m pytest -q
 
 PostgreSQL integration tests are skipped unless `INTHUB_TEST_POSTGRES_URL` points at a disposable database, for example one started with `docker run --rm -e POSTGRES_PASSWORD=test -p 5432:5432 postgres`.
 
-To work on the agent skill locally, install it from your checkout with `npx skills add ./ -g --all`.
+To work on the agent skill locally, install it from your checkout with `npx skills add ./ -g -a claude-code -a codex`.
 
 ## Development Workflow
 

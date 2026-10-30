@@ -45,13 +45,12 @@ Intent 之间还可以建立关系：组成、衍生、继承、依赖、对立�
 # 1. 安装 CLI（macOS / Linux），重复执行即可升级
 curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.sh | bash
 
-# 2. 安装 Agent skill（需要 Node.js）
-npx skills add dozybot001/Intent -g --all
+# 2. 为你使用的 Agent 安装 skill（需要 Node.js；也可以用 -a cursor 等）
+npx skills add dozybot001/Intent -g -a claude-code -a codex
 
 # 3. 在项目中启用（Git 可选）
 cd your-project
-itt init                       # Codex hooks（默认）
-itt init --host claude-code    # 或 Claude Code hooks
+itt init    # 为你使用的 Agent 配置 hooks（也可以指定 --host codex / claude-code）
 ```
 
 然后信任一次项目 hooks：Codex 中打开 `/hooks`；Claude Code 中信任该目录并在 `/hooks` 确认两个 hook。之后照常工作。下次继续时告诉 Agent：*「通过 Intent 恢复这个项目。」*

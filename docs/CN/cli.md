@@ -21,7 +21,7 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 | 命令 | 作用 |
 |---|---|
 | `itt version` | 输出 CLI 版本 |
-| `itt init [--host codex\|claude-code]` | 初始化 `.intent/`，默认开启项目级持续维护并为所选宿主安装本地 hooks（默认 Codex）；Git 可选 |
+| `itt init [--host codex\|claude-code]` | 初始化 `.intent/`，默认开启项目级持续维护并为宿主安装本地 hooks。不指定 `--host` 时，依次使用：正在运行命令的 Agent、本机唯一安装的 Agent（`~/.codex` 或 `~/.claude`）、在终端中询问、默认 Codex。Git 可选；hooks 文件会从当前克隆的 Git 中排除。 |
 | `itt inspect [--intent ID] [--history N]` | 恢复视图，返回目标原因、最新 Snap、可选的受限历史、有效 Decision 和完整图诊断 |
 | `itt doctor` | 返回同一套完整对象图诊断，并显式给出 `healthy` 结果 |
 | `itt log [--intent ID] [-n N \| --all]` | 按时间倒序列出 Snap，类似 `git log`（默认 20 条） |
@@ -31,7 +31,7 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 
 | 命令 | 作用 |
 |---|---|
-| `itt maintenance status [--host H]` | 只读查询本项目开关与所选宿主的 hooks 配置；不初始化，不假定宿主已经执行。 |
+| `itt maintenance status [--host H]` | 只读查询本项目开关与宿主的 hooks 配置；不指定 `--host` 时查看本项目已配置的宿主。不初始化，不假定宿主已经执行。 |
 | `itt maintenance on / off [--host H]` | 本项目开启/关闭；旧版历史需开启一次，新 init 默认开启。`on` 安装所选宿主的 hooks，`off` 同时移除 Intent 的 Claude Code 条目；不改全局设置。 |
 | `itt maintenance close recorded --turn TOKEN [--objects ID ...]` | Agent 提交当前轮已验证变化的回执，ID 可从开头快照差异推导。 |
 | `itt maintenance close no-op / failed --turn TOKEN --reason TEXT` | 零写入或失败如实收尾，不为回执制造 Snap。 |
@@ -341,6 +341,7 @@ stateDiagram-v2
 | `STATE_CONFLICT` | 状态流转非法 |
 | `OBJECT_NOT_FOUND` | 找不到对应对象 ID |
 | `INVALID_INPUT` | 参数非法或缺少必填输入 |
+| `AUTH_REQUIRED` | IntHub 拒绝了请求：没有发送访问令牌或令牌无效；用 `itt auth login` 登录 |
 | `INVALID_RELATION` | 关系会让 intent 关联自己、与同一对 intent 的有效关系重复、出现第二个上级、形成环，或给已结束的 intent 新增组成部分 |
 | `INVALID_OBJECT_ID` | 显式对象 ID 不是与类型匹配的本地 ID，例如 `intent-001` |
 | `UNSAFE_STORAGE` | `.intent/`、对象目录、锁或对象文件通过符号链接重定向，或越出存储边界 |

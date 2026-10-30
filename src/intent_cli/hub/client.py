@@ -4,6 +4,7 @@ import http.client
 import json
 import socket
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from intent_cli.output import error
@@ -120,6 +121,10 @@ def _decode_error_response(raw_bytes):
     return {"response_type": type(body).__name__}
 
 
+# The hosted IntHub needs no --api-base-url in login hints.
+OFFICIAL_ORIGIN = "https://inthub.tenon.asia"
+
+
 def http_json(
     method,
     url,
@@ -160,9 +165,20 @@ def http_json(
             except (OSError, http.client.HTTPException):
                 raw_bytes = b""
             response = _decode_error_response(raw_bytes) if raw_bytes else {}
+            if exc.code == 401:
+                origin = "{0.scheme}://{0.netloc}".format(urllib.parse.urlsplit(url))
+                login = "itt auth login" + ("" if origin == OFFICIAL_ORIGIN else f" --api-base-url {origin}")
+                error(
+                    "AUTH_REQUIRED",
+                    f"{origin} did not accept the access token." if token else f"Sign in to {origin} first.",
+                    details={"url": url, "status": exc.code},
+                    suggested_fix=f"Sign in at {origin}, create an access token in the account menu, then run: {login}",
+                )
+            server_error = response.get("error") if isinstance(response, dict) else None
+            message = server_error.get("message") if isinstance(server_error, dict) else None
             error(
                 "SERVER_ERROR",
-                f"IntHub request failed with status {exc.code}.",
+                message if isinstance(message, str) and message else f"IntHub request failed with status {exc.code}.",
                 details={
                     "url": url,
                     "status": exc.code,

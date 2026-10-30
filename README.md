@@ -45,13 +45,12 @@ With continuous maintenance on, each agent turn opens with the current state (in
 # 1. Install the CLI (macOS / Linux). Re-run any time to upgrade.
 curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.sh | bash
 
-# 2. Add the agent skill (needs Node.js)
-npx skills add dozybot001/Intent -g --all
+# 2. Add the agent skill for your agents (needs Node.js; -a cursor etc. also work)
+npx skills add dozybot001/Intent -g -a claude-code -a codex
 
 # 3. Turn it on in a project (Git is optional)
 cd your-project
-itt init                       # Codex hooks (default)
-itt init --host claude-code    # or Claude Code hooks
+itt init    # sets up hooks for the agent you use (or pass --host codex / claude-code)
 ```
 
 Then trust the project hooks once: in Codex open `/hooks`; in Claude Code trust the folder and confirm both hooks in `/hooks`. Work as usual. To pick up later, tell the agent: *"Resume this project through Intent."*

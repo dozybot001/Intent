@@ -189,7 +189,7 @@ def main():
     # version / init / inspect / doctor
     sub.add_parser("version", help="print the CLI version")
     p = sub.add_parser("init", help="start recording semantic history in this project")
-    p.add_argument("--host", choices=HOSTS, default="codex", help="agent host whose hooks to install (default: codex)")
+    p.add_argument("--host", choices=HOSTS, default=None, help="agent whose hooks to install (default: the agent in use, or ask)")
     p = sub.add_parser("inspect", help="show open goals, their latest checkpoints and decisions")
     p.add_argument("--intent", default=None, metavar="ID", help="focus on one open intent")
     p.add_argument("--history", type=int, default=None, metavar="N", help="with --intent: include its last N snaps")
@@ -216,7 +216,7 @@ def main():
     p_maintenance = sub.add_parser("maintenance", help="turn per-turn agent recording on or off")
     s_maintenance = p_maintenance.add_subparsers(dest="sub")
     for name in ("status", "on", "off"):
-        s_maintenance.add_parser(name).add_argument("--host", choices=HOSTS, default="codex")
+        s_maintenance.add_parser(name).add_argument("--host", choices=HOSTS, default=None)
     p = s_maintenance.add_parser("close")
     p.add_argument("outcome", choices=("recorded", "no-op", "failed"))
     p.add_argument("--turn", required=True)

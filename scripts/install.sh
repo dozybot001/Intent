@@ -80,4 +80,5 @@ case ":$PATH:" in
   *":$(dirname "$ITT"):"*) ;;
   *) info "Add $(dirname "$ITT") to PATH, e.g. echo 'export PATH=\"$(dirname "$ITT"):\$PATH\"' >> ~/.zshrc" ;;
 esac
-info "Next: run 'itt init' in a project. Agent skill (needs Node.js): npx skills add dozybot001/Intent -g --all"
+info "Next: add the agent skill (needs Node.js): npx skills add dozybot001/Intent -g -a claude-code -a codex"
+info "Then run 'itt init' in a project."

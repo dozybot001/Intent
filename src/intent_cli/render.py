@@ -304,7 +304,8 @@ def _status(result):
         lines = [f"Project {bold(result['project_name'])} · {_counts(result.get('counts'))}"]
         if not result.get("remote_configured", True):
             lines.append("No remote configured; history stays on this machine.")
-            lines.append(dim("  Share it with: itt remote add origin URL --project NAME, then itt push"))
+            lines.append(dim("  Back it up on IntHub: itt auth login, then itt push"))
+            lines.append(dim("  Or use another IntHub: itt remote add origin URL --project NAME"))
         else:
             lines.append("Changes since the last sync." if result.get("local_changes") else "No changes since the last sync.")
         return lines
@@ -364,6 +365,26 @@ def _hooks_line(hooks):
     return [line]
 
 
+HOST_NAMES = {"codex": "Codex", "claude-code": "Claude Code"}
+TRUST_STEPS = {
+    "codex": "In Codex, open /hooks and trust this project's two Intent hooks.",
+    "claude-code": "In Claude Code, trust this folder, then confirm the two Intent hooks in /hooks "
+                   "(restart the session if they are missing).",
+}
+
+
+def _next_steps(hooks):
+    host = (hooks or {}).get("host")
+    if host not in TRUST_STEPS:
+        return []
+    other = "claude-code" if host == "codex" else "codex"
+    return ["", bold("Next"),
+            f"  1. {TRUST_STEPS[host]}",
+            "  2. Work as usual. The agent records goals and verified checkpoints as it goes.",
+            '  3. Next time, tell the agent: "Resume this project through Intent."',
+            dim(f"Also using {HOST_NAMES[other]} here? Run: itt maintenance on --host {other}")]
+
+
 def _maintenance(action):
     def render(result):
         if action == "maintenance.close":
@@ -372,12 +393,24 @@ def _maintenance(action):
         if action == "maintenance.status" and not result.get("initialized"):
             return [f"Intent is not initialized in {result['root']}.", dim("  Run: itt init")]
         enabled = "on" if result.get("enabled") else "off"
-        return [f"Continuous maintenance is {bold(enabled)} for {result['root']}"] + _hooks_line(result.get("hooks"))
+        lines = [f"Continuous maintenance is {bold(enabled)} for {result['root']}"] + _hooks_line(result.get("hooks"))
+        if action == "maintenance.on" and (result.get("hooks") or {}).get("configured"):
+            lines += _next_steps(result.get("hooks"))
+        return lines
     return render
 
 
 def _init(result):
-    return [f"Initialized Intent in {result['path']}"] + _maintenance("maintenance.on")(result["maintenance"])[1:]
+    hooks = (result.get("maintenance") or {}).get("hooks") or {}
+    project = os.path.basename(os.path.dirname(result["path"]))
+    lines = [f"Initialized Intent for {bold(project)} {dim('(' + result['path'] + ')')}"]
+    if hooks.get("configured"):
+        lines.append(f"Recording is on for {HOST_NAMES.get(hooks.get('host'), hooks.get('host'))}; "
+                     f"its hooks are in {os.path.relpath(hooks['path'], os.path.dirname(result['path'])) if hooks.get('path') else 'this project'}.")
+        lines += _next_steps(hooks)
+    else:
+        lines += _hooks_line(hooks)
+    return lines
 
 
 def _created(result):

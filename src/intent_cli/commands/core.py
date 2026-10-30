@@ -44,15 +44,17 @@ def cmd_init(args):
         warnings.append(
             "Could not add .intent/ to Git's local exclude file; exclude it manually before recording private semantics."
         )
-    from intent_cli.commands.maintenance import configure, setup_warning
+    from intent_cli.commands.maintenance import choose_host, configure, setup_warning
     from intent_cli.maintenance import MaintenanceError, set_enabled
 
+    host = choose_host(args.host)
     try:
-        maintenance = configure(path, True, args.host)
-        warnings.append(setup_warning(args.host, "maintenance.hooks.setup"))
+        maintenance = configure(path, True, host)
+        if json_mode():  # people get readable next steps from the renderer instead
+            warnings.append(setup_warning(host, "maintenance.hooks.setup"))
     except (MaintenanceError, StorageSecurityError, OSError) as exc:
         set_enabled(path, True)
-        maintenance = {"enabled": True, "hooks": {"host": args.host, "configured": False, "enforcement": "not_attested"}}
+        maintenance = {"enabled": True, "hooks": {"host": host, "configured": False, "enforcement": "not_attested"}}
         warnings.append(f"Local maintenance is enabled but hooks were not installed: {type(exc).__name__}.")
     success("init", {"path": str(path), "maintenance": maintenance}, warnings)
 
@@ -328,7 +330,7 @@ def cmd_intent_create(args):
             relations.append(_relation_entry(kind, target_id))
 
     warnings = []
-    if not decision_ids:
+    if not decision_ids and json_mode():
         warnings.append("No active decisions to attach.")
 
     intent = {
@@ -680,7 +682,7 @@ def cmd_decision_create(args):
             error("OBJECT_NOT_FOUND", f"Intent {source} not found.", suggested_fix="Omit --from for a project-level decision.")
 
     warnings = []
-    if not intent_ids:
+    if not intent_ids and json_mode():
         warnings.append("No active intents to attach.")
 
     decision = {
