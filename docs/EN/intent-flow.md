@@ -88,7 +88,9 @@ The source is not inferred. A project-wide rule written while some goal is activ
 
 IntHub gains a Flow page:
 
-- Each Intent is a node, ordered left to right by creation time. Parts and derived Intents sit below their parent. A successor continues on the same lane, to the right of the Intent it succeeds.
+- Related Intents sit in groups. Groups with open work come first, and they fill the page rightwards, then down. Each Intent is a card with its creation time in the corner.
+- Parts and derived Intents sit one column right of their parent and share one trunk. A successor continues the same row. An Intent that depends on or conflicts with another sits to its right.
+- Ended parts come back to one point on the parent's row. A single line with no successor after it draws no such point.
 - Line styles follow the table above. Node colour only shows status, and always comes with text.
 - Decisions are diamonds on their source Intent. Sourceless Decisions sit in a Project band at the top, and deprecated ones are hollow.
 - Snaps are not nodes. A node shows its Snap count, and clicking it opens the existing detail sheet.

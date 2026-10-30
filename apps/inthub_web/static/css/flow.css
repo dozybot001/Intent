@@ -99,26 +99,6 @@
   font-family: var(--sans);
 }
 
-/* A quiet time axis across the top. */
-.flow-axis-rule {
-  fill: none;
-  stroke: var(--border);
-  stroke-width: 1;
-}
-
-.flow-axis-tick {
-  fill: none;
-  stroke: var(--border-strong);
-  stroke-width: 1;
-}
-
-.flow-axis-label {
-  fill: var(--muted);
-  font-size: 11px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-
 /* Project-level Decisions: chips in a band, each at the column of its time. */
 .flow-band-box {
   fill: var(--surface);
@@ -208,13 +188,18 @@
   fill: var(--canvas);
 }
 
-/* Rejoins and the parent lane they meet stay lighter than the branches. */
-.flow-rejoin .flow-stroke,
-.flow-lane-line {
+/* Rejoins stay lighter than the branches, and meet at one point on the parent's row. */
+.flow-rejoin .flow-stroke {
   fill: none;
   stroke: var(--faint);
   stroke-width: 1.25;
   stroke-linecap: round;
+}
+
+.flow-join {
+  fill: var(--canvas);
+  stroke: var(--faint);
+  stroke-width: 1.5;
 }
 
 .flow-depends .flow-stroke,

@@ -26,14 +26,15 @@ function flowSimplify(points) {
 // half way across, when its box is clear. Otherwise each bend becomes a cubic reaching up to
 // FLOW_BEND.across along a horizontal leg and FLOW_BEND.along along a vertical one, never more than
 // half a shared leg; it shrinks until its control box, which holds the whole curve, clears every card.
-function flowCurve(points, obstacles = []) {
+function flowCurve(points, obstacles = [], bend = null) {
+  const limits = bend || FLOW_BEND;
   const list = flowSimplify(points);
   const start = list[0] || [0, 0];
   if (list.length < 2) return { start, segments: [] };
   const clear = (x1, y1, x2, y2) => !obstacles.some((box) => Math.min(x1, x2) < box.x2 - 0.5 && Math.max(x1, x2) > box.x1 + 0.5
     && Math.min(y1, y2) < box.y2 - 0.5 && Math.max(y1, y2) > box.y1 + 0.5);
   const [p0, p1, p2, p3] = list;
-  if (list.length === 4 && p0[1] === p1[1] && p1[0] === p2[0] && p2[1] === p3[1]
+  if (!bend && list.length === 4 && p0[1] === p1[1] && p1[0] === p2[0] && p2[1] === p3[1]
       && Math.sign(p1[0] - p0[0]) === Math.sign(p3[0] - p2[0]) && clear(p0[0], p0[1], p3[0], p3[1])) {
     const half = (p3[0] - p0[0]) / 2;
     return { start, segments: [{ c1: [p0[0] + half, p0[1]], c2: [p3[0] - half, p3[1]], to: p3 }] };
@@ -49,7 +50,7 @@ function flowCurve(points, obstacles = []) {
     const uIn = [(x - px) / inLength, (y - py) / inLength];
     const uOut = [(nx - x) / outLength, (ny - y) / outLength];
     // The legs at either end keep a short straight piece where they meet a card.
-    const reach = (length, unit, shared) => Math.max(0, Math.min(unit[1] ? FLOW_BEND.along : FLOW_BEND.across, shared ? length / 2 : length - 8));
+    const reach = (length, unit, shared) => Math.max(0, Math.min(unit[1] ? limits.along : limits.across, shared ? length / 2 : length - 8));
     let rIn = reach(inLength, uIn, index > 1);
     let rOut = reach(outLength, uOut, index < list.length - 2);
     const box = () => {
@@ -71,7 +72,7 @@ function flowCurve(points, obstacles = []) {
     const a = [x - uIn[0] * rIn, y - uIn[1] * rIn];
     const b = [x + uOut[0] * rOut, y + uOut[1] * rOut];
     if (Math.hypot(a[0] - at[0], a[1] - at[1]) > 0.01) segments.push({ to: a });
-    const k = FLOW_BEND.fullness;
+    const k = limits.fullness;
     segments.push({ c1: [a[0] + uIn[0] * rIn * k, a[1] + uIn[1] * rIn * k], c2: [b[0] - uOut[0] * rOut * k, b[1] - uOut[1] * rOut * k], to: b });
     at = b;
   }
@@ -132,6 +133,8 @@ function flowArrowHead(end, size) {
 }
 
 const FLOW_WIDE = /[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe4f\uff00-\uff60\uffe0-\uffe6]/;
+// Punctuation that must not start a line; it hangs at the end of the line before, inside the card's padding.
+const FLOW_NO_LINE_START = /^[，。、；：！？）》」』】〉”’…,.;:!?)\]}]$/;
 
 // SVG text does not wrap, so titles are fitted by an estimate that errs on the narrow side
 // (semibold by default; `scale` below 1 for regular text).
@@ -172,7 +175,7 @@ function flowLines(text, maxWidth, size = 13, maxLines = 2, scale = 1) {
   };
   for (let index = 0; index < tokens.length && !overflow; index++) {
     const token = tokens[index];
-    if (fits(line + token)) {
+    if (fits(line + token) || (line && FLOW_NO_LINE_START.test(token))) {
       line += token;
     } else if (token === " ") {
       if (close()) overflow = index < tokens.length - 1;

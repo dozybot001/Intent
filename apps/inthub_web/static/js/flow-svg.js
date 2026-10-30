@@ -30,7 +30,7 @@ function flowLineSvg(line) {
   const settled = line.state === "resolved" ? " is-settled" : "";
   let mark = "";
   if (line.kind === "conflict") {
-    const [mx, my] = flowMidpoint(flowSamples(line.curve));
+    const [mx, my] = line.mark || flowMidpoint(flowSamples(line.curve));
     mark = `<g class="flow-vs"><rect x="${flowNumber(mx - 12)}" y="${flowNumber(my - 8)}" width="24" height="16" rx="8"/><text x="${flowNumber(mx)}" y="${flowNumber(my + 3.5)}" text-anchor="middle">vs</text></g>`;
   } else if (line.kind === "branch") {
     // Where a branch meets the child: a filled dot for a part, a hollow one for a derived Intent.
@@ -74,6 +74,7 @@ function flowNodeSvg(node, layout) {
       <text class="flow-node-id" x="${g.nodeW - 12}" y="25.5" text-anchor="end">${esc(intent.id)}</text>
       ${title.map((line, index) => `<text class="flow-node-title" x="14" y="${50 + index * 17}">${esc(line)}</text>`).join("")}
       <text class="flow-node-meta" x="14" y="${g.nodeH - 12}">${esc(meta.join(" · "))}</text>
+      <text class="flow-node-id" x="${g.nodeW - 12}" y="${g.nodeH - 12}" text-anchor="end">${esc(shortDay(intent.created_at))}</text>
     </g>
   </g>`;
 }
@@ -110,7 +111,7 @@ function flowPinsSvg(node, layout) {
     + (more ? `<text class="flow-pin-more" x="${flowNumber(x + 11)}" y="${flowNumber(rowY(listed.length) + 4)}">${esc(t("+{count} more", {count: more}))}</text>` : "");
 }
 
-// A Project-level Decision: a chip at the column of its time.
+// A Project-level Decision: a chip in the band across the top.
 function flowChipSvg(chip) {
   const { x, y } = chip;
   if (!chip.decision) {
@@ -126,12 +127,6 @@ function flowChipSvg(chip) {
   </g>`;
 }
 
-function flowAxisLabel(time) {
-  const date = new Date(time);
-  const sameYear = date.getFullYear() === new Date().getFullYear();
-  return new Intl.DateTimeFormat(window.IntHubI18n.language, sameYear ? { month: "short", day: "numeric" } : { year: "numeric", month: "short", day: "numeric" }).format(date);
-}
-
 function renderFlowSvg(layout) {
   if (!layout.nodes.length) return "";
   const g = layout.geometry;
@@ -140,20 +135,16 @@ function renderFlowSvg(layout) {
     <filter id="flow-card-shadow" x="-10%" y="-15%" width="120%" height="150%"><feDropShadow class="flow-shadow" dx="0" dy="1" stdDeviation="1.4"/></filter>
     <filter id="flow-card-lift" x="-15%" y="-20%" width="130%" height="170%"><feDropShadow class="flow-shadow-lift" dx="0" dy="5" stdDeviation="6"/></filter>
   </defs>`;
-  const axis = layout.axis.length
-    ? `<g class="flow-axis" aria-hidden="true"><path class="flow-axis-rule" d="M${g.padX} ${n(g.padTop + g.axisH - 6)} H${n(layout.width - g.padX)}"/>${layout.axis.map((tick) => `<path class="flow-axis-tick" d="M${n(tick.x)} ${n(tick.y + g.axisH - 10)} V${n(tick.y + g.axisH - 2)}"/><text class="flow-axis-label" x="${n(tick.x)}" y="${n(tick.y + 11)}">${esc(flowAxisLabel(tick.time))}</text>`).join("")}</g>`
-    : "";
   const band = layout.band
     ? `<g class="flow-band" aria-hidden="true"><rect class="flow-band-box" x="10" y="${n(layout.band.y)}" width="${layout.width - 20}" height="${n(layout.band.height + 6)}" rx="12"/><text class="flow-band-label" x="${g.padX}" y="${n(layout.band.y + 16)}">${esc(t("Project"))}</text></g>${layout.band.chips.map(flowChipSvg).join("")}`
     : "";
-  const laneLines = layout.laneLines.map((line) => `<path class="flow-lane-line" d="M${n(line.x1)} ${n(line.y)} H${n(line.x2)}"/>`).join("");
+  const joins = layout.joins.map((join) => `<circle class="flow-join" cx="${n(join.x)}" cy="${n(join.y)}" r="3.25"/>`).join("");
   // Reading order: the project band, then each card followed by its own Decisions.
   const nodes = layout.nodes.map((node) => flowNodeSvg(node, layout) + flowPinsSvg(node, layout)).join("");
   return `<svg class="flow-svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="group" aria-label="${esc(t("Flow between Intents"))}">
     ${defs}
-    ${axis}
     ${band}
-    <g class="flow-lines" aria-hidden="true">${laneLines}${layout.lines.map(flowLineSvg).join("")}</g>
+    <g class="flow-lines" aria-hidden="true">${layout.lines.map(flowLineSvg).join("")}${joins}</g>
     ${nodes}
   </svg>`;
 }

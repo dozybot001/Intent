@@ -248,6 +248,9 @@ function bindContentClicks() {
 }
 
 function bindKeyboardEvents() {
+  window.addEventListener("resize", () => {
+    if (state.page === "project" && state.activeTab === "flow" && state._flow && flowWidth() !== state._flow.width) renderView();
+  });
   el.drawerClose.addEventListener("click", () => closeDrawer());
   el.drawerBack.addEventListener("click", () => sheetBack().catch((error) => setStatus(error.message, true)));
   el.drawerOverlay.addEventListener("click", (event) => { if (event.detail <= 1) closeDrawer(); });

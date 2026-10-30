@@ -58,7 +58,12 @@ function revealFlowTarget(layout) {
   canvas.scrollTop = top;
 }
 
-function flowLegend() {
+// Only what this graph draws: a reader should not have to skip marks that appear nowhere.
+function flowLegend(layout) {
+  const types = new Set(layout.relations.map((link) => link.type));
+  const kinds = new Set(layout.lines.map((line) => line.kind));
+  const tones = new Set(layout.lines.map(flowLineTone));
+  const pinned = [...layout.nodes.flatMap((node) => node.decisions), ...(layout.band?.chips || []).flatMap((chip) => chip.decision || [])];
   const sample = (className, d, extra = "") => `<svg class="flow-legend-sample" viewBox="0 0 34 16" aria-hidden="true"><g class="flow-line ${className}"><path class="flow-stroke" d="${d}"/>${extra}</g></svg>`;
   const curve = "M2 3C17 3 17 13 31 13";
   const items = [
@@ -74,7 +79,9 @@ function flowLegend() {
     [`<svg class="flow-legend-sample is-mark" viewBox="0 0 16 16" aria-hidden="true"><g class="flow-decision"><path class="flow-decision-shape" d="${flowDiamond(8, 8, 5)}"/></g></svg>`, t("Decision")],
     [`<svg class="flow-legend-sample is-mark" viewBox="0 0 16 16" aria-hidden="true"><g class="flow-decision is-deprecated"><path class="flow-decision-shape" d="${flowDiamond(8, 8, 5)}"/></g></svg>`, t("Deprecated")],
   ];
-  return `<ul class="flow-legend" aria-label="${esc(t("Legend"))}">${items.map(([visual, label]) => `<li>${visual}<span>${esc(label)}</span></li>`).join("")}</ul>`;
+  const shown = [types.has("part_of"), types.has("derived_from"), kinds.has("rejoin"), types.has("succeeds"), types.has("depends_on"), types.has("conflicts_with"),
+    tones.has("attention"), tones.has("settled"), tones.has("danger"), pinned.some((decision) => decision.status !== "deprecated"), pinned.some((decision) => decision.status === "deprecated")];
+  return `<ul class="flow-legend" aria-label="${esc(t("Legend"))}">${items.filter((_, index) => shown[index]).map(([visual, label]) => `<li>${visual}<span>${esc(label)}</span></li>`).join("")}</ul>`;
 }
 
 function flowFocusOptions(intents) {
@@ -106,6 +113,14 @@ function flowCard(intent, decisions) {
     </button>`;
 }
 
+// The width the graph may fill; on a narrower screen the frame scrolls only for a group wider than it.
+function flowWidth() {
+  const page = el.detailContent;
+  if (!page.clientWidth) return undefined;
+  const style = getComputedStyle(page);
+  return page.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - 2;
+}
+
 function renderFlowTab() {
   state._flow ||= { hideEnded: false, focus: "", standalone: PAGE_SIZE };
   const flow = state._flow;
@@ -113,7 +128,8 @@ function renderFlowTab() {
   const decisions = [...(state.overview.active_decisions || []), ...(state.overview.deprecated_decisions || [])];
   const byId = overviewIntentMap();
   if (flow.focus && !byId.has(flow.focus)) flow.focus = "";
-  const layout = flowLayout(intents, decisions, { hideEnded: flow.hideEnded, focus: flow.focus });
+  flow.width = flowWidth();
+  const layout = flowLayout(intents, decisions, { hideEnded: flow.hideEnded, focus: flow.focus, maxWidth: flow.width });
   if (!layout.hasRelations) {
     el.detailContent.innerHTML = pageHeader({ title: t("Flow"), help: "flow" }) + `<div class="flow-empty">${emptyState({
       iconName: "flow",
@@ -152,7 +168,7 @@ function renderFlowTab() {
       <div class="flow-standalone-grid">${cards.map((intent) => flowCard(intent, sourced.get(intent.id) || 0)).join("")}</div>
       ${layout.standalone.length > cards.length ? `<button type="button" class="load-more-btn" id="load-more-flow-standalone">${iconLabel("chevronDown", t("Load more ({count})", {count: layout.standalone.length - cards.length}))}</button>` : ""}
     </section>` : "";
-  el.detailContent.innerHTML = `<div class="flow-page">${header}${flowLegend()}${canvas}${standalone}</div>`;
+  el.detailContent.innerHTML = `<div class="flow-page">${header}${flowLegend(layout)}${canvas}${standalone}</div>`;
   fitFlowText();
   revealFlowTarget(layout);
   // Text measured before the web font arrived is measured again once it has.

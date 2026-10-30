@@ -11,6 +11,7 @@ render-parts.js
 overview.js
 intents.js
 flow-layout.js
+flow-routes.js
 flow-curves.js
 flow-svg.js
 flow-view.js
