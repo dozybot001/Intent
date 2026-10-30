@@ -3,9 +3,11 @@ window.IntHubI18n.bindStatic(document.body);
 
 /* ---- State ---- */
 
-const TABS = ["overview", "intents", "snaps", "decisions"];
+const TABS = ["overview", "intents", "flow", "snaps", "decisions"];
 const DETAIL_PATHS = { intent: "intents", decision: "decisions", snap: "snaps" };
 const PAGE_SIZE = 30;
+// One timeline page from /projects/{id}/snaps; the overview only carries the newest Snaps.
+const SNAP_PAGE_SIZE = 50;
 const INSTALL_COMMAND = "curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.sh | bash";
 
 const state = {
@@ -92,6 +94,9 @@ const ICONS = {
   timeline: '<path d="M6 3.5v13"/><circle cx="6" cy="6.5" r="1.7"/><circle cx="6" cy="13.5" r="1.7"/><path d="M10 6.5h7M10 13.5h7"/>',
   terminal: '<rect x="2.5" y="4" width="15" height="12" rx="2"/><path d="m6 8.5 2.5 2-2.5 2M10.5 13h3.5"/>',
   search: '<circle cx="9" cy="9" r="5.5"/><path d="m13.2 13.2 3.8 3.8"/>',
+  flow: '<path d="M5.5 3v14"/><circle cx="14.5" cy="13" r="2.2"/><path d="M5.5 6.2c0 3.8 9 2.6 9 4.6"/>',
+  focus: '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.8v3M10 14.2v3M2.8 10h3M14.2 10h3"/>',
+  hide: '<path d="M3 10s2.6-5 7-5 7 5 7 5-2.6 5-7 5-7-5-7-5Z"/><path d="m4 16 12-12"/>',
 };
 
 function icon(name) {
@@ -530,8 +535,59 @@ function snapIndex() {
   return snapIndexes.get(overview);
 }
 
+function rememberSnap(snap) {
+  if (!snap?.id) return;
+  const key = snap.remote_id || remoteId(snap.project_id, snap.id);
+  (state._snapCache ||= new Map()).set(key, { ...snap, remote_id: key });
+}
+
+// The overview carries only the newest Snaps; older ones come from timeline pages or detail fetches.
+function knownSnap(rId) {
+  return snapIndex().get(rId) || state._snapCache?.get(rId) || null;
+}
+
 function latestSnapFor(intent) {
-  return intent.latest_snap_id ? snapIndex().get(remoteId(intent.project_id, intent.latest_snap_id)) || null : null;
+  return intent.latest_snap_id ? knownSnap(remoteId(intent.project_id, intent.latest_snap_id)) : null;
+}
+
+function latestSnapCopy(intent) {
+  const snap = latestSnapFor(intent);
+  if (snap) return t("Updated {time}", {time: relativeDate(snap.created_at)});
+  return intent.latest_snap_id ? t("Checkpoint {id}", {id: intent.latest_snap_id}) : t("Checkpoint missing");
+}
+
+// Fetch Snaps that are referenced but not loaded, a few at a time, then refresh only their labels.
+async function fetchMissingSnaps(remoteIds) {
+  const projectId = state.currentProjectId;
+  state._snapPending ||= new Set();
+  state._snapFailed ||= new Set();
+  const queue = [...new Set(remoteIds)].filter((rId) => rId && projectIdFromRemoteId(rId) === projectId
+    && !knownSnap(rId) && !state._snapPending.has(rId) && !state._snapFailed.has(rId));
+  if (!queue.length) return;
+  for (const rId of queue) state._snapPending.add(rId);
+  const worker = async () => {
+    while (queue.length) {
+      const rId = queue.shift();
+      try {
+        const payload = await fetchJson(apiUrl(`/api/v1/snaps/${encodeURIComponent(rId)}`));
+        if (state.currentProjectId !== projectId || !payload?.snap) continue;
+        rememberSnap({ ...payload.snap, project_id: payload.project_id || projectId, remote_id: rId });
+        state._detailCache?.set(`snap:${rId}`, payload);
+      } catch {
+        state._snapFailed.add(rId);
+      } finally {
+        state._snapPending.delete(rId);
+      }
+    }
+  };
+  try {
+    await Promise.all(Array.from({ length: Math.min(4, queue.length) }, worker));
+  } catch { /* labels keep their checkpoint id */ }
+  if (state.currentProjectId !== projectId) return;
+  for (const node of el.detailContent.querySelectorAll("[data-latest-snap]")) {
+    const snap = knownSnap(node.dataset.latestSnap);
+    if (snap) node.textContent = t("Updated {time}", {time: relativeDate(snap.created_at)});
+  }
 }
 
 function intentForSnap(snap) {
@@ -550,6 +606,134 @@ function decisionScope(decision) {
     count: ids.length,
     titles: linked.map((intent) => intent.what),
   };
+}
+
+/* ---- Relations between Intents ----
+   Mirrors src/intent_cli/relations.py. Relations live on the Intent that declares
+   them (the subject B) and point at a target A. Their states are never stored:
+   they follow from the statuses of the two Intents. */
+
+const RELATION_TYPES = ["part_of", "derived_from", "succeeds", "depends_on", "conflicts_with"];
+const PARENT_RELATIONS = new Set(["part_of", "derived_from"]);
+const ENDED_STATUSES = new Set(["done", "cancelled"]);
+const ATTENTION_STATES = new Set(["orphaned", "pending", "blocked", "broken", "unresolved"]);
+
+function activeRelationEntries(intent) {
+  const entries = Array.isArray(intent?.relations) ? intent.relations : [];
+  return entries.filter((entry) => entry && typeof entry === "object" && !("removed_at" in entry)
+    && RELATION_TYPES.includes(entry.type) && typeof entry.intent === "string");
+}
+
+function relationState(kind, subject, target) {
+  const subjectStatus = subject?.status;
+  const targetStatus = target?.status;
+  if (kind === "part_of") {
+    if (subjectStatus === "done") return "done";
+    if (subjectStatus === "cancelled") return "dropped";
+    return ENDED_STATUSES.has(targetStatus) ? "orphaned" : "in_progress";
+  }
+  if (kind === "succeeds") return ENDED_STATUSES.has(targetStatus) ? "handed_over" : "pending";
+  if (kind === "depends_on") return targetStatus === "done" ? "satisfied" : targetStatus === "cancelled" ? "broken" : "blocked";
+  if (kind === "conflicts_with") return ENDED_STATUSES.has(subjectStatus) || ENDED_STATUSES.has(targetStatus) ? "resolved" : "unresolved";
+  return null;
+}
+
+function intentMap(intents) {
+  if (intents instanceof Map) return intents;
+  const map = new Map();
+  for (const intent of intents || []) if (intent?.id && !map.has(intent.id)) map.set(intent.id, intent);
+  return map;
+}
+
+// Every active relation whose two Intents exist, with its derived state.
+function relationLinks(intents) {
+  const byId = intentMap(intents);
+  const links = [];
+  for (const [id, subject] of byId) {
+    for (const entry of activeRelationEntries(subject)) {
+      const target = byId.get(entry.intent);
+      if (!target || entry.intent === id) continue;
+      links.push({ type: entry.type, subject: id, target: entry.intent, state: relationState(entry.type, subject, target) });
+    }
+  }
+  return links;
+}
+
+// Relations touching one Intent, both directions: outgoing first (where it comes from), then by type.
+function relationView(intents, intentId) {
+  const byId = intentMap(intents);
+  const rows = [];
+  for (const link of relationLinks(byId)) {
+    if (link.subject !== intentId && link.target !== intentId) continue;
+    const outgoing = link.subject === intentId;
+    rows.push({ type: link.type, direction: outgoing ? "out" : "in", intent: byId.get(outgoing ? link.target : link.subject), state: link.state });
+  }
+  return rows.sort((left, right) => (left.direction !== "out") - (right.direction !== "out")
+    || RELATION_TYPES.indexOf(left.type) - RELATION_TYPES.indexOf(right.type)
+    || String(left.intent.id).localeCompare(String(right.intent.id)));
+}
+
+function relationLabel(type, direction) {
+  const labels = {
+    part_of: [t("Part of"), t("Parts")],
+    derived_from: [t("Derived from"), t("Spawned")],
+    succeeds: [t("Succeeds"), t("Succeeded by")],
+    depends_on: [t("Depends on"), t("Needed by")],
+    conflicts_with: [t("Conflicts with"), t("Conflicts with")],
+  }[type];
+  return labels ? labels[direction === "out" ? 0 : 1] : String(type || "");
+}
+
+// Read from one side: the prerequisite of an unmet dependency is "blocking", the dependent "blocked".
+function relationStateLabel(key, row = null) {
+  if (key === "blocked" && row?.type === "depends_on" && row.direction === "in") return t("Blocking");
+  return {
+    in_progress: t("In progress"), done: t("Completed"), dropped: t("Dropped"), orphaned: t("Parent ended"),
+    pending: t("Handover pending"), handed_over: t("Handed over"),
+    blocked: t("Blocked"), satisfied: t("Satisfied"), broken: t("Broken dependency"),
+    unresolved: t("Unresolved conflict"), resolved: t("Resolved"),
+  }[key] || "";
+}
+
+function relationTone(key) {
+  if (key === "broken") return "danger";
+  if (ATTENTION_STATES.has(key)) return "attention";
+  if (["satisfied", "handed_over", "resolved", "done"].includes(key)) return "settled";
+  return "neutral";
+}
+
+// A relation state is never shown by colour alone: the pill always carries its label.
+function relationBadge(key, row = null) {
+  if (!key) return "";
+  return `<span class="status-pill rel-state rel-${relationTone(key)}"><span class="status-dot" aria-hidden="true"></span>${esc(relationStateLabel(key, row))}</span>`;
+}
+
+const intentMaps = new WeakMap();
+
+function overviewIntentMap() {
+  const overview = state.overview;
+  if (!overview) return new Map();
+  if (!intentMaps.has(overview)) intentMaps.set(overview, intentMap(overviewIntents()));
+  return intentMaps.get(overview);
+}
+
+// Relations of one Intent against the whole project; a fresher copy of the Intent (handoff, detail) wins.
+function intentRelations(intent) {
+  if (!intent?.id) return [];
+  const byId = new Map(overviewIntentMap());
+  byId.set(intent.id, { ...(byId.get(intent.id) || {}), ...intent });
+  return relationView(byId, intent.id);
+}
+
+function relationContext(intent) {
+  const rows = intentRelations(intent);
+  const parent = rows.find((row) => row.direction === "out" && PARENT_RELATIONS.has(row.type)) || null;
+  return { rows, parent, attention: rows.filter((row) => row !== parent && ATTENTION_STATES.has(row.state)) };
+}
+
+// An open Intent cannot proceed while a dependency is unmet or was cancelled.
+function dependencyBlocked(intent) {
+  return intentRelations(intent).some((row) => row.type === "depends_on" && row.direction === "out" && ["blocked", "broken"].includes(row.state));
 }
 
 /* ---- Checkpoint contract ---- */
@@ -674,7 +858,7 @@ function continuationHealth(intents) {
   const checkpoints = intents.map(intent => snapCheckpointParts(intent.latest_snap).fields);
   const incomplete = checkpoints.filter(checkpoint => !checkpoint.verified || !checkpoint.boundary || !checkpoint.next || !checkpoint.blocker).length;
   if (incomplete) return { ready: false, label: plural(incomplete, "{count} incomplete checkpoint", "{count} incomplete checkpoints") };
-  const blocked = checkpoints.filter(checkpoint => !isClearBlocker(checkpoint.blocker)).length;
+  const blocked = checkpoints.filter((checkpoint, index) => !isClearBlocker(checkpoint.blocker) || dependencyBlocked(intents[index])).length;
   if (blocked) return { ready: false, label: plural(blocked, "{count} blocked objective", "{count} blocked objectives") };
   return { ready: true, label: t("Ready to continue") };
 }
@@ -738,7 +922,7 @@ function detailSection(title, body, count) {
   return `<section class="detail-section"><h3 class="detail-section-title">${esc(title)}${count === undefined ? "" : `<span class="count">${count}</span>`}</h3>${body}</section>`;
 }
 
-function relationItem(type, rId, id, title, meta, status) {
+function relationItem(type, rId, id, title, meta, status, badge = "") {
   const cls = status === "deprecated"
     ? " rel-deprecated"
     : status === "cancelled"
@@ -749,7 +933,7 @@ function relationItem(type, rId, id, title, meta, status) {
   return `<button type="button" class="relation-item${cls}" data-detail-type="${esc(type)}" data-remote-id="${esc(rId)}">
     <span class="row-icon">${icon(type)}</span>
     <span class="relation-title">${esc(title)}</span>
-    ${meta ? `<span class="relation-meta">${esc(meta)}</span>` : ""}
+    ${meta || badge ? `<span class="relation-meta">${badge}${esc(meta)}</span>` : ""}
     <span class="relation-side"><span class="row-id">${esc(id)}</span>${status ? statusBadge(status, type) : ""}</span>
   </button>`;
 }
@@ -778,6 +962,9 @@ function renderView() {
     case "intents":
       renderIntentsTab();
       break;
+    case "flow":
+      renderFlowTab();
+      break;
     case "snaps":
       renderSnapsTab();
       break;
@@ -802,6 +989,27 @@ function syncSelected() {
 
 /* Overview: the continuation brief */
 
+function relatedIntentId(intent, row) {
+  return row.intent.remote_id || remoteId(intent.project_id || state.currentProjectId, row.intent.id);
+}
+
+// Where the goal sits, and only the relations someone has to act on, each named in words.
+function briefRelations(intent) {
+  const { parent, attention } = relationContext(intent);
+  if (!parent && !attention.length) return "";
+  const item = (row, badge) => `
+    <li class="brief-relation">
+      ${badge}
+      <span class="brief-relation-label">${esc(relationLabel(row.type, row.direction))}</span>
+      <button class="brief-relation-target" type="button" data-detail-type="intent" data-remote-id="${esc(relatedIntentId(intent, row))}">${esc(row.intent.what || row.intent.id)}</button>
+      <span class="brief-relation-id">${esc(row.intent.id)}</span>
+    </li>`;
+  return `<ul class="brief-relations" aria-label="${esc(t("Relations"))}">
+    ${parent ? item(parent, ATTENTION_STATES.has(parent.state) ? relationBadge(parent.state, parent) : "") : ""}
+    ${attention.map((row) => item(row, relationBadge(row.state, row))).join("")}
+  </ul>`;
+}
+
 function continuationCard(intent) {
   const snap = intent.latest_snap;
   const checkpoint = parseCheckpoint(snap);
@@ -817,6 +1025,7 @@ function continuationCard(intent) {
           </div>
           <h3 class="brief-title">${esc(intent.what)}</h3>
           ${intent.why ? `<p class="brief-why">${esc(intent.why)}</p>` : ""}
+          ${briefRelations(intent)}
         </div>
         <button class="brief-open" type="button" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">${esc(t("Open Intent"))}${icon("arrow")}</button>
       </header>
@@ -839,12 +1048,14 @@ function pausedRow(intent) {
   const summary = checkpoint.next
     ? `<b>${esc(t("Next"))}</b> ${esc(truncate(checkpoint.next, 200))}`
     : esc(truncate(intent.why || t("No continuation checkpoint recorded."), 200));
+  const { attention } = relationContext(intent);
   return `
     <button class="list-row queue-item" type="button" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
       ${rowStatusIcon(intent.status)}
       <span class="row-main">
         <span class="row-title">${esc(intent.what)}</span>
         <span class="row-summary">${summary}</span>
+        ${attention.length ? `<span class="row-relations">${attention.map((row) => `<span class="row-relation">${relationBadge(row.state, row)}<span>${esc(relationLabel(row.type, row.direction))} ${esc(row.intent.id)}</span></span>`).join("")}</span>` : ""}
       </span>
       <span class="row-meta">
         <span class="row-id">${esc(intent.id)}</span>
@@ -956,11 +1167,15 @@ function briefMarkdown() {
     `${t("Shared history")} ${shortRevision(history.revision)} · ${t("Synced {time}", {time: fmtDate(history.last_synced_at)})}`,
     "",
   ];
+  // The same relations the cards show: the parent, then blockers, conflicts and pending handovers.
+  const relationLine = (row) => `${row.intent.what || row.intent.id} (${row.intent.id})${ATTENTION_STATES.has(row.state) ? ` · ${relationStateLabel(row.state, row)}` : ""}`;
   if (!intents.length) lines.push(t("No active Intent defines the next move."), "");
   for (const intent of intents) {
     const checkpoint = parseCheckpoint(intent.latest_snap);
+    const { parent, attention } = relationContext(intent);
     lines.push(`## ${intent.what} (${intent.id})`, "");
     if (intent.why) lines.push(`${t("Why")}: ${intent.why}`, "");
+    for (const row of [parent, ...attention].filter(Boolean)) lines.push(`- **${relationLabel(row.type, row.direction)}:** ${relationLine(row)}`);
     for (const [label, value] of [[t("Next"), checkpoint.next], [t("Blocker"), checkpoint.blocker], [t("Boundary"), checkpoint.boundary], [t("Verified"), checkpoint.verified]]) {
       lines.push(`- **${label}:** ${value || t("Not explicitly recorded in the latest Snap.")}`);
     }
@@ -968,7 +1183,10 @@ function briefMarkdown() {
     lines.push("");
   }
   if (suspended.length) {
-    lines.push(`## ${t("Suspended")}`, "", ...suspended.map((intent) => `- ${intent.what} (${intent.id})`), "");
+    lines.push(`## ${t("Suspended")}`, "", ...suspended.map((intent) => {
+      const { attention } = relationContext(intent);
+      return `- ${intent.what} (${intent.id})${attention.map((row) => `; ${relationLabel(row.type, row.direction)} ${relationLine(row)}`).join("")}`;
+    }), "");
   }
   lines.push(`## ${t("Active decisions")}`, "");
   lines.push(...(decisions.length ? decisions.map((decision) => `- ${decision.what} (${decision.id})`) : [t("N/A — no active Decision constrains future work.")]));
@@ -977,10 +1195,14 @@ function briefMarkdown() {
 
 /* Intents */
 
+function latestSnapRemoteId(intent) {
+  return intent.latest_snap_id ? remoteId(intent.project_id, intent.latest_snap_id) : "";
+}
+
 function intentEntry(intent) {
-  const snap = latestSnapFor(intent);
   const snaps = (intent.snap_ids || []).length;
   const decisions = (intent.decision_ids || []).length;
+  const latest = latestSnapRemoteId(intent);
   return `
     <button type="button" class="list-row intent-entry intent-entry-${esc(intent.status)}" data-detail-type="intent" data-remote-id="${esc(intent.remote_id)}">
       ${rowStatusIcon(intent.status)}
@@ -991,7 +1213,7 @@ function intentEntry(intent) {
       <span class="row-meta">
         <span class="row-id">${esc(intent.id)}</span>
         <span class="row-meta-line"><span>${esc(plural(snaps, "{count} snap", "{count} snaps"))}</span><span>${esc(plural(decisions, "{count} decision", "{count} decisions"))}</span></span>
-        <span>${esc(snap ? t("Updated {time}", {time: relativeDate(snap.created_at)}) : intent.latest_snap_id ? t("Checkpoint {id}", {id: intent.latest_snap_id}) : t("Checkpoint missing"))}</span>
+        <span${latest ? ` data-latest-snap="${esc(latest)}"` : ""}>${esc(latestSnapCopy(intent))}</span>
       </span>
     </button>`;
 }
@@ -1081,23 +1303,708 @@ function renderIntentsTab() {
       ? intentGroup(t("Suspended"), suspended, "suspend")
       : ""}
     ${archive}`;
+  // Only rows a reader can see ask for their latest Snap; the archive asks when it opens.
+  fetchMissingSnaps([...active, ...suspended, ...(archiveOpen ? visibleArchive : [])].map(latestSnapRemoteId));
+}
+
+/* Flow: Intents as nodes, relations as lines */
+
+const FLOW_GEOMETRY = { nodeW: 188, nodeH: 88, gapX: 56, gapY: 30, padX: 32, padY: 24, inset: 18, bandLabel: 30, bandRow: 22 };
+const FLOW_NODE_DECISIONS = 4;
+const FLOW_BAND_ROWS = 3;
+// Where vertical runs may sit inside a gap, as a share of its width, and where lines may meet a node's side.
+const FLOW_TRACKS = [0.5, 0.3, 0.7, 0.15, 0.85];
+const FLOW_PORTS = {
+  flow: [0, -12, 12, -24, 24, -36, 36],
+  depends: [12, 24, 36, 0, -12, -24, -36],
+  conflict: [-12, -24, -36, 0, 12, 24, 36],
+};
+const FLOW_LINE_ORDER = ["branch", "rejoin", "flow", "depends", "conflict"];
+
+function flowTime(object) {
+  const time = Date.parse(object?.created_at || "");
+  return Number.isFinite(time) ? time : 0;
+}
+
+function byCreation(left, right) {
+  return flowTime(left) - flowTime(right) || String(left.id).localeCompare(String(right.id));
+}
+
+// Lay out the Flow graph: logical columns and lanes, pixel boxes and routed lines. Pure, no DOM.
+// - Columns follow creation time and never go back; a parent or predecessor also pushes the
+//   later Intent at least one column right.
+// - Lanes are rows. A successor continues its predecessor's lane; parts and derived Intents open
+//   lanes below their parent. Branches from later columns sit nearer their lane, so a parent's
+//   trunk only crosses lanes whose nodes all lie further right.
+// - Lines run in the gaps between columns and rows, never through a node box.
+function flowLayout(intents, decisions = [], { hideEnded = false, focus = "", geometry = {} } = {}) {
+  const g = { ...FLOW_GEOMETRY, ...geometry };
+  const byId = intentMap(intents);
+  const links = relationLinks(byId);
+  const focusId = focus && byId.has(focus) ? focus : "";
+  let visible = new Set(byId.keys());
+  if (focusId) {
+    visible = new Set([focusId]);
+    for (const link of links) {
+      if (link.subject === focusId) visible.add(link.target);
+      if (link.target === focusId) visible.add(link.subject);
+    }
+  }
+  if (hideEnded) for (const id of [...visible]) if (id !== focusId && ENDED_STATUSES.has(byId.get(id).status)) visible.delete(id);
+  const relations = links.filter((link) => visible.has(link.subject) && visible.has(link.target));
+  // Standalone means no relation at all; an Intent whose partners are hidden still belongs to the flow.
+  const related = new Set(links.flatMap((link) => [link.subject, link.target]));
+  const shown = [...visible].map((id) => byId.get(id)).sort(byCreation);
+  const placed = focusId ? shown : shown.filter((intent) => related.has(intent.id));
+  const standalone = focusId ? [] : shown.filter((intent) => !related.has(intent.id));
+  const rank = new Map(placed.map((intent, index) => [intent.id, index]));
+
+  const parentOf = new Map();
+  const predecessors = new Map();
+  for (const link of relations) {
+    if (PARENT_RELATIONS.has(link.type) && !parentOf.has(link.subject)) parentOf.set(link.subject, link.target);
+    if (link.type === "succeeds") predecessors.set(link.subject, [...(predecessors.get(link.subject) || []), link.target]);
+  }
+  for (const list of predecessors.values()) list.sort((left, right) => rank.get(left) - rank.get(right));
+  const before = (id) => [parentOf.get(id), ...(predecessors.get(id) || [])].filter((other) => rank.has(other));
+
+  // Creation order, except that a parent or predecessor always comes first. A cycle across
+  // relation families (allowed by the rules) falls back to creation order.
+  const order = [];
+  const done = new Set();
+  while (order.length < placed.length) {
+    const next = placed.find((intent) => !done.has(intent.id) && before(intent.id).every((id) => done.has(id)))
+      || placed.find((intent) => !done.has(intent.id));
+    done.add(next.id);
+    order.push(next);
+  }
+
+  const lanes = [];
+  const laneOf = new Map();
+  const placement = new Map();
+  for (const intent of order) {
+    const id = intent.id;
+    const parent = laneOf.has(parentOf.get(id)) ? parentOf.get(id) : null;
+    const preds = (predecessors.get(id) || []).filter((pred) => laneOf.has(pred));
+    const free = preds.filter((pred) => lanes[laneOf.get(pred)].nodes.at(-1) === pred);
+    // Carry on a predecessor's lane unless that would pull a part away from its own parent.
+    const carry = free.find((pred) => !parent || parentOf.get(pred) === parent || lanes[laneOf.get(pred)].anchor === parent);
+    if (carry) {
+      const lane = lanes[laneOf.get(carry)];
+      lane.nodes.push(id);
+      laneOf.set(id, lane.index);
+      placement.set(id, { kind: "continue", anchor: carry });
+      continue;
+    }
+    const kind = parent ? "child" : preds.length ? "branch" : "root";
+    const anchor = parent || preds[0] || null;
+    lanes.push({ index: lanes.length, nodes: [id], kind, anchor });
+    laneOf.set(id, lanes.length - 1);
+    placement.set(id, { kind, anchor });
+  }
+
+  const colOf = new Map();
+  let ratchet = 0;
+  for (const intent of order) {
+    const lane = lanes[laneOf.get(intent.id)];
+    const index = lane.nodes.indexOf(intent.id);
+    let col = ratchet;
+    if (index > 0) col = Math.max(col, colOf.get(lane.nodes[index - 1]) + 1);
+    for (const other of before(intent.id)) if (colOf.has(other)) col = Math.max(col, colOf.get(other) + 1);
+    colOf.set(intent.id, col);
+    ratchet = col;
+  }
+
+  const childLanes = new Map(lanes.map((lane) => [lane.index, []]));
+  for (const lane of lanes) if (lane.kind !== "root") childLanes.get(laneOf.get(lane.anchor)).push(lane);
+  const headOf = (lane) => lane.nodes[0];
+  const rows = [];
+  const visit = (lane) => {
+    lane.row = rows.length;
+    rows.push(lane);
+    childLanes.get(lane.index)
+      .sort((left, right) => colOf.get(right.anchor) - colOf.get(left.anchor)
+        || colOf.get(headOf(left)) - colOf.get(headOf(right)) || rank.get(headOf(left)) - rank.get(headOf(right)))
+      .forEach(visit);
+  };
+  lanes.filter((lane) => lane.kind === "root").sort((left, right) => rank.get(headOf(left)) - rank.get(headOf(right))).forEach(visit);
+
+  // Project-level (sourceless) Decisions sit in a band at the top, at the column of their time.
+  const knownDecisions = (decisions || []).filter((decision) => decision?.id);
+  const hasSource = (decision) => Boolean(decision.source_intent_id) && byId.has(decision.source_intent_id);
+  const columnAt = (time) => order.reduce((col, intent) => (flowTime(intent) <= time ? Math.max(col, colOf.get(intent.id)) : col), 0);
+  const bandColumns = new Map();
+  for (const decision of (focusId || !placed.length ? [] : knownDecisions.filter((entry) => !hasSource(entry))).sort(byCreation)) {
+    const col = columnAt(flowTime(decision));
+    bandColumns.set(col, [...(bandColumns.get(col) || []), decision]);
+  }
+  const bandItems = [];
+  for (const [col, list] of bandColumns) {
+    const listed = list.length > FLOW_BAND_ROWS ? list.slice(0, FLOW_BAND_ROWS - 1) : list;
+    listed.forEach((decision, row) => bandItems.push({ decision, col, row }));
+    if (list.length > listed.length) bandItems.push({ decision: null, col, row: listed.length, more: list.length - listed.length });
+  }
+  const bandRows = bandItems.reduce((most, item) => Math.max(most, item.row + 1), 0);
+  const bandHeight = bandRows ? g.bandLabel + bandRows * g.bandRow + 14 : 0;
+
+  const colX = (col) => g.padX + col * (g.nodeW + g.gapX);
+  const top = g.padY + bandHeight;
+  const rowY = (row) => top + row * (g.nodeH + g.gapY);
+  const nodes = order.map((intent) => {
+    const x = colX(colOf.get(intent.id));
+    const y = rowY(lanes[laneOf.get(intent.id)].row);
+    const { kind, anchor } = placement.get(intent.id);
+    return { id: intent.id, intent, col: colOf.get(intent.id), lane: lanes[laneOf.get(intent.id)].row, x, y,
+      cx: x + g.nodeW / 2, cy: y + g.nodeH / 2, placement: kind, anchor, decisions: [] };
+  });
+  const nodeOf = new Map(nodes.map((node) => [node.id, node]));
+  const rowNodes = new Map();
+  for (const node of nodes) rowNodes.set(node.lane, [...(rowNodes.get(node.lane) || []), node]);
+  const laneClear = (row, from, to) => !(rowNodes.get(row) || []).some((node) => node.col > Math.min(from, to) && node.col < Math.max(from, to));
+  const maxCol = nodes.reduce((most, node) => Math.max(most, node.col), 0);
+
+  // Vertical runs share the gaps between columns (gap k lies just left of column k);
+  // each run takes its own track so two lines never lie on top of each other.
+  const usedTracks = new Map();
+  const track = (gap, y1, y2, prefer, allowed = FLOW_TRACKS) => {
+    const lo = Math.min(y1, y2) - 10;
+    const hi = Math.max(y1, y2) + 10;
+    const used = usedTracks.get(gap) || [];
+    const share = [...allowed].sort((a, b) => Math.abs(a - prefer) - Math.abs(b - prefer))
+      .find((candidate) => !used.some((entry) => entry.share === candidate && entry.lo < hi && entry.hi > lo)) ?? prefer;
+    used.push({ share, lo, hi });
+    usedTracks.set(gap, used);
+    return Math.max(4, colX(gap) - g.gapX + g.gapX * share);
+  };
+  // Lines meeting the same side of a node do so at their own height.
+  const usedPorts = new Map();
+  const portsOf = (node, side) => {
+    const key = `${node.id}:${side}`;
+    if (!usedPorts.has(key)) usedPorts.set(key, new Set());
+    return usedPorts.get(key);
+  };
+  const reserve = (node, side) => portsOf(node, side).add(0);
+  const port = (node, side, kind) => {
+    const used = portsOf(node, side);
+    const slot = FLOW_PORTS[kind].find((offset) => !used.has(offset)) ?? FLOW_PORTS[kind][0];
+    used.add(slot);
+    return node.cy + slot;
+  };
+  // Along whichever lane is clear, through the gap beside the other end; around on a gap row otherwise.
+  const connect = (from, to, kind, prefer) => {
+    if (to.col === from.col) {
+      const y1 = port(from, "right", kind);
+      const y2 = port(to, "right", kind);
+      const gx = track(from.col + 1, y1, y2, prefer);
+      return [[from.x + g.nodeW, y1], [gx, y1], [gx, y2], [to.x + g.nodeW, y2]];
+    }
+    const forward = to.col > from.col;
+    const exitX = forward ? from.x + g.nodeW : from.x;
+    const enterX = forward ? to.x : to.x + g.nodeW;
+    const y1 = port(from, forward ? "right" : "left", kind);
+    const y2 = port(to, forward ? "left" : "right", kind);
+    const besideTarget = forward ? to.col : to.col + 1;
+    const besideSource = forward ? from.col + 1 : from.col;
+    if (laneClear(from.lane, from.col, to.col)) {
+      if (from.lane === to.lane && y1 === y2) return [[exitX, y1], [enterX, y2]];
+      const gx = track(besideTarget, y1, y2, prefer);
+      return [[exitX, y1], [gx, y1], [gx, y2], [enterX, y2]];
+    }
+    if (laneClear(to.lane, from.col, to.col)) {
+      const gx = track(besideSource, y1, y2, prefer);
+      return [[exitX, y1], [gx, y1], [gx, y2], [enterX, y2]];
+    }
+    const rowLine = from.cy <= to.cy ? to.y - g.gapY / 2 : to.y + g.nodeH + g.gapY / 2;
+    const sx = track(besideSource, y1, rowLine, prefer);
+    const tx = track(besideTarget, rowLine, y2, prefer);
+    return [[exitX, y1], [sx, y1], [sx, rowLine], [tx, rowLine], [tx, y2], [enterX, y2]];
+  };
+  const branch = (from, to) => {
+    const trunk = from.x + g.inset;
+    if (to.placement === "child" && to.anchor === from.id) return [[trunk, from.y + g.nodeH], [trunk, to.cy], [to.x, to.cy]];
+    // A part that carries on another lane: leave the parent into the gap row beside it, run down the gap
+    // after its column, cross on the gap row beside the part and enter it from above or below.
+    const down = to.y >= from.y;
+    const startX = from.x + g.nodeW - g.inset;
+    const enter = to.x + g.inset;
+    const sourceRow = down ? from.y + g.nodeH + g.gapY / 2 : from.y - g.gapY / 2;
+    const targetRow = to.y > from.y ? to.y - g.gapY / 2 : to.y + g.nodeH + g.gapY / 2;
+    const gx = track(from.col + 1, sourceRow, targetRow, 0.5);
+    return [[startX, down ? from.y + g.nodeH : from.y], [startX, sourceRow], [gx, sourceRow], [gx, targetRow], [enter, targetRow], [enter, to.y > from.y ? to.y : to.y + g.nodeH]];
+  };
+
+  const lines = [];
+  const laneEnd = new Map(lanes.map((lane) => [lane.row, nodeOf.get(lane.nodes.at(-1)).x + g.nodeW]));
+  const ends = (link) => [nodeOf.get(link.target), nodeOf.get(link.subject)];
+  const about = (link) => ({ type: link.type, subject: link.subject, target: link.target, state: link.state });
+  const carried = (from, to) => to.lane === from.lane && lanes[laneOf.get(to.id)].nodes[lanes[laneOf.get(to.id)].nodes.indexOf(to.id) - 1] === from.id;
+  const forked = (from, to) => to.placement === "branch" && to.anchor === from.id;
+  // Structure first: branches, rejoins and successions along or off a lane keep the centre ports.
+  for (const link of relations) {
+    const [from, to] = ends(link);
+    if (PARENT_RELATIONS.has(link.type)) {
+      if (to.placement === "child" && to.anchor === from.id) reserve(to, "left");
+      lines.push({ ...about(link), kind: "branch", points: branch(from, to) });
+      // A part that has ended (done or dropped) rejoins its parent's lane.
+      if (link.type === "part_of" && ENDED_STATUSES.has(to.intent.status) && to.lane !== from.lane) {
+        reserve(to, "right");
+        // Its last few pixels turn back along the parent's lane, so it keeps clear of the column edge.
+        const gx = track(to.col + 1, to.cy, from.cy, 0.3, FLOW_TRACKS.filter((share) => share >= 0.3));
+        lines.push({ ...about(link), kind: "rejoin", points: [[to.x + g.nodeW, to.cy], [gx, to.cy], [gx, from.cy], [gx - 12, from.cy]] });
+        laneEnd.set(from.lane, Math.max(laneEnd.get(from.lane), gx));
+      }
+    } else if (link.type === "succeeds" && (carried(from, to) || forked(from, to))) {
+      reserve(from, "right");
+      reserve(to, "left");
+      const gx = carried(from, to) ? 0 : track(from.col + 1, from.cy, to.cy, 0.5);
+      lines.push({ ...about(link), kind: "flow", arrow: true, points: carried(from, to)
+        ? [[from.x + g.nodeW, from.cy], [to.x, to.cy]]
+        : [[from.x + g.nodeW, from.cy], [gx, from.cy], [gx, to.cy], [to.x, to.cy]] });
+    }
+  }
+  for (const type of ["succeeds", "depends_on", "conflicts_with"]) {
+    for (const link of relations.filter((entry) => entry.type === type)) {
+      const [from, to] = ends(link);
+      if (type === "succeeds" && !carried(from, to) && !forked(from, to)) {
+        lines.push({ ...about(link), kind: "flow", arrow: true, points: connect(from, to, "flow", 0.5) });
+      } else if (type === "depends_on") {
+        lines.push({ ...about(link), kind: "depends", arrow: true, points: connect(from, to, "depends", 0.3) });
+      } else if (type === "conflicts_with") {
+        lines.push({ ...about(link), kind: "conflict", points: connect(from, to, "conflict", 0.85) });
+      }
+    }
+  }
+  lines.sort((left, right) => FLOW_LINE_ORDER.indexOf(left.kind) - FLOW_LINE_ORDER.indexOf(right.kind));
+  // A lane line only runs on where an ended part comes back to join it.
+  const lifelines = lanes.map((lane) => {
+    const last = nodeOf.get(lane.nodes.at(-1));
+    const x2 = laneEnd.get(lane.row);
+    return x2 > last.x + g.nodeW + 1 ? { row: lane.row, x1: last.x + g.nodeW, x2, y: last.cy } : null;
+  }).filter(Boolean);
+
+  // Decisions with a source sit on that Intent's node, oldest first; a longer list is counted.
+  for (const decision of knownDecisions.filter((entry) => hasSource(entry) && nodeOf.has(entry.source_intent_id)).sort(byCreation)) {
+    nodeOf.get(decision.source_intent_id).decisions.push(decision);
+  }
+  // A band label may run on until the next Decision in its row, up to two columns.
+  const markers = bandItems.map((item) => {
+    const next = bandItems.filter((other) => other.row === item.row && other.col > item.col).reduce((nearest, other) => Math.min(nearest, other.col), item.col + 2);
+    return {
+      decision: item.decision, more: item.more || 0, source: "", band: true,
+      x: colX(item.col) + 8, y: g.padY + g.bandLabel + item.row * g.bandRow,
+      width: Math.min((Math.min(next, item.col + 2) - item.col) * (g.nodeW + g.gapX) - 40, colX(maxCol) + g.nodeW - colX(item.col) - 8),
+    };
+  });
+  for (const node of nodes) {
+    const shown = node.decisions.slice(0, FLOW_NODE_DECISIONS);
+    shown.forEach((decision, index) => {
+      markers.push({ decision, source: node.id, x: node.x + g.nodeW - 18 - (shown.length - 1 - index) * 17, y: node.y + g.nodeH - 15 });
+    });
+  }
+
+  const reach = Math.max(colX(maxCol) + g.nodeW + g.padX, ...lines.flatMap((line) => line.points.map((point) => point[0] + 16)), ...lifelines.map((line) => line.x2 + 16));
+  return {
+    geometry: g, hasRelations: links.length > 0, focus: focusId, relations, standalone,
+    nodes: [...nodes].sort((left, right) => left.lane - right.lane || left.col - right.col),
+    lines, lifelines, markers,
+    width: nodes.length ? Math.ceil(reach) : 0,
+    height: nodes.length ? Math.ceil(rowY(rows.length - 1) + g.nodeH + g.padY) : 0,
+    columns: nodes.length ? maxCol + 1 : 0, lanes: rows.length,
+    band: bandHeight ? { y: 10, height: g.padY + g.bandLabel + (bandRows - 1) * g.bandRow + 2, labelY: 31 } : null,
+  };
+}
+
+const FLOW_WIDE = /[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe4f\uff00-\uff60\uffe0-\uffe6]/;
+
+// SVG text does not wrap, so titles are fitted by an estimate that errs on the narrow side.
+function flowTextWidth(text, size) {
+  let units = 0;
+  for (const char of String(text)) {
+    units += FLOW_WIDE.test(char) ? 1 : char === " " ? 0.3 : /[ijlrtf.,:;'|!()[\]]/.test(char) ? 0.36 : /[A-Z0-9mwMW@#%&]/.test(char) ? 0.72 : 0.6;
+  }
+  return units * size;
+}
+
+function flowTokens(text) {
+  const tokens = [];
+  let word = "";
+  for (const char of String(text || "").replace(/\s+/g, " ").trim()) {
+    if (char === " " || FLOW_WIDE.test(char)) {
+      if (word) tokens.push(word);
+      word = "";
+      tokens.push(char);
+    } else {
+      word += char;
+    }
+  }
+  if (word) tokens.push(word);
+  return tokens;
+}
+
+function flowLines(text, maxWidth, size = 13, maxLines = 2) {
+  const fits = (value) => flowTextWidth(value, size) <= maxWidth;
+  const tokens = flowTokens(text);
+  const lines = [];
+  let line = "";
+  let overflow = false;
+  const close = () => {
+    lines.push(line.trimEnd());
+    line = "";
+    return lines.length >= maxLines;
+  };
+  for (let index = 0; index < tokens.length && !overflow; index++) {
+    const token = tokens[index];
+    if (fits(line + token)) {
+      line += token;
+    } else if (token === " ") {
+      if (close()) overflow = index < tokens.length - 1;
+    } else {
+      if (line.trim() && close()) {
+        overflow = true;
+        break;
+      }
+      line = "";
+      // A word wider than the whole line breaks between characters.
+      for (const char of token) {
+        if (line && !fits(line + char) && close()) {
+          overflow = true;
+          break;
+        }
+        line += char;
+      }
+    }
+  }
+  if (!overflow && line.trim()) {
+    if (lines.length < maxLines) lines.push(line.trimEnd());
+    else overflow = true;
+  }
+  if (overflow && lines.length) {
+    let last = lines.at(-1);
+    while (last && !fits(`${last}…`)) last = [...last].slice(0, -1).join("");
+    lines[lines.length - 1] = `${last.trimEnd()}…`;
+  }
+  return lines;
+}
+
+function flowNumber(value) {
+  return Math.round(value * 10) / 10;
+}
+
+// An orthogonal polyline with rounded corners.
+function flowPath(points, radius = 8) {
+  const list = points.filter((point, index) => !index || point[0] !== points[index - 1][0] || point[1] !== points[index - 1][1]);
+  if (list.length < 2) return "";
+  let path = `M${flowNumber(list[0][0])} ${flowNumber(list[0][1])}`;
+  for (let index = 1; index < list.length - 1; index++) {
+    const [px, py] = list[index - 1];
+    const [x, y] = list[index];
+    const [nx, ny] = list[index + 1];
+    const inLength = Math.hypot(x - px, y - py);
+    const outLength = Math.hypot(nx - x, ny - y);
+    const r = Math.min(radius, inLength / 2, outLength / 2);
+    path += ` L${flowNumber(x - (x - px) / inLength * r)} ${flowNumber(y - (y - py) / inLength * r)}`
+      + ` Q${flowNumber(x)} ${flowNumber(y)} ${flowNumber(x + (nx - x) / outLength * r)} ${flowNumber(y + (ny - y) / outLength * r)}`;
+  }
+  const [lx, ly] = list.at(-1);
+  return `${path} L${flowNumber(lx)} ${flowNumber(ly)}`;
+}
+
+function flowEnd(points) {
+  const [x, y] = points.at(-1);
+  for (let index = points.length - 2; index >= 0; index--) {
+    const [px, py] = points[index];
+    const length = Math.hypot(x - px, y - py);
+    if (length) return { x, y, ux: (x - px) / length, uy: (y - py) / length, length };
+  }
+  return { x, y, ux: 1, uy: 0, length: 0 };
+}
+
+function flowArrow(points, size) {
+  const { x, y, ux, uy } = flowEnd(points);
+  const bx = x - ux * size;
+  const by = y - uy * size;
+  const half = size * 0.55;
+  return `M${flowNumber(x)} ${flowNumber(y)} L${flowNumber(bx - uy * half)} ${flowNumber(by + ux * half)} L${flowNumber(bx + uy * half)} ${flowNumber(by - ux * half)} Z`;
+}
+
+// Stop the stroke short of an arrow tip so a thick line never pokes through it.
+function flowTrim(points, by) {
+  const { ux, uy, length } = flowEnd(points);
+  if (length <= by) return points;
+  const list = points.map((point) => [...point]);
+  list[list.length - 1] = [list.at(-1)[0] - ux * by, list.at(-1)[1] - uy * by];
+  return list;
+}
+
+function flowMidpoint(points) {
+  const lengths = points.slice(1).map((point, index) => Math.hypot(point[0] - points[index][0], point[1] - points[index][1]));
+  let remaining = lengths.reduce((sum, length) => sum + length, 0) / 2;
+  for (let index = 0; index < lengths.length; index++) {
+    if (remaining <= lengths[index] && lengths[index]) {
+      const ratio = remaining / lengths[index];
+      return [points[index][0] + (points[index + 1][0] - points[index][0]) * ratio, points[index][1] + (points[index + 1][1] - points[index][1]) * ratio];
+    }
+    remaining -= lengths[index];
+  }
+  return points.at(-1);
+}
+
+// Line colour carries relation state; only dependencies turn green once satisfied.
+function flowLineTone(line) {
+  if (line.type === "depends_on") return relationTone(line.state);
+  return ATTENTION_STATES.has(line.state) ? "attention" : "neutral";
+}
+
+function flowLineSvg(line) {
+  const size = line.kind === "flow" ? 10 : 7;
+  const d = flowPath(line.arrow ? flowTrim(line.points, size * 0.7) : line.points);
+  const state = relationStateLabel(line.state);
+  const title = `${line.subject} · ${relationLabel(line.type, "out")} · ${line.target}${state ? ` · ${state}` : ""}`;
+  const settled = line.state === "resolved" ? " is-settled" : "";
+  let mark = "";
+  if (line.kind === "conflict") {
+    const [mx, my] = flowMidpoint(line.points);
+    mark = `<g class="flow-vs"><rect x="${flowNumber(mx - 12)}" y="${flowNumber(my - 8)}" width="24" height="16" rx="8"/><text x="${flowNumber(mx)}" y="${flowNumber(my + 3.5)}" text-anchor="middle">vs</text></g>`;
+  }
+  return `<g class="flow-line flow-${line.kind} flow-type-${line.type} tone-${flowLineTone(line)}${settled}"><title>${esc(title)}</title><path class="flow-hit-line" d="${d}"/><path class="flow-stroke" d="${d}"/>${line.arrow ? `<path class="flow-arrow" d="${flowArrow(line.points, size)}"/>` : ""}${mark}</g>`;
+}
+
+function flowNodeLabel(node, layout) {
+  const intent = node.intent;
+  const parts = [`${intent.id}: ${intent.what || ""}`, intentStatusLabel(intent.status), plural((intent.snap_ids || []).length, "{count} snap", "{count} snaps")];
+  if (node.decisions.length) parts.push(plural(node.decisions.length, "{count} decision", "{count} decisions"));
+  // Spoken in the order of the detail sheet: where it comes from first, then by relation type.
+  const rows = layout.relations
+    .filter((link) => link.subject === node.id || link.target === node.id)
+    .map((link) => ({ link, outgoing: link.subject === node.id }))
+    .sort((left, right) => right.outgoing - left.outgoing || RELATION_TYPES.indexOf(left.link.type) - RELATION_TYPES.indexOf(right.link.type)
+      || String(left.outgoing ? left.link.target : left.link.subject).localeCompare(String(right.outgoing ? right.link.target : right.link.subject)));
+  for (const { link, outgoing } of rows) {
+    const state = relationStateLabel(link.state, { type: link.type, direction: outgoing ? "out" : "in" });
+    parts.push(`${relationLabel(link.type, outgoing ? "out" : "in")} ${outgoing ? link.target : link.subject}${state ? ` (${state})` : ""}`);
+  }
+  return parts.join(". ");
+}
+
+function flowNodeSvg(node, layout) {
+  const g = layout.geometry;
+  const intent = node.intent;
+  const status = ["active", "suspend", "done", "cancelled"].includes(intent.status) ? intent.status : "unknown";
+  const title = flowLines(intent.what || intent.id, g.nodeW - 24, 13, 2);
+  const more = node.decisions.length - FLOW_NODE_DECISIONS;
+  return `<g class="flow-node status-${status}${layout.focus === node.id ? " is-focus" : ""}" role="button" tabindex="0" data-detail-type="intent" data-remote-id="${esc(intent.remote_id || remoteId(intent.project_id, intent.id))}" aria-label="${esc(flowNodeLabel(node, layout))}" transform="translate(${flowNumber(node.x)} ${flowNumber(node.y)})">
+    <title>${esc(intent.what || intent.id)}</title>
+    <rect class="flow-node-ring" x="-4" y="-4" width="${g.nodeW + 8}" height="${g.nodeH + 8}" rx="14"/>
+    <rect class="flow-node-box" width="${g.nodeW}" height="${g.nodeH}" rx="10"/>
+    <circle class="flow-node-dot" cx="16" cy="18" r="3.5"/>
+    <text class="flow-node-status" x="26" y="22">${esc(intentStatusLabel(intent.status))}</text>
+    <text class="flow-node-id" x="${g.nodeW - 12}" y="22" text-anchor="end">${esc(intent.id)}</text>
+    ${title.map((line, index) => `<text class="flow-node-title" x="12" y="${43 + index * 17}">${esc(line)}</text>`).join("")}
+    <text class="flow-node-meta" x="12" y="${g.nodeH - 11}">${esc(plural((intent.snap_ids || []).length, "{count} snap", "{count} snaps"))}</text>
+    ${more > 0 ? `<text class="flow-node-meta" x="${g.nodeW - 12 - FLOW_NODE_DECISIONS * 17}" y="${g.nodeH - 11}" text-anchor="end">+${more}</text>` : ""}
+  </g>`;
+}
+
+function flowDecisionSvg(marker) {
+  const { x, y } = marker;
+  if (!marker.decision) return `<text class="flow-band-more" x="${flowNumber(x - 6)}" y="${flowNumber(y + 4)}">+${marker.more}</text>`;
+  const decision = marker.decision;
+  const diamond = (size) => `M${flowNumber(x)} ${flowNumber(y - size)} L${flowNumber(x + size)} ${flowNumber(y)} L${flowNumber(x)} ${flowNumber(y + size)} L${flowNumber(x - size)} ${flowNumber(y)} Z`;
+  const label = `${t("Decision")} ${decision.id}: ${decision.what || ""} (${decisionStatusLabel(decision.status)}${marker.source ? "" : ` · ${t("Project-level")}`})`;
+  // In the Project band a Decision also shows its words; on a node it is only a diamond.
+  const text = marker.band ? flowLines(decision.what || decision.id, marker.width - 16, 12, 1)[0] || "" : "";
+  const hitWidth = text ? 26 + flowTextWidth(text, 12) : 20;
+  return `<g class="flow-decision${decision.status === "deprecated" ? " is-deprecated" : ""}" role="button" tabindex="0" data-detail-type="decision" data-remote-id="${esc(decision.remote_id || remoteId(decision.project_id, decision.id))}" aria-label="${esc(label)}">
+    <title>${esc(`${decision.id} · ${decision.what || ""}`)}</title>
+    <rect class="flow-hit" x="${flowNumber(x - 10)}" y="${flowNumber(y - 10)}" width="${flowNumber(hitWidth)}" height="20" rx="5"/>
+    <path class="flow-decision-ring" d="${diamond(10)}"/>
+    <path class="flow-decision-shape" d="${diamond(6)}"/>
+    ${text ? `<text class="flow-band-text" x="${flowNumber(x + 14)}" y="${flowNumber(y + 4)}">${esc(text)}</text>` : ""}
+  </g>`;
+}
+
+function renderFlowSvg(layout) {
+  if (!layout.nodes.length) return "";
+  const g = layout.geometry;
+  const band = layout.band
+    ? `<g class="flow-band" aria-hidden="true"><rect class="flow-band-box" x="10" y="${layout.band.y}" width="${layout.width - 20}" height="${flowNumber(layout.band.height)}" rx="10"/><text class="flow-band-label" x="${g.padX - 8}" y="${layout.band.labelY}">${esc(t("Project"))}</text></g>`
+    : "";
+  const lifelines = layout.lifelines.map((line) => `<path class="flow-lifeline" d="M${flowNumber(line.x1)} ${flowNumber(line.y)} H${flowNumber(line.x2)}"/>`).join("");
+  const markersOf = (source) => layout.markers.filter((marker) => marker.source === source).map(flowDecisionSvg).join("");
+  // Reading order: the project band, then each node followed by its own Decisions.
+  const nodes = layout.nodes.map((node) => flowNodeSvg(node, layout) + markersOf(node.id)).join("");
+  return `<svg class="flow-svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="group" aria-label="${esc(t("Flow between Intents"))}">
+    ${band}
+    <g class="flow-lines" aria-hidden="true">${lifelines}${layout.lines.map(flowLineSvg).join("")}</g>
+    ${markersOf("")}
+    ${nodes}
+  </svg>`;
+}
+
+function flowLegend() {
+  const sample = (className, d, extra = "") => `<svg class="flow-legend-sample" viewBox="0 0 32 16" aria-hidden="true"><g class="flow-line ${className}"><path class="flow-stroke" d="${d}"/>${extra}</g></svg>`;
+  const items = [
+    [sample("flow-branch flow-type-part_of tone-neutral", "M4 1V8Q4 13 9 13H30"), t("Part of")],
+    [sample("flow-branch flow-type-derived_from tone-neutral", "M4 1V8Q4 13 9 13H30"), t("Derived from")],
+    [sample("flow-flow flow-type-succeeds tone-neutral", "M2 8H22", '<path class="flow-arrow" d="M30 8L21 3V13Z"/>'), t("Succeeds")],
+    [sample("flow-depends flow-type-depends_on tone-neutral", "M2 8H25", '<path class="flow-arrow" d="M30 8L24 4.5V11.5Z"/>'), t("Depends on")],
+    [sample("flow-conflict flow-type-conflicts_with tone-neutral", "M1 8H31"), t("Conflicts with")],
+    [sample("flow-depends tone-attention", "M2 8H30"), t("Needs attention")],
+    [sample("flow-depends tone-settled", "M2 8H30"), t("Satisfied")],
+    [sample("flow-depends tone-danger", "M2 8H30"), t("Broken")],
+    [`<svg class="flow-legend-sample is-mark" viewBox="0 0 16 16" aria-hidden="true"><g class="flow-decision"><path class="flow-decision-shape" d="M8 2L14 8L8 14L2 8Z"/></g></svg>`, t("Decision")],
+    [`<svg class="flow-legend-sample is-mark" viewBox="0 0 16 16" aria-hidden="true"><g class="flow-decision is-deprecated"><path class="flow-decision-shape" d="M8 2L14 8L8 14L2 8Z"/></g></svg>`, t("Deprecated")],
+  ];
+  return `<ul class="flow-legend" aria-label="${esc(t("Legend"))}">${items.map(([visual, label]) => `<li>${visual}<span>${esc(label)}</span></li>`).join("")}</ul>`;
+}
+
+function flowFocusOptions(intents) {
+  const related = new Set(relationLinks(intents).flatMap((link) => [link.subject, link.target]));
+  return [...intentMap(intents).values()].filter((intent) => related.has(intent.id)).sort((left, right) => byCreation(right, left));
+}
+
+function flowControls(flow, options, focused) {
+  const option = (key, label, meta = "") => `<button type="button" class="timeline-filter-option${flow.focus === key ? " is-selected" : ""}" data-flow-focus="${esc(key)}" aria-pressed="${flow.focus === key}"><span>${esc(label)}</span>${meta ? `<small>${esc(meta)}</small>` : ""}</button>`;
+  return `
+    <div class="flow-controls">
+      <button type="button" class="flow-toggle" data-flow-hide-ended aria-pressed="${Boolean(flow.hideEnded)}">${icon("hide")}<span>${esc(t("Hide ended"))}</span></button>
+      <details class="timeline-filter flow-focus">
+        <summary class="timeline-filter-trigger" title="${esc(t("Focus on one Intent and its direct relations"))}">${icon("focus")}<span>${esc(focused ? truncate(focused.what || focused.id, 36) : t("Focus on…"))}</span>${icon("chevronDown")}</summary>
+        <div class="timeline-filter-menu">${option("", t("All Intents"))}${options.map((intent) => option(intent.id, intent.what || intent.id, intent.id)).join("")}</div>
+      </details>
+    </div>`;
+}
+
+function flowCard(intent, decisions) {
+  const snaps = (intent.snap_ids || []).length;
+  return `
+    <button type="button" class="flow-card flow-card-${esc(intent.status)}" data-detail-type="intent" data-remote-id="${esc(intent.remote_id || remoteId(intent.project_id, intent.id))}">
+      <span class="flow-card-top">${statusBadge(intent.status)}<span class="row-id">${esc(intent.id)}</span></span>
+      <strong class="flow-card-title">${esc(intent.what || intent.id)}</strong>
+      <span class="flow-card-meta"><span>${esc(plural(snaps, "{count} snap", "{count} snaps"))}</span>${decisions ? `<span>${esc(plural(decisions, "{count} decision", "{count} decisions"))}</span>` : ""}</span>
+    </button>`;
+}
+
+function renderFlowTab() {
+  state._flow ||= { hideEnded: false, focus: "", standalone: PAGE_SIZE };
+  const flow = state._flow;
+  const intents = overviewIntents();
+  const decisions = [...(state.overview.active_decisions || []), ...(state.overview.deprecated_decisions || [])];
+  const byId = overviewIntentMap();
+  if (flow.focus && !byId.has(flow.focus)) flow.focus = "";
+  const layout = flowLayout(intents, decisions, { hideEnded: flow.hideEnded, focus: flow.focus });
+  if (!layout.hasRelations) {
+    el.detailContent.innerHTML = pageHeader({ title: t("Flow"), help: "flow" }) + `<div class="flow-empty">${emptyState({
+      iconName: "flow",
+      title: t("No relations between Intents yet."),
+      body: t("Relations record where a goal comes from and what constrains it. Add them from the CLI; the flow appears here after the next push."),
+      extra: commandSnippet([
+        'itt intent create "Goal" --why "Reason" --part-of ID',
+        "itt intent relate ID --depends-on OTHER",
+        'itt intent cancel ID --into OTHER --reason "Duplicate"',
+        'itt decision create "Rule" --why "Reason" --from ID',
+      ]),
+    })}</div>`;
+    return;
+  }
+  const focused = flow.focus ? byId.get(flow.focus) : null;
+  const attention = layout.relations.filter((link) => ATTENTION_STATES.has(link.state)).length;
+  const header = pageHeader({
+    title: t("Flow"),
+    help: "flow",
+    meta: [
+      esc(plural(layout.relations.length, "{count} relation", "{count} relations")),
+      ...(attention ? [esc(plural(attention, "{count} needs attention", "{count} need attention"))] : []),
+      ...(focused ? [esc(t("Focused on {id}", {id: focused.id}))] : []),
+    ],
+    actions: flowControls(flow, flowFocusOptions(intents), focused),
+  });
+  const canvas = layout.nodes.length
+    ? `<div class="flow-canvas">${renderFlowSvg(layout)}</div>`
+    : `<div class="inline-empty">${esc(t("No related Intent is open. Show ended Intents to see the rest of the flow."))}</div>`;
+  const sourced = new Map();
+  for (const decision of decisions) if (decision.source_intent_id) sourced.set(decision.source_intent_id, (sourced.get(decision.source_intent_id) || 0) + 1);
+  const cards = layout.standalone.slice(0, flow.standalone || PAGE_SIZE);
+  const standalone = layout.standalone.length ? `
+    <section class="section flow-standalone">
+      ${sectionHeader(t("Not related to other Intents"), layout.standalone.length)}
+      <div class="flow-standalone-grid">${cards.map((intent) => flowCard(intent, sourced.get(intent.id) || 0)).join("")}</div>
+      ${layout.standalone.length > cards.length ? `<button type="button" class="load-more-btn" id="load-more-flow-standalone">${esc(t("Load more ({count})", {count: layout.standalone.length - cards.length}))}</button>` : ""}
+    </section>` : "";
+  el.detailContent.innerHTML = `<div class="flow-page">${header}${flowLegend()}${canvas}${standalone}</div>`;
+}
+
+// Focus the Flow on one Intent (or clear it with ""). From the sheet, the view moves to that node.
+function showFlowFocus(intentId, { fromSheet = false } = {}) {
+  state._flow ||= { hideEnded: false, focus: "", standalone: PAGE_SIZE };
+  state._flow.focus = intentId || "";
+  if (state.activeTab !== "flow") switchTab("flow");
+  else {
+    if (sheetIsOpen()) closeDrawer();
+    renderView();
+  }
+  const target = fromSheet && intentId
+    ? el.detailContent.querySelector(".flow-node.is-focus")
+    : el.detailContent.querySelector(".flow-focus .timeline-filter-trigger");
+  target?.focus();
 }
 
 /* Timeline */
 
-function timelineIntentKey(snap) {
-  return remoteId(snap.project_id || projectIdFromRemoteId(snap.remote_id), snap.intent_id || "");
+function snapNumber(id) {
+  return Number(String(id || "").match(/(\d+)$/)?.[1] || 0);
 }
 
-function timelineIntentOptions(snaps) {
-  const options = new Map();
-  for (const snap of snaps) {
-    const key = timelineIntentKey(snap);
-    const entry = options.get(key);
-    if (entry) entry.count++;
-    else options.set(key, { key, count: 1, label: intentForSnap(snap)?.what || snap.intent_id || t("Unlinked Intent") });
+// Filter choices come from the Intents, not from loaded pages, so every Intent with Snaps is reachable.
+// Most recently active first: Snap IDs grow with time inside a project.
+function timelineIntentOptions(intents) {
+  return (intents || [])
+    .filter((intent) => (intent.snap_ids || []).length)
+    .map((intent) => ({ key: intent.id, count: intent.snap_ids.length, label: intent.what || intent.id, latest: snapNumber(intent.latest_snap_id || intent.snap_ids.at(-1)) }))
+    .sort((left, right) => right.latest - left.latest || left.label.localeCompare(right.label));
+}
+
+function snapPageUrl(projectId, { offset = 0, limit = SNAP_PAGE_SIZE, intentId = "" } = {}) {
+  const query = new URLSearchParams({ offset: String(offset), limit: String(limit) });
+  if (intentId) query.set("intent_id", intentId);
+  return apiUrl(`/api/v1/projects/${encodeURIComponent(projectId)}/snaps?${query}`);
+}
+
+function resetTimeline(intentId = "") {
+  state._timeline = { projectId: state.currentProjectId, intentId, snaps: [], total: null, hasMore: false, loaded: false, loading: false, error: "" };
+  return state._timeline;
+}
+
+// Pages are newest first; the server filters by Intent. A newer timeline (filter, project) owns the view.
+async function loadTimelinePage() {
+  const timeline = state._timeline;
+  if (!timeline || timeline.loading || (timeline.loaded && !timeline.hasMore)) return;
+  timeline.loading = true;
+  timeline.error = "";
+  try {
+    const page = await fetchJson(snapPageUrl(timeline.projectId, { offset: timeline.snaps.length, intentId: timeline.intentId }));
+    if (state._timeline !== timeline) return;
+    const seen = new Set(timeline.snaps.map((snap) => snap.remote_id));
+    for (const snap of page?.snaps || []) {
+      const entry = { ...snap, remote_id: snap.remote_id || remoteId(snap.project_id || timeline.projectId, snap.id) };
+      if (seen.has(entry.remote_id)) continue;
+      seen.add(entry.remote_id);
+      timeline.snaps.push(entry);
+      rememberSnap(entry);
+    }
+    timeline.total = Number.isFinite(page?.total) ? page.total : timeline.snaps.length;
+    timeline.hasMore = Boolean(page?.has_more) && Boolean((page?.snaps || []).length);
+    timeline.loaded = true;
+  } catch (error) {
+    if (state._timeline !== timeline) return;
+    timeline.error = error.message || t("Could not load data. Try again.");
+  } finally {
+    timeline.loading = false;
   }
-  return [...options.values()];
+  if (state._timeline !== timeline || state.activeTab !== "snaps" || !state.overview || state.currentProjectId !== timeline.projectId) return;
+  const refocus = document.activeElement?.closest?.(".timeline-filter-trigger");
+  renderView();
+  if (refocus) el.detailContent.querySelector(".timeline-filter-trigger")?.focus();
 }
 
 function timelineDate(value) {
@@ -1164,12 +2071,9 @@ function snapTimelineEntry(snap) {
     </button>`;
 }
 
-function renderTimeline(snaps) {
-  state._pageState ||= {};
-  const shown = state._pageState.snaps || PAGE_SIZE;
-  const visible = snaps.slice(0, shown);
+function renderTimeline(timeline) {
   const groups = [];
-  for (const snap of visible) {
+  for (const snap of timeline.snaps) {
     const date = timelineDate(snap.created_at);
     const current = groups.at(-1);
     if (!current || current.key !== date.key) {
@@ -1179,7 +2083,10 @@ function renderTimeline(snaps) {
     }
   }
 
-  const remaining = snaps.length - visible.length;
+  const remaining = Math.max(0, (timeline.total ?? timeline.snaps.length) - timeline.snaps.length);
+  const more = timeline.hasMore
+    ? `<button type="button" class="load-more-btn" id="load-more-snaps"${timeline.loading ? ' disabled aria-busy="true"' : ""}>${esc(timeline.loading ? t("Loading…") : t("Load more ({count})", {count: remaining}))}</button>`
+    : "";
   return groups
     .map((group) => `
       <section class="timeline-group">
@@ -1187,14 +2094,13 @@ function renderTimeline(snaps) {
         <div class="timeline-events">${group.snaps.map(snapTimelineEntry).join("")}</div>
       </section>`)
     .join("")
-    + (remaining > 0
-      ? `<button type="button" class="load-more-btn" id="load-more-snaps">${esc(t("Load more ({count})", {count: remaining}))}</button>`
-      : "");
+    + (timeline.error ? `<p class="timeline-error" role="alert">${esc(timeline.error)}</p>` : "")
+    + more;
 }
 
 function renderSnapsTab() {
-  const allSnaps = state.overview.recent_snaps || [];
-  if (!allSnaps.length) {
+  const total = state.overview.total_snaps ?? (state.overview.recent_snaps || []).length;
+  if (!total) {
     el.detailContent.innerHTML = pageHeader({ title: t("Timeline") }) + emptyState({
       iconName: "timeline",
       title: t("No snaps synced yet."),
@@ -1202,23 +2108,33 @@ function renderSnapsTab() {
     });
     return;
   }
-  const options = timelineIntentOptions(allSnaps);
-  if (state._timelineIntentKey && !options.some(option => option.key === state._timelineIntentKey)) state._timelineIntentKey = "";
-  const selected = options.find(option => option.key === state._timelineIntentKey);
-  const snaps = selected ? allSnaps.filter(snap => timelineIntentKey(snap) === selected.key) : allSnaps;
-  const optionHtml = (key, label, count) => `<button type="button" class="timeline-filter-option${(state._timelineIntentKey || "") === key ? " is-selected" : ""}" data-timeline-intent="${esc(key)}" aria-pressed="${(state._timelineIntentKey || "") === key}"><span>${esc(label)}</span><small>${count}</small></button>`;
+  let timeline = state._timeline;
+  if (!timeline || timeline.projectId !== state.currentProjectId) timeline = resetTimeline("");
+  const options = timelineIntentOptions(overviewIntents());
+  if (timeline.intentId && !options.some((option) => option.key === timeline.intentId)) timeline = resetTimeline("");
+  const selected = options.find((option) => option.key === timeline.intentId);
+  const optionHtml = (key, label, count) => `<button type="button" class="timeline-filter-option${timeline.intentId === key ? " is-selected" : ""}" data-timeline-intent="${esc(key)}" aria-pressed="${timeline.intentId === key}"><span>${esc(label)}</span><small>${count}</small></button>`;
   const filter = `
     <div class="timeline-toolbar">
       <details class="timeline-filter">
         <summary class="timeline-filter-trigger" title="${esc(t("Filter timeline by Intent"))}"><span>${esc(selected ? truncate(selected.label, 44) : t("All Intents"))}</span>${icon("chevronDown")}</summary>
-        <div class="timeline-filter-menu">${optionHtml("", t("All Intents"), allSnaps.length)}${options.map(option => optionHtml(option.key, option.label, option.count)).join("")}</div>
+        <div class="timeline-filter-menu">${optionHtml("", t("All Intents"), total)}${options.map((option) => optionHtml(option.key, option.label, option.count)).join("")}</div>
       </details>
     </div>`;
+  const count = timeline.total ?? (selected ? selected.count : total);
+  const body = !timeline.loaded
+    ? timeline.error
+      ? `<div class="empty-state"><p>${esc(timeline.error)}</p><button type="button" class="secondary-btn" data-retry-timeline>${esc(t("Retry"))}</button></div>`
+      : viewLoadingHtml()
+    : timeline.snaps.length
+      ? renderTimeline(timeline)
+      : `<div class="inline-empty">${esc(t("No snaps synced yet."))}</div>`;
   el.detailContent.innerHTML = pageHeader({
     title: t("Timeline"),
-    meta: [esc(plural(snaps.length, "{count} checkpoint", "{count} checkpoints")), esc(selected ? truncate(selected.label, 60) : t("All Intents"))],
+    meta: [esc(plural(count, "{count} checkpoint", "{count} checkpoints")), esc(selected ? truncate(selected.label, 60) : t("All Intents"))],
     actions: filter,
-  }) + `<div class="timeline">${renderTimeline(snaps)}</div>`;
+  }) + `<div class="timeline" aria-busy="${timeline.loading || !timeline.loaded && !timeline.error}">${body}</div>`;
+  if (!timeline.loaded && !timeline.loading && !timeline.error) loadTimelinePage();
 }
 
 /* Decisions */
@@ -1485,6 +2401,15 @@ function buildIntentDetailHtml(payload) {
   const snapTimelineBody = snapLinks.length
     ? collapsibleRelation(snapLinks, 5)
     : `<div class="inline-empty">${esc(t("No snaps recorded."))}</div>`;
+  const sourced = Object.values(dMap).filter((decision) => decision.source_intent_id === intent.id);
+  const sourcedLinks = sourced.map((decision) => relationItem(
+    "decision",
+    decision.remote_id || remoteId(payload.project_id, decision.id),
+    decision.id,
+    decision.what || decision.id,
+    truncate(decision.why || "", 120),
+    decision.status,
+  ));
 
   return `
     <div class="detail-header">
@@ -1494,9 +2419,57 @@ function buildIntentDetailHtml(payload) {
     ${intent.why ? detailSection(t("Why"), formatText(intent.why)) : ""}
     ${intent.reason ? detailSection(t("Reason"), formatText(intent.reason)) : ""}
     ${latest && ["active", "suspend"].includes(intent.status) ? detailSection(t("Latest checkpoint"), checkpointGrid(parseCheckpoint(latest), ["next", "blocker", "boundary", "verified"], " detail-checkpoint-grid")) : ""}
+    ${intentRelationsSection(payload)}
     ${detailSection(t("Snaps"), snapTimelineBody, allSnaps.length)}
     ${detailSection(t("Linked decisions"), decisionsBody, allIds.length)}
+    ${sourcedLinks.length ? detailSection(t("Decisions from this Intent"), collapsibleRelation(sourcedLinks, 5), sourcedLinks.length) : ""}
     ${rawToggle({ intent, snaps: payload.snaps, decisions: payload.decisions || [] })}`;
+}
+
+// Both directions, grouped by how they read from this Intent ("Part of", "Parts", …), each with its state.
+function intentRelationsSection(payload) {
+  const rows = intentRelations({ ...payload.intent, project_id: payload.project_id });
+  if (!rows.length) return detailSection(t("Relations"), `<div class="inline-empty">${esc(t("No relations to other Intents."))}</div>`);
+  const groups = [];
+  for (const row of rows) {
+    const label = relationLabel(row.type, row.direction);
+    const group = groups.find((entry) => entry.label === label);
+    if (group) group.rows.push(row);
+    else groups.push({ label, rows: [row] });
+  }
+  // A part's state only repeats the part's own status, so it is shown only when its parent has ended.
+  const badge = (row) => (row.type === "part_of" && !ATTENTION_STATES.has(row.state) ? "" : relationBadge(row.state, row));
+  const body = groups.map((group) => `
+    <div class="relation-group">
+      <h4 class="relation-group-label">${esc(group.label)}</h4>
+      <div class="relation-list">${group.rows.map((row) => relationItem(
+        "intent",
+        row.intent.remote_id || remoteId(payload.project_id, row.intent.id),
+        row.intent.id,
+        row.intent.what || row.intent.id,
+        "",
+        row.intent.status,
+        badge(row),
+      )).join("")}</div>
+    </div>`).join("");
+  const flowLink = `<button type="button" class="link-button relation-flow-link" data-flow-focus="${esc(payload.intent.id)}">${icon("flow")}${esc(t("Show in Flow"))}</button>`;
+  return detailSection(t("Relations"), body + flowLink, rows.length);
+}
+
+function decisionSourceSection(payload) {
+  const sourceId = payload.decision.source_intent_id;
+  if (!sourceId) {
+    return detailSection(t("Source"), `<div class="decision-source-none"><span class="chip">${esc(t("Project-level"))}</span><span>${esc(t("Not traced to one Intent; it applies across the project."))}</span></div>`);
+  }
+  const source = overviewIntentMap().get(sourceId) || (payload.intents || []).find((intent) => intent.id === sourceId) || { id: sourceId };
+  return detailSection(t("Source"), `<div class="relation-list">${relationItem(
+    "intent",
+    source.remote_id || remoteId(payload.project_id, sourceId),
+    sourceId,
+    source.what || sourceId,
+    truncate(source.why || "", 120),
+    source.status,
+  )}</div>`);
 }
 
 function buildDecisionDetailHtml(payload) {
@@ -1528,6 +2501,7 @@ function buildDecisionDetailHtml(payload) {
     </div>
     ${detailSection(t("Why"), formatText(decision.why) || `<p>${esc(t("No why provided."))}</p>`)}
     ${decision.reason ? detailSection(t("Reason"), formatText(decision.reason)) : ""}
+    ${decisionSourceSection(payload)}
     ${detailSection(t("Affected Intents"), intentsBody, payload.intents.length)}
     ${rawToggle({ decision, intents: payload.intents })}`;
 }
@@ -1669,8 +2643,8 @@ async function loadProject(projectId, { detail = null, history = "replace" } = {
   const previous = {
     projectId: state._loadedProjectId || state.currentProjectId,
     overview: state.overview, handoff: state.handoff,
-    pageState: state._pageState, timelineIntentKey: state._timelineIntentKey,
-    searchResults: state._searchResults, detailCache: state._detailCache,
+    pageState: state._pageState, timeline: state._timeline, flow: state._flow,
+    searchResults: state._searchResults, detailCache: state._detailCache, snapCache: state._snapCache,
   };
   const switching = Boolean(state._loadedProjectId && state._loadedProjectId !== projectId);
   beginViewRequest("search");
@@ -1680,9 +2654,11 @@ async function loadProject(projectId, { detail = null, history = "replace" } = {
     state.overview = null;
     state.handoff = null;
     state._searchResults = null;
-    state._timelineIntentKey = "";
+    state._timeline = null;
+    state._flow = null;
     state._pageState = {};
     state._detailCache = new Map();
+    state._snapCache = new Map();
   }
   state.currentProjectId = projectId;
   renderProjectSelector();
@@ -1704,9 +2680,11 @@ async function loadProject(projectId, { detail = null, history = "replace" } = {
       state.overview = previous.overview;
       state.handoff = previous.handoff;
       state._pageState = previous.pageState;
-      state._timelineIntentKey = previous.timelineIntentKey;
+      state._timeline = previous.timeline;
+      state._flow = previous.flow;
       state._searchResults = previous.searchResults;
       state._detailCache = previous.detailCache;
+      state._snapCache = previous.snapCache;
       renderProjectSelector();
       renderView();
     } else {
@@ -1726,6 +2704,9 @@ async function loadProject(projectId, { detail = null, history = "replace" } = {
   state.overview = overview;
   state.handoff = handoff;
   state._detailCache = new Map();
+  state._snapFailed = new Set();
+  // The timeline pages again from the new revision, keeping the reader's Intent filter.
+  resetTimeline(state._timeline?.projectId === projectId ? state._timeline.intentId : "");
 
   el.intentCount.textContent = (overview.active_intents?.length || 0) + (overview.other_intents?.length || 0) || "";
   el.decisionCount.textContent = (overview.active_decisions?.length || 0) + (overview.deprecated_decisions?.length || 0) || "";
@@ -1805,9 +2786,20 @@ function searchOptions() {
   return [...el.searchResults.querySelectorAll("[role=option]")];
 }
 
-function setSearchStatus(message = "", { visible = true, html = "" } = {}) {
+function setSearchStatus(message = "", { visible = true, html = "", note = false } = {}) {
   el.searchStatus.innerHTML = html || esc(message);
   el.searchStatus.classList.toggle("visually-hidden", !visible);
+  el.searchStatus.classList.toggle("is-note", note);
+}
+
+// The server returns at most 50 matches; say so instead of implying that is everything.
+function searchSummary(result) {
+  const shown = (result?.matches || []).length;
+  const total = Number(result?.total) || shown;
+  if (result?.truncated && total > shown) {
+    return { text: t("Showing {shown} of {total} — refine the search", {shown, total}), visible: true };
+  }
+  return { text: plural(shown, "{count} result", "{count} results"), visible: false };
 }
 
 function searchGroup(key, label, optionsHtml) {
@@ -1849,6 +2841,7 @@ function renderSearchSuggestions() {
   const tabs = [
     ["overview", t("Overview"), "overview"],
     ["intents", t("Intents"), "intent"],
+    ["flow", t("Flow"), "flow"],
     ["snaps", t("Timeline"), "timeline"],
     ["decisions", t("Decisions"), "decision"],
   ];
@@ -1905,7 +2898,8 @@ function renderSearchResults(result) {
       }).join(""));
     })
     .join("");
-  setSearchStatus(plural(matches.length, "{count} result", "{count} results"), { visible: false });
+  const summary = searchSummary(result);
+  setSearchStatus(summary.text, { visible: summary.visible, note: summary.visible });
   setActiveSearchOption(0);
 }
 
@@ -2337,7 +3331,19 @@ function bindEvents() {
     if (!archive) return;
     state._pageState ||= {};
     state._pageState[archive === "intents" ? "intentArchiveOpen" : "decisionArchiveOpen"] = event.target.open;
+    if (archive === "intents" && event.target.open) {
+      fetchMissingSnaps([...event.target.querySelectorAll("[data-latest-snap]")].map((node) => node.dataset.latestSnap));
+    }
   }, true);
+
+  // Flow nodes and Decision marks are SVG groups with role="button": Enter and Space open them.
+  el.detailContent.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const mark = event.target.closest?.("svg [role=button][data-detail-type][data-remote-id]");
+    if (!mark) return;
+    event.preventDefault();
+    openDetail(mark.dataset.detailType, mark.dataset.remoteId).catch((error) => setStatus(error.message, true));
+  });
 
   document.addEventListener("click", async (e) => {
     if (e.target.closest("#search-dialog")) return;
@@ -2379,23 +3385,51 @@ function bindEvents() {
     }
     const filter = e.target.closest("[data-timeline-intent]");
     if (filter) {
-      state._timelineIntentKey = filter.dataset.timelineIntent;
-      state._pageState ||= {};
-      state._pageState.snaps = PAGE_SIZE;
+      resetTimeline(filter.dataset.timelineIntent);
       renderView();
       el.detailContent.querySelector(".timeline-filter-trigger")?.focus();
       return;
     }
-    const loadMore = e.target.closest("#load-more-snaps, #load-more-intent-archive");
+    if (e.target.closest("[data-retry-timeline]")) {
+      if (state._timeline) state._timeline.error = "";
+      renderView();
+      return;
+    }
+    if (e.target.closest("[data-flow-hide-ended]")) {
+      state._flow ||= { hideEnded: false, focus: "", standalone: PAGE_SIZE };
+      state._flow.hideEnded = !state._flow.hideEnded;
+      renderView();
+      el.detailContent.querySelector("[data-flow-hide-ended]")?.focus();
+      return;
+    }
+    const flowFocus = e.target.closest("[data-flow-focus]");
+    if (flowFocus) {
+      showFlowFocus(flowFocus.dataset.flowFocus, { fromSheet: Boolean(flowFocus.closest("#drawer-content")) });
+      return;
+    }
+    const moreSnaps = e.target.closest("#load-more-snaps");
+    if (moreSnaps) {
+      if (moreSnaps.disabled) return;
+      const shown = el.detailContent.querySelectorAll(".timeline-entry").length;
+      moreSnaps.disabled = true;
+      moreSnaps.textContent = t("Loading…");
+      const scroll = window.scrollY;
+      await loadTimelinePage();
+      window.scrollTo?.(0, scroll);
+      el.detailContent.querySelectorAll(".timeline-entry")[shown]?.focus({ preventScroll: true });
+      return;
+    }
+    const loadMore = e.target.closest("#load-more-intent-archive, #load-more-flow-standalone");
     if (loadMore) {
-      const snaps = loadMore.id === "load-more-snaps";
-      const selector = snaps ? ".timeline-entry" : ".intent-archive .list-row";
+      const archive = loadMore.id === "load-more-intent-archive";
+      const selector = archive ? ".intent-archive .list-row" : ".flow-card";
       const shown = el.detailContent.querySelectorAll(selector).length;
       state._pageState ||= {};
-      if (snaps) state._pageState.snaps = (state._pageState.snaps || PAGE_SIZE) + PAGE_SIZE;
-      else {
+      if (archive) {
         state._pageState.intentArchive = (state._pageState.intentArchive || PAGE_SIZE) + PAGE_SIZE;
         state._pageState.intentArchiveOpen = true;
+      } else {
+        state._flow.standalone = (state._flow.standalone || PAGE_SIZE) + PAGE_SIZE;
       }
       const scroll = window.scrollY;
       renderView();

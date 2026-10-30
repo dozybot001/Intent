@@ -211,26 +211,17 @@ vm.runInContext(`
   assert.equal(el.shell.classList.contains('is-empty'), true);
   state.config = {authMode: 'tenon', apiBaseUrl: '', productVersion: '6.0.1'};
 
-  state.overview = {active_intents: [
-    {id:'intent-001', project_id:'p1', what:'User goal one'},
-    {id:'intent-001', project_id:'p2', what:'User goal two'},
-  ]};
-  const timelineSnaps = [
-    {id:'snap-001', project_id:'p1', intent_id:'intent-001', remote_id:'p1__snap-001', what:'first'},
-    {id:'snap-002', project_id:'p1', intent_id:'intent-001', remote_id:'p1__snap-002', what:'second'},
-    {id:'snap-001', project_id:'p2', intent_id:'intent-001', remote_id:'p2__snap-001', what:'other project'},
-  ];
-  const filterOptions = timelineIntentOptions(timelineSnaps);
-  assert.equal(filterOptions.length, 2);
-  assert.equal(filterOptions[0].count, 2);
-  assert.equal(filterOptions[1].label, 'User goal two');
-  state.overview.recent_snaps = timelineSnaps;
-  state._timelineIntentKey = 'p2__intent-001';
-  renderSnapsTab();
-  assert.ok(el.detailContent.innerHTML.includes('data-remote-id="p2__snap-001"'));
-  assert.ok(!el.detailContent.innerHTML.includes('data-remote-id="p1__snap-001"'));
-  assert.ok(el.detailContent.innerHTML.includes('User goal two'));
-  assert.ok(el.detailContent.innerHTML.includes('1 个检查点'));
+  // Timeline filter choices come from the Intents (every Intent with Snaps), most recently active first.
+  const filterOptions = timelineIntentOptions([
+    {id:'intent-001', project_id:'p', what:'User goal one', snap_ids:['snap-001', 'snap-004'], latest_snap_id:'snap-004'},
+    {id:'intent-002', project_id:'p', what:'User goal two', snap_ids:['snap-009'], latest_snap_id:'snap-009'},
+    {id:'intent-003', project_id:'p', what:'No snaps yet', snap_ids:[]},
+  ]);
+  assert.deepEqual(filterOptions.map(option => option.key), ['intent-002', 'intent-001']);
+  assert.equal(filterOptions[1].count, 2);
+  assert.equal(filterOptions[0].label, 'User goal two');
+  assert.equal(snapPageUrl('p'), '/api/v1/projects/p/snaps?offset=0&limit=50');
+  assert.equal(snapPageUrl('team space', {offset: 50, intentId: 'intent-002'}), '/api/v1/projects/team%20space/snaps?offset=50&limit=50&intent_id=intent-002');
   assert.ok(detailErrorHtml(new Error('offline'), 'snap', 'p__snap-001').includes('data-retry-detail="sheet"'));
   const navigation = document.getElementById('navigation-card');
   navigation.matches = selector => selector.includes('.list-row');
@@ -672,6 +663,416 @@ async function viewControllerCases() {
   console.log('Latest-action ownership, sheet back stack and history, closed-sheet cancellation, cross-project links, search recovery and project rollback tests passed.');
 }
 
+// Relations, the Flow layout, paged timeline and truncated search.
+// INTHUB_RELATION_STATES (set by the pytest runner) carries relations.state() from the CLI for parity.
+context.relationParity = JSON.parse(process.env.INTHUB_RELATION_STATES || '[]');
+async function flowAndPagingCases() {
+  await vm.runInContext(`(async () => {
+    const flush = async () => { for (let index = 0; index < 12; index++) await Promise.resolve(); };
+    let focusedOn001;
+    window.IntHubI18n.setLanguage('zh-CN');
+
+    // Derived relation states, subject (rows) against target (columns): active, suspend, done, cancelled.
+    const statuses = ['active', 'suspend', 'done', 'cancelled'];
+    const open = ['in_progress', 'in_progress', 'orphaned', 'orphaned'];
+    const expected = {
+      part_of: [open, open, Array(4).fill('done'), Array(4).fill('dropped')],
+      derived_from: Array(4).fill(Array(4).fill(null)),
+      succeeds: Array(4).fill(['pending', 'pending', 'handed_over', 'handed_over']),
+      depends_on: Array(4).fill(['blocked', 'blocked', 'satisfied', 'broken']),
+      conflicts_with: [['unresolved', 'unresolved', 'resolved', 'resolved'], ['unresolved', 'unresolved', 'resolved', 'resolved'], Array(4).fill('resolved'), Array(4).fill('resolved')],
+    };
+    for (const [kind, table] of Object.entries(expected)) {
+      statuses.forEach((subject, row) => statuses.forEach((target, column) => {
+        assert.equal(relationState(kind, {status: subject}, {status: target}), table[row][column], kind + ' ' + subject + ' → ' + target);
+      }));
+    }
+    for (const [kind, subject, target, want] of relationParity) {
+      assert.equal(relationState(kind, {status: subject}, {status: target}), want, 'parity ' + kind + ' ' + subject + ' → ' + target);
+    }
+    assert.deepEqual([...ATTENTION_STATES].sort(), ['blocked', 'broken', 'orphaned', 'pending', 'unresolved']);
+
+    const at = minute => new Date(Date.UTC(2026, 9, 30, 8, minute)).toISOString();
+    const rel = (type, intent, extra = {}) => ({type, intent, created_at: at(50), ...extra});
+    const flowIntents = [
+      {id:'intent-001', what:'Checkout revamp', status:'active', created_at: at(1), snap_ids:['snap-001', 'snap-002']},
+      {id:'intent-002', what:'Apple Pay', status:'done', created_at: at(2), relations:[rel('part_of', 'intent-001')]},
+      {id:'intent-003', what:'Google Pay', status:'active', created_at: at(3), relations:[rel('part_of', 'intent-001')]},
+      {id:'intent-004', what:'PaymentIntents migration', status:'active', created_at: at(4), relations:[rel('derived_from', 'intent-001')]},
+      {id:'intent-005', what:'Receipts v1', status:'cancelled', created_at: at(5)},
+      {id:'intent-006', what:'Receipts v2', status:'active', created_at: at(6), relations:[rel('succeeds', 'intent-005')]},
+      {id:'intent-007', what:'Launch to 10%', status:'active', created_at: at(7), relations:[rel('depends_on', 'intent-003'), rel('conflicts_with', 'intent-004', {removed_at: at(51)})]},
+      {id:'intent-008', what:'Server <totals>', status:'suspend', created_at: at(8), relations:[rel('conflicts_with', 'intent-006')]},
+      {id:'intent-009', what:'Unrelated cleanup', status:'done', created_at: at(9)},
+    ].map(intent => ({snap_ids: [], decision_ids: [], ...intent, project_id: 'p', remote_id: 'p__' + intent.id}));
+    const flowDecisions = [
+      {id:'decision-001', what:'Project rule', status:'active', created_at: at(2), project_id:'p', remote_id:'p__decision-001'},
+      {id:'decision-002', what:'Old payment rule', status:'deprecated', created_at: at(3), source_intent_id:'intent-001', project_id:'p', remote_id:'p__decision-002'},
+      {id:'decision-003', what:'Lost source', status:'active', created_at: at(4), source_intent_id:'intent-404', project_id:'p', remote_id:'p__decision-003'},
+    ];
+
+    // Both directions, outgoing first; withdrawn relations are ignored.
+    const view = relationView(flowIntents, 'intent-007');
+    assert.deepEqual(view.map(row => [row.type, row.direction, row.intent.id, row.state]), [['depends_on', 'out', 'intent-003', 'blocked']]);
+    assert.deepEqual(relationView(flowIntents, 'intent-001').map(row => row.type + ':' + row.direction + ':' + row.intent.id),
+      ['part_of:in:intent-002', 'part_of:in:intent-003', 'derived_from:in:intent-004']);
+    assert.equal(relationLabel('part_of', 'out'), '属于');
+    assert.equal(relationLabel('part_of', 'in'), '组成部分');
+    assert.equal(relationLabel('succeeds', 'in'), '被继承');
+    assert.equal(relationLabel('depends_on', 'in'), '被依赖');
+    assert.ok(relationBadge('broken').includes('rel-danger') && relationBadge('broken').includes('依赖已失效'));
+    assert.ok(relationBadge('blocked').includes('<span class="status-dot" aria-hidden="true"></span>被阻塞</span>'));
+
+    const layout = flowLayout(flowIntents, flowDecisions);
+    const place = id => layout.nodes.find(node => node.id === id);
+    const grid = Object.fromEntries(layout.nodes.map(node => [node.id, [node.col, node.lane]]));
+    assert.deepEqual(grid, {
+      'intent-001': [0, 0], 'intent-002': [1, 1], 'intent-003': [1, 2], 'intent-004': [1, 3],
+      'intent-005': [1, 4], 'intent-006': [2, 4], 'intent-007': [2, 5], 'intent-008': [2, 6],
+    });
+    assert.deepEqual(layout.standalone.map(intent => intent.id), ['intent-009']);
+    assert.equal(layout.hasRelations, true);
+    // Left to right by creation time; parts below their parent; the successor right of its predecessor on its lane.
+    const created = [...layout.nodes].sort((left, right) => left.intent.created_at.localeCompare(right.intent.created_at));
+    created.forEach((node, index) => { if (index) assert.ok(created[index - 1].col <= node.col); });
+    for (const part of ['intent-002', 'intent-003', 'intent-004']) assert.ok(place(part).lane > place('intent-001').lane && place(part).x > place('intent-001').x);
+    assert.equal(place('intent-006').y, place('intent-005').y);
+    assert.equal(place('intent-006').placement, 'continue');
+    const kinds = layout.lines.map(line => line.kind + ':' + line.subject + ':' + (line.state || ''));
+    assert.deepEqual(kinds.sort(), [
+      'branch:intent-002:done', 'branch:intent-003:in_progress', 'branch:intent-004:', 'conflict:intent-008:unresolved',
+      'depends:intent-007:blocked', 'flow:intent-006:handed_over', 'rejoin:intent-002:done',
+    ]);
+    const rejoin = layout.lines.find(line => line.kind === 'rejoin');
+    assert.equal(rejoin.points.at(-1)[1], place('intent-001').cy);
+    const succession = layout.lines.find(line => line.kind === 'flow');
+    assert.deepEqual(succession.points, [[place('intent-005').x + layout.geometry.nodeW, place('intent-005').cy], [place('intent-006').x, place('intent-006').cy]]);
+    const trunk = layout.lines.find(line => line.kind === 'branch' && line.subject === 'intent-003');
+    assert.equal(trunk.points[0][1], place('intent-001').y + layout.geometry.nodeH);
+    assert.equal(trunk.points.at(-1)[0], place('intent-003').x);
+    // A parent's lane runs on exactly as far as its ended part comes back; other lanes stop at their node.
+    assert.deepEqual(layout.lifelines.map(line => [line.row, line.x2]), [[place('intent-001').lane, rejoin.points[2][0]]]);
+    // Lines meeting one side of a node never share a height, and vertical runs in one gap never share a track.
+    const sides = new Map();
+    for (const line of layout.lines.filter(line => !['branch', 'rejoin'].includes(line.kind))) {
+      const [x, y] = line.points.at(-1);
+      const key = Math.round(x) + ':' + Math.round(y);
+      assert.ok(!sides.has(key), 'two lines end at ' + key);
+      sides.set(key, line);
+    }
+    // Decisions: the sourceless and the one whose source is gone sit in the Project band; sourced ones on their node.
+    assert.ok(layout.band);
+    assert.deepEqual(layout.markers.filter(marker => !marker.source).map(marker => [marker.decision.id, marker.band]), [['decision-001', true], ['decision-003', true]]);
+    assert.deepEqual(place('intent-001').decisions.map(decision => decision.id), ['decision-002']);
+    for (const marker of layout.markers.filter(marker => !marker.source)) assert.ok(marker.y < place('intent-001').y);
+    // Every line stays in the gaps: no point lies strictly inside another node's box.
+    for (const line of layout.lines) for (const [x, y] of line.points) for (const node of layout.nodes) {
+      assert.ok(!(x > node.x + 1 && x < node.x + layout.geometry.nodeW - 1 && y > node.y + 1 && y < node.y + layout.geometry.nodeH - 1), line.kind + ' ' + line.subject + ' crosses ' + node.id);
+    }
+
+    // Hidden partners do not make an Intent standalone: intent-006 keeps its place in the flow.
+    const hidden = flowLayout(flowIntents, flowDecisions, {hideEnded: true});
+    assert.deepEqual(hidden.nodes.map(node => node.id).sort(), ['intent-001', 'intent-003', 'intent-004', 'intent-006', 'intent-007', 'intent-008']);
+    assert.equal(hidden.nodes.find(node => node.id === 'intent-006').placement, 'root');
+    assert.deepEqual(hidden.standalone, []);
+    assert.ok(!hidden.relations.some(link => link.subject === 'intent-002' || link.target === 'intent-005'));
+    const node001 = renderFlowSvg(focusedOn001 = flowLayout(flowIntents, flowDecisions, {focus: 'intent-001'}));
+    assert.ok(node001.includes('aria-label="intent-001: Checkout revamp. 进行中. 2 个 Snap. 1 条决策. 组成部分 intent-002 (已完成). 组成部分 intent-003 (进行中). 衍生出 intent-004"'));
+    const focused = flowLayout(flowIntents, flowDecisions, {focus: 'intent-003'});
+    assert.deepEqual(focused.nodes.map(node => node.id).sort(), ['intent-001', 'intent-003', 'intent-007']);
+    assert.equal(focused.band, null);
+    assert.equal(focused.focus, 'intent-003');
+
+    // Convergence and branching of succession: two Intents merge into one, which then splits.
+    const merge = flowLayout([
+      {id:'intent-011', status:'cancelled', created_at: at(11)},
+      {id:'intent-012', status:'cancelled', created_at: at(12)},
+      {id:'intent-013', status:'active', created_at: at(13), relations:[rel('succeeds', 'intent-011'), rel('succeeds', 'intent-012')]},
+      {id:'intent-014', status:'active', created_at: at(14), relations:[rel('succeeds', 'intent-013')]},
+      {id:'intent-015', status:'active', created_at: at(15), relations:[rel('succeeds', 'intent-013')]},
+    ]);
+    assert.deepEqual(Object.fromEntries(merge.nodes.map(node => [node.id, [node.col, node.lane, node.placement]])), {
+      'intent-011': [0, 0, 'root'], 'intent-013': [1, 0, 'continue'], 'intent-014': [2, 0, 'continue'],
+      'intent-015': [2, 1, 'branch'], 'intent-012': [0, 2, 'root'],
+    });
+    const intoMerge = merge.lines.find(line => line.target === 'intent-012');
+    assert.equal(intoMerge.points.at(-1)[0], merge.nodes.find(node => node.id === 'intent-013').x);
+    assert.equal(merge.lines.filter(line => line.kind === 'flow').length, 4);
+    // A cycle across relation families still places every Intent.
+    const cycle = flowLayout([
+      {id:'intent-021', status:'active', created_at: at(21), relations:[rel('succeeds', 'intent-022')]},
+      {id:'intent-022', status:'active', created_at: at(22), relations:[rel('part_of', 'intent-021')]},
+    ]);
+    assert.equal(cycle.nodes.length, 2);
+    assert.deepEqual(flowLayout([{id:'intent-031', status:'active'}]).nodes, []);
+
+    // Property check over seeded random histories that respect the relation rules: every Intent placed once,
+    // no two nodes share a cell, parents and predecessors sit to the left, creation order never runs
+    // backwards, and no line passes through a node other than its own two ends.
+    let seed = 7;
+    const random = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+    const relationKinds = ['part_of', 'derived_from', 'succeeds', 'depends_on', 'conflicts_with'];
+    const familyOf = kind => (kind === 'part_of' || kind === 'derived_from') ? 'parent' : kind;
+    const crosses = (node, [x1, y1], [x2, y2], g) => {
+      const left = node.x + 0.5, right = node.x + g.nodeW - 0.5, top = node.y + 0.5, bottom = node.y + g.nodeH - 0.5;
+      if (y1 === y2) return y1 > top && y1 < bottom && Math.max(x1, x2) > left && Math.min(x1, x2) < right;
+      if (x1 === x2) return x1 > left && x1 < right && Math.max(y1, y2) > top && Math.min(y1, y2) < bottom;
+      return true;
+    };
+    for (let round = 0; round < 120; round++) {
+      const count = 4 + Math.floor(random() * 22);
+      const graph = Array.from({length: count}, (_, index) => ({
+        id: 'intent-' + String(index + 1).padStart(3, '0'),
+        status: ['active', 'active', 'suspend', 'done', 'cancelled'][Math.floor(random() * 5)],
+        created_at: at(Math.floor(index * 2 + random() * 2)), relations: [],
+      }));
+      const edges = {parent: new Map(), succeeds: new Map(), depends_on: new Map()};
+      const order = new Map();  // parent and succeeds together must stay acyclic for the column rule
+      const reaches = (map, from, goal) => { const stack = [from], seen = new Set(); while (stack.length) { const id = stack.pop(); if (id === goal) return true; if (!seen.has(id)) { seen.add(id); stack.push(...(map.get(id) || [])); } } return false; };
+      const add = (map, from, to) => map.set(from, [...(map.get(from) || []), to]);
+      const pairs = new Set();
+      for (let attempt = 0; attempt < count * 2; attempt++) {
+        const subject = graph[Math.floor(random() * count)];
+        const target = graph[Math.floor(random() * count)];
+        const kind = relationKinds[Math.floor(random() * relationKinds.length)];
+        const pair = [subject.id, target.id].sort().join();
+        if (subject === target || pairs.has(pair)) continue;
+        const family = familyOf(kind);
+        if (family === 'parent' && subject.relations.some(entry => familyOf(entry.type) === 'parent')) continue;
+        if (edges[family] && reaches(edges[family], target.id, subject.id)) continue;
+        if ((family === 'parent' || family === 'succeeds') && reaches(order, target.id, subject.id)) continue;
+        pairs.add(pair);
+        subject.relations.push(rel(kind, target.id));
+        if (edges[family]) add(edges[family], subject.id, target.id);
+        if (family === 'parent' || family === 'succeeds') add(order, subject.id, target.id);
+      }
+      for (const options of [{}, {hideEnded: true}, {focus: graph[0].id}]) {
+        const result = flowLayout(graph, [], options);
+        const g = result.geometry;
+        const ids = [...result.nodes.map(node => node.id), ...result.standalone.map(intent => intent.id)];
+        assert.equal(new Set(ids).size, ids.length, 'placed once');
+        if (!options.hideEnded && !options.focus) assert.equal(ids.length, count, 'every Intent shown');
+        const cells = new Set(result.nodes.map(node => node.col + ':' + node.lane));
+        assert.equal(cells.size, result.nodes.length, 'one node per cell, round ' + round);
+        const cellOf = new Map(result.nodes.map(node => [node.id, node]));
+        for (const link of result.relations) {
+          if (link.type === 'part_of' || link.type === 'derived_from' || link.type === 'succeeds') {
+            assert.ok(cellOf.get(link.subject).col > cellOf.get(link.target).col, link.subject + ' ' + link.type + ' ' + link.target + ' sits right, round ' + round);
+          }
+        }
+        const olderFirst = result.relations.every(link => link.type === 'depends_on' || link.type === 'conflicts_with' || link.subject > link.target);
+        if (olderFirst) {
+          const byTime = [...result.nodes].sort((left, right) => byCreation(left.intent, right.intent));
+          byTime.forEach((node, index) => { if (index) assert.ok(byTime[index - 1].col <= node.col, 'creation order, round ' + round); });
+        }
+        for (const line of result.lines) {
+          for (let index = 1; index < line.points.length; index++) {
+            for (const node of result.nodes) {
+              if (node.id === line.subject || node.id === line.target) continue;
+              assert.ok(!crosses(node, line.points[index - 1], line.points[index], g), line.kind + ' ' + line.subject + '→' + line.target + ' crosses ' + node.id + ', round ' + round);
+            }
+          }
+        }
+      }
+    }
+
+    const lines = flowLines('Make checkout payments go through PaymentIntents only, everywhere, always', 164, 13, 2);
+    assert.equal(lines.length, 2);
+    assert.ok(lines[1].endsWith('…'));
+    for (const line of lines) assert.ok(flowTextWidth(line, 13) <= 164);
+    assert.deepEqual(flowLines('接入 Apple Pay', 164, 13, 2), ['接入 Apple Pay']);
+    assert.ok(flowLines('超长的中文目标标题需要在两行之内被截断并且加上省略号才能放进节点里面去', 164, 13, 2)[1].endsWith('…'));
+
+    const svg = renderFlowSvg(layout);
+    assert.ok(!/\\sstyle=/.test(svg), 'no inline style attributes under the CSP');
+    assert.equal((svg.match(/class="flow-node /g) || []).length, 8);
+    assert.ok(svg.includes('role="button" tabindex="0" data-detail-type="intent" data-remote-id="p__intent-003"'));
+    assert.ok(svg.includes('aria-label="intent-007: Launch to 10%. 进行中. 0 个 Snap. 依赖 intent-003 (被阻塞)"'));
+    assert.ok(svg.includes('Server &lt;totals&gt;') && !svg.includes('Server <totals>'));
+    assert.ok(svg.includes('>vs</text>'));
+    assert.ok(svg.includes('class="flow-decision is-deprecated" role="button" tabindex="0" data-detail-type="decision" data-remote-id="p__decision-002"'));
+    assert.ok(svg.includes('>项目</text>'));
+    assert.ok(svg.includes('<text class="flow-band-text"') && svg.includes('>Project rule</text>'));
+    assert.ok(svg.includes('class="flow-line flow-depends flow-type-depends_on tone-attention"'));
+    assert.ok(svg.indexOf('data-remote-id="p__decision-001"') < svg.indexOf('data-remote-id="p__intent-001"'));
+
+    state.currentProjectId = 'p';
+    state.activeTab = 'flow';
+    state._flow = null;
+    state.overview = {project:{id:'p', name:'p'}, history:{project_id:'p', revision:'a'.repeat(64), last_synced_at: at(30)},
+      active_intents: [{id:'intent-041', project_id:'p', remote_id:'p__intent-041', status:'active', what:'Lonely', created_at: at(1)}],
+      other_intents: [], active_decisions: [], deprecated_decisions: [], recent_snaps: [], total_snaps: 0};
+    renderFlowTab();
+    assert.ok(el.detailContent.innerHTML.includes('flow-empty'));
+    assert.ok(el.detailContent.innerHTML.includes('itt intent relate ID --depends-on OTHER'));
+    assert.ok(el.detailContent.innerHTML.includes('itt decision create &quot;Rule&quot; --why &quot;Reason&quot; --from ID'));
+    assert.ok(el.detailContent.innerHTML.includes('意图之间还没有关系。'));
+    state.overview = {...state.overview, active_intents: flowIntents.filter(intent => intent.status === 'active'),
+      other_intents: flowIntents.filter(intent => intent.status !== 'active'),
+      active_decisions: flowDecisions.filter(decision => decision.status === 'active'), deprecated_decisions: flowDecisions.filter(decision => decision.status === 'deprecated')};
+    renderFlowTab();
+    let page = el.detailContent.innerHTML;
+    assert.ok(page.includes('class="flow-canvas"') && page.includes('class="flow-legend"'));
+    assert.ok(page.includes('data-flow-hide-ended aria-pressed="false"'));
+    assert.ok(page.includes('data-flow-focus="intent-003"'));
+    assert.ok(page.includes('6 条关系') && page.includes('2 条需要处理'));
+    assert.ok(page.includes('class="flow-card flow-card-done" data-detail-type="intent" data-remote-id="p__intent-009"'));
+    assert.ok(page.includes('data-help="flow"'));
+    state._flow.hideEnded = true;
+    renderFlowTab();
+    assert.ok(el.detailContent.innerHTML.includes('data-flow-hide-ended aria-pressed="true"'));
+    assert.ok(!el.detailContent.innerHTML.includes('p__intent-009'));
+    state._flow = {hideEnded: false, focus: 'intent-003', standalone: 30};
+    renderFlowTab();
+    page = el.detailContent.innerHTML;
+    assert.ok(page.includes('聚焦于 intent-003'));
+    assert.ok(page.includes('class="flow-node status-active is-focus"'));
+    assert.ok(!page.includes('flow-standalone'));
+    window.IntHubI18n.setLanguage('en');
+    renderFlowTab();
+    assert.ok(el.detailContent.innerHTML.includes('Focused on intent-003'));
+    assert.ok(el.detailContent.innerHTML.includes('Depends on'));
+    window.IntHubI18n.setLanguage('zh-CN');
+    state._flow = null;
+
+    // Brief: the parent line and attention badges, each paired with text, also in the copied Markdown.
+    state.handoff = {
+      intents: [flowIntents[2], flowIntents[6]].map(intent => ({...intent, latest_snap: {id:'snap-100', what:'Verified: ok. Boundary: web. Next: ship. Blocker: none.', created_at: at(20)}})),
+      suspended_intents: [{...flowIntents[7], latest_snap: null}],
+      active_decisions: [],
+    };
+    renderProjectSummary();
+    const brief = el.detailContent.innerHTML;
+    assert.ok(brief.includes('class="brief-relations"'));
+    assert.ok(brief.includes('<span class="brief-relation-label">属于</span>'));
+    assert.ok(brief.includes('data-detail-type="intent" data-remote-id="p__intent-001">Checkout revamp</button>'));
+    assert.ok(brief.includes('被阻塞</span>\\n      <span class="brief-relation-label">依赖</span>'));
+    // The prerequisite's side says it is blocking someone, not that it is blocked itself.
+    assert.ok(brief.includes('阻塞中</span>\\n      <span class="brief-relation-label">被依赖</span>'));
+    assert.ok(brief.includes('对立未解决') && brief.includes('对立 intent-006'));
+    assert.ok(brief.includes('health-pill is-warning'));
+    assert.equal(continuationHealth(state.handoff.intents).label, '1 个目标被阻塞');
+    const markdown = briefMarkdown();
+    assert.ok(markdown.includes('- **属于:** Checkout revamp (intent-001)'));
+    assert.ok(markdown.includes('- **依赖:** Google Pay (intent-003) · 被阻塞'));
+    assert.ok(markdown.includes('- Server <totals> (intent-008); 对立 Receipts v2 (intent-006) · 对立未解决'));
+
+    // Intent sheet: both directions with readable labels and states; Decision sheet: its source.
+    const intentSheet = buildIntentDetailHtml({project_id:'p', intent: flowIntents[0], snaps: [], decisions: []});
+    assert.ok(intentSheet.includes('<h4 class="relation-group-label">组成部分</h4>'));
+    assert.ok(intentSheet.includes('<h4 class="relation-group-label">衍生出</h4>'));
+    assert.ok(intentSheet.includes('data-detail-type="intent" data-remote-id="p__intent-002"'));
+    // Parts carry their own status already; their relation state only shows when it needs attention.
+    assert.ok(!intentSheet.includes('rel-state'));
+    const successorSheet = buildIntentDetailHtml({project_id:'p', intent: flowIntents[5], snaps: [], decisions: []});
+    assert.ok(successorSheet.includes('<h4 class="relation-group-label">继承自</h4>'));
+    assert.ok(successorSheet.includes('rel-state rel-settled') && successorSheet.includes('已交接'));
+    const blockedSheet = buildIntentDetailHtml({project_id:'p', intent: flowIntents[6], snaps: [], decisions: []});
+    assert.ok(blockedSheet.includes('rel-state rel-attention') && blockedSheet.includes('被阻塞'));
+    assert.ok(intentSheet.includes('data-flow-focus="intent-001"'));
+    assert.ok(intentSheet.includes('源自此意图的决策') && intentSheet.includes('data-remote-id="p__decision-002"'));
+    const partSheet = buildIntentDetailHtml({project_id:'p', intent: flowIntents[2], snaps: [], decisions: []});
+    assert.ok(partSheet.indexOf('>属于</h4>') < partSheet.indexOf('>被依赖</h4>'));
+    assert.ok(buildIntentDetailHtml({project_id:'p', intent: flowIntents[8], snaps: [], decisions: []}).includes('与其他意图没有关系。'));
+    const sourced = buildDecisionDetailHtml({project_id:'p', decision: flowDecisions[1], intents: []});
+    assert.ok(sourced.includes('来源') && sourced.includes('data-detail-type="intent" data-remote-id="p__intent-001"'));
+    const projectLevel = buildDecisionDetailHtml({project_id:'p', decision: flowDecisions[0], intents: []});
+    assert.ok(projectLevel.includes('<span class="chip">项目级</span>'));
+
+    // Timeline pages come from /snaps; Load more asks for the next offset; the filter goes to the server.
+    const savedFetch = fetchJson;
+    const requested = [];
+    const responses = new Map();
+    fetchJson = url => { requested.push(url); return responses.get(url) || Promise.reject(new Error('unexpected ' + url)); };
+    const snapPage = (offset, count, total, more, intentId = 'intent-001') => ({project_id:'p', total, offset, limit:50, has_more: more,
+      snaps: Array.from({length: count}, (_, index) => {
+        const id = 'snap-' + String(500 - offset - index).padStart(3, '0');
+        return {id, project_id:'p', remote_id:'p__' + id, intent_id: intentId, what:'Checkpoint ' + (offset + index), created_at: at(40)};
+      })});
+    state.activeTab = 'snaps';
+    state._timeline = null;
+    state.overview = {...state.overview, total_snaps: 75, active_intents: [{...flowIntents[0], snap_ids: Array(60).fill('snap-001'), latest_snap_id: 'snap-500'}, {...flowIntents[2], snap_ids: ['snap-101'], latest_snap_id: 'snap-101'}], other_intents: []};
+    const first = '/api/v1/projects/p/snaps?offset=0&limit=50';
+    responses.set(first, Promise.resolve(snapPage(0, 50, 75, true)));
+    renderSnapsTab();
+    assert.equal(requested.at(-1), first);
+    assert.ok(el.detailContent.innerHTML.includes('view-loading'));
+    await flush();
+    assert.equal(state._timeline.snaps.length, 50);
+    assert.ok(el.detailContent.innerHTML.includes('data-remote-id="p__snap-500"'));
+    assert.ok(el.detailContent.innerHTML.includes('id="load-more-snaps">加载更多（25）</button>'));
+    assert.ok(el.detailContent.innerHTML.includes('75 个检查点'));
+    responses.set('/api/v1/projects/p/snaps?offset=50&limit=50', Promise.resolve(snapPage(50, 25, 75, false)));
+    await loadTimelinePage();
+    assert.equal(requested.at(-1), '/api/v1/projects/p/snaps?offset=50&limit=50');
+    assert.equal(state._timeline.snaps.length, 75);
+    assert.ok(!el.detailContent.innerHTML.includes('load-more-snaps'));
+    assert.ok(state._snapCache.has('p__snap-451'));
+    // A slow page for an older filter cannot replace the newer one.
+    let releaseSlow;
+    responses.set(first + '&intent_id=intent-003', new Promise(resolve => { releaseSlow = resolve; }));
+    resetTimeline('intent-003');
+    renderSnapsTab();
+    assert.equal(requested.at(-1), first + '&intent_id=intent-003');
+    assert.ok(el.detailContent.innerHTML.includes('Google Pay'));
+    responses.set(first, Promise.resolve(snapPage(0, 3, 3, false)));
+    resetTimeline('');
+    renderSnapsTab();
+    await flush();
+    releaseSlow(snapPage(0, 1, 1, false, 'intent-003'));
+    await flush();
+    assert.equal(state._timeline.intentId, '');
+    assert.equal(state._timeline.snaps.length, 3);
+    responses.set(first, Promise.reject(new Error('offline')));
+    resetTimeline('');
+    renderSnapsTab();
+    await flush();
+    assert.ok(el.detailContent.innerHTML.includes('data-retry-timeline'));
+
+    // A latest Snap outside the overview window is fetched once and its label refreshed in place.
+    state.activeTab = 'intents';
+    state._snapCache = new Map();
+    state._snapFailed = new Set();
+    state._detailCache = new Map();
+    state.overview = {...state.overview, recent_snaps: [], active_intents: [{...flowIntents[0], snap_ids:['snap-007'], latest_snap_id:'snap-007'}], other_intents: []};
+    const label = document.getElementById('latest-snap-label');
+    label.dataset.latestSnap = 'p__snap-007';
+    const savedQuery = el.detailContent.querySelectorAll;
+    el.detailContent.querySelectorAll = selector => selector === '[data-latest-snap]' ? [label] : [];
+    responses.set('/api/v1/snaps/p__snap-007', Promise.resolve({remote_id:'p__snap-007', project_id:'p', id:'snap-007', snap:{id:'snap-007', intent_id:'intent-001', what:'old', created_at: new Date().toISOString()}, intent:{}}));
+    renderIntentsTab();
+    assert.ok(el.detailContent.innerHTML.includes('data-latest-snap="p__snap-007">检查点 snap-007</span>'));
+    await flush();
+    assert.equal(requested.filter(url => url === '/api/v1/snaps/p__snap-007').length, 1);
+    assert.equal(label.textContent, '刚刚更新');
+    assert.ok(state._detailCache.has('snap:p__snap-007'));
+    renderIntentsTab();
+    await flush();
+    assert.equal(requested.filter(url => url === '/api/v1/snaps/p__snap-007').length, 1);
+    assert.ok(el.detailContent.innerHTML.includes('data-latest-snap="p__snap-007">刚刚更新</span>'));
+    el.detailContent.querySelectorAll = savedQuery;
+    fetchJson = savedFetch;
+
+    // Search: at most 50 matches, and the reader is told when there are more.
+    const fifty = Array.from({length: 50}, (_, index) => ({object_type:'intent', remote_id:'p__intent-' + index, id:'intent-' + index, status:'active', what:'Pay ' + index, why:''}));
+    assert.deepEqual(searchSummary({matches: fifty, total: 132, truncated: true}), {text: '显示前 50 条，共 132 条，请细化搜索', visible: true});
+    assert.deepEqual(searchSummary({matches: fifty.slice(0, 2), total: 2, truncated: false}), {text: '2 个结果', visible: false});
+    el.searchDialog.open = true;
+    renderSearchResults({matches: fifty, total: 132, truncated: true, query: 'pay'});
+    assert.equal(el.searchStatus.innerHTML, '显示前 50 条，共 132 条，请细化搜索');
+    assert.equal(el.searchStatus.classList.contains('visually-hidden'), false);
+    assert.equal(el.searchStatus.classList.contains('is-note'), true);
+    window.IntHubI18n.setLanguage('en');
+    assert.equal(searchSummary({matches: fifty, total: 132, truncated: true}).text, 'Showing 50 of 132 — refine the search');
+    renderSearchResults({matches: fifty.slice(0, 3), total: 3, truncated: false, query: 'pay'});
+    assert.equal(el.searchStatus.classList.contains('visually-hidden'), true);
+    assert.equal(el.searchStatus.classList.contains('is-note'), false);
+    window.IntHubI18n.setLanguage('zh-CN');
+    el.searchDialog.open = false;
+  })()`, context);
+  console.log('Relation state parity, Flow layout and rendering, brief and sheet relations, paged timeline, Snap fallback and truncated search tests passed.');
+}
+
 async function redirectCase(destination, failure = false) {
   const elements = new Map();
   const events = new Map();
@@ -721,6 +1122,7 @@ async function redirectCase(destination, failure = false) {
 (async () => {
   await headerMenuCases();
   await viewControllerCases();
+  await flowAndPagingCases();
   await redirectCase('https://account.tenon.asia/api/auth/oauth2/authorize?state=fresh');
   await redirectCase('https://evil.example/authorize');
   await redirectCase('', true);

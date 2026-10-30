@@ -1920,6 +1920,564 @@ kbd {
   font-weight: 560;
 }
 
+.timeline-error {
+  margin-top: 14px;
+  color: var(--red);
+  font-size: 13px;
+}
+
+/* --- Relations ----------------------------------------------------------- */
+
+.rel-state {
+  height: 20px;
+  padding: 0 7px;
+  font-size: 11.5px;
+}
+
+/* Calm relation states read as a phrase; only states that need someone to act become pills. */
+.rel-state.rel-neutral,
+.rel-state.rel-settled {
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+}
+
+.rel-neutral .status-dot {
+  background: var(--muted);
+}
+
+.rel-settled .status-dot {
+  background: var(--green-dot);
+}
+
+.rel-attention {
+  border-color: var(--amber-line);
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+
+.rel-attention .status-dot {
+  background: var(--amber-dot);
+}
+
+.rel-danger {
+  border-color: var(--red-line);
+  color: var(--red);
+  background: var(--red-soft);
+}
+
+.rel-danger .status-dot {
+  background: var(--red-dot);
+}
+
+.brief-relations {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.brief-relation {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.brief-relation-label {
+  font-weight: 500;
+}
+
+.brief-relation-target {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: 560;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-overflow: ellipsis;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.brief-relation-target:hover {
+  text-decoration-color: currentColor;
+}
+
+.brief-relation-id {
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.row-relations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.row-relation {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.relation-group + .relation-group {
+  margin-top: 14px;
+}
+
+.relation-group-label {
+  margin: 0 0 6px 2px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.relation-meta .rel-state {
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.relation-flow-link {
+  margin: 10px 0 0 -10px;
+}
+
+.decision-source-none {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 12px 14px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+/* --- Flow ---------------------------------------------------------------- */
+
+.flow-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.flow-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.flow-toggle svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.flow-toggle:hover {
+  border-color: var(--border-strong);
+  color: var(--ink);
+}
+
+.flow-toggle[aria-pressed="true"] {
+  border-color: var(--ink-2);
+  color: var(--ink);
+  background: var(--surface-selected);
+}
+
+.flow-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0 0 14px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  list-style: none;
+}
+
+.flow-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.flow-legend-sample {
+  width: 32px;
+  height: 16px;
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.flow-legend-sample.is-mark {
+  width: 14px;
+  height: 14px;
+}
+
+/* The graph keeps its natural size and scrolls inside its own frame, never the page. */
+.flow-canvas {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background-color: var(--canvas);
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 20px 20px;
+  overscroll-behavior-x: contain;
+}
+
+.flow-svg {
+  display: block;
+  max-width: none;
+}
+
+.flow-svg text {
+  stroke: none;
+  font-family: var(--sans);
+}
+
+.flow-band-box {
+  fill: var(--surface);
+  stroke: var(--border-strong);
+  stroke-dasharray: 3 3;
+  stroke-width: 1;
+}
+
+.flow-band-label {
+  fill: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.flow-band-text {
+  fill: var(--ink-2);
+  font-size: 12px;
+}
+
+.flow-band-more {
+  fill: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* A parent's lane runs on only as far as its ended parts come back to join it. */
+.flow-lifeline {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-width: 2;
+}
+
+.flow-stroke {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-width: 1.5;
+}
+
+.flow-hit-line {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 12;
+  pointer-events: stroke;
+}
+
+.flow-arrow {
+  fill: var(--ink-2);
+  stroke: none;
+}
+
+.flow-type-part_of .flow-stroke {
+  stroke-width: 2;
+}
+
+.flow-type-derived_from .flow-stroke {
+  stroke: var(--muted);
+  stroke-width: 1.25;
+}
+
+.flow-flow .flow-stroke {
+  stroke-width: 3.5;
+}
+
+.flow-conflict .flow-stroke {
+  stroke-dasharray: 6 5;
+}
+
+.flow-vs rect {
+  fill: var(--surface);
+  stroke: var(--ink-2);
+  stroke-width: 1;
+}
+
+.flow-vs text {
+  fill: var(--ink-2);
+  font-size: 10.5px;
+  font-weight: 650;
+}
+
+.tone-attention .flow-stroke,
+.tone-attention .flow-vs rect {
+  stroke: var(--amber);
+}
+
+.tone-attention .flow-arrow,
+.tone-attention .flow-vs text {
+  fill: var(--amber);
+}
+
+.tone-danger .flow-stroke {
+  stroke: var(--red);
+}
+
+.tone-danger .flow-arrow {
+  fill: var(--red);
+}
+
+.tone-settled .flow-stroke {
+  stroke: var(--green);
+}
+
+.tone-settled .flow-arrow {
+  fill: var(--green);
+}
+
+.flow-line.is-settled .flow-stroke,
+.flow-line.is-settled .flow-vs rect {
+  stroke: var(--faint);
+}
+
+.flow-line.is-settled .flow-vs text {
+  fill: var(--muted);
+}
+
+.flow-node,
+.flow-decision {
+  cursor: pointer;
+  outline: none;
+}
+
+.flow-node-box {
+  fill: var(--surface);
+  stroke: var(--border-strong);
+  stroke-width: 1;
+  transition: stroke 120ms ease;
+}
+
+.flow-node:hover .flow-node-box {
+  stroke: var(--muted);
+}
+
+.flow-node-ring,
+.flow-decision-ring {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 2;
+}
+
+.flow-node:focus-visible .flow-node-ring,
+.flow-decision:focus-visible .flow-decision-ring {
+  stroke: var(--focus);
+}
+
+.flow-node-dot {
+  fill: var(--faint);
+}
+
+.flow-node-status {
+  fill: var(--ink-2);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.flow-node-id {
+  fill: var(--muted);
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+
+.flow-node-title {
+  fill: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.flow-node-meta {
+  fill: var(--muted);
+  font-size: 11.5px;
+}
+
+/* Node colour only shows status, and the status label is always drawn beside it. */
+.flow-node.status-active .flow-node-box {
+  stroke: var(--blue-line);
+  stroke-width: 1.5;
+}
+
+.flow-node.status-active .flow-node-dot {
+  fill: var(--blue-dot);
+}
+
+.flow-node.status-suspend .flow-node-dot {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5;
+}
+
+.flow-node.status-done .flow-node-box,
+.flow-node.status-cancelled .flow-node-box {
+  fill: var(--surface-subtle);
+}
+
+.flow-node.status-done .flow-node-dot {
+  fill: var(--muted);
+}
+
+.flow-node.status-done .flow-node-title {
+  fill: var(--ink-2);
+}
+
+.flow-node.status-cancelled .flow-node-box {
+  stroke: var(--border);
+}
+
+.flow-node.status-cancelled .flow-node-dot {
+  fill: none;
+  stroke: var(--faint);
+  stroke-width: 1.5;
+}
+
+.flow-node.status-cancelled .flow-node-title,
+.flow-node.status-cancelled .flow-node-status {
+  fill: var(--muted);
+}
+
+.flow-node.is-focus .flow-node-box,
+.flow-node.is-selected .flow-node-box {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+
+.flow-hit {
+  fill: transparent;
+  stroke: none;
+}
+
+.flow-decision-shape {
+  fill: var(--ink-2);
+  stroke: var(--ink-2);
+  stroke-width: 1.25;
+}
+
+.flow-decision.is-deprecated .flow-decision-shape {
+  fill: var(--surface);
+  stroke: var(--muted);
+}
+
+.flow-decision:hover .flow-decision-shape {
+  stroke: var(--ink);
+}
+
+.flow-decision:not(.is-deprecated):hover .flow-decision-shape {
+  fill: var(--ink);
+}
+
+.flow-standalone-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 10px;
+}
+
+.flow-card {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  text-align: left;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.flow-card:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+}
+
+.flow-card.is-selected {
+  border-color: var(--ink);
+}
+
+.flow-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.flow-card-title {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.flow-card-done .flow-card-title,
+.flow-card-cancelled .flow-card-title {
+  color: var(--ink-2);
+}
+
+.flow-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.flow-card-meta > * + *::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--faint);
+}
+
+.flow-empty .snippet {
+  justify-self: stretch;
+  width: min(100%, 640px);
+  margin-inline: auto;
+  text-align: left;
+}
+
 /* --- Empty, loading and setup -------------------------------------------- */
 
 .empty-state {
@@ -2484,6 +3042,13 @@ kbd {
 
 .search-status:empty {
   display: none;
+}
+
+.search-status.is-note {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  text-align: left;
 }
 
 .search-status .secondary-btn {
@@ -3393,6 +3958,15 @@ kbd {
   .timeline-filter-menu {
     right: auto;
     left: 0;
+  }
+
+  .flow-legend {
+    gap: 6px 14px;
+    font-size: 12px;
+  }
+
+  .flow-canvas {
+    border-radius: var(--radius);
   }
 
   .setup-step {

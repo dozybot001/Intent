@@ -1,13 +1,16 @@
 from pathlib import Path
 from html.parser import HTMLParser
+import json
+import os
 import re
 import shutil
 import subprocess
 
 import pytest
 
+from apps.inthub_api import queries
 from apps.inthub_web import product_version
-from intent_cli import store
+from intent_cli import relations, store
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -170,7 +173,7 @@ def test_workspace_is_one_fluid_page_with_tabs_instead_of_three_fixed_panes():
     for retired in ('id="sidebar"', 'class="primary-nav"', 'id="back-btn"', 'id="nav-health"', "Continuation queue"):
         assert retired not in html
     tabs = [attributes["data-tab"] for _, attributes, _ in markup.tags if "data-tab" in attributes]
-    assert tabs == ["overview", "intents", "snaps", "decisions"]
+    assert tabs == ["overview", "intents", "flow", "snaps", "decisions"]
     tab_bar = markup.by_id("tab-bar")
     assert tab_bar[0] == "nav" and tab_bar[1].get("aria-label")
     content = _block(css, ".page-content")
@@ -281,8 +284,13 @@ def test_static_assets_carry_one_current_cache_revision():
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js unavailable for frontend logic tests")
 def test_bilingual_rendering_preserves_user_content_and_immediate_loading():
+    # The web client derives relation states itself; hand it the CLI's answers for every status pair.
+    statuses = ("active", "suspend", "done", "cancelled", None)
+    parity = [[kind, subject, target, relations.state(kind, {"status": subject}, {"status": target})]
+              for kind in relations.RELATION_TYPES for subject in statuses for target in statuses]
+    env = {**os.environ, "INTHUB_RELATION_STATES": json.dumps(parity)}
     for script in ("inthub_web_logic.cjs", "inthub_theme_logic.cjs"):
-        result = subprocess.run(["node", str(Path(__file__).with_name(script))], capture_output=True, text=True)
+        result = subprocess.run(["node", str(Path(__file__).with_name(script))], capture_output=True, text=True, env=env)
         assert result.returncode == 0, f"{script} failed:\n{result.stdout}\n{result.stderr}"
 
 
@@ -592,3 +600,68 @@ def test_product_brand_and_about_follow_tenon_standard():
     assert 'if (el.aboutDialog.open || el.tokenDialog.open || el.searchDialog.open) return' in javascript
     assert 'fill="#f06b32"' in mark
     assert 'M13 16H51V28H38V48H26V28H13Z' in mark
+
+
+def test_flow_relations_mirror_the_cli_rules():
+    javascript = _static("app.js")
+    types = re.search(r"const RELATION_TYPES = \[([^\]]*)\];", javascript).group(1)
+    assert tuple(re.findall(r'"(\w+)"', types)) == relations.RELATION_TYPES
+    parents = re.search(r"const PARENT_RELATIONS = new Set\(\[([^\]]*)\]\);", javascript).group(1)
+    assert set(re.findall(r'"(\w+)"', parents)) == relations.PARENT_TYPES
+    attention = re.search(r"const ATTENTION_STATES = new Set\(\[([^\]]*)\]\);", javascript).group(1)
+    assert set(re.findall(r'"(\w+)"', attention)) == relations.ATTENTION_STATES
+    ended = re.search(r"const ENDED_STATUSES = new Set\(\[([^\]]*)\]\);", javascript).group(1)
+    assert set(re.findall(r'"(\w+)"', ended)) == relations.ENDED
+    # Withdrawn entries carry removed_at and never count, exactly like active_entries().
+    assert '!("removed_at" in entry)' in javascript.split("function activeRelationEntries", 1)[1].split("\n}\n", 1)[0]
+    # A relation state is never shown by colour alone.
+    assert '<span class="status-dot" aria-hidden="true"></span>${esc(relationStateLabel(key, row))}</span>' in javascript
+
+
+def test_flow_tab_is_a_keyboard_reachable_inline_svg_without_inline_styles():
+    html = _static("index.html")
+    javascript = _static("app.js")
+    css = _static("styles.css")
+    translations = _static("i18n.js")
+    assert re.search(r'const TABS = \["overview", "intents", "flow", "snaps", "decisions"\];', javascript)
+    assert '"Flow": "流转"' in translations and '"Project": "项目"' in translations
+    assert 'case "flow":' in javascript and "function flowLayout(" in javascript and "function renderFlowSvg(" in javascript
+    # CSP style-src 'self': no style attributes in markup strings; SVG presentation attributes only.
+    assert not re.search(r"""\sstyle=["'`$]""", javascript + html)
+    assert "cdn" not in javascript.lower() and "<script" not in javascript
+    node = javascript.split("function flowNodeSvg", 1)[1].split("\n}\n", 1)[0]
+    assert 'role="button" tabindex="0" data-detail-type="intent"' in node and "aria-label=" in node
+    decision = javascript.split("function flowDecisionSvg", 1)[1].split("\n}\n", 1)[0]
+    assert 'role="button" tabindex="0" data-detail-type="decision"' in decision and "aria-label=" in decision
+    assert 'event.key !== "Enter" && event.key !== " "' in javascript
+    assert 'svg [role=button][data-detail-type][data-remote-id]' in javascript
+    # The graph scrolls inside its own frame so the page never scrolls sideways.
+    canvas = _block(css, ".flow-canvas")
+    assert "overflow-x: auto" in canvas and "max-width: 100%" in canvas
+    assert ".flow-node:focus-visible .flow-node-ring" in css
+    assert 'data-help="flow"' not in html and 'help: "flow"' in javascript and "flow:" in _static("help.js")
+    for command in ("--part-of ID", "relate ID --depends-on OTHER", "cancel ID --into OTHER", "--from ID"):
+        assert command in javascript.split("function renderFlowTab", 1)[1].split("\n}\n", 1)[0]
+
+
+def test_timeline_pages_from_the_snaps_endpoint_and_search_reports_truncation():
+    javascript = _static("app.js")
+    translations = _static("i18n.js")
+    page_size = int(re.search(r"const SNAP_PAGE_SIZE = (\d+);", javascript).group(1))
+    assert 1 <= page_size <= queries.SNAP_PAGE_MAX
+    url = javascript.split("function snapPageUrl", 1)[1].split("\n}\n", 1)[0]
+    assert "/snaps?" in url and 'query.set("intent_id", intentId)' in url
+    timeline = javascript.split("function renderSnapsTab", 1)[1].split("\n}\n", 1)[0]
+    assert "recent_snaps ||" in timeline and "renderTimeline(timeline)" in timeline and "loadTimelinePage()" in timeline
+    assert "offset: timeline.snaps.length" in javascript
+    # Recent activity on the overview still reads the newest Snaps from the overview itself.
+    assert "activityRows((state.overview.recent_snaps || []).slice(0, 6))" in javascript
+    assert "/api/v1/snaps/${encodeURIComponent(rId)}" in javascript.split("async function fetchMissingSnaps", 1)[1]
+    assert '"Showing {shown} of {total} — refine the search": "显示前 {shown} 条，共 {total} 条，请细化搜索"' in translations
+    assert queries.SEARCH_LIMIT == 50
+
+
+def test_static_revision_names_the_flow_release():
+    for name in ("index.html", "auth-redirect.html"):
+        assert "rev=continuity-5" not in _static(name)
+        assert "rev=flow-6" in _static(name)

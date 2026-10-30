@@ -5,6 +5,7 @@
     search: "Search matches goals, checkpoints and decisions within the selected project. Cmd/Ctrl+K opens search.",
     decisions: "Rules that remain binding across linked objectives.",
     setup: "Run these commands where your .intent/ data lives.",
+    flow: "Part of branches off its parent and rejoins it once done or dropped. Derived from branches off without rejoining. Succeeds is a thick arrow: the lane flows on into its successor. Depends on is a thin arrow from the prerequisite: amber while blocked, green once satisfied, red if it was cancelled. Conflicts with is a dashed line marked vs until one side ends. Diamonds are Decisions; hollow ones are deprecated.",
   };
   const panel = document.getElementById("help-popover");
   let trigger = null;

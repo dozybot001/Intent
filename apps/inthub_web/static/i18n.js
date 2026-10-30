@@ -145,6 +145,24 @@ window.IntHubI18n = (() => {
     "{count} checkpoint": "{count} 个检查点",
     "{count} linked Intent": "{count} 个关联意图",
     "Applies to {count} linked Intent.": "适用于 {count} 个关联意图。",
+
+    "Flow": "流转", "Flow between Intents": "意图之间的流转", "Legend": "图例", "Relations": "关系",
+    "Part of": "属于", "Parts": "组成部分", "Derived from": "衍生自", "Spawned": "衍生出",
+    "Succeeds": "继承自", "Succeeded by": "被继承", "Depends on": "依赖", "Needed by": "被依赖", "Conflicts with": "对立",
+    "Dropped": "已放弃", "Parent ended": "上级已结束", "Handover pending": "待交接", "Handed over": "已交接",
+    "Satisfied": "已满足", "Broken dependency": "依赖已失效", "Broken": "已失效", "Blocking": "阻塞中", "Unresolved conflict": "对立未解决", "Resolved": "已解决",
+    "Needs attention": "需要处理", "{count} needs attention": "{count} 条需要处理", "{count} need attention": "{count} 条需要处理",
+    "{count} relation": "{count} 条关系", "{count} relations": "{count} 条关系",
+    "Hide ended": "隐藏已结束", "Focus on…": "聚焦于…", "Focused on {id}": "聚焦于 {id}",
+    "Focus on one Intent and its direct relations": "聚焦一个意图及其直接关联",
+    "No relations between Intents yet.": "意图之间还没有关系。",
+    "Relations record where a goal comes from and what constrains it. Add them from the CLI; the flow appears here after the next push.": "关系记录一个目标从哪里来、受什么制约。在 CLI 中添加后，下一次推送时流转图会出现在这里。",
+    "No related Intent is open. Show ended Intents to see the rest of the flow.": "没有进行中的关联意图。显示已结束的意图即可查看完整流转。",
+    "Not related to other Intents": "与其他意图无关联", "No relations to other Intents.": "与其他意图没有关系。",
+    "Show in Flow": "在流转图中查看", "Decisions from this Intent": "源自此意图的决策",
+    "Source": "来源", "Project-level": "项目级", "Not traced to one Intent; it applies across the project.": "未追溯到具体意图，适用于整个项目。",
+    "Showing {shown} of {total} — refine the search": "显示前 {shown} 条，共 {total} 条，请细化搜索",
+    "Part of branches off its parent and rejoins it once done or dropped. Derived from branches off without rejoining. Succeeds is a thick arrow: the lane flows on into its successor. Depends on is a thin arrow from the prerequisite: amber while blocked, green once satisfied, red if it was cancelled. Conflicts with is a dashed line marked vs until one side ends. Diamonds are Decisions; hollow ones are deprecated.": "属于：从上级分出，完成或放弃后汇回上级。衍生自：分出后不汇回。继承自：粗箭头，泳道流入接手的意图。依赖：从前置意图指来的细箭头，阻塞时为琥珀色，满足后为绿色，前置被取消则为红色。对立：标有 vs 的虚线，直到一方结束。菱形是决策，空心表示已废弃。",
   };
   let language;
   try { language = localStorage.getItem("inthub.language"); } catch {}
