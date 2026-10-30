@@ -9,7 +9,7 @@ import subprocess
 import pytest
 
 from apps.inthub_api import queries
-from apps.inthub_api.server import REVISION_PAGE_MAX
+from apps.inthub_api.http_common import REVISION_PAGE_MAX
 from apps.inthub_web import product_version
 from intent_cli import identity, relations, store
 

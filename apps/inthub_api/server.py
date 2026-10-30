@@ -1,185 +1,26 @@
 """Shared semantic-history API and Web shell."""
 
 import argparse
-import hmac
-import json
 import logging
-import mimetypes
 import os
 import re
 import signal
 import threading
 import time
-from collections import deque
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
-from urllib.parse import quote, parse_qs, parse_qsl, urlencode, urlparse, urlunparse
-from apps.inthub_web import product_version
+from types import SimpleNamespace
+from urllib.parse import parse_qs, urlparse
 
 from apps.inthub_api.access import VISITOR
-from apps.inthub_api.auth import (
-    account_for_access_token,
-    create_account_access_token,
-    delete_web_session,
-    list_account_access_tokens,
-    revoke_account_access_token,
-    safe_return_to,
-)
-from apps.inthub_api.tenon import (
-    TenonOIDCClient, account_for_identity, account_for_session,
-    consume_attempt, create_attempt, create_session, SESSION_MAX_SECONDS,
-)
 from apps.inthub_api.common import APIError
 from apps.inthub_api.db import check_database, describe_database
-from apps.inthub_api.device import decide_device_login, describe_device_login, poll_device_login, start_device_login
-from apps.inthub_api.history import link_history, push_history, read_history
-from apps.inthub_api.limits import account_usage
 from apps.inthub_api.product_deletion import ProductDeletionClient, subject_for_account
-from apps.inthub_api.projects import delete_project, export_project, rename_project, set_visibility, transfer_project
-from apps.inthub_api.revisions import project_revisions, revision_detail
-from apps.inthub_api.queries import (
-    SNAP_PAGE_MAX,
-    get_decision_detail,
-    get_intent_detail,
-    get_snap_detail,
-    list_projects,
-    project_handoff,
-    project_home,
-    project_overview,
-    project_snaps,
-    search_project,
-)
-from apps.inthub_api.teams import (
-    accept_invite,
-    create_invite,
-    create_team,
-    delete_team,
-    list_teams,
-    preview_invite,
-    remove_member,
-    revoke_invite,
-    set_member_role,
-    team_detail,
-    update_team,
-)
-from intent_cli.store import StorageSecurityError, validate_object_id
-
-STATIC_DIR = Path(__file__).resolve().parents[1] / "inthub_web" / "static"
-DEFAULT_MAX_BODY_BYTES = 16 * 1024 * 1024
-# Small JSON bodies only: sign-in, token and deletion requests.
-AUTH_BODY_LIMIT = 16 * 1024
-# Host-only and HTTPS-only: no other *.tenon.asia site can plant this cookie.
-SESSION_COOKIE = "__Host-inthub_session"
-REVISION_PAGE_MAX = 100
-# What a signed-out visitor can ask for; the project itself must still be public.
-VISITOR_READS = re.compile(r"/api/v1/(?:projects/[^/]+/(?:overview|handoff|snaps|revisions(?:/[^/]+)?)|(?:intents|decisions|snaps)/[^/]+|search)")
-TEAM_ACTIONS = (
-    (r"/api/v1/teams", lambda db, me, body: create_team(db, body.get("name"), body.get("slug"), me)),
-    (r"/api/v1/teams/([^/]+)", lambda db, me, body, team: update_team(db, team, body.get("name"), body.get("slug"), me)),
-    (r"/api/v1/teams/([^/]+)/delete", lambda db, me, body, team: delete_team(db, team, body.get("confirm"), me)),
-    (r"/api/v1/teams/([^/]+)/invites", lambda db, me, body, team: create_invite(db, team, body.get("role"), me)),
-    (r"/api/v1/teams/([^/]+)/invites/([^/]+)/revoke", lambda db, me, body, team, invite: revoke_invite(db, team, invite, me)),
-    (r"/api/v1/teams/([^/]+)/members/([^/]+)/role", lambda db, me, body, team, member: set_member_role(db, team, member, body.get("role"), me)),
-    (r"/api/v1/teams/([^/]+)/members/([^/]+)/remove", lambda db, me, body, team, member: remove_member(db, team, member, me)),
-    (r"/api/v1/invites/accept", lambda db, me, body: accept_invite(db, body.get("token"), me)),
-)
-# Paths the web app answers itself; anything else gets a real 404.
-WEB_ROUTES = re.compile(r"/(?:account(?:/danger)?|settings(?:/teams|/usage)?|invite|device|teams/[^/]+(?:/projects|/settings)?)?/?")
-OAUTH_STATE_COOKIE = "inthub_oauth_state"
-LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
-QUIET_PATHS = {"/health", "/healthz", "/readyz"}
-ACCOUNT_SESSION_TTL_SECONDS = SESSION_MAX_SECONDS
-OAUTH_STATE_TTL_SECONDS = 10 * 60
-LOGGER = logging.getLogger("inthub.api")
-
-
-def _json_success(result):
-    return {"ok": True, "result": result}
-
-
-def _query_int(query, name, default, minimum, maximum):
-    raw = query.get(name, [None])[0]
-    if raw is None:
-        return default
-    try:
-        value = int(raw)
-    except ValueError:
-        value = None
-    if value is None or value < minimum or (maximum is not None and value > maximum):
-        bound = f" and {maximum}" if maximum is not None else " or more"
-        raise APIError("INVALID_INPUT", f"Query parameter '{name}' must be an integer of {minimum}{bound}.", status=400)
-    return value
-
-
-def _login_error_return(return_to, code):
-    target = urlparse(safe_return_to(return_to))
-    query = [(key, value) for key, value in parse_qsl(target.query, keep_blank_values=True) if key != "auth_error"]
-    query.append(("auth_error", code))
-    return urlunparse(target._replace(query=urlencode(query)))
-
-
-def _json_error(code, message, details=None):
-    return {
-        "ok": False,
-        "error": {
-            "code": code,
-            "message": message,
-            "details": details or {},
-        },
-    }
-
-
-def _env_flag(name, default=False):
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _env_or_file(name, default=None):
-    value = os.getenv(name)
-    if value is not None:
-        return value
-    file_path = os.getenv(f"{name}_FILE")
-    if file_path:
-        return Path(file_path).read_text(encoding="utf-8").strip()
-    return default
-
-
-class _RateLimiter:
-    """Fixed-window limiter for unauthenticated endpoints that create state."""
-
-    def __init__(self, limit, window_seconds):
-        self.limit = limit
-        self.window = window_seconds
-        self.hits = {}
-        self.lock = threading.Lock()
-
-    def allow(self, key):
-        now = time.monotonic()
-        with self.lock:
-            recent = self.hits.setdefault(key, deque())
-            while recent and now - recent[0] > self.window:
-                recent.popleft()
-            if len(recent) >= self.limit:
-                return False
-            recent.append(now)
-            if len(self.hits) > 10000:
-                self.hits = {key: recent}
-            return True
-
-
-class IntHubHTTPServer(ThreadingHTTPServer):
-    # The stdlib default backlog of 5 resets connections under modest bursts.
-    request_queue_size = 128
-
-
-def _normalize_origins(allowed_origins):
-    if allowed_origins is None:
-        return None
-    if isinstance(allowed_origins, str):
-        allowed_origins = allowed_origins.split(",")
-    return {origin.strip().rstrip("/") for origin in allowed_origins if origin.strip()}
+from apps.inthub_api.tenon import TenonOIDCClient
+from apps.inthub_api.http_auth import HttpAuth
+from apps.inthub_api.http_base import HttpBase
+from apps.inthub_api.http_common import ACCOUNT_SESSION_TTL_SECONDS, AUTH_BODY_LIMIT, DEFAULT_MAX_BODY_BYTES, IntHubHTTPServer, LOGGER, LOOPBACK_HOSTS, OAUTH_STATE_TTL_SECONDS, QUIET_PATHS, STATIC_DIR, TEAM_ACTIONS, VISITOR_READS, _RateLimiter, _env_flag, _env_or_file, _json_error, _json_success, _normalize_origins
+from apps.inthub_api.http_routes import HttpRoutes
 
 
 def make_handler(
@@ -240,636 +81,37 @@ def make_handler(
     product_deletion = deletion_client
     if tenon_configured and product_deletion is None:
         product_deletion = ProductDeletionClient(tenon_client_id, tenon_client_secret)
+    settings = SimpleNamespace(
+        account_session_ttl_seconds=account_session_ttl_seconds,
+        allowed_hosts=allowed_hosts,
+        api_limiter=api_limiter,
+        auth_mode=auth_mode,
+        auth_required=auth_required,
+        db_path=db_path,
+        default_project_id=default_project_id,
+        deletion_limiter=deletion_limiter,
+        device_code_limiter=device_code_limiter,
+        device_poll_limiter=device_poll_limiter,
+        device_start_limiter=device_start_limiter,
+        max_body_bytes=max_body_bytes,
+        oauth_state_ttl_seconds=oauth_state_ttl_seconds,
+        origin_allowlist=origin_allowlist,
+        product_deletion=product_deletion,
+        provider_client=provider_client,
+        public_api_base_url=public_api_base_url,
+        root=root,
+        secure_cookies=secure_cookies,
+        serve_web=serve_web,
+        sign_in_limiter=sign_in_limiter,
+        tenon_configured=tenon_configured,
+        visitor_limiter=visitor_limiter,
+    )
 
-    class IntHubHandler(BaseHTTPRequestHandler):
+    class IntHubHandler(HttpRoutes, HttpAuth, HttpBase, BaseHTTPRequestHandler):
+        hub = settings
         server_version = "IntHub"
         # Bound slow or idle clients so they cannot pin worker threads.
         timeout = 30
-
-        def _send_json(self, status, payload, extra_headers=None, compact=False):
-            options = (
-                {"ensure_ascii": False, "separators": (",", ":")}
-                if compact
-                else {"indent": 2, "ensure_ascii": False}
-            )
-            body = json.dumps(payload, **options).encode("utf-8")
-            self._send_bytes(
-                status,
-                body,
-                "application/json; charset=utf-8",
-                extra_headers=extra_headers,
-                cache_control="no-store",
-            )
-
-        def _send_bytes(
-            self,
-            status,
-            body,
-            content_type,
-            extra_headers=None,
-            cache_control="no-cache",
-        ):
-            self.send_response(status)
-            self.send_header("Content-Type", content_type)
-            self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", cache_control)
-            self.send_header("X-Content-Type-Options", "nosniff")
-            self.send_header("X-Frame-Options", "DENY")
-            self.send_header("Referrer-Policy", "no-referrer")
-            self.send_header(
-                "Content-Security-Policy",
-                "default-src 'self'; "
-                "img-src 'self' data:; "
-                "script-src 'self'; style-src 'self'; connect-src 'self'; "
-                "object-src 'none'; base-uri 'none'; frame-ancestors 'none'; "
-                "form-action 'self'",
-            )
-            self.send_header(
-                "Permissions-Policy",
-                "camera=(), microphone=(), geolocation=(), payment=()",
-            )
-            request_origin = self.headers.get("Origin")
-            # Cross-origin access is only ever granted to an explicit allowlist;
-            # the bundled web app is same-origin and needs no CORS at all.
-            if (request_origin and origin_allowlist is not None
-                    and request_origin.rstrip("/") in origin_allowlist):
-                self.send_header("Access-Control-Allow-Origin", request_origin)
-                self.send_header("Vary", "Origin")
-            header_items = (extra_headers or {}).items() if hasattr(extra_headers or {}, "items") else extra_headers
-            for name, value in header_items:
-                self.send_header(name, value)
-            self.end_headers()
-            if self.command != "HEAD":
-                self.wfile.write(body)
-
-        def _request_base_url(self):
-            if public_api_base_url:
-                return public_api_base_url.rstrip("/")
-            proto = self.headers.get("X-Forwarded-Proto", "http")
-            host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host")
-            if not host:
-                host = f"{self.server.server_address[0]}:{self.server.server_address[1]}"
-            return f"{proto}://{host}"
-
-        def _oauth_callback_url(self):
-            return f"{self._request_base_url()}/api/v1/auth/tenon/callback"
-
-        def _send_redirect(self, location, cookies=None):
-            headers = [("Location", location)]
-            headers.extend(("Set-Cookie", cookie) for cookie in (cookies or ()))
-            self._send_bytes(
-                302,
-                b"",
-                "text/plain; charset=utf-8",
-                extra_headers=headers,
-                cache_control="no-store",
-            )
-
-        def _send_file(self, path, status=200):
-            body = path.read_bytes()
-            # Asset URLs carry the release, so a new one reaches every browser at once.
-            if path.suffix in {".html", ".css"}:
-                body = body.replace(b"__REV__", quote(product_version()).encode("ascii"))
-            content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-            if content_type.startswith("text/") or content_type in {
-                "application/javascript",
-                "application/json",
-            }:
-                content_type = f"{content_type}; charset=utf-8"
-            cache_control = "no-cache" if path.suffix == ".html" else "public, max-age=3600"
-            self._send_bytes(status, body, content_type, cache_control=cache_control)
-
-        def _serve_index(self):
-            self._send_file(root / "index.html")
-
-        def _serve_web(self, path):
-            if path == "/auth/redirect":
-                self._send_file(root / "auth-redirect.html")
-                return True
-            if path == "/config.json":
-                self._send_json(
-                    200,
-                    {
-                        "apiBaseUrl": self._request_base_url(),
-                        "defaultProjectId": default_project_id,
-                        "authRequired": auth_required,
-                        "authMode": auth_mode,
-                        "productVersion": product_version(),
-                    },
-                )
-                return True
-
-            if WEB_ROUTES.fullmatch(path):
-                self._serve_index()
-                return True
-            if path == "/favicon.ico":
-                self._send_redirect("/tenon-mark.svg")
-                return True
-            if path == "/.well-known/security.txt":
-                self._send_file(root / "security.txt")
-                return True
-            if not Path(path).suffix and not path.startswith("/api/"):
-                self._send_file(root / "404.html", status=404)
-                return True
-
-            candidate = (root / path.lstrip("/")).resolve()
-            try:
-                candidate.relative_to(root)
-            except ValueError as exc:
-                raise APIError("OBJECT_NOT_FOUND", f"Asset {path} not found.", status=404) from exc
-            if candidate.is_file():
-                self._send_file(candidate)
-                return True
-            return False
-
-        def _check_host(self):
-            # Reject DNS-rebound names: a page on evil.example resolving to
-            # 127.0.0.1 still sends its own name in Host.
-            host = self.headers.get("Host")
-            if host and (urlparse(f"//{host}").hostname or "") not in allowed_hosts:
-                raise APIError("HOST_DENIED", "This host name is not served here.", status=403)
-
-        def _same_origin(self, origin):
-            if origin == self._request_base_url():
-                return True
-            host = self.headers.get("Host")
-            return bool(host) and origin in {f"http://{host}", f"https://{host}"}
-
-        def _check_origin(self):
-            origin = self.headers.get("Origin")
-            if not origin:
-                return
-            origin = origin.rstrip("/")
-            allowed = origin in origin_allowlist if origin_allowlist is not None else self._same_origin(origin)
-            if not allowed:
-                raise APIError(
-                    "ORIGIN_DENIED",
-                    "The request origin is not allowed.",
-                    status=403,
-                )
-
-        def _client_address(self):
-            # Production listens on loopback behind Caddy, which sets this header.
-            forwarded = self.headers.get("X-Forwarded-For", "").split(",", 1)[0].strip()
-            return forwarded or self.client_address[0]
-
-        def _read_json_body(self, limit=None, require_json=True):
-            limit = max_body_bytes if limit is None else min(limit, max_body_bytes)
-            raw_length = self.headers.get("Content-Length", "0")
-            try:
-                length = int(raw_length)
-            except (TypeError, ValueError) as exc:
-                raise APIError(
-                    "INVALID_INPUT",
-                    "Content-Length must be a valid integer.",
-                    status=400,
-                ) from exc
-            if length < 0:
-                raise APIError("INVALID_INPUT", "Content-Length cannot be negative.", status=400)
-            if length > limit:
-                raise APIError(
-                    "PAYLOAD_TOO_LARGE",
-                    f"Request body exceeds the {limit}-byte limit.",
-                    status=413,
-                )
-            content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
-            if length and require_json and content_type != "application/json":
-                raise APIError("UNSUPPORTED_MEDIA_TYPE", "Request bodies must be application/json.", status=415)
-            try:
-                payload = json.loads(self.rfile.read(length).decode("utf-8") if length else "{}")
-            except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
-                raise APIError(
-                    "INVALID_INPUT",
-                    "Request body must be valid UTF-8 JSON.",
-                    status=400,
-                ) from exc
-            if not isinstance(payload, dict):
-                raise APIError("INVALID_INPUT", "Request body must be a JSON object.", status=400)
-            return payload
-
-        def _bearer_account(self):
-            header = self.headers.get("Authorization", "")
-            scheme, separator, token = header.partition(" ")
-            if not separator or scheme.lower() != "bearer":
-                return None
-            return account_for_access_token(db_path, token)
-
-        def _cookie_value(self, name):
-            # Parse leniently: one malformed cookie from a sibling site must not
-            # hide ours (SimpleCookie stops at the first value it cannot parse).
-            for part in self.headers.get("Cookie", "").split(";"):
-                key, separator, value = part.strip().partition("=")
-                if separator and key == name:
-                    return value.strip().strip('"') or None
-            return None
-
-        def _current_account(self):
-            if not tenon_configured:
-                return None
-            return account_for_session(db_path, self._cookie_value(SESSION_COOKIE))
-
-        def _require_auth(self, allow_cookie=False):
-            if not auth_required:
-                return {"account": None}
-            account = self._bearer_account()
-            if account is not None:
-                return {"account": account}
-            if allow_cookie:
-                account = self._current_account()
-                if account is not None:
-                    return {"account": account}
-            raise APIError(
-                "AUTH_REQUIRED",
-                "Sign in or provide a valid IntHub account access token.",
-                status=401,
-            )
-
-        def _cookie_header(self, name, value, max_age, same_site="Lax", path="/"):
-            cookie = (
-                f"{name}={value}; Path={path}; HttpOnly; SameSite={same_site}; "
-                f"Max-Age={max_age}"
-            )
-            if secure_cookies:
-                cookie += "; Secure"
-            return cookie
-
-        def _session_cookie(self, value, max_age):
-            return self._cookie_header(SESSION_COOKIE, value, max_age, same_site="Strict")
-
-        def _oauth_state_cookie(self, value, max_age):
-            return self._cookie_header(
-                OAUTH_STATE_COOKIE,
-                value,
-                max_age,
-                same_site="Lax",
-                path="/api/v1/auth/tenon",
-            )
-
-        def _handle_logout(self):
-            delete_web_session(db_path, self._cookie_value(SESSION_COOKIE))
-            self._send_json(
-                200,
-                _json_success({"authenticated": False}),
-                {"Set-Cookie": self._session_cookie("", 0)},
-            )
-
-        def _handle_auth_me(self):
-            if not auth_required:
-                self._send_json(
-                    200,
-                    _json_success({"authenticated": True, "account": None}),
-                )
-                return
-            account = self._current_account()
-            if account is None:
-                raise APIError("AUTH_REQUIRED", "Sign in to continue.", status=401)
-            self._send_json(
-                200,
-                _json_success({"authenticated": True, "account": account}),
-            )
-
-        def _handle_create_account_token(self):
-            account = self._current_account()
-            if account is None:
-                raise APIError("AUTH_REQUIRED", "Sign in to continue.", status=401)
-            payload = self._read_json_body(limit=AUTH_BODY_LIMIT)
-            ttl_seconds = payload.get("ttl_seconds", 90 * 24 * 60 * 60)
-            try:
-                ttl_seconds = int(ttl_seconds)
-            except (TypeError, ValueError) as exc:
-                raise APIError(
-                    "INVALID_INPUT",
-                    "ttl_seconds must be an integer.",
-                    400,
-                ) from exc
-            token = create_account_access_token(
-                db_path,
-                account["id"],
-                name=payload.get("name", "CLI"),
-                ttl_seconds=ttl_seconds,
-            )
-            self._send_json(201, _json_success(token))
-
-        def _require_browser_account(self):
-            account = self._current_account()
-            if account is None:
-                raise APIError("AUTH_REQUIRED", "Sign in to continue.", status=401)
-            return account
-
-        def _viewer(self):
-            """None on a hub without accounts, VISITOR when nobody is signed in."""
-            if not auth_required:
-                return None
-            if self.headers.get("Authorization"):
-                # A bad token gets an answer, not a visitor's view of the project.
-                return self._require_auth()["account"]["id"]
-            account = self._current_account()
-            return account["id"] if account else VISITOR
-
-        def _browser_action(self):
-            # Managing projects and teams is a browser action, like deleting the
-            # account: same-origin JSON with the session. Access tokens cannot do it.
-            if self.headers.get("Origin") != self._request_base_url():
-                raise APIError("ORIGIN_DENIED", "The request origin is not allowed.", 403)
-            if not self.headers.get("Content-Type", "").startswith("application/json"):
-                raise APIError("INVALID_INPUT", "JSON is required.", 415)
-            account_id = self._require_browser_account()["id"] if auth_required else None
-            return account_id, self._read_json_body(limit=AUTH_BODY_LIMIT)
-
-        def _handle_project_admin(self, path):
-            account_id, body = self._browser_action()
-            _, _, _, _, project_id, action = path.split("/")
-            if action == "rename":
-                result = rename_project(db_path, project_id, body.get("name"), account_id)
-            elif action == "delete":
-                result = delete_project(db_path, project_id, body.get("confirm"), account_id)
-            elif not auth_required:
-                raise APIError("OBJECT_NOT_FOUND", "A hub without accounts has no owners or visibility.", 404)
-            elif action == "visibility":
-                result = set_visibility(db_path, project_id, body.get("visibility"), body.get("confirm"), account_id, body.get("acknowledge_secrets"))
-            else:
-                result = transfer_project(db_path, project_id, body.get("team_id"), body.get("confirm"), account_id)
-            self._send_json(200, _json_success(result))
-
-        def _handle_team_action(self, action, route_args):
-            if not auth_required:
-                raise APIError("OBJECT_NOT_FOUND", "A hub without accounts has no teams.", 404)
-            account_id, body = self._browser_action()
-            self._send_json(200, _json_success(action(db_path, account_id, body, *route_args)))
-
-        def _check_rate(self):
-            if auth_required and not api_limiter.allow(self._client_address()):
-                raise APIError("RATE_LIMITED", "Too many requests. Wait a minute and try again.", 429)
-
-        def _handle_device_cli(self, path):
-            # The CLI has no credentials yet: the request is all it can show.
-            if not auth_required:
-                raise APIError("OBJECT_NOT_FOUND", "A hub without accounts has no sign-in.", 404)
-            starting = path.endswith("/start")
-            limiter = device_start_limiter if starting else device_poll_limiter
-            if not limiter.allow(self._client_address()):
-                raise APIError("RATE_LIMITED", "Too many requests. Wait a minute and try again.", 429)
-            body = self._read_json_body(limit=AUTH_BODY_LIMIT)
-            result = start_device_login(db_path, body.get("name")) if starting else poll_device_login(db_path, body.get("device_code"))
-            self._send_json(200, _json_success(result))
-
-        def _handle_device_browser(self, path):
-            if not auth_required:
-                raise APIError("OBJECT_NOT_FOUND", "A hub without accounts has no sign-in.", 404)
-            account_id, body = self._browser_action()
-            if not device_code_limiter.allow(account_id):
-                raise APIError("RATE_LIMITED", "Too many attempts. Wait a minute and try again.", 429)
-            result = (describe_device_login(db_path, body.get("code")) if path.endswith("/lookup")
-                      else decide_device_login(db_path, body.get("code"), body.get("approve"), account_id))
-            self._send_json(200, _json_success(result))
-
-        def _handle_list_account_tokens(self):
-            account = self._require_browser_account()
-            self._send_json(
-                200,
-                _json_success(
-                    {"tokens": list_account_access_tokens(db_path, account["id"])}
-                ),
-            )
-
-        def _handle_revoke_account_token(self, token_id):
-            account = self._require_browser_account()
-            revoke_account_access_token(db_path, account["id"], token_id)
-            self._send_json(200, _json_success({"revoked": True, "id": token_id}))
-
-        def _prepare_tenon_login(self, return_to="/"):
-            self._check_origin()
-            if self.headers.get("Sec-Fetch-Site") == "cross-site":
-                raise APIError("ORIGIN_DENIED", "Start sign-in from IntHub.", 403)
-            if not sign_in_limiter.allow(self._client_address()):
-                raise APIError("RATE_LIMITED", "Too many sign-in attempts. Wait a minute and try again.", 429)
-            if not tenon_configured or provider_client is None:
-                raise APIError("AUTH_FLOW_UNAVAILABLE", "Tenon sign-in is not configured.", 404)
-            attempt = create_attempt(
-                db_path,
-                return_to=safe_return_to(return_to),
-                ttl_seconds=oauth_state_ttl_seconds,
-            )
-            try:
-                location = provider_client.authorization_url(self._oauth_callback_url(), attempt)
-            except Exception:
-                consume_attempt(db_path, attempt["state"])
-                raise
-            target = urlparse(location)
-            if (target.scheme != "https" or target.netloc != "account.tenon.asia"
-                    or target.path != "/api/auth/oauth2/authorize" or target.fragment):
-                consume_attempt(db_path, attempt["state"])
-                raise APIError("AUTH_FLOW_UNAVAILABLE", "Tenon authorization is unavailable.", 503)
-            return location, self._oauth_state_cookie(attempt["state"], oauth_state_ttl_seconds)
-
-        def _handle_tenon_callback(self, query):
-            clear_state = self._oauth_state_cookie("", 0)
-            state = query.get("state", [""])[0]
-            cookie_state = self._cookie_value(OAUTH_STATE_COOKIE) or ""
-            if not state or not hmac.compare_digest(state, cookie_state):
-                self._send_redirect("/?auth_error=invalid_state", [clear_state])
-                return
-
-            attempt = None
-            try:
-                attempt = consume_attempt(db_path, state)
-                if query.get("error"):
-                    self._send_redirect(_login_error_return(attempt["return_to"], "tenon_denied"), [clear_state])
-                    return
-                code = query.get("code", [""])[0]
-                if not code:
-                    raise APIError("OAUTH_CODE_MISSING", "Tenon did not return a sign-in code.", 400)
-                if provider_client is None:
-                    raise APIError("AUTH_FLOW_UNAVAILABLE", "Tenon sign-in is not configured.", 404)
-                identity = provider_client.complete_login(
-                    code,
-                    self._oauth_callback_url(),
-                    attempt,
-                )
-                account = account_for_identity(db_path, identity, request_started_at=attempt.get("started_at"))
-                session = create_session(
-                    db_path,
-                    account["id"],
-                    identity,
-                    ttl_seconds=account_session_ttl_seconds,
-                )
-            except APIError as exc:
-                LOGGER.warning("Tenon sign-in failed: %s", exc.code)
-                reason = "suspended" if exc.code == "ACCOUNT_SUSPENDED" else "tenon_failed"
-                self._send_redirect(_login_error_return(attempt["return_to"] if attempt else "/", reason), [clear_state])
-                return
-
-            self._send_redirect(
-                attempt["return_to"],
-                [
-                    self._session_cookie(session["token"], session["ttl_seconds"]),
-                    clear_state,
-                ],
-            )
-
-        def _handle_api_error(self, exc):
-            headers = {"WWW-Authenticate": "Bearer"} if exc.status == 401 else None
-            self._send_json(
-                exc.status,
-                _json_error(exc.code, exc.message, exc.details),
-                headers,
-            )
-
-        def _route_post(self, path, account_id=None):
-            # Match the route before reading any body.
-            if path == "/api/v2/link":
-                payload = self._read_json_body(limit=AUTH_BODY_LIMIT)
-                self._send_json(200, _json_success(link_history(db_path, payload.get("project_name"), account_id)))
-                return
-            if path == "/api/v2/history":
-                self._send_json(200, _json_success(push_history(db_path, self._read_json_body(), account_id)))
-                return
-            raise APIError("OBJECT_NOT_FOUND", f"Endpoint {path} not found.", status=404)
-
-        def _route_get(self, path, query, account_id=None):
-            if path == "/api/v2/history":
-                self._send_json(200, _json_success(read_history(
-                    db_path, query.get("project", [None])[0], account_id, project_id=query.get("project_id", [None])[0])), compact=True)
-                return
-            if path == "/api/v1/projects":
-                self._send_json(
-                    200,
-                    _json_success(list_projects(db_path, account_id=account_id)),
-                    compact=True,
-                )
-                return
-
-            if path == "/api/v1/home":
-                self._send_json(200, _json_success(project_home(db_path, account_id=account_id)), compact=True)
-                return
-
-            if path == "/api/v1/teams" and auth_required:
-                self._send_json(200, _json_success(list_teams(db_path, account_id)), compact=True)
-                return
-
-            if path == "/api/v1/usage" and auth_required:
-                self._send_json(200, _json_success(account_usage(db_path, account_id)), compact=True)
-                return
-
-            if re.fullmatch(r"/api/v1/teams/[^/]+", path) and auth_required:
-                self._send_json(200, _json_success(team_detail(db_path, path.split("/")[4], account_id)), compact=True)
-                return
-
-            if path == "/api/v1/invites/preview" and auth_required:
-                self._send_json(200, _json_success(preview_invite(db_path, query.get("token", [None])[0], account_id)))
-                return
-
-            if path.startswith("/api/v1/projects/") and path.endswith("/overview"):
-                project_id = path.split("/")[4]
-                self._send_json(
-                    200,
-                    _json_success(
-                        project_overview(db_path, project_id, account_id=account_id)
-                    ),
-                    compact=True,
-                )
-                return
-
-            if path.startswith("/api/v1/projects/") and path.endswith("/snaps"):
-                project_id = path.split("/")[4]
-                offset = _query_int(query, "offset", 0, 0, None)
-                limit = _query_int(query, "limit", 50, 1, SNAP_PAGE_MAX)
-                intent_id = query.get("intent_id", [None])[0]
-                if intent_id is not None:
-                    try:
-                        validate_object_id("intent", intent_id)
-                    except StorageSecurityError as exc:
-                        raise APIError("INVALID_INPUT", "Invalid intent_id.", status=400) from exc
-                self._send_json(
-                    200,
-                    _json_success(project_snaps(db_path, project_id, offset, limit, intent_id, query.get("author", [None])[0], account_id=account_id)),
-                    compact=True,
-                )
-                return
-
-            if path.startswith("/api/v1/projects/") and path.endswith("/revisions"):
-                offset = _query_int(query, "offset", 0, 0, None)
-                limit = _query_int(query, "limit", 30, 1, REVISION_PAGE_MAX)
-                self._send_json(200, _json_success(project_revisions(db_path, path.split("/")[4], offset, limit, account_id=account_id)), compact=True)
-                return
-
-            if re.fullmatch(r"/api/v1/projects/[^/]+/revisions/[^/]+", path):
-                _, _, _, _, project_id, _, revision = path.split("/")
-                self._send_json(200, _json_success(revision_detail(db_path, project_id, revision, account_id=account_id)), compact=True)
-                return
-
-            if path.startswith("/api/v1/projects/") and path.endswith("/export"):
-                self._send_json(200, _json_success(export_project(db_path, path.split("/")[4], account_id=account_id)))
-                return
-
-            if path.startswith("/api/v1/projects/") and path.endswith("/handoff"):
-                project_id = path.split("/")[4]
-                self._send_json(
-                    200,
-                    _json_success(
-                        project_handoff(db_path, project_id, account_id=account_id)
-                    ),
-                    compact=True,
-                )
-                return
-
-            if path.startswith("/api/v1/intents/"):
-                remote_object_id = path.split("/")[4]
-                self._send_json(
-                    200,
-                    _json_success(
-                        get_intent_detail(db_path, remote_object_id, account_id=account_id)
-                    ),
-                    compact=True,
-                )
-                return
-
-            if path.startswith("/api/v1/decisions/"):
-                remote_object_id = path.split("/")[4]
-                self._send_json(
-                    200,
-                    _json_success(
-                        get_decision_detail(db_path, remote_object_id, account_id=account_id)
-                    ),
-                    compact=True,
-                )
-                return
-
-            if path.startswith("/api/v1/snaps/"):
-                remote_object_id = path.split("/")[4]
-                self._send_json(
-                    200,
-                    _json_success(
-                        get_snap_detail(db_path, remote_object_id, account_id=account_id)
-                    ),
-                    compact=True,
-                )
-                return
-
-            if path == "/api/v1/search":
-                project_id = query.get("project_id", [None])[0]
-                if not project_id:
-                    raise APIError(
-                        "INVALID_INPUT",
-                        "Missing query parameter 'project_id'.",
-                        status=400,
-                    )
-                search_query = query.get("q", [""])[0]
-                self._send_json(
-                    200,
-                    _json_success(
-                        search_project(
-                            db_path,
-                            project_id,
-                            search_query,
-                            account_id=account_id,
-                        )
-                    ),
-                    compact=True,
-                )
-                return
-
-            raise APIError("OBJECT_NOT_FOUND", f"Endpoint {path} not found.", status=404)
 
         def do_POST(self):
             parsed = urlparse(self.path)
@@ -880,12 +122,12 @@ def make_handler(
                 self._check_rate()
                 if parsed.path == "/api/auth/tenon/delete/execute":
                     # Server-to-server from Tenon: browsers always send Origin.
-                    if self.headers.get("Origin") or not product_deletion:
+                    if self.headers.get("Origin") or not self.hub.product_deletion:
                         raise APIError("DELETION_AUTHORIZATION_REQUIRED", "Use Tenon's product deletion flow.", 403)
-                    if not deletion_limiter.allow(self._client_address()):
+                    if not self.hub.deletion_limiter.allow(self._client_address()):
                         raise APIError("RATE_LIMITED", "Too many requests. Wait a minute and try again.", 429)
                     payload = self._read_json_body(limit=AUTH_BODY_LIMIT, require_json=False)
-                    self._send_json(200, product_deletion.execute(db_path, payload))
+                    self._send_json(200, self.hub.product_deletion.execute(self.hub.db_path, payload))
                     return
                 self._check_origin()
                 if parsed.path == "/api/auth/tenon/delete/start":
@@ -898,9 +140,9 @@ def make_handler(
                     if self._read_json_body(limit=AUTH_BODY_LIMIT) != {}:
                         raise APIError("INVALID_DELETION_REQUEST", "Invalid deletion request.", 400)
                     account = self._require_browser_account()
-                    if not product_deletion:
+                    if not self.hub.product_deletion:
                         raise APIError("DELETION_SERVICE_UNAVAILABLE", "Tenon account management is temporarily unavailable.", 503)
-                    self._send_json(200, _json_success(product_deletion.start(subject_for_account(db_path, account["id"]))))
+                    self._send_json(200, _json_success(self.hub.product_deletion.start(subject_for_account(self.hub.db_path, account["id"]))))
                     return
                 if parsed.path in ("/api/v1/auth/device/start", "/api/v1/auth/device/poll"):
                     self._handle_device_cli(parsed.path)
@@ -973,7 +215,7 @@ def make_handler(
                 if parsed.path == "/readyz" or parsed.path.startswith("/api/"):
                     self._check_rate()
                 if parsed.path == "/readyz":
-                    check_database(db_path)
+                    check_database(self.hub.db_path)
                     self._send_json(
                         200,
                         _json_success({"service": "inthub-api", "status": "ready"}),
@@ -996,12 +238,12 @@ def make_handler(
                     if viewer == VISITOR:
                         if not VISITOR_READS.fullmatch(parsed.path):
                             raise APIError("AUTH_REQUIRED", "Sign in or provide a valid IntHub account access token.", status=401)
-                        if not visitor_limiter.allow(self._client_address()):
+                        if not self.hub.visitor_limiter.allow(self._client_address()):
                             raise APIError("RATE_LIMITED", "Too many requests. Wait a minute and try again.", 429)
                     self._route_get(parsed.path, parse_qs(parsed.query), account_id=viewer)
                     return
 
-                if serve_web and self._serve_web(parsed.path):
+                if self.hub.serve_web and self._serve_web(parsed.path):
                     return
 
                 raise APIError("OBJECT_NOT_FOUND", f"Endpoint {parsed.path} not found.", status=404)
@@ -1020,7 +262,7 @@ def make_handler(
                 self._check_origin()
                 self.send_response(204)
                 request_origin = self.headers.get("Origin")
-                if request_origin and origin_allowlist is not None:
+                if request_origin and self.hub.origin_allowlist is not None:
                     self.send_header("Access-Control-Allow-Origin", request_origin)
                     self.send_header("Vary", "Origin")
                 self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
