@@ -56,7 +56,7 @@ itt init    # sets up hooks for the agent you use (or pass --host codex / claude
 Then trust the project hooks once: in Codex open `/hooks`; in Claude Code trust the folder and confirm both hooks in `/hooks`. Work as usual. To pick up later, tell the agent: *"Resume this project through Intent."*
 
 Windows (PowerShell): `irm https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.ps1 | iex`.
-With pipx or uv: `pipx install "intent-history @ git+https://github.com/dozybot001/Intent.git@v7.2.1"` (or `uv tool install …`). Requires Python 3.9+ and Git.
+With pipx or uv: `pipx install "intent-history @ git+https://github.com/dozybot001/Intent.git@v7.3.0"` (or `uv tool install …`). Requires Python 3.9+ and Git.
 
 ## Try it by hand
 
