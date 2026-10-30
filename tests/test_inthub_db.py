@@ -2,7 +2,7 @@ import sqlite3
 
 import pytest
 
-from apps.inthub_api import db
+from apps.inthub_api import db, db_migrate, db_schema
 from apps.inthub_api.db import connect
 
 
@@ -39,8 +39,8 @@ def test_schema_v1_upgrades_to_public_profile_schema_v2(tmp_path):
     raw = sqlite3.connect(db_path)
     raw.row_factory = sqlite3.Row
     conn = db.DatabaseConnection(raw, "sqlite")
-    db._ensure_migration_ledger(conn)
-    db._create_sqlite_schema(conn)
+    db_migrate._ensure_migration_ledger(conn)
+    db_schema._create_sqlite_schema(conn)
     conn.execute(
         """
         INSERT INTO schema_migrations
@@ -49,8 +49,8 @@ def test_schema_v1_upgrades_to_public_profile_schema_v2(tmp_path):
         """,
         (
             1,
-            db._INITIAL_SCHEMA_NAME,
-            db._INITIAL_SCHEMA_CHECKSUM,
+            db_schema._INITIAL_SCHEMA_NAME,
+            db_schema._INITIAL_SCHEMA_CHECKSUM,
             1,
             "2026-08-01T00:00:00+00:00",
         ),
@@ -98,4 +98,4 @@ def test_production_connection_refuses_to_migrate_as_a_startup_side_effect(
     assert migrated["to_version"] == db.LATEST_SCHEMA_VERSION
     db._INITIALIZED.clear()
     with connect(db_path) as conn:
-        assert db.current_schema_version(conn) == db.LATEST_SCHEMA_VERSION
+        assert db_migrate.current_schema_version(conn) == db.LATEST_SCHEMA_VERSION
