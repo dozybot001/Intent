@@ -13,7 +13,7 @@ Official source: `https://github.com/dozybot001/Intent`. The platform installers
 If Python and pipx already exist, the installer's core operation is:
 
 ```text
-pipx install "intent-history @ git+https://github.com/dozybot001/Intent.git@v7.2.0"
+pipx install "intent-history @ git+https://github.com/dozybot001/Intent.git@v7.2.1"
 ```
 
 Do not use `--force` to overwrite an existing install without approved repair/upgrade. On restricted hosts, let the user run the official installer. Diagnose network/PATH issues in scope; a newly installed executable may need a fresh shell or its resolved absolute path. Installation uses normal process exit status, not the `itt` JSON contract. Verify `itt version` returns JSON with `ok: true`, then check the required maintenance commands. Record the actual revision/version rather than promising any fetched branch matches an unpublished Skill.
