@@ -227,7 +227,7 @@ def main():
     p.add_argument("--root", default=None)
 
     # --- account auth / Git-style push ---
-    p_auth = sub.add_parser("auth", help="sign in to IntHub with an access token")
+    p_auth = sub.add_parser("auth", help="sign in to IntHub through the browser")
     s_auth = p_auth.add_subparsers(dest="sub")
 
     p = s_auth.add_parser("login")

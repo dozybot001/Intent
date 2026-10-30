@@ -135,8 +135,12 @@ def http_json(
     *,
     timeout=DEFAULT_TIMEOUT_SECONDS,
     attempts=DEFAULT_ATTEMPTS,
+    missing_ok=False,
 ):
-    """Perform a bounded, retryable JSON request using an operation-stable payload."""
+    """Perform a bounded, retryable JSON request using an operation-stable payload.
+
+    With missing_ok a 404 returns None, for endpoints an older hub does not have.
+    """
     if attempts < 1:
         raise ValueError("attempts must be at least 1")
     if timeout <= 0:
@@ -162,6 +166,8 @@ def http_json(
         except urllib.error.HTTPError as exc:
             if exc.code in RETRYABLE_HTTP_STATUSES and attempt < attempts:
                 continue
+            if exc.code == 404 and missing_ok:
+                return None
             try:
                 raw_bytes = exc.read(MAX_RESPONSE_BYTES + 1)
             except (OSError, http.client.HTTPException):
@@ -174,7 +180,7 @@ def http_json(
                     "AUTH_REQUIRED",
                     f"{origin} did not accept the access token." if token else f"Sign in to {origin} first.",
                     details={"url": url, "status": exc.code},
-                    suggested_fix=f"Sign in at {origin}, create an access token in the account menu, then run: {login}",
+                    suggested_fix=f"Run {login} in your terminal and approve the code in the browser.",
                 )
             server_error = response.get("error") if isinstance(response, dict) else None
             message = server_error.get("message") if isinstance(server_error, dict) else None

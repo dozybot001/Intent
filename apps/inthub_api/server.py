@@ -31,6 +31,7 @@ from apps.inthub_api.tenon import (
 )
 from apps.inthub_api.common import APIError
 from apps.inthub_api.db import check_database, describe_database
+from apps.inthub_api.device import decide_device_login, describe_device_login, poll_device_login, start_device_login
 from apps.inthub_api.history import link_history, push_history, read_history
 from apps.inthub_api.product_deletion import ProductDeletionClient, subject_for_account
 from apps.inthub_api.projects import delete_project, export_project, rename_project, set_visibility, transfer_project
@@ -225,6 +226,10 @@ def make_handler(
     sign_in_limiter = _RateLimiter(limit=30, window_seconds=60)
     # A visitor's read parses a whole snapshot, with no account to answer for it.
     visitor_limiter = _RateLimiter(limit=300, window_seconds=60)
+    # A code has 20^8 values and lives ten minutes; these keep guessing and polling cheap.
+    device_start_limiter = _RateLimiter(limit=30, window_seconds=60)
+    device_poll_limiter = _RateLimiter(limit=120, window_seconds=60)
+    device_code_limiter = _RateLimiter(limit=20, window_seconds=60)
     product_deletion = deletion_client
     if tenon_configured and product_deletion is None:
         product_deletion = ProductDeletionClient(tenon_client_id, tenon_client_secret)
@@ -573,6 +578,28 @@ def make_handler(
             account_id, body = self._browser_action()
             self._send_json(200, _json_success(action(db_path, account_id, body, *route_args)))
 
+        def _handle_device_cli(self, path):
+            # The CLI has no credentials yet: the request is all it can show.
+            if not auth_required:
+                raise APIError("OBJECT_NOT_FOUND", "A hub without accounts has no sign-in.", 404)
+            starting = path.endswith("/start")
+            limiter = device_start_limiter if starting else device_poll_limiter
+            if not limiter.allow(self._client_address()):
+                raise APIError("RATE_LIMITED", "Too many requests. Wait a minute and try again.", 429)
+            body = self._read_json_body(limit=AUTH_BODY_LIMIT)
+            result = start_device_login(db_path, body.get("name")) if starting else poll_device_login(db_path, body.get("device_code"))
+            self._send_json(200, _json_success(result))
+
+        def _handle_device_browser(self, path):
+            if not auth_required:
+                raise APIError("OBJECT_NOT_FOUND", "A hub without accounts has no sign-in.", 404)
+            account_id, body = self._browser_action()
+            if not device_code_limiter.allow(account_id):
+                raise APIError("RATE_LIMITED", "Too many attempts. Wait a minute and try again.", 429)
+            result = (describe_device_login(db_path, body.get("code")) if path.endswith("/lookup")
+                      else decide_device_login(db_path, body.get("code"), body.get("approve"), account_id))
+            self._send_json(200, _json_success(result))
+
         def _handle_list_account_tokens(self):
             account = self._require_browser_account()
             self._send_json(
@@ -843,6 +870,12 @@ def make_handler(
                     if not product_deletion:
                         raise APIError("DELETION_SERVICE_UNAVAILABLE", "Tenon account management is temporarily unavailable.", 503)
                     self._send_json(200, _json_success(product_deletion.start(subject_for_account(db_path, account["id"]))))
+                    return
+                if parsed.path in ("/api/v1/auth/device/start", "/api/v1/auth/device/poll"):
+                    self._handle_device_cli(parsed.path)
+                    return
+                if parsed.path in ("/api/v1/auth/device/lookup", "/api/v1/auth/device/decide"):
+                    self._handle_device_browser(parsed.path)
                     return
                 if parsed.path == "/api/v1/auth/tenon/prepare":
                     body = self._read_json_body(limit=AUTH_BODY_LIMIT)

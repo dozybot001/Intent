@@ -365,7 +365,7 @@ def _auth(action):
         if action == "auth.logout":
             return [f"Removed the stored token for {url}." if result.get("credential_removed") else f"No stored token for {url}."]
         if not result.get("authenticated"):
-            return [f"Not signed in to {url}.", dim("  Create a token on the IntHub website, then run: itt auth login")]
+            return [f"Not signed in to {url}.", dim("  Sign in with: itt auth login")]
         return [f"Signed in to {url} · {_plural(result.get('project_count', 0), 'project')}"]
     return render
 

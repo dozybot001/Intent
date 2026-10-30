@@ -362,6 +362,7 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 | `OBJECT_NOT_FOUND` | Object ID not found |
 | `INVALID_INPUT` | Invalid arguments or missing required input |
 | `AUTH_REQUIRED` | IntHub rejected the request: no access token was sent or it was not accepted; sign in with `itt auth login` |
+| `AUTH_DENIED` / `AUTH_EXPIRED` / `AUTH_CANCELLED` | The `itt auth login` code was refused, expired, or cancelled with Ctrl-C; run it again |
 | `INVALID_RELATION` | A relation would relate an intent to itself, duplicate an active relation for the pair, give an intent a second parent, create a cycle, or add a part to an ended intent |
 | `INVALID_OBJECT_ID` | An explicit object ID is not a type-matching local ID such as `intent-001` |
 | `UNSAFE_STORAGE` | `.intent/`, an object directory, lock, or object file redirects through a symlink or escapes its storage boundary |

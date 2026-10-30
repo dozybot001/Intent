@@ -61,8 +61,8 @@ def test_schema_v1_upgrades_to_public_profile_schema_v2(tmp_path):
     migrated = db.migrate_target(db_path, require_backward_compatible=True)
     assert migrated == {
         "from_version": 1,
-        "to_version": 7,
-        "latest_known_version": 7,
+        "to_version": 8,
+        "latest_known_version": 8,
         "backward_compatible_only": True,
     }
     with sqlite3.connect(db_path) as check:

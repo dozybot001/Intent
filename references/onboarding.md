@@ -24,19 +24,20 @@ Only enable after the user's choice or explicit enable request. Resolve the targ
 
 After configuration, tell the desktop user: **“Open Settings → Hooks, review and trust this project's UserPromptSubmit and Stop hooks.”** Explain that these provide opening context and closure checks, respectively. The user performs the trust action; do not edit trust hashes or imply configuration grants trust. If the list is empty, first check project-directory trust and use the short exact-root CLI recovery path in [codex-hooks.md](codex-hooks.md), not another installation. CLI users can review the same definitions through `/hooks`. In Claude Code, instead tell the user: **“Trust this folder in Claude Code, then confirm Intent's UserPromptSubmit and Stop hooks in `/hooks`; restart the session if they are missing.”** See [claude-code-hooks.md](claude-code-hooks.md). Then verify a real host turn; distinguish enabled local maintenance, configured/trusted hooks, and actually observed entry/Stop execution. Without working hooks, report the Skill-only soft workflow, not a guaranteed gate.
 
-## Optional IntHub: website → access token → private CLI login
+## Optional IntHub: terminal code → browser approval
 
 Only enter this branch when the user requests IntHub authentication or cloud synchronization. Local recording works offline without an IntHub account or token.
 
 1. Resolve the requested remote endpoint; the official hosted site is [IntHub](https://inthub.tenon.asia). For a custom/self-hosted endpoint, use its own website and credentials, not the official site's token. Check `itt auth status --api-base-url URL`; reuse working global credentials for that endpoint.
-2. If authentication is missing/expired, direct the user to that website, sign in to their account, and open **Settings / 设置** (the gear) to reach **Access tokens / 访问令牌**. The current UI creates a new CLI access token and displays the secret once. The user copies and keeps it privately; do not read the secret through browser inspection, screenshots, clipboard tools, or ask them to paste it into chat.
-3. Have the user run this in their own interactive terminal and paste the token at the hidden prompt:
+2. If authentication is missing or expired, have the user run this in their own interactive terminal:
 
 ```text
 itt auth login --api-base-url https://inthub.tenon.asia
 ```
 
-For another endpoint replace only the URL. Do not use `--token SECRET` in shell argv/history. The Skill argv adapter intentionally has no interactive stdin, so it cannot accept this prompt; do not capture the token in an agent-controlled terminal either. If no private input surface exists, hand off this one login step, then resume after the user confirms completion.
+3. It prints a short code and opens `/device` when the machine has a browser. The user signs in there, enters the code and approves it; this works from any device, so it also covers SSH and containers. The CLI collects a 90-day access token, named after the machine and listed under **Settings / 设置**. An older hub has no `/device`: the command then asks for a token from Settings at a hidden prompt.
+
+For another endpoint replace only the URL. Do not use `--token SECRET` in shell argv/history. The Skill argv adapter has no interactive stdin, so it cannot run this; hand the step to the user. Unattended machines set `INTHUB_TOKEN` to a token created in Settings.
 
 4. Verify `itt auth status` against the same endpoint reports `authenticated: true`. The CLI validates before saving to the configured secure Git credential helper. Website login alone is not CLI authentication. Credentials are global per endpoint, reusable across projects; project remotes/history remain project-local. If no secure helper is configured, report the credential-store error and use a supported OS-backed helper with appropriate authorization, not a plaintext file fallback.
 5. Authentication does not authorize upload/download. Follow [sync.md](sync.md) or [pull.md](pull.md) only for the user's separately requested action. Do not initialize empty history merely to log in or test a push.

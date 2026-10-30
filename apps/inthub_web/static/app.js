@@ -46,7 +46,7 @@ const state = {
   handoff: null,
   authenticated: false,
   account: null,
-  // "project" shows the tabs; "home", "team" and "invite" render beside the untouched project view.
+  // "project" shows the tabs; "home", "team", "invite" and "device" render beside the untouched project view.
   page: "project",
   // A visitor reads one public project on a hosted hub, without an account.
   visitor: false,
@@ -89,9 +89,6 @@ const el = {
   drawerContent: document.getElementById("drawer-content"),
   logoutBtn: document.getElementById("logout-btn"),
   signInButton: document.getElementById("sign-in-button"),
-  tokenDialog: document.getElementById("token-dialog"),
-  tokenOutput: document.getElementById("token-output"),
-  tokenCopy: document.getElementById("token-copy"),
   accountControl: document.getElementById("account-control"),
   accountLabel: document.getElementById("account-label"),
   accountMode: document.getElementById("account-mode"),
@@ -567,7 +564,7 @@ function readRoute() {
   const dialog = dialogRoute(path);
   const team = path.match(/^\/teams\/([^/]+)(?:\/(projects|settings))?$/);
   return {
-    page: dialog?.page || (team ? "team" : path === "/invite" ? "invite" : "project"),
+    page: dialog?.page || (team ? "team" : path === "/invite" ? "invite" : path === "/device" ? "device" : "project"),
     pane: dialog?.pane || (team ? team[2] || "members" : ""),
     team: team ? team[1] : "",
     token: p.get("token") || "",
@@ -604,6 +601,7 @@ function routeUrl() {
   if (state._dialog) return DIALOG_PATHS[state._dialog][state._pane];
   if (state.page === "team") return teamPath(state._team.slug, state._team.pane);
   if (state.page === "invite") return `/invite${window.location.search}`;
+  if (state.page === "device") return "/device";
   if (state.page === "home") return "/";
   const p = new URLSearchParams();
   if (state.currentProjectId) p.set("project", state.currentProjectId);
@@ -3340,9 +3338,8 @@ function renderSetupGuide(mode) {
   if (state.config.authRequired) {
     steps.push({
       title: t("Sign in from the CLI"),
-      desc: t("Create an access token, then paste it when the CLI asks. It is shown once."),
+      desc: t("It shows a code; approve it in the browser."),
       cmd: [hosted ? "itt auth login" : `itt auth login --api-base-url ${shellArg(state.config.apiBaseUrl)}`],
-      token: true,
     });
   }
   if (hosted && mode === "unlinked") {
@@ -3383,7 +3380,6 @@ function renderSetupGuide(mode) {
             <p>${esc(step.desc)}</p>
             <div>
               ${commandSnippet(step.cmd)}
-              ${step.token ? `<div class="setup-step-actions"><button class="button button-secondary" type="button" data-create-token>${iconLabel("key", t("Create access token"))}</button></div>` : ""}
               ${step.optional ? `<p class="setup-step-note">${esc(step.optional.desc)}</p>${commandSnippet(step.optional.cmd)}` : ""}
             </div>
           </li>`).join("")}
@@ -3405,6 +3401,7 @@ function updateDocumentTitle() {
     home: t("Projects"),
     team: state._team?.data?.team?.name || state._team?.slug,
     invite: t("Team invite"),
+    device: t("Connect a device"),
   }[state.page];
   document.title = lead ? `${lead} · IntHub` : "IntHub";
 }
@@ -3615,6 +3612,7 @@ function setPage(page) {
     beginViewRequest("site");
     state._team = null;
     state._invite = null;
+    state._device = null;
     // Teams change on these pages: the project's Settings tab asks again.
     state._teams = null;
     state._teamsError = "";
@@ -3658,6 +3656,7 @@ function renderSitePage() {
   if (state.page === "home") renderHomePage();
   else if (state.page === "team") renderTeamPage();
   else if (state.page === "invite") renderInvitePage();
+  else if (state.page === "device") renderDevicePage();
   updateDocumentTitle();
 }
 
@@ -4913,6 +4912,97 @@ async function runConfirm() {
   }
 }
 
+/* Device: approving `itt auth login`. The code is typed, never carried in a link, so nobody can send one to approve. */
+
+function showDevice() {
+  closeOverlays();
+  setPage("device");
+  state._device = { step: "code", code: "", name: "", days: 0 };
+  writeRoute("none");
+  renderDevicePage();
+  settlePage(el.siteContent, true);
+  el.siteContent.querySelector?.("#device-code")?.focus();
+}
+
+function renderDevicePage() {
+  const device = state._device;
+  if (state.page !== "device" || !device) return;
+  const home = `<a class="button button-secondary" href="/" data-route>${iconLabel("arrow", t("Go to IntHub"))}</a>`;
+  const card = {
+    code: () => `
+      <h1>${esc(t("Connect a device"))}</h1>
+      <p>${esc(t("Enter the code shown in your terminal."))}</p>
+      <form class="device-form" data-device-form novalidate>
+        <input class="text-field device-code" id="device-code" name="device-code" type="text" value="${esc(device.code)}" maxlength="9" placeholder="XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="${esc(t("Device code"))}" aria-describedby="device-error">
+        <p class="field-error" id="device-error" role="alert" hidden></p>
+        <button class="button button-primary" type="submit">${iconLabel("arrow", t("Continue"))}</button>
+      </form>`,
+    confirm: () => `
+      <h1>${esc(t("Authorize {name}?", { name: device.name }))}</h1>
+      <p>${esc(t("It will be able to read and push your projects for {count} days. Only continue if you ran itt auth login yourself.", { count: device.days }))}</p>
+      <div class="invite-actions">
+        <button class="button button-secondary" type="button" data-device-deny>${iconLabel("close", t("Cancel"))}</button>
+        <button class="button button-primary" type="button" data-device-approve>${iconLabel("check", t("Authorize"))}</button>
+      </div>
+      <p class="field-error" role="alert" hidden></p>`,
+    approved: () => `
+      <h1>${esc(t("Device connected"))}</h1>
+      <p>${esc(t("Return to the terminal. Its token is listed under Settings, where you can revoke it."))}</p>
+      <div class="invite-actions">${home}</div>`,
+    denied: () => `
+      <h1>${esc(t("Not authorized"))}</h1>
+      <p>${esc(t("No access was granted."))}</p>
+      <div class="invite-actions">${home}</div>`,
+  }[device.step]();
+  el.siteContent.innerHTML = `<div class="invite-page"><section class="invite-card">${card}</section></div>`;
+}
+
+function formatDeviceCode(value) {
+  const letters = value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 8);
+  return letters.length > 4 ? `${letters.slice(0, 4)}-${letters.slice(4)}` : letters;
+}
+
+function deviceErrorMessage(error) {
+  return error.code === "DEVICE_CODE_INVALID" ? t("This code is not valid or has expired. Run itt auth login again.") : serverMessage(error);
+}
+
+async function lookupDevice(form) {
+  const device = state._device;
+  const button = form.querySelector("[type=submit]");
+  const code = form.elements["device-code"].value;
+  if (!device || !button || button.disabled) return;
+  if (code.length !== 9) {
+    setFieldError(form, t("Enter the 8-letter code."));
+    return;
+  }
+  setButtonBusy(button, true, "Checking…", "Continue");
+  try {
+    const result = await fetchJson(apiUrl("/api/v1/auth/device/lookup"), { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ code }) });
+    if (state._device !== device) return;
+    Object.assign(device, { step: "confirm", code, name: result.name, days: result.token_days });
+    renderDevicePage();
+  } catch (error) {
+    setFieldError(form, deviceErrorMessage(error));
+    setButtonBusy(button, false, "Checking…", "Continue");
+  }
+}
+
+async function decideDevice(button, approve) {
+  const device = state._device;
+  if (!device || button.disabled) return;
+  const message = el.siteContent.querySelector(".invite-card .field-error");
+  setButtonBusy(button, true, approve ? "Authorizing…" : "Cancelling…", approve ? "Authorize" : "Cancel");
+  try {
+    await fetchJson(apiUrl("/api/v1/auth/device/decide"), { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ code: device.code, approve }) });
+    if (state._device !== device) return;
+    device.step = approve ? "approved" : "denied";
+    renderDevicePage();
+  } catch (error) {
+    setButtonBusy(button, false, approve ? "Authorizing…" : "Cancelling…", approve ? "Authorize" : "Cancel");
+    if (message) { message.textContent = deviceErrorMessage(error); message.hidden = false; }
+  }
+}
+
 /* ---- Project selector ---- */
 
 function renderProjectSelector() {
@@ -5108,7 +5198,7 @@ function isDialogRoute(route) {
 }
 
 function isSiteRoute(route) {
-  return (route.page === "team" || route.page === "invite") && Boolean(state.config?.authRequired);
+  return ["team", "invite", "device"].includes(route.page) && Boolean(state.config?.authRequired);
 }
 
 // The project `/` opens: the hub's default, else the only one there is.
@@ -5461,39 +5551,6 @@ function toggleHeaderMenu(trigger, { focus = null } = {}) {
   }
 }
 
-// Focus and select the whole token like select() does, but keep its start (ith_pat_…) in view:
-// select() leaves a narrow field showing only the tail.
-function selectToken() {
-  el.tokenOutput.focus();
-  el.tokenOutput.setSelectionRange(0, el.tokenOutput.value.length, "backward");
-  el.tokenOutput.scrollLeft = 0;
-}
-
-async function createAccessToken(button) {
-  if (button.disabled) return;
-  const idle = "Create access token";
-  setButtonBusy(button, true, "Creating token…", idle);
-  try {
-    const issued = await fetchJson(apiUrl("/api/v1/auth/tokens"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "CLI token", ttl_seconds: 7776000 }),
-    });
-    el.tokenOutput.value = issued.token;
-    state._tokenReturnFocus = button;
-    closeHeaderMenus();
-    el.tokenDialog.showModal();
-    // An automatically focused field drew the hard focus outline; the action takes focus instead.
-    el.tokenCopy.focus();
-    el.tokenOutput.scrollLeft = 0;
-  } catch (err) {
-    setStatus(err.message, true);
-  } finally {
-    setButtonBusy(button, false, "Creating token…", idle);
-    button.innerHTML = `${icon("key")}${esc(t(idle))}`;
-  }
-}
-
 function localizeWorkspace() {
   const pageScroll = window.scrollY;
   const sheetScroll = el.drawerContent.scrollTop;
@@ -5547,6 +5604,7 @@ async function applyRoute(route) {
   if (isSiteRoute(route)) {
     if (state.visitor) showAuthGate();
     else if (route.page === "team") await showTeam(route.team, route.pane);
+    else if (route.page === "device") showDevice();
     else await showInvite(route.token);
     return;
   }
@@ -5741,6 +5799,9 @@ function bindEvents() {
       if (field.name === "token-name") setFieldError(field.form, "");
     } else if (field?.name === "invite-role") {
       state._inviteRole = field.value;
+    } else if (field?.name === "device-code") {
+      field.value = formatDeviceCode(field.value);
+      setFieldError(field.form, "");
     } else if (field?.form?.matches?.("[data-team-form]")) {
       updateTeamDraft(field);
     } else if (field?.form?.matches?.("[data-team-settings-form]")) {
@@ -5754,7 +5815,8 @@ function bindEvents() {
       : form.matches?.("[data-team-form]") ? createTeam
         : form.matches?.("[data-team-settings-form]") ? saveTeam
           : form.matches?.("[data-invite-form]") ? createInvite
-            : null;
+            : form.matches?.("[data-device-form]") ? lookupDevice
+              : null;
     if (!submit) return;
     event.preventDefault();
     submit(form);
@@ -5776,6 +5838,8 @@ function bindEvents() {
     "[data-leave-team]": confirmLeaveTeam,
     "[data-delete-team]": confirmDeleteTeam,
     "[data-accept-invite]": acceptInvite,
+    "[data-device-approve]": (button) => decideDevice(button, true),
+    "[data-device-deny]": (button) => decideDevice(button, false),
   };
   const siteClick = (event) => {
     for (const [selector, action] of Object.entries(siteActions)) {
@@ -5846,28 +5910,6 @@ function bindEvents() {
     // The trigger may be gone (a revoked row, a deleted project): fall back to the list or the page.
     const fallback = state._dialog ? el.settingsDialogBody.querySelector?.("#token-list") || el.settingsDialogClose : state.page === "project" ? el.detailContent : el.siteContent;
     (target?.isConnected ? target : fallback).focus?.({ preventScroll: true });
-  });
-
-  el.tokenCopy.addEventListener("click", async () => {
-    if (el.tokenCopy.disabled) return;
-    setButtonBusy(el.tokenCopy, true, "Copying…", "Copy token");
-    try {
-      await navigator.clipboard.writeText(el.tokenOutput.value);
-      setStatus(t("Token copied."));
-    } catch {
-      selectToken();
-      setStatus(t("Copy failed. Select and copy the token manually."), true);
-    } finally {
-      setButtonBusy(el.tokenCopy, false, "Copying…", "Copy token");
-    }
-  });
-
-  el.tokenDialog.addEventListener("close", () => {
-    el.tokenOutput.value = "";
-    setButtonLabel(el.tokenCopy, t("Copy token"));
-    const target = state._tokenReturnFocus?.isConnected ? state._tokenReturnFocus : el.accountMenuTrigger;
-    state._tokenReturnFocus = null;
-    if (target.isConnected) target.focus();
   });
 
   el.logoutBtn.addEventListener("click", async () => {
@@ -6025,11 +6067,6 @@ function bindEvents() {
       confirmTransfer(transferButton);
       return;
     }
-    const createToken = e.target.closest("[data-create-token]");
-    if (createToken) {
-      await createAccessToken(createToken);
-      return;
-    }
     const jump = e.target.closest("[data-tab-jump]");
     if (jump) {
       switchTab(jump.dataset.tabJump);
@@ -6127,7 +6164,7 @@ function bindEvents() {
   el.drawerOverlay.addEventListener("mousedown", (event) => event.preventDefault());
 
   document.addEventListener("keydown", (event) => {
-    if (el.aboutDialog.open || el.tokenDialog.open || el.searchDialog.open || el.confirmDialog.open || el.settingsDialog.open) return;
+    if (el.aboutDialog.open || el.searchDialog.open || el.confirmDialog.open || el.settingsDialog.open) return;
     if (event.key === "Escape" && state.visitor && !el.authGate.classList.contains("is-hidden")) {
       event.preventDefault();
       dismissAuthGate();

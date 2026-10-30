@@ -17,7 +17,9 @@ from urllib.parse import urlsplit, urlunsplit
 _INITIALIZED = set()
 _INIT_LOCK = threading.Lock()
 
-LATEST_SCHEMA_VERSION = 7
+LATEST_SCHEMA_VERSION = 8
+_DEVICE_SCHEMA_NAME = "device-logins"
+_DEVICE_SCHEMA_CHECKSUM = hashlib.sha256(b"0008:device-logins").hexdigest()
 _TEAMS_SCHEMA_NAME = "teams-and-visibility"
 _TEAMS_SCHEMA_CHECKSUM = hashlib.sha256(b"0007:teams:members:invites:project-team-visibility").hexdigest()
 _IDENTITY_SCHEMA_NAME = "revision-identity"
@@ -144,6 +146,7 @@ _EXPECTED_SCHEMA_COLUMNS.update({
     "teams": {"id", "slug", "name", "created_by", "created_at"},
     "team_members": {"team_id", "account_id", "role", "joined_at"},
     "team_invites": {"id", "team_id", "token_hash", "role", "created_by", "created_at", "expires_at"},
+    "device_logins": {"id", "device_hash", "user_hash", "name", "created_at", "expires_at", "account_id", "decided_at"},
 })
 
 
@@ -668,6 +671,8 @@ def _validate_migration_ledger(rows):
             "backward_compatible": 1},
         7: {"name": _TEAMS_SCHEMA_NAME, "checksum": _TEAMS_SCHEMA_CHECKSUM,
             "backward_compatible": 1},
+        8: {"name": _DEVICE_SCHEMA_NAME, "checksum": _DEVICE_SCHEMA_CHECKSUM,
+            "backward_compatible": 1},
     }
     observed_versions = set()
     for row in rows:
@@ -832,6 +837,18 @@ def migrate_db(conn, *, require_backward_compatible=True):
             (version, name, checksum, backward_compatible, applied_at)
             VALUES (?, ?, ?, ?, ?)""",
             (7, _TEAMS_SCHEMA_NAME, _TEAMS_SCHEMA_CHECKSUM, 1,
+             datetime.now(timezone.utc).isoformat()))
+
+    if 8 not in applied_versions:
+        # Additive: after a rollback the table sits unused and the CLI asks for a pasted token.
+        conn.execute("""CREATE TABLE IF NOT EXISTS device_logins (
+            id TEXT PRIMARY KEY, device_hash TEXT NOT NULL UNIQUE, user_hash TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL,
+            account_id TEXT REFERENCES accounts(id) ON DELETE CASCADE, decided_at TEXT)""")
+        conn.execute("""INSERT INTO schema_migrations
+            (version, name, checksum, backward_compatible, applied_at)
+            VALUES (?, ?, ?, ?, ?)""",
+            (8, _DEVICE_SCHEMA_NAME, _DEVICE_SCHEMA_CHECKSUM, 1,
              datetime.now(timezone.utc).isoformat()))
 
     rows = _migration_rows(conn)

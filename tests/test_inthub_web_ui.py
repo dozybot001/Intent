@@ -355,11 +355,11 @@ def test_updated_standard_uses_fixed_redirect_help_and_shared_dialog_layout():
     help_script = _static("help.js")
     assert 'href="/auth/redirect?method=github"' in html
     assert 'class="heading-with-help"' in html
-    assert 'data-help="auth"' in html and 'data-help="token"' in html and 'data-help="search"' in html
+    assert 'data-help="auth"' in html and 'data-help="search"' in html
     assert 'help: "decisions"' in javascript and 'help: "setup"' in javascript
     # Help buttons sit beside headings so they never become part of the heading's name.
     markup = _MarkupTags(html)
-    for heading in ("auth-title", "search-dialog-title", "token-dialog-title"):
+    for heading in ("auth-title", "search-dialog-title"):
         assert not [tag for tag, attributes in markup.within(heading) if tag == "button"], heading
     assert '${help ? `<div class="heading-with-help">${heading}${helpButton(help)}</div>` : heading}' in javascript
     assert 'gap: max(6px, 0.28em)' in _block(css, ".heading-with-help")
@@ -370,8 +370,8 @@ def test_updated_standard_uses_fixed_redirect_help_and_shared_dialog_layout():
     assert 'rect.bottom < top + 16' in help_script
     assert 'Math.min(preferredTop, top + height - panel.offsetHeight - 16)' in help_script
     assert '--dialog-width:' in css and '--dialog-height:' in css
-    shared = re.search(r"\.about-dialog,\s*\.token-dialog\s*\{([^}]+)", css).group(1)
-    assert "width: var(--dialog-width)" in shared and "height: var(--dialog-height)" in shared
+    about = _rule(css, ".about-dialog")
+    assert "width: var(--dialog-width)" in about and "height: var(--dialog-height)" in about
     assert 'grid-template-rows: auto minmax(0, 1fr) auto' in _block(css, ".dialog-layout")
     assert 'class="dialog-body"' in html
     assert 'data-language-select' in html and 'localizeWorkspace' in javascript
@@ -492,14 +492,14 @@ def test_overview_offers_a_copyable_markdown_brief():
     assert 'copyText(briefMarkdown(), t("Brief copied."))' in javascript
 
 
-def test_first_run_guide_matches_the_documented_install_and_offers_inline_token():
+def test_first_run_guide_matches_the_documented_install_and_signs_in_through_the_browser():
     javascript = _static("app.js")
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     install = re.search(r'const INSTALL_COMMAND = "([^"]+)";', javascript).group(1)
     assert install in readme
     guide = javascript.split("function renderSetupGuide", 1)[1].split("/* ---- Project selector", 1)[0]
     assert '"itt init"' in guide and '"itt push"' in guide
-    assert "itt auth login --api-base-url" in guide and "data-create-token" in guide
+    assert "itt auth login --api-base-url" in guide and "approve it in the browser" in guide
     assert 'data-copy="${esc(text)}"' in javascript.split("function commandSnippet", 1)[1].split("function detailSection", 1)[0]
     # The Skill step matches the README and never installs for every agent: --all creates about 50 agent folders in ~.
     skill = re.search(r'const SKILL_COMMAND = "([^"]+)";', javascript).group(1)
@@ -574,9 +574,6 @@ def test_small_surfaces_size_to_their_content():
     css = _static("styles.css")
     # left: 50% caps a toast's shrink-to-fit width at half the viewport, so short messages wrapped on phones.
     assert "width: max-content" in _rule(css, ".status-toast")
-    # The token dialog holds a sentence and a field; the About dialog's fixed height left a tall empty gap.
-    assert "height: fit-content" in _rule(css, ".token-dialog")
-    assert "height: auto" in _rule(css, ".token-dialog .dialog-layout")
     # With nothing listed, the search message sits under the field instead of at the foot of the phone panel.
     assert "display: none" in _rule(css, ".search-results:not(:has(*))")
 
@@ -633,17 +630,6 @@ def test_settings_open_in_one_fixed_size_dialog_over_the_page():
     assert 'querySelectorAll("dialog[open]")' in javascript.split("function placeStatusLine", 1)[1]
 
 
-def test_token_dialog_opens_on_copy_token_with_a_read_only_field():
-    html = _static("index.html")
-    javascript = _static("app.js")
-    field = re.search(r'<input id="token-output"[^>]*>', html).group(0)
-    assert "readonly" in field and "autofocus" not in field and 'class="text-field token-field"' in field
-    assert "autofocus" in re.search(r'<button id="token-copy"[^>]*>', html).group(0)
-    create = javascript.split("async function createAccessToken", 1)[1].split("\n}\n", 1)[0]
-    assert "el.tokenCopy.focus();" in create and "el.tokenOutput.scrollLeft = 0;" in create
-    assert "selectToken()" not in create and ".select()" not in create
-
-
 def test_site_pages_have_their_own_routes_without_project_chrome():
     html = _static("index.html")
     css = _static("styles.css")
@@ -665,7 +651,6 @@ def test_site_pages_have_their_own_routes_without_project_chrome():
     assert "!token.revoked_at" in javascript
     leaving = javascript.split("function setPage", 1)[1].split("\n}\n", 1)[0]
     assert "forgetShownSecrets();" in leaving and 'el.siteContent.innerHTML = "";' in leaving
-    assert "token-dialog" not in javascript.split("function generateAccessToken", 1)[1].split("\n}\n", 1)[0]
 
 
 def test_settings_share_one_layout_with_one_pair_of_edges():
@@ -915,7 +900,7 @@ def test_product_brand_and_about_follow_tenon_standard():
     assert 'state.config?.productVersion || t("Unavailable")' in javascript
     assert 'el.aboutDialog.showModal()' in javascript
     assert 'el.aboutDialog.close()' in javascript
-    assert 'if (el.aboutDialog.open || el.tokenDialog.open || el.searchDialog.open || el.confirmDialog.open || el.settingsDialog.open) return' in javascript
+    assert 'if (el.aboutDialog.open || el.searchDialog.open || el.confirmDialog.open || el.settingsDialog.open) return' in javascript
     assert 'fill="#f06b32"' in mark
     assert 'M13 16H51V28H38V48H26V28H13Z' in mark
 

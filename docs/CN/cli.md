@@ -362,6 +362,7 @@ stateDiagram-v2
 | `OBJECT_NOT_FOUND` | 找不到对应对象 ID |
 | `INVALID_INPUT` | 参数非法或缺少必填输入 |
 | `AUTH_REQUIRED` | IntHub 拒绝了请求：没有发送访问令牌或令牌无效；用 `itt auth login` 登录 |
+| `AUTH_DENIED` / `AUTH_EXPIRED` / `AUTH_CANCELLED` | `itt auth login` 的代码被拒绝、过期或被 Ctrl-C 取消；重新运行即可 |
 | `INVALID_RELATION` | 关系会让 intent 关联自己、与同一对 intent 的有效关系重复、出现第二个上级、形成环，或给已结束的 intent 新增组成部分 |
 | `INVALID_OBJECT_ID` | 显式对象 ID 不是与类型匹配的本地 ID，例如 `intent-001` |
 | `UNSAFE_STORAGE` | `.intent/`、对象目录、锁或对象文件通过符号链接重定向，或越出存储边界 |

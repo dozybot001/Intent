@@ -3195,13 +3195,6 @@ kbd {
   line-height: 1.6;
 }
 
-.setup-step-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
-}
-
 .setup-step .setup-step-note {
   margin-top: 14px;
 }
@@ -3649,6 +3642,28 @@ kbd {
   overflow-wrap: anywhere;
 }
 
+.device-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.device-code {
+  height: 44px;
+  font-family: var(--mono);
+  font-size: 20px;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+.device-form .button {
+  justify-self: center;
+}
+
+.device-form .field-error {
+  margin-top: 0;
+}
+
 .invite-actions {
   display: flex;
   justify-content: center;
@@ -4023,8 +4038,7 @@ kbd {
 }
 
 .search-dialog::backdrop,
-.about-dialog::backdrop,
-.token-dialog::backdrop {
+.about-dialog::backdrop {
   background: var(--backdrop);
 }
 
@@ -4298,8 +4312,7 @@ html:has(.settings-dialog[open]) {
   scrollbar-gutter: stable;
 }
 
-.about-dialog,
-.token-dialog {
+.about-dialog {
   width: var(--dialog-width);
   max-width: none;
   height: var(--dialog-height);
@@ -4313,8 +4326,7 @@ html:has(.settings-dialog[open]) {
   box-shadow: var(--shadow-pop);
 }
 
-.about-dialog[open],
-.token-dialog[open] {
+.about-dialog[open] {
   animation: pop-in 160ms var(--ease);
 }
 
@@ -4332,18 +4344,6 @@ html:has(.settings-dialog[open]) {
   margin: -4px;
   padding: 4px;
   overflow-y: auto;
-}
-
-/* The token dialog holds a sentence and a field: it takes their height, not the About dialog's fixed one.
-   fit-content as in the UA sheet; auto would stretch a modal dialog between its insets. */
-.token-dialog {
-  height: fit-content;
-  max-height: var(--dialog-height);
-}
-
-.token-dialog .dialog-layout {
-  height: auto;
-  max-height: calc(var(--dialog-height) - 2px);
 }
 
 .about-heading,
@@ -4423,22 +4423,6 @@ html:has(.settings-dialog[open]) {
   text-underline-offset: 4px;
 }
 
-.token-dialog-card .dialog-body p {
-  color: var(--ink-2);
-  font-size: 14px;
-  line-height: 1.7;
-}
-
-.token-field {
-  height: 44px;
-  margin-top: 16px;
-  padding: 0 14px;
-  background: var(--code-bg);
-  font-family: var(--mono);
-  font-size: 13px;
-}
-
-.token-dialog-actions,
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -4496,10 +4480,6 @@ html:has(.settings-dialog[open]) {
   font-family: var(--mono);
   font-weight: 600;
   overflow-wrap: anywhere;
-}
-
-.token-dialog-actions .button {
-  min-height: 36px;
 }
 
 /* --- Help ---------------------------------------------------------------- */

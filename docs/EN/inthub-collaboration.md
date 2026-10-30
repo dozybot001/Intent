@@ -39,17 +39,17 @@ IntHub reduces GitHub's organization to a **team**: a flat group of members.
 The header has three entries:
 
 - **Preferences** (sliders): appearance, language, refresh, about. It needs no sign-in, so visitors can use it.
-- **Settings** (gear): opens the settings page, with access tokens and teams.
+- **Settings** (gear): opens the settings dialog, with access tokens and teams.
 - **Account** (avatar): the account and nothing else: profile, Tenon account center, sign out.
 
-Account, settings, team and project pages share one layout: navigation on the left, one section at a time on the right. Every option reads as an icon and a label.
+Account and Settings open in one fixed-size dialog over the current page (full screen on phones): the frame stays put between sections and the content scrolls inside it. Each section keeps its own address and can be opened directly; Back closes the dialog. Team and project settings stay pages with the same layout: navigation on the left, one section at a time on the right. Every option reads as an icon and a label, and selects and hints are drawn by IntHub rather than the browser.
 
-**Account page** (`/account`):
+**Account** (`/account`):
 
 - Profile: the name and sign-in come from Tenon and are shown read-only with a link to edit them; the email that links Snaps to the account.
 - Danger zone: account deletion through Tenon.
 
-**Settings page** (`/settings`):
+**Settings** (`/settings`):
 
 - Access tokens: a name and a 30-, 90- or 365-day lifetime; the list shows when each was created, last used and expires; any token can be revoked. A new token is shown once, in the list.
 - Teams: the teams you belong to, your role in each, and creating a team.
@@ -99,15 +99,15 @@ As in Git, authors declare who they are, and the platform links that to an accou
 - **Concurrent pushes still fast-forward.** With several people on a project, the later push has to `itt pull` first. An Agent can do that, but if both sides changed, a person has to resolve it. Real semantic merging belongs to Intent 8 (see [Semantic Git](semantic-git.md)), and teams will be its main users.
 - **Home page:** lists your projects and your teams' projects, most recently synced first, with how many active Intents are blocked. With a single project, it opens that project.
 
-## CLI sign-in (proposal)
+## CLI sign-in
 
-Today `itt auth login` means creating a token on the web and pasting it into a terminal. The proposal is device-code sign-in like `gh auth login`:
+`itt auth login` uses a device code, like `gh auth login`:
 
-1. The terminal shows a one-time code and opens IntHub's authorization page.
-2. You sign in, check the code and click Authorize.
-3. The CLI receives a token named "itt · machine", which can be revoked in settings.
+1. The terminal shows an 8-letter code and opens `/device` when the machine has a browser.
+2. You sign in, type the code (it is never in a link, so nobody can send you one to approve), check the device name and click Authorize.
+3. The CLI receives a 90-day token named "itt on machine", which can be revoked in Settings.
 
-The token never appears on screen, and this works over SSH, in containers and for Agents. Pasting a token stays as the fallback.
+A code expires after 10 minutes and is stored hashed, approval needs a browser session, and the token is delivered once. The token never appears on screen, so this also works over SSH and in containers. Unattended machines keep using a token from Settings with `INTHUB_TOKEN`; against an older hub without this endpoint, the CLI falls back to a pasted token.
 
 ## Releases
 

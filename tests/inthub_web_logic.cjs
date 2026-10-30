@@ -114,17 +114,11 @@ vm.runInContext(`
   assert.ok(rendered.includes('Continue user work'));
   assert.ok(rendered.includes('data-detail-type="intent" data-remote-id="p__intent-001"'));
   state.searchQuery = 'unsent user query';
-  el.tokenOutput.value = 'sensitive clipboard value';
   window.IntHubI18n.setLanguage('en');
   renderIntentsTab();
   assert.ok(el.detailContent.innerHTML.includes('Active objectives'));
   assert.ok(el.detailContent.innerHTML.includes('1 snap<'));
   assert.equal(state.searchQuery, 'unsent user query');
-  assert.equal(el.tokenOutput.value, 'sensitive clipboard value');
-  // A new token opens scrolled to its start, not to the tail select() would show in a narrow field.
-  el.tokenOutput.scrollLeft = 120;
-  selectToken();
-  assert.equal(el.tokenOutput.scrollLeft, 0);
   assert.equal(plural(1, '{count} blocked objective', '{count} blocked objectives'), '1 blocked objective');
   assert.equal(plural(2, '{count} blocked objective', '{count} blocked objectives'), '2 blocked objectives');
   const labelled = document.getElementById('labelled-button');
@@ -136,15 +130,15 @@ vm.runInContext(`
   setButtonBusy(labelled, false, 'Creating team…', 'Create team');
   assert.equal(label.textContent, 'Create team');
   assert.ok(iconLabel('plus', 'A <b>').startsWith('<svg') && iconLabel('plus', 'A <b>').endsWith('<span class="button-label">A &lt;b&gt;</span>'));
-  const setupTokenButton = document.getElementById('setup-token-button');
-  setButtonBusy(setupTokenButton, true, 'Creating token…', 'Create access token');
-  assert.equal(setupTokenButton.disabled, true);
-  assert.equal(setupTokenButton.classList.contains('action-busy'), true);
-  assert.equal(setupTokenButton.textContent, 'Creating token…');
+  const busyButton = document.getElementById('busy-button');
+  setButtonBusy(busyButton, true, 'Creating team…', 'Create team');
+  assert.equal(busyButton.disabled, true);
+  assert.equal(busyButton.classList.contains('action-busy'), true);
+  assert.equal(busyButton.textContent, 'Creating team…');
   window.IntHubI18n.setLanguage('zh-CN');
-  setButtonBusy(setupTokenButton, false, 'Creating token…', 'Create access token');
-  assert.equal(setupTokenButton.disabled, false);
-  assert.equal(setupTokenButton.textContent, '创建访问令牌');
+  setButtonBusy(busyButton, false, 'Creating team…', 'Create team');
+  assert.equal(busyButton.disabled, false);
+  assert.equal(busyButton.textContent, '创建团队');
   assert.ok(statusBadge('active', 'decision').includes('有效'));
   assert.ok(statusBadge('active').includes('进行中'));
   assert.equal(continuationHealth([]).ready, false);
@@ -223,7 +217,7 @@ vm.runInContext(`
   const guide = el.detailContent.innerHTML;
   assert.ok(guide.includes('data-copy="' + INSTALL_COMMAND.replace(/&/g, '&amp;') + '"'));
   assert.ok(guide.includes('itt init'));
-  assert.ok(guide.includes('data-create-token'));
+  assert.ok(guide.includes('在浏览器里批准') && !guide.includes('data-create-token'));
   assert.ok(guide.includes('data-copy="itt auth login --api-base-url &#39;https://inthub.example&#39;"'));
   assert.ok(guide.includes("--project &#39;Team&#39;\\\\&#39;&#39;s checkout&#39;"));
   assert.ok(guide.includes('itt push'));
@@ -448,14 +442,6 @@ async function headerMenuCases() {
     assert.equal(preferencesPanel.inert,true);
     el.aboutDialog.close();
     assert.equal(document.activeElement,preferencesTrigger);
-    el.tokenDialog.showModal();
-    el.tokenDialog.close();
-    assert.equal(document.activeElement,el.accountMenuTrigger);
-    const setupTokenButton = document.getElementById('setup-token-button');
-    state._tokenReturnFocus = setupTokenButton;
-    el.tokenDialog.showModal();
-    el.tokenDialog.close();
-    assert.equal(document.activeElement,setupTokenButton);
 
     window.IntHubI18n.setLanguage('en');
     assert.equal(languageEnglish.getAttribute('aria-pressed'),'true');
@@ -1550,16 +1536,6 @@ async function settingsCases() {
     assert.equal(el.projectPickerLabel.textContent, '暂无项目');
     assert.equal(document.title, 'IntHub');
     assert.ok(el.detailContent.innerHTML.includes('setup-guide'));
-
-    // The setup guide's token dialog opens on Copy token; the read-only field shows the ith_pat_ start.
-    reply = () => ({token: 'ith_pat_DIALOG'});
-    el.tokenOutput.scrollLeft = 99;
-    await createAccessToken(document.getElementById('setup-create-token'));
-    assert.equal(el.tokenDialog.open, true);
-    assert.equal(document.activeElement, el.tokenCopy);
-    assert.equal(el.tokenOutput.scrollLeft, 0);
-    assert.deepEqual(calls.at(-1).body, {name: 'CLI token', ttl_seconds: 7776000});
-    el.tokenDialog.close();
 
     assert.equal(tHtml('Type {name} to confirm.', {name: '<b>x</b>'}), '输入 <b>x</b> 以确认。');
     fetchJson = saved.fetchJson;
