@@ -123,6 +123,8 @@ remains; browser sessions cannot write. Workspace link/sync/snapshot endpoints, 
 Historical table definitions remain only for migration integrity and old-image rollback,
 without product entry points. This release does not migrate or reupload local exports.
 
+`GET /api/v2/history` also takes `project_id`: IntHub then finds the project by ID, so clones follow a rename. Renaming and deleting are browser actions: `POST /api/v1/projects/{id}/rename` and `/delete` need the session cookie and a same-origin JSON request, and access tokens are refused. Delete needs the exact project name and removes the project's versions, head and legacy rows; local `.intent` directories are untouched. `GET /api/v1/projects/{id}/export` returns the current snapshot and the revision chain to the session or an access token.
+
 Sources: [server history](../../apps/inthub_api/history.py),
 [CLI synchronization](../../src/intent_cli/commands/shared.py),
 [multi-client tests](../../tests/test_shared_history.py),

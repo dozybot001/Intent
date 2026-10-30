@@ -73,7 +73,12 @@ def test_header_groups_preferences_and_account_actions_in_separate_menus():
     assert any(attributes.get("id") == "refresh-btn" for _, attributes in settings)
     assert any("data-about-open" in attributes for _, attributes in settings)
     account = markup.within("account-actions")
-    assert {"account-label", "token-btn", "logout-btn", "delete-account-btn"}.issubset({attributes.get("id") for _, attributes in account})
+    ids = {attributes.get("id") for _, attributes in account}
+    # 7.3: Settings replaces Access token; Delete account lives on the settings page, not in the menu.
+    assert {"account-label", "account-settings-link", "logout-btn"}.issubset(ids)
+    assert not {"token-btn", "delete-account-btn"} & ids
+    assert any(tag == "a" and attributes.get("href") == "/settings" for tag, attributes in account)
+    assert any(attributes.get("href") == "https://account.tenon.asia/account/" for _, attributes in account)
     assert not any("data-theme-setting" in attributes or "data-language-select" in attributes for _, attributes in account)
     assert header.index('id="settings-menu-trigger"') < header.index('id="account-menu-trigger"')
     assert 'id="auth-settings-menu"' in html
@@ -173,7 +178,7 @@ def test_workspace_is_one_fluid_page_with_tabs_instead_of_three_fixed_panes():
     for retired in ('id="sidebar"', 'class="primary-nav"', 'id="back-btn"', 'id="nav-health"', "Continuation queue"):
         assert retired not in html
     tabs = [attributes["data-tab"] for _, attributes, _ in markup.tags if "data-tab" in attributes]
-    assert tabs == ["overview", "intents", "flow", "snaps", "decisions"]
+    assert tabs == ["overview", "intents", "flow", "snaps", "decisions", "settings"]
     tab_bar = markup.by_id("tab-bar")
     assert tab_bar[0] == "nav" and tab_bar[1].get("aria-label")
     content = _block(css, ".page-content")
@@ -528,6 +533,68 @@ def test_small_surfaces_size_to_their_content():
     assert "display: none" in _rule(css, ".search-results:not(:has(*))")
 
 
+def test_text_fields_share_a_soft_focus_ring_instead_of_the_hard_outline():
+    css = _static("styles.css")
+    html = _static("index.html")
+    javascript = _static("app.js")
+    field = _rule(css, ".text-field")
+    assert "border: 1px solid var(--border-strong)" in field
+    focus = _rule(css, ".text-field:focus, .text-field:focus-visible")
+    assert "outline: none" in focus and "box-shadow: 0 0 0 3px var(--field-ring)" in focus
+    # Every text field but the search palette's borderless one uses the shared style (selects too).
+    fields = re.findall(r"<(?:input|select|textarea)\b[^>]*>", html + javascript)
+    assert len(fields) >= 5
+    for tag in fields:
+        if 'id="search-input"' not in tag:
+            assert 'class="text-field' in tag, tag
+
+
+def test_token_dialog_opens_on_copy_token_with_a_read_only_field():
+    html = _static("index.html")
+    javascript = _static("app.js")
+    field = re.search(r'<input id="token-output"[^>]*>', html).group(0)
+    assert "readonly" in field and "autofocus" not in field and 'class="text-field token-field"' in field
+    assert "autofocus" in re.search(r'<button id="token-copy"[^>]*>', html).group(0)
+    create = javascript.split("async function createAccessToken", 1)[1].split("\n}\n", 1)[0]
+    assert "el.tokenCopy.focus();" in create and "el.tokenOutput.scrollLeft = 0;" in create
+    assert "selectToken()" not in create and ".select()" not in create
+
+
+def test_account_settings_have_their_own_route_without_project_tabs():
+    html = _static("index.html")
+    css = _static("styles.css")
+    javascript = _static("app.js")
+    assert 'const ACCOUNT_PATH = "/settings";' in javascript
+    assert 'if (state.page === "account") return ACCOUNT_PATH;' in javascript
+    assert '<div class="page-content is-hidden" id="account-content" tabindex="-1"></div>' in html
+    assert "display: none" in _rule(css, ".shell.is-account .tab-bar")
+    # The profile is read-only and edited in Tenon; Delete account keeps its Tenon flow on this page.
+    assert 'const TENON_ACCOUNT_URL = "https://account.tenon.asia/account/";' in javascript and 'href="${TENON_ACCOUNT_URL}"' in javascript
+    assert "data-delete-account" in javascript and '"/api/auth/tenon/delete/start"' in javascript
+    # Tokens: 30, 90 or 365 days (90 by default), active ones only, a new secret once and inline.
+    assert "const TOKEN_LIFETIMES = [30, 90, 365];" in javascript and "const DEFAULT_TOKEN_DAYS = 90;" in javascript
+    assert "!token.revoked_at" in javascript
+    leaving = javascript.split("function setPage", 1)[1].split("\n}\n", 1)[0]
+    assert "state._newToken = null;" in leaving and 'el.accountContent.innerHTML = "";' in leaving
+    assert "token-dialog" not in javascript.split("function generateAccessToken", 1)[1].split("\n}\n", 1)[0]
+
+
+def test_project_settings_stay_neutral_and_delete_only_after_the_exact_name():
+    css = _static("styles.css")
+    javascript = _static("app.js")
+    # No coloured cards or stripes: only the destructive button uses the danger colour.
+    neutral = (".settings-card", ".settings-row", ".token-row", ".token-row.is-new", ".token-secret-box", ".profile-avatar", ".confirm-dialog")
+    bodies = [(name, body) for name, body in _rules(css) if name in neutral]
+    assert {name for name, _ in bodies} == set(neutral)
+    for name, body in bodies:
+        assert not re.search(r"--(red|amber|green|blue)", body) and "border-left" not in body, name
+    assert "color: var(--red)" in _rule(css, ".button-danger")
+    assert "el.confirmOk.disabled = el.confirmInput.value !== state._confirm.expect;" in javascript
+    assert "body: JSON.stringify({ confirm })" in javascript
+    assert "const PROJECT_NAME_MAX = 120;" in javascript
+    assert '`${safe || "project"}.inthub-export.json`' in javascript and "JSON.stringify(data, null, 2)" in javascript
+
+
 def test_web_shell_uses_monochrome_continuity_logo_and_explicit_account_icon():
     html = _static("index.html")
     javascript = _static("app.js")
@@ -675,7 +742,7 @@ def test_product_brand_and_about_follow_tenon_standard():
     assert 'state.config?.productVersion || t("Unavailable")' in javascript
     assert 'el.aboutDialog.showModal()' in javascript
     assert 'el.aboutDialog.close()' in javascript
-    assert 'if (el.aboutDialog.open || el.tokenDialog.open || el.searchDialog.open) return' in javascript
+    assert 'if (el.aboutDialog.open || el.tokenDialog.open || el.searchDialog.open || el.confirmDialog.open) return' in javascript
     assert 'fill="#f06b32"' in mark
     assert 'M13 16H51V28H38V48H26V28H13Z' in mark
 
@@ -701,7 +768,7 @@ def test_flow_tab_is_a_keyboard_reachable_inline_svg_without_inline_styles():
     javascript = _static("app.js")
     css = _static("styles.css")
     translations = _static("i18n.js")
-    assert re.search(r'const TABS = \["overview", "intents", "flow", "snaps", "decisions"\];', javascript)
+    assert re.search(r'const TABS = \["overview", "intents", "flow", "snaps", "decisions", "settings"\];', javascript)
     assert '"Flow": "流转"' in translations and '"Project": "项目"' in translations
     assert 'case "flow":' in javascript and "function flowLayout(" in javascript and "function renderFlowSvg(" in javascript
     # CSP style-src 'self': no style attributes in markup strings; SVG presentation attributes only.
@@ -740,10 +807,10 @@ def test_timeline_pages_from_the_snaps_endpoint_and_search_reports_truncation():
     assert queries.SEARCH_LIMIT == 50
 
 
-def test_static_revision_names_the_flow_release():
+def test_static_revision_names_the_settings_release():
     for name in ("index.html", "auth-redirect.html"):
-        assert "rev=continuity-5" not in _static(name) and "rev=flow-8" not in _static(name)
-        assert "rev=flow-9" in _static(name)
+        assert "rev=flow-9" not in _static(name) and "rev=continuity-5" not in _static(name)
+        assert "rev=settings-1" in _static(name)
 
 
 

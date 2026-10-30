@@ -8,8 +8,8 @@
     <title>IntHub</title>
     <link rel="icon" type="image/svg+xml" href="/tenon-mark.svg">
     <link rel="preload" href="/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <script src="/theme.js?rev=flow-9"></script>
-    <link rel="stylesheet" href="/styles.css?rev=flow-9">
+    <script src="/theme.js?rev=settings-1"></script>
+    <link rel="stylesheet" href="/styles.css?rev=settings-1">
   </head>
   <body>
     <div class="shell" id="shell" data-active-tab="overview">
@@ -67,10 +67,10 @@
               </div>
 
               <div class="header-menu-control settings-control">
-                <button class="icon-button" id="settings-menu-trigger" data-settings-trigger type="button" aria-label="Settings" aria-expanded="false" aria-controls="settings-menu">
+                <button class="icon-button" id="settings-menu-trigger" data-settings-trigger type="button" aria-label="Preferences" aria-expanded="false" aria-controls="settings-menu">
                   <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 2-.5 2-1.5.9-2-.6-2 3.4 1.5 1.4v1.8L2 12.3l2 3.4 2-.6 1.5.9.5 2h4l.5-2 1.5-.9 2 .6 2-3.4-1.5-1.4V9.1L18 7.7l-2-3.4-2 .6-1.5-.9-.5-2Z"/><circle cx="10" cy="10" r="2.5"/></svg>
                 </button>
-                <div class="header-menu settings-menu" id="settings-menu" data-settings-menu role="group" aria-label="Settings" inert>
+                <div class="header-menu settings-menu" id="settings-menu" data-settings-menu role="group" aria-label="Preferences" inert>
                   <section class="menu-section">
                     <span class="menu-title">Appearance</span>
                     <div class="segmented-control" role="group" aria-label="Appearance">
@@ -103,12 +103,9 @@
                     <span id="account-mode" class="account-mode">Private session</span>
                   </div>
                   <div class="menu-section menu-actions">
-                    <button id="token-btn" class="menu-action account-action" type="button">Access token</button>
+                    <a id="account-settings-link" class="menu-action account-action" href="/settings">Settings</a>
                     <a class="menu-action account-action" href="https://account.tenon.asia/account/">Account center</a>
                     <button id="logout-btn" class="menu-action account-action" type="button">Sign out</button>
-                  </div>
-                  <div class="menu-section menu-actions">
-                    <button id="delete-account-btn" class="menu-action account-action account-action-danger" type="button">Delete account</button>
                   </div>
                 </div>
               </div>
@@ -135,6 +132,9 @@
             <span>Decisions</span>
             <span class="tab-count" id="decision-count"></span>
           </button>
+          <button class="tab" data-tab="settings" type="button">
+            <span>Settings</span>
+          </button>
         </nav>
       </header>
 
@@ -144,6 +144,7 @@
             <i></i><i></i><i></i>
           </div>
         </div>
+        <div class="page-content is-hidden" id="account-content" tabindex="-1"></div>
       </main>
 
       <div class="sheet-overlay" id="drawer-overlay"></div>
@@ -187,10 +188,10 @@
               </div>
             </div>
             <div class="header-menu-control settings-control">
-              <button class="icon-button" id="auth-settings-menu-trigger" data-settings-trigger type="button" aria-label="Settings" aria-expanded="false" aria-controls="auth-settings-menu">
+              <button class="icon-button" id="auth-settings-menu-trigger" data-settings-trigger type="button" aria-label="Preferences" aria-expanded="false" aria-controls="auth-settings-menu">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 2-.5 2-1.5.9-2-.6-2 3.4 1.5 1.4v1.8L2 12.3l2 3.4 2-.6 1.5.9.5 2h4l.5-2 1.5-.9 2 .6 2-3.4-1.5-1.4V9.1L18 7.7l-2-3.4-2 .6-1.5-.9-.5-2Z"/><circle cx="10" cy="10" r="2.5"/></svg>
               </button>
-              <div class="header-menu settings-menu" id="auth-settings-menu" data-settings-menu role="group" aria-label="Settings" inert>
+              <div class="header-menu settings-menu" id="auth-settings-menu" data-settings-menu role="group" aria-label="Preferences" inert>
                 <section class="menu-section">
                   <span class="menu-title">Appearance</span>
                   <div class="segmented-control" role="group" aria-label="Appearance">
@@ -290,18 +291,36 @@
         <header class="dialog-heading"><div class="heading-with-help"><h2 id="token-dialog-title">New access token</h2><button class="help-trigger" data-help="token" type="button" aria-label="Explanation" aria-expanded="false"><span aria-hidden="true">i</span></button></div></header>
         <div class="dialog-body">
         <p>This secret is shown once. Paste it into <code>itt auth login</code>; IntHub will not display it again.</p>
-        <input id="token-output" type="text" readonly aria-label="New CLI token" autofocus>
+        <input id="token-output" class="text-field token-field" type="text" readonly aria-label="New CLI token">
         </div>
         <div class="token-dialog-actions">
-          <button id="token-copy" class="button button-secondary" type="button">Copy token</button>
+          <button id="token-copy" class="button button-secondary" type="button" autofocus>Copy token</button>
           <button id="token-close" class="button button-primary" value="close">Done</button>
         </div>
       </form>
     </dialog>
 
+    <dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-body">
+      <form class="confirm-card dialog-layout" id="confirm-form" novalidate>
+        <header class="dialog-heading"><h2 id="confirm-title"></h2></header>
+        <div class="dialog-body">
+          <p class="confirm-body" id="confirm-body"></p>
+          <div class="confirm-field" id="confirm-field" hidden>
+            <label class="field-label" id="confirm-label" for="confirm-input"></label>
+            <input class="text-field" id="confirm-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+          </div>
+          <p class="field-error" id="confirm-error" role="alert" hidden></p>
+        </div>
+        <div class="dialog-actions">
+          <button class="button button-secondary" id="confirm-cancel" type="button">Cancel</button>
+          <button class="button button-danger" id="confirm-ok" type="submit"></button>
+        </div>
+      </form>
+    </dialog>
+
     <div id="help-popover" class="help-popover" role="tooltip" popover="manual" tabindex="0" hidden></div>
-    <script src="/i18n.js?rev=flow-9" defer></script>
-    <script src="/help.js?rev=flow-9" defer></script>
-    <script src="/app.js?rev=flow-9" defer></script>
+    <script src="/i18n.js?rev=settings-1" defer></script>
+    <script src="/help.js?rev=settings-1" defer></script>
+    <script src="/app.js?rev=settings-1" defer></script>
   </body>
 </html>

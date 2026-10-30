@@ -113,6 +113,8 @@ Web 会话不能写入。旧 workspace 的 link/sync/snapshot 接口、恢复参
 旧表仅保留历史 migration 校验及旧镜像回退所需的数据库兼容，不再有产品入口。
 此次上线不迁移、不重上传本地导出数据。
 
+`GET /api/v2/history` 也接受 `project_id`，此时按 ID 查找项目，所以本地副本能跟随改名。改名和删除只能在浏览器里做：`POST /api/v1/projects/{id}/rename` 与 `/delete` 需要会话 Cookie 和同源 JSON 请求，访问令牌会被拒绝。删除需要输入完整项目名，会删除该项目的版本、head 和旧表数据，本机 `.intent` 目录不受影响。`GET /api/v1/projects/{id}/export` 向会话或访问令牌返回当前快照和修订链。
+
 实现与验证：[history.py](../../apps/inthub_api/history.py)、
 [shared.py](../../src/intent_cli/commands/shared.py)、
 [跨客户端测试](../../tests/test_shared_history.py)、

@@ -1,7 +1,7 @@
 /* UI copy only. User-authored goals, checkpoints, identifiers and JSON stay intact. */
 window.IntHubI18n = (() => {
   const zh = {
-    "Settings": "设置", "Appearance": "外观", "Language": "语言", "System": "跟随系统", "Light": "浅色", "Dark": "深色",
+    "Settings": "设置", "Preferences": "偏好设置", "Appearance": "外观", "Language": "语言", "System": "跟随系统", "Light": "浅色", "Dark": "深色",
     "Theme: System": "主题：跟随系统", "Theme: Light": "主题：浅色", "Theme: Dark": "主题：深色", "Switch theme": "切换主题",
     "All Intents": "全部意图", "Filter timeline by Intent": "按意图筛选时间线", "{count} checkpoints": "{count} 个检查点",
     "{count} incomplete checkpoints": "{count} 个检查点待补充", "{count} blocked objectives": "{count} 个目标被阻塞", "Ready to continue": "可以继续工作",
@@ -169,6 +169,28 @@ window.IntHubI18n = (() => {
     "Source": "来源", "Project-level": "项目级", "Not traced to one Intent; it applies across the project.": "未追溯到具体意图，适用于整个项目。",
     "Showing {shown} of {total} — refine the search": "显示前 {shown} 条，共 {total} 条，请细化搜索",
     "Part of branches off its parent and rejoins it once done or dropped. Derived from branches off without rejoining. Succeeds is a thick arrow: the lane flows on into its successor. Depends on is a thin arrow from the prerequisite: amber while blocked, green once satisfied, red if it was cancelled. Conflicts with is a dashed line marked vs until one side ends. Diamonds are Decisions; hollow ones are deprecated.": "属于：从上级分出，完成或放弃后汇回上级。衍生自：分出后不汇回。继承自：粗箭头，泳道流入接手的意图。依赖：从前置意图指来的细箭头，阻塞时为琥珀色，满足后为绿色，前置被取消则为红色。对立：标有 vs 的虚线，直到一方结束。菱形是决策，空心表示已废弃。",
+
+    "Profile": "个人资料", "Your name, avatar and sign-in are managed in Tenon.": "名称、头像和登录方式由 Tenon 管理。", "Edit in Tenon": "在 Tenon 中修改",
+    "Access tokens": "访问令牌", "The Intent CLI signs in with an access token to push this account's projects. Revoke a token when a machine no longer needs it.": "Intent CLI 使用访问令牌登录，推送本账号的项目。某台机器不再需要时，请作废它的令牌。",
+    "Name": "名称", "Expires in": "有效期", "{count} day": "{count} 天", "{count} days": "{count} 天", "Generate token": "生成令牌", "Generating…": "正在生成…",
+    "Enter a token name.": "请输入令牌名称。", "Token created. Copy it now; it won't be shown again.": "令牌已创建。请立即复制，此后不会再显示。",
+    "Created {date}": "创建于 {date}", "Last used {time}": "最近使用：{time}", "Never used": "从未使用", "Expires {date}": "{date} 到期",
+    "Revoke": "作废", "Copy": "复制", "Copy it now; it won't be shown again.": "请立即复制，此后不会再显示。",
+    "No active tokens. Generate one for each machine or Agent that runs the Intent CLI.": "没有有效的令牌。请为每台运行 Intent CLI 的机器或 Agent 各生成一个。",
+    "Revoke {name}?": "作废 {name}？", "Every CLI that uses this token stops being able to push at once. This cannot be undone.": "使用此令牌的 CLI 会立即无法推送。此操作无法撤销。",
+    "Revoke token": "作废令牌", "Revoking…": "正在作废…", "Token revoked.": "令牌已作废。",
+    "Delete your IntHub account": "删除 IntHub 账号", "Removes the account with all its projects and access tokens. You confirm it in Tenon's account center.": "删除账号及其全部项目和访问令牌，需在 Tenon 账号中心确认。",
+    "General": "常规", "Project name": "项目名称", "Rename": "重命名", "Renaming…": "正在重命名…", "Renamed to {name}.": "已重命名为 {name}。",
+    "Enter a project name.": "请输入项目名称。", "Use {count} characters or fewer.": "最多 {count} 个字符。",
+    "Project names cannot contain slashes or control characters.": "项目名称不能包含斜杠或控制字符。", "Choose a name other than . or ..": "名称不能是 . 或 ..",
+    "You already have a project named {name}.": "已有名为 {name} 的项目。",
+    "Clones on itt 7.3 or later follow the new name on their next push or pull. Older versions report {code} until they upgrade.": "itt 7.3 及以上版本的副本会在下次推送或拉取时跟随新名称；旧版本会报告 {code}，升级后恢复正常。",
+    "Export": "导出", "Download project data": "下载项目数据", "The current semantic snapshot and the revision list as JSON: everything itt pull can restore.": "以 JSON 格式下载当前语义快照和修订列表，包含 itt pull 能恢复的全部内容。",
+    "Download export": "下载导出文件", "Preparing export…": "正在准备导出…", "Export downloaded.": "导出文件已下载。",
+    "Danger zone": "危险操作", "Delete this project": "删除此项目", "Removes the project and its semantic history from this hub. Local .intent data is not touched.": "从此 IntHub 删除项目及其语义历史，不影响本地的 .intent 数据。",
+    "Delete project": "删除项目", "Deleting…": "正在删除…", "Delete {name}?": "删除 {name}？", "Deleted {name}.": "已删除 {name}。",
+    "This removes the project and its semantic history from this hub. Local .intent data is not touched. This cannot be undone.": "这会从此 IntHub 删除项目及其语义历史，不影响本地的 .intent 数据。此操作无法撤销。",
+    "Type {name} to confirm.": "输入 {name} 以确认。", "Type the name exactly as shown.": "请按显示的名称准确输入。",
   };
   let language;
   try { language = localStorage.getItem("inthub.language"); } catch {}

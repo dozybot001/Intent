@@ -16,6 +16,7 @@ from apps.inthub_api.common import APIError
 from apps.inthub_api.db import connect
 from apps.inthub_api.history import link_history, push_history, read_history
 from intent_cli.hub.versions import revision_id
+from apps.inthub_api.projects import delete_project, export_project, rename_project
 from apps.inthub_api.queries import list_projects, project_overview
 from apps.inthub_api.tenon import (
     account_for_identity, account_for_session as tenon_account_for_session,
@@ -96,6 +97,28 @@ def test_postgresql_shared_history_serializes_concurrent_pushes():
     overview = project_overview(POSTGRES_URL, pid, account_id=account["id"])
     assert overview["history"]["revision"] == read_history(POSTGRES_URL, name, account["id"])["revision"]
     assert "workspaces" not in overview
+
+
+@pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")
+def test_postgresql_project_rename_export_and_delete():
+    name = "managed-" + os.urandom(6).hex()
+    account = upsert_github_account(POSTGRES_URL, {"id": name, "login": name})
+    pid = link_history(POSTGRES_URL, name, account["id"])["project_id"]
+    taken = link_history(POSTGRES_URL, name + "-taken", account["id"])["project_id"]
+    snapshot = {"intents": [], "snaps": [], "decisions": []}
+    renamed = name + "-renamed"
+    with pytest.raises(APIError) as exc:
+        rename_project(POSTGRES_URL, pid, name + "-taken", account["id"])
+    assert exc.value.code == "NAME_TAKEN"
+    assert rename_project(POSTGRES_URL, pid, renamed, account["id"])["project"]["name"] == renamed
+    # A push that names the old project but carries its ID lands on the renamed one.
+    pushed = push_history(POSTGRES_URL, {"project_name": name, "project_id": pid, "parent": None,
+                                         "revision": revision_id(None, snapshot), "snapshot": snapshot}, account["id"])
+    assert pushed["project_name"] == renamed
+    assert read_history(POSTGRES_URL, name, account["id"], project_id=pid)["project_name"] == renamed
+    assert [row["revision"] for row in export_project(POSTGRES_URL, pid, account["id"])["revisions"]] == [pushed["revision"]]
+    assert delete_project(POSTGRES_URL, pid, renamed, account["id"]) == {"deleted": True, "id": pid}
+    assert [project["id"] for project in list_projects(POSTGRES_URL, account_id=account["id"])["projects"]] == [taken]
 
 
 @pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")

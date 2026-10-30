@@ -97,6 +97,8 @@ Git 可选。Intent 独立保存语义历史；代码仓库的 Git origin 不参
 
 两个本地目录配置相同 remote/project 后共享同一历史，不创建 workspace。Intent、Snap、Decision 是版本内的内容，Snap 不等于同步版本。无需暂存区、手动 commit、分支或 rebase。
 
+在 IntHub 设置里改名的项目会被自动跟随：`status`、`push`、`pull` 按项目 ID 查找并返回 `renamed_from`，`push` 和 `pull` 会把新名字写入本地配置。itt 7.2 及更早版本按名称查找，会报 `REMOTE_CHANGED`，升级后恢复正常。在 IntHub 上删除的项目同样报 `REMOTE_CHANGED`，本地历史不受影响。
+
 版本 ID 由父版本与规范快照校验值计算。服务端事务锁定项目头，拒绝非快进覆盖。推送响应丢失时可按内容收敛，不新增重复版本。对象仍遵守追加和生命周期约束；没有强制覆盖或自动合并。
 
 旧 workspace 同步、导出和恢复协议已移除。Git origin 不影响同步；不同副本只需选择相同 remote/project。`hub sync`、`hub link/status` 仅委托同一共享主链，没有独立协议。

@@ -97,6 +97,8 @@ Git is optional. Intent owns semantic history independently of the source reposi
 
 Configure copies with the same remote/project: they share one history instead of separate workspaces. Intent/Snap/Decision remain objects within versions. No staging, manual commit, branch, rebase, force mode, or automatic merge is needed.
 
+A project renamed in IntHub's settings is followed automatically: `status`, `push` and `pull` look the project up by its ID and report `renamed_from`, and `push` and `pull` store the new name. itt 7.2 and earlier look it up by name and report `REMOTE_CHANGED` until upgraded. A project deleted on IntHub also reports `REMOTE_CHANGED`; local history is untouched.
+
 Revision IDs hash parent and canonical snapshot checksum. Transactional project-head locking rejects competing changes. Lost push responses converge by content without duplicate revisions. Existing append-only and lifecycle constraints still apply.
 
 Workspace sync/export/import protocols have been removed. Copies share the same remote/project independently of Git origin. Hub aliases delegate to the same shared-history implementation.

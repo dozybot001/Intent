@@ -61,15 +61,27 @@ def _remote(base, args, config, name):
     api = hub_api_base(base, args, config)
     if config.get("format_version") == 2 and config.get("revision") and api != config.get("api_base_url"):
         error("REMOTE_CHANGED", "Use itt remote add to explicitly select a different endpoint.")
-    result = http_json("GET", f"{api}/api/v2/history?{urlencode({'project': name})}", token=hub_auth_token(base, args, api))
-    if not isinstance(result, dict) or result.get("format_version") != 2 or result.get("project_name") != name:
+    query = {"project": name}
+    known = config.get("project_id") if config.get("format_version") == 2 and not getattr(args, "project", None) else None
+    if known:
+        # IntHub finds the project by ID, so a rename made there is followed here.
+        query["project_id"] = known
+    result = http_json("GET", f"{api}/api/v2/history?{urlencode(query)}", token=hub_auth_token(base, args, api))
+    renamed = isinstance(result, dict) and bool(known) and result.get("project_id") == known and result.get("project_name") != name
+    if renamed:
+        try:
+            validate_project_name(result.get("project_name"))
+        except ValueError:
+            renamed = False
+    if not isinstance(result, dict) or result.get("format_version") != 2 or (result.get("project_name") != name and not renamed):
         error("INVALID_REMOTE_SNAPSHOT", "IntHub returned an inconsistent project identity or protocol.")
     if (not {"project_id", "revision", "parent", "snapshot", "snapshot_sha256"} <= result.keys()
             or (result["project_id"] is not None and not _project_id(result["project_id"]))
             or (result["revision"] is not None and result["project_id"] is None)):
         error("INVALID_REMOTE_SNAPSHOT", "Remote history is missing a valid identity or required fields.")
     if config.get("format_version") == 2 and config.get("project_id") and result.get("project_id") != config["project_id"]:
-        error("REMOTE_CHANGED", "The remote project was deleted or replaced; inspect and explicitly relink it.")
+        error("REMOTE_CHANGED", "The remote project was deleted or replaced; inspect and explicitly relink it.",
+              suggested_fix="If it was deleted on IntHub, run itt hub link, then itt push to publish this history again.")
     if result.get("revision") is not None:
         try:
             validate_snapshot(result.get("snapshot"))
@@ -81,6 +93,11 @@ def _remote(base, args, config, name):
     elif result.get("snapshot") is not None or result.get("snapshot_sha256") is not None or result.get("parent") is not None:
         error("INVALID_REMOTE_SNAPSHOT", "An empty remote must not contain a snapshot.")
     return api, result
+
+
+def _followed(name, remote):
+    """The remote's current name, and the old one when the project was renamed on IntHub."""
+    return remote["project_name"], ({"renamed_from": name} if remote["project_name"] != name else {})
 
 
 def _config(api, name, remote):
@@ -115,7 +132,8 @@ def cmd_status(args):
             "revision": config.get("revision"), "counts": {k: len(v) for k, v in snapshot.items()}})
         return
     api, remote = _remote(base, args, config, name)
-    success("status", {"project_name": name, "api_base_url": api, "remote_checked": True,
+    name, followed = _followed(name, remote)
+    success("status", {"project_name": name, **followed, "api_base_url": api, "remote_checked": True,
         "state": _relation(config, snapshot, digest, remote), "revision": config.get("revision"),
         "remote_revision": remote["revision"], "counts": {k: len(v) for k, v in snapshot.items()}})
 
@@ -182,12 +200,13 @@ def cmd_push(args):
     with workspace_write_lock(base, operation="push.preflight"):
         config, name, snapshot, digest = _state(base, args)
     api, remote = _remote(base, args, config, name)
+    name, followed = _followed(name, remote)
     relation = _relation(config, snapshot, digest, remote)
     if relation in {"behind", "diverged"}:
         error("NON_FAST_FORWARD", "Remote history changed. Pull first; divergent histories require explicit resolution.",
               details={"state": relation, "remote_revision": remote["revision"]})
     if args.dry_run:
-        success("push", {"dry_run": True, "state": relation, "changed": relation == "ahead", "project_name": name})
+        success("push", {"dry_run": True, "state": relation, "changed": relation == "ahead", "project_name": name, **followed})
         return
     with workspace_write_lock(base, operation="push"):
         current, _, _, current_hash = _state(base, args)
@@ -196,7 +215,7 @@ def cmd_push(args):
         if relation in {"empty", "up_to_date"}:
             if relation == "up_to_date":
                 write_hub_config(base, _config(api, name, remote))
-            success("push", {"changed": False, "project_name": name, "revision": remote["revision"]})
+            success("push", {"changed": False, "project_name": name, **followed, "revision": remote["revision"]})
             return
         token = hub_auth_token(base, args, api)
         if remote.get("project_id") is None:
@@ -215,7 +234,7 @@ def cmd_push(args):
                 or result.get("revision") != revision or result.get("snapshot_sha256") != digest):
             error("SERVER_ERROR", "Push response does not match the submitted revision; check status.")
         write_hub_config(base, _config(api, name, result))
-        success("push", result)
+        success("push", {**result, **followed})
 
 
 def cmd_pull(args):
@@ -223,6 +242,7 @@ def cmd_pull(args):
     with workspace_write_lock(base, operation="pull.preflight"):
         config, name, snapshot, digest = _state(base, args)
     api, remote = _remote(base, args, config, name)
+    name, followed = _followed(name, remote)
     if remote["revision"] is None:
         error("SNAPSHOT_NOT_FOUND", "This remote project has no shared semantic history.")
     relation = _relation(config, snapshot, digest, remote)
@@ -246,6 +266,6 @@ def cmd_pull(args):
             install_snapshot(base, remote["snapshot"], updated)
         elif relation == "up_to_date" and updated != config:
             write_hub_config(base, updated)
-        success("pull", {"project_name": name, "project_id": remote["project_id"],
+        success("pull", {"project_name": name, **followed, "project_id": remote["project_id"],
             "revision": remote["revision"], "changed": relation == "behind", "state": relation,
             "counts": {k: len(v) for k, v in remote["snapshot"].items()}})

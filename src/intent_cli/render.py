@@ -299,6 +299,11 @@ def _show(result):
     return lines
 
 
+def _renamed(result):
+    old = result.get("renamed_from")
+    return [dim(f"Renamed on IntHub: {old} → {result['project_name']}")] if old else []
+
+
 def _status(result):
     if not result.get("remote_checked"):
         lines = [f"Project {bold(result['project_name'])} · {_counts(result.get('counts'))}"]
@@ -317,7 +322,7 @@ def _status(result):
         "empty": "Local history and origin are both empty.",
     }
     return [f"Project {bold(result['project_name'])} on {result['api_base_url']} · {_counts(result.get('counts'))}",
-            messages.get(result.get("state"), result.get("state", ""))]
+            *_renamed(result), messages.get(result.get("state"), result.get("state", ""))]
 
 
 def _push(result):
@@ -325,8 +330,8 @@ def _push(result):
         return [f"Dry run: origin is {result['state'].replace('_', ' ')}; "
                 + ("a push would publish new history." if result.get("changed") else "nothing to push.")]
     if not result.get("changed"):
-        return ["Everything up to date."]
-    return [f"Pushed {result['project_name']} → revision {result['revision'][:8]}"]
+        return [*_renamed(result), "Everything up to date."]
+    return [*_renamed(result), f"Pushed {result['project_name']} → revision {result['revision'][:8]}"]
 
 
 def _pull(result):
@@ -334,8 +339,8 @@ def _pull(result):
         return [f"Dry run: origin is {result['state'].replace('_', ' ')}; "
                 + ("a pull would update local history." if result.get("changed") else "nothing to pull.")]
     if not result.get("changed"):
-        return ["Already up to date."]
-    return [f"Pulled {result['project_name']} revision {result['revision'][:8]} · {_counts(result.get('counts'))}"]
+        return [*_renamed(result), "Already up to date."]
+    return [*_renamed(result), f"Pulled {result['project_name']} revision {result['revision'][:8]} · {_counts(result.get('counts'))}"]
 
 
 def _remote(result):

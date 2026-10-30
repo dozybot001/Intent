@@ -84,11 +84,12 @@ vm.runInContext(`
   for (const url of [deletionUrl + '&request=' + 'f'.repeat(43), deletionUrl + '&extra=yes', deletionUrl.replace('f'.repeat(43), 'short'), deletionUrl.replace('account.tenon.asia', 'fake.example')]) {
     assert.throws(() => productDeletionDestination({url, expiresAt: deletionExpiry}));
   }
-  setButtonBusy(el.deleteAccountBtn, true, 'Opening account management…', 'Delete account');
-  assert.equal(el.deleteAccountBtn.disabled, true);
-  assert.equal(el.deleteAccountBtn.getAttribute('aria-busy'), 'true');
-  assert.equal(el.deleteAccountBtn.textContent, '正在打开账号管理…');
-  setButtonBusy(el.deleteAccountBtn, false, 'Opening account management…', 'Delete account');
+  const deleteAccountButton = document.getElementById('delete-account-btn');
+  setButtonBusy(deleteAccountButton, true, 'Opening account management…', 'Delete account');
+  assert.equal(deleteAccountButton.disabled, true);
+  assert.equal(deleteAccountButton.getAttribute('aria-busy'), 'true');
+  assert.equal(deleteAccountButton.textContent, '正在打开账号管理…');
+  setButtonBusy(deleteAccountButton, false, 'Opening account management…', 'Delete account');
   assert.equal(t('About IntHub'), '关于 IntHub');
   assert.equal(relativeDate(new Date(Date.now() + 90000).toISOString()), '刚刚');
   assert.equal(t('Synced {time}', {time: relativeDate(new Date().toISOString())}), '刚刚同步');
@@ -122,14 +123,15 @@ vm.runInContext(`
   assert.equal(el.tokenOutput.scrollLeft, 0);
   assert.equal(plural(1, '{count} blocked objective', '{count} blocked objectives'), '1 blocked objective');
   assert.equal(plural(2, '{count} blocked objective', '{count} blocked objectives'), '2 blocked objectives');
-  setButtonBusy(el.tokenBtn, true, 'Creating token…', 'Access token');
-  assert.equal(el.tokenBtn.disabled, true);
-  assert.equal(el.tokenBtn.classList.contains('action-busy'), true);
-  assert.equal(el.tokenBtn.textContent, 'Creating token…');
+  const setupTokenButton = document.getElementById('setup-token-button');
+  setButtonBusy(setupTokenButton, true, 'Creating token…', 'Create access token');
+  assert.equal(setupTokenButton.disabled, true);
+  assert.equal(setupTokenButton.classList.contains('action-busy'), true);
+  assert.equal(setupTokenButton.textContent, 'Creating token…');
   window.IntHubI18n.setLanguage('zh-CN');
-  setButtonBusy(el.tokenBtn, false, 'Creating token…', 'Access token');
-  assert.equal(el.tokenBtn.disabled, false);
-  assert.equal(el.tokenBtn.textContent, '访问令牌');
+  setButtonBusy(setupTokenButton, false, 'Creating token…', 'Create access token');
+  assert.equal(setupTokenButton.disabled, false);
+  assert.equal(setupTokenButton.textContent, '创建访问令牌');
   assert.ok(statusBadge('active', 'decision').includes('有效'));
   assert.ok(statusBadge('active').includes('进行中'));
   assert.equal(continuationHealth([]).ready, false);
@@ -441,7 +443,6 @@ async function headerMenuCases() {
     state.account={display_name:'Actual signed-in user'};
     hideAuthGate();
     assert.equal(el.accountLabel.textContent,'Actual signed-in user');
-    assert.equal(el.tokenBtn.classList.contains('is-hidden'),false);
     el.drawer.classList.add('open');
     el.detailContent.innerHTML = 'private project brief';
     el.searchResults.innerHTML = 'private search result';
@@ -1178,6 +1179,214 @@ async function flowAndPagingCases() {
   console.log('Relation state parity, Flow layout and rendering, brief and sheet relations, paged timeline, Snap fallback and truncated search tests passed.');
 }
 
+async function settingsCases() {
+  await vm.runInContext(`(async () => {
+    const flush = async () => { for (let index = 0; index < 12; index++) await Promise.resolve(); };
+    window.IntHubI18n.setLanguage('zh-CN');
+    const saved = {fetchJson, loadProject, downloadFile};
+    const calls = [];
+    let reply = () => ({});
+    const track = async (url, options = {}) => { calls.push({url, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : null}); return reply(url, options); };
+    fetchJson = track;
+    const now = Date.now();
+    const iso = (offset) => new Date(now + offset).toISOString();
+    const day = 86400000;
+
+    // Routes: /settings is the account page; project routes stay on / and keep their tab.
+    window.location.pathname = '/settings';
+    assert.equal(readRoute().page, 'account');
+    window.location.pathname = '/';
+    window.location.search = '?project=p&tab=settings';
+    assert.deepEqual([readRoute().page, readRoute().tab], ['project', 'settings']);
+    window.location.search = '';
+
+    // IntHub Local has no account menu, so no account settings either.
+    state.config = {authRequired: false, authMode: 'none', apiBaseUrl: 'http://127.0.0.1:7317'};
+    state.page = 'project';
+    assert.equal(showAccountSettings(), false);
+    assert.equal(state.page, 'project');
+
+    // A Tenon hub: Settings opens /settings beside the untouched project view, without the project tabs.
+    state.config = {authRequired: true, authMode: 'tenon', apiBaseUrl: 'https://inthub.tenon.asia'};
+    state.account = {id: 'acct_1', login: 'dozy', display_name: 'Dozy <QA>'};
+    state.projects = [{id: 'p', name: 'checkout'}, {id: 'q', name: 'docs'}];
+    state.currentProjectId = 'p';
+    state._loadedProjectId = 'p';
+    state.activeTab = 'overview';
+    state.overview = {history: {project_id: 'p', revision: 'a'.repeat(64), last_synced_at: iso(0)}, project: {id: 'p', name: 'checkout'}};
+    el.detailContent.innerHTML = 'project view';
+    reply = (url) => url === '/api/v1/auth/tokens' ? {tokens: [
+      {id: 'pat_used', name: 'laptop', created_at: iso(-day), expires_at: iso(80 * day), last_used_at: iso(-3600000), revoked_at: null},
+      {id: 'pat_idle', name: 'ci-runner', created_at: iso(-2 * day), expires_at: iso(20 * day), last_used_at: null, revoked_at: null},
+      {id: 'pat_gone', name: 'old-macbook', created_at: iso(-9 * day), expires_at: iso(50 * day), last_used_at: null, revoked_at: iso(-day)},
+      {id: 'pat_late', name: 'stale-runner', created_at: iso(-40 * day), expires_at: iso(-60000), last_used_at: null, revoked_at: null},
+    ]} : {};
+    routes.length = 0;
+    assert.equal(showAccountSettings(), true);
+    await flush();
+    assert.equal(state.page, 'account');
+    assert.equal(routes.join(), 'push');
+    assert.equal(routeUrl(), '/settings');
+    assert.equal(el.shell.classList.contains('is-account'), true);
+    assert.equal(el.detailContent.classList.contains('is-hidden'), true);
+    assert.equal(el.accountContent.classList.contains('is-hidden'), false);
+    assert.equal(el.detailContent.innerHTML, 'project view');
+    assert.equal(document.title, '设置 · IntHub');
+    let page = el.accountContent.innerHTML;
+    assert.ok(page.includes('Dozy &lt;QA&gt;') && page.includes('@dozy') && !page.includes('<QA>'));
+    assert.ok(page.includes('href="https://account.tenon.asia/account/"'));
+    assert.ok(page.includes('value="itt"') && page.includes('<option value="90" selected>90 天</option>') && page.includes('<option value="365">365 天</option>'));
+    assert.ok(page.includes('laptop') && page.includes('ci-runner') && page.includes('从未使用') && page.includes('最近使用'));
+    assert.ok(!page.includes('old-macbook') && !page.includes('stale-runner'), 'revoked and expired tokens are not listed');
+    assert.ok(page.includes('data-delete-account') && page.includes('button button-danger'));
+
+    // Generating: a trimmed name, one of the offered lifetimes, and the secret once, on its own row at the top.
+    reply = (url, options) => options.method === 'POST' ? {id: 'pat_fresh', token: 'ith_pat_SECRET', name: 'release-bot', created_at: iso(0), expires_at: iso(30 * day)} : {};
+    await assert.rejects(generateAccessToken({name: '   ', days: 30}), (error) => error.message === '请输入令牌名称。' && error.code === 'INVALID_INPUT');
+    calls.length = 0;
+    await generateAccessToken({name: '  release-bot ', days: '30'});
+    assert.deepEqual(calls[0], {url: '/api/v1/auth/tokens', method: 'POST', body: {name: 'release-bot', ttl_seconds: 30 * 86400}});
+    page = el.accountContent.innerHTML;
+    assert.ok(page.indexOf('ith_pat_SECRET') > 0 && page.indexOf('ith_pat_SECRET') < page.indexOf('laptop'));
+    assert.ok(page.includes('token-row is-new') && page.includes('data-copy-new-token') && page.includes('请立即复制，此后不会再显示。'));
+    calls.length = 0;
+    await generateAccessToken({name: 'x', days: 7});
+    assert.equal(calls[0].body.ttl_seconds, 90 * 86400, 'only 30, 90 or 365 days');
+
+    // Revoking asks first; afterwards the row and its secret are gone and a toast says so.
+    calls.length = 0;
+    reply = () => ({revoked: true});
+    confirmRevokeToken('pat_idle');
+    assert.equal(el.confirmDialog.open, true);
+    assert.equal(el.confirmTitle.textContent, '作废 ci-runner？');
+    assert.equal(el.confirmField.hidden, true);
+    assert.equal(el.confirmOk.disabled, false);
+    assert.equal(el.confirmOk.textContent, '作废令牌');
+    assert.equal(document.activeElement, el.confirmCancel);
+    await runConfirm();
+    assert.deepEqual(calls.map((call) => call.method + ' ' + call.url), ['POST /api/v1/auth/tokens/pat_idle/revoke']);
+    assert.equal(el.confirmDialog.open, false);
+    assert.ok(!el.accountContent.innerHTML.includes('ci-runner'));
+    assert.equal(el.statusLine.textContent, '令牌已作废。');
+    fetchJson = async () => { throw new ApiRequestError('gone', 404, 'OBJECT_NOT_FOUND'); };
+    await revokeAccessToken('pat_fresh');
+    assert.ok(!el.accountContent.innerHTML.includes('ith_pat_SECRET'), 'already revoked is gone too');
+    fetchJson = track;
+
+    // Leaving the page drops a new secret with the list; the project view comes back as it was.
+    reply = (url, options) => options.method === 'POST' ? {id: 'pat_again', token: 'ith_pat_AGAIN', name: 'again', created_at: iso(0), expires_at: iso(90 * day)} : {};
+    await generateAccessToken({name: 'again', days: 90});
+    assert.ok(el.accountContent.innerHTML.includes('ith_pat_AGAIN'));
+    switchTab('settings');
+    assert.equal(state.page, 'project');
+    assert.equal(state._newToken, null);
+    assert.equal(el.accountContent.innerHTML, '');
+    assert.equal(el.detailContent.classList.contains('is-hidden'), false);
+    assert.equal(document.title, 'checkout · IntHub');
+    assert.equal(routeUrl(), '/?project=p&tab=settings');
+
+    // The project Settings tab: rename with inline validation, export, and a neutral danger zone.
+    let html = el.detailContent.innerHTML;
+    assert.ok(html.includes('id="project-name"') && html.includes('value="checkout"') && html.includes('data-rename-submit disabled'));
+    assert.ok(html.includes('<code>REMOTE_CHANGED</code>') && !html.includes('itt remote add'));
+    assert.ok(html.includes('class="button button-danger" type="button" data-delete-project'));
+    assert.ok(html.includes('data-export-project'));
+    assert.equal(projectNameProblem(''), '请输入项目名称。');
+    assert.equal(projectNameProblem('a/b'), '项目名称不能包含斜杠或控制字符。');
+    assert.equal(projectNameProblem('a\\\\b'), '项目名称不能包含斜杠或控制字符。');
+    assert.equal(projectNameProblem('tab\\there'), '项目名称不能包含斜杠或控制字符。');
+    assert.equal(projectNameProblem('..'), '名称不能是 . 或 ..');
+    assert.equal(projectNameProblem('x'.repeat(121)), '最多 120 个字符。');
+    assert.equal(projectNameProblem('支'.repeat(120)), '');
+    assert.equal(projectNameProblem('😀'.repeat(120)), '', 'counted in code points, like the hub');
+    state._renameDraft = {projectId: 'p', value: 'docs', error: '已有名为 docs 的项目。'};
+    renderView();
+    assert.ok(el.detailContent.innerHTML.includes('aria-invalid="true"') && el.detailContent.innerHTML.includes('已有名为 docs 的项目。'));
+    state._renameDraft = null;
+
+    routes.length = 0;
+    calls.length = 0;
+    reply = (url, options) => ({project: {id: 'p', name: JSON.parse(options.body).name, created_at: iso(0)}});
+    await renameProject('p', 'checkout v2');
+    assert.deepEqual(calls.at(-1), {url: '/api/v1/projects/p/rename', method: 'POST', body: {name: 'checkout v2'}});
+    assert.equal(state.projects[0].name, 'checkout v2');
+    assert.equal(state.overview.project.name, 'checkout v2');
+    assert.equal(el.projectPickerLabel.textContent, 'checkout v2');
+    assert.equal(document.title, 'checkout v2 · IntHub');
+    assert.equal(routes.join(), '', 'the URL carries the ID and stays');
+    assert.equal(renameErrorMessage(new ApiRequestError('x', 409, 'NAME_TAKEN'), 'docs'), '已有名为 docs 的项目。');
+    assert.equal(renameErrorMessage(new ApiRequestError('x', 400, 'INVALID_INPUT', 'Project name must be 1–120 characters.'), 'a'), 'Project name must be 1–120 characters.');
+
+    let downloaded = null;
+    downloadFile = (name, text, type) => { downloaded = {name, text, type}; };
+    reply = () => ({format: 'inthub-export', format_version: 1, project: {id: 'p', name: 'checkout v2'}, revisions: []});
+    await exportCurrentProject(document.getElementById('export-button'));
+    assert.equal(calls.at(-1).url, '/api/v1/projects/p/export');
+    assert.equal(downloaded.name, 'checkout v2.inthub-export.json');
+    assert.equal(downloaded.type, 'application/json');
+    assert.ok(downloaded.text.startsWith('{\\n  "format": "inthub-export"') && downloaded.text.endsWith('}\\n'));
+    assert.equal(exportFileName('team/app: v2?'), 'team-app- v2-.inthub-export.json');
+    assert.equal(exportFileName('移动端结算'), '移动端结算.inthub-export.json');
+    assert.equal(exportFileName('..'), 'project.inthub-export.json');
+
+    // Deleting waits for the exact name, then opens another project, or the empty state after the last one.
+    let loaded = null;
+    loadProject = async (id, options) => { loaded = {id, options}; };
+    calls.length = 0;
+    confirmDeleteProject();
+    const typeName = (value) => { el.confirmInput.value = value; for (const listener of el.confirmInput.events.get('input') || []) listener(); };
+    assert.equal(el.confirmField.hidden, false);
+    assert.equal(el.confirmOk.disabled, true);
+    assert.equal(document.activeElement, el.confirmInput);
+    assert.equal(el.confirmTitle.textContent, '删除 checkout v2？');
+    assert.ok(el.confirmLabel.innerHTML.includes('<strong class="confirm-name">checkout v2</strong>'));
+    typeName('checkout');
+    assert.equal(el.confirmOk.disabled, true);
+    await runConfirm();
+    assert.equal(calls.length, 0, 'nothing is sent before the exact name');
+    typeName('checkout v2');
+    assert.equal(el.confirmOk.disabled, false);
+    fetchJson = async () => { throw new ApiRequestError('mismatch', 400, 'CONFIRMATION_MISMATCH'); };
+    await runConfirm();
+    assert.equal(el.confirmDialog.open, true);
+    assert.equal(el.confirmError.textContent, '请按显示的名称准确输入。');
+    fetchJson = track;
+    reply = () => ({deleted: true, id: 'p'});
+    await runConfirm();
+    assert.deepEqual(calls.at(-1), {url: '/api/v1/projects/p/delete', method: 'POST', body: {confirm: 'checkout v2'}});
+    assert.equal(el.confirmDialog.open, false);
+    assert.deepEqual(state.projects.map((project) => project.id), ['q']);
+    assert.deepEqual(loaded, {id: 'q', options: {history: 'replace'}});
+    assert.equal(state.activeTab, 'overview');
+    assert.equal(el.statusLine.textContent, '已删除 checkout v2。');
+    state.currentProjectId = 'q';
+    reply = () => ({deleted: true, id: 'q'});
+    await deleteProject('q', 'docs');
+    assert.equal(state.currentProjectId, null);
+    assert.equal(el.projectPickerLabel.textContent, '暂无项目');
+    assert.equal(document.title, 'IntHub');
+    assert.ok(el.detailContent.innerHTML.includes('setup-guide'));
+
+    // The setup guide's token dialog opens on Copy token; the read-only field shows the ith_pat_ start.
+    reply = () => ({token: 'ith_pat_DIALOG'});
+    el.tokenOutput.scrollLeft = 99;
+    await createAccessToken(document.getElementById('setup-create-token'));
+    assert.equal(el.tokenDialog.open, true);
+    assert.equal(document.activeElement, el.tokenCopy);
+    assert.equal(el.tokenOutput.scrollLeft, 0);
+    assert.deepEqual(calls.at(-1).body, {name: 'CLI token', ttl_seconds: 7776000});
+    el.tokenDialog.close();
+
+    assert.equal(tHtml('Type {name} to confirm.', {name: '<b>x</b>'}), '输入 <b>x</b> 以确认。');
+    fetchJson = saved.fetchJson;
+    loadProject = saved.loadProject;
+    downloadFile = saved.downloadFile;
+    state.page = 'project';
+    state.account = null;
+  })()`, context);
+  console.log('Account settings route and tokens, project rename/export/delete with confirmation and token dialog focus tests passed.');
+}
+
 async function redirectCase(destination, failure = false) {
   const elements = new Map();
   const events = new Map();
@@ -1228,6 +1437,7 @@ async function redirectCase(destination, failure = false) {
   await headerMenuCases();
   await viewControllerCases();
   await flowAndPagingCases();
+  await settingsCases();
   await redirectCase('https://account.tenon.asia/api/auth/oauth2/authorize?state=fresh');
   await redirectCase('https://evil.example/authorize');
   await redirectCase('', true);

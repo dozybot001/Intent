@@ -6,6 +6,7 @@ import json
 import logging
 import mimetypes
 import os
+import re
 import signal
 import threading
 import time
@@ -31,6 +32,7 @@ from apps.inthub_api.common import APIError
 from apps.inthub_api.db import check_database, describe_database
 from apps.inthub_api.history import link_history, push_history, read_history
 from apps.inthub_api.product_deletion import ProductDeletionClient, subject_for_account
+from apps.inthub_api.projects import delete_project, export_project, rename_project
 from apps.inthub_api.queries import (
     SNAP_PAGE_MAX,
     get_decision_detail,
@@ -499,6 +501,22 @@ def make_handler(
                 raise APIError("AUTH_REQUIRED", "Sign in to continue.", status=401)
             return account
 
+        def _handle_project_admin(self, path):
+            # Renaming or deleting a project is a browser action, like deleting the
+            # account: same-origin JSON with the session. Access tokens cannot do it.
+            if self.headers.get("Origin") != self._request_base_url():
+                raise APIError("ORIGIN_DENIED", "The request origin is not allowed.", 403)
+            if not self.headers.get("Content-Type", "").startswith("application/json"):
+                raise APIError("INVALID_INPUT", "JSON is required.", 415)
+            account_id = self._require_browser_account()["id"] if auth_required else None
+            _, _, _, _, project_id, action = path.split("/")
+            body = self._read_json_body(limit=AUTH_BODY_LIMIT)
+            if action == "rename":
+                result = rename_project(db_path, project_id, body.get("name"), account_id)
+            else:
+                result = delete_project(db_path, project_id, body.get("confirm"), account_id)
+            self._send_json(200, _json_success(result))
+
         def _handle_list_account_tokens(self):
             account = self._require_browser_account()
             self._send_json(
@@ -603,7 +621,8 @@ def make_handler(
 
         def _route_get(self, path, query, account_id=None):
             if path == "/api/v2/history":
-                self._send_json(200, _json_success(read_history(db_path, query.get("project", [None])[0], account_id)), compact=True)
+                self._send_json(200, _json_success(read_history(
+                    db_path, query.get("project", [None])[0], account_id, project_id=query.get("project_id", [None])[0])), compact=True)
                 return
             if path == "/api/v1/projects":
                 self._send_json(
@@ -639,6 +658,10 @@ def make_handler(
                     _json_success(project_snaps(db_path, project_id, offset, limit, intent_id, account_id=account_id)),
                     compact=True,
                 )
+                return
+
+            if path.startswith("/api/v1/projects/") and path.endswith("/export"):
+                self._send_json(200, _json_success(export_project(db_path, path.split("/")[4], account_id=account_id)))
                 return
 
             if path.startswith("/api/v1/projects/") and path.endswith("/handoff"):
@@ -757,6 +780,9 @@ def make_handler(
                 ):
                     token_id = parsed.path.split("/")[5]
                     self._handle_revoke_account_token(token_id)
+                    return
+                if re.fullmatch(r"/api/v1/projects/[^/]+/(rename|delete)", parsed.path):
+                    self._handle_project_admin(parsed.path)
                     return
                 # Sync writes require an account PAT. Browser sessions stay
                 # read-only so a compromised page cannot mutate history.

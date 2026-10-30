@@ -3,7 +3,7 @@ window.IntHubI18n.bindStatic(document.body);
 
 /* ---- State ---- */
 
-const TABS = ["overview", "intents", "flow", "snaps", "decisions"];
+const TABS = ["overview", "intents", "flow", "snaps", "decisions", "settings"];
 const DETAIL_PATHS = { intent: "intents", decision: "decisions", snap: "snaps" };
 const PAGE_SIZE = 30;
 // One timeline page from /projects/{id}/snaps; the overview only carries the newest Snaps.
@@ -13,6 +13,15 @@ const INSTALL_COMMAND = "curl -fsSL https://raw.githubusercontent.com/dozybot001
 const SKILL_COMMAND = "npx skills add dozybot001/Intent -g -a claude-code -a codex";
 // The CLI's default endpoint: there `itt auth login` needs no URL and a push names the project after its directory.
 const HOSTED_INTHUB = "https://inthub.tenon.asia";
+// Account settings live at /settings, as on GitHub; project views stay on / with query parameters.
+const ACCOUNT_PATH = "/settings";
+const TENON_ACCOUNT_URL = "https://account.tenon.asia/account/";
+// Lifetimes the token form offers, in days.
+const TOKEN_LIFETIMES = [30, 90, 365];
+const DEFAULT_TOKEN_DAYS = 90;
+// The hub's rule for project names (intent_cli.hub.versions.validate_project_name), checked while typing.
+const PROJECT_NAME_MAX = 120;
+const JSON_HEADERS = { "Content-Type": "application/json" };
 
 const state = {
   config: null,
@@ -25,6 +34,8 @@ const state = {
   handoff: null,
   authenticated: false,
   account: null,
+  // "project" shows the tabs; "account" shows account settings beside the untouched project view.
+  page: "project",
 };
 
 const el = {
@@ -46,6 +57,8 @@ const el = {
   tabBar: document.getElementById("tab-bar"),
   detailPane: document.getElementById("detail-pane"),
   detailContent: document.getElementById("detail-content"),
+  accountContent: document.getElementById("account-content"),
+  skipLink: document.querySelector(".skip-link"),
   statusLine: document.getElementById("status-line"),
   intentCount: document.getElementById("intent-count"),
   decisionCount: document.getElementById("decision-count"),
@@ -57,8 +70,7 @@ const el = {
   drawerTitle: document.getElementById("drawer-title"),
   drawerContent: document.getElementById("drawer-content"),
   logoutBtn: document.getElementById("logout-btn"),
-  tokenBtn: document.getElementById("token-btn"),
-  deleteAccountBtn: document.getElementById("delete-account-btn"),
+  accountSettingsLink: document.getElementById("account-settings-link"),
   tokenDialog: document.getElementById("token-dialog"),
   tokenOutput: document.getElementById("token-output"),
   tokenCopy: document.getElementById("token-copy"),
@@ -76,6 +88,16 @@ const el = {
   aboutDialog: document.getElementById("about-dialog"),
   aboutClose: document.getElementById("about-close"),
   aboutVersion: document.getElementById("about-version"),
+  confirmDialog: document.getElementById("confirm-dialog"),
+  confirmForm: document.getElementById("confirm-form"),
+  confirmTitle: document.getElementById("confirm-title"),
+  confirmBody: document.getElementById("confirm-body"),
+  confirmField: document.getElementById("confirm-field"),
+  confirmLabel: document.getElementById("confirm-label"),
+  confirmInput: document.getElementById("confirm-input"),
+  confirmError: document.getElementById("confirm-error"),
+  confirmCancel: document.getElementById("confirm-cancel"),
+  confirmOk: document.getElementById("confirm-ok"),
 };
 
 /* ---- Icons ---- */
@@ -101,6 +123,9 @@ const ICONS = {
   flow: '<path d="M5.5 3v14"/><circle cx="14.5" cy="13" r="2.2"/><path d="M5.5 6.2c0 3.8 9 2.6 9 4.6"/>',
   focus: '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.8v3M10 14.2v3M2.8 10h3M14.2 10h3"/>',
   hide: '<path d="M3 10s2.6-5 7-5 7 5 7 5-2.6 5-7 5-7-5-7-5Z"/><path d="m4 16 12-12"/>',
+  settings: '<path d="m8 2-.5 2-1.5.9-2-.6-2 3.4 1.5 1.4v1.8L2 12.3l2 3.4 2-.6 1.5.9.5 2h4l.5-2 1.5-.9 2 .6 2-3.4-1.5-1.4V9.1L18 7.7l-2-3.4-2 .6-1.5-.9-.5-2Z"/><circle cx="10" cy="10" r="2.5"/>',
+  download: '<path d="M10 3.5v9M6 8.5l4 4 4-4"/><path d="M4 16h12"/>',
+  external: '<path d="M8 4H4.5v11.5H16V12"/><path d="M11 4h5v5M16 4l-7 7"/>',
 };
 
 function icon(name) {
@@ -289,10 +314,11 @@ function localizeViewLoadingCopy() {
 }
 
 class ApiRequestError extends Error {
-  constructor(message, status, code) {
+  constructor(message, status, code, detail = "") {
     super(message);
     this.status = status;
     this.code = code;
+    this.detail = detail;
   }
 }
 
@@ -314,6 +340,7 @@ async function fetchJson(url, options = {}) {
       t(r.status === 401 ? "Sign in again to continue." : r.status === 403 ? "Permission denied." : r.status === 404 ? "Object no longer exists." : "Could not load data. Try again."),
       r.status,
       p?.error?.code,
+      p?.error?.message || "",
     );
     if (r.status === 401 && state.config?.authRequired) showAuthGate();
     throw error;
@@ -351,6 +378,8 @@ function showAuthGate(message = "") {
   closeHeaderMenus();
   closeDrawer({ history: "none" });
   if (el.searchDialog.open) el.searchDialog.close();
+  if (el.confirmDialog.open) el.confirmDialog.close();
+  if (state.page === "account") setPage("project");
   for (const view of ["projects", "project", "detail", "sheet", "search"]) beginViewRequest(view);
   el.detailContent.innerHTML = "";
   el.searchResults.innerHTML = "";
@@ -381,7 +410,6 @@ function hideAuthGate() {
   el.accountControl.classList.toggle("is-hidden", !state.config?.authRequired);
   el.accountMode.classList.remove("is-hidden");
   el.accountMode.textContent = t("Private session");
-  el.tokenBtn.classList.remove("is-hidden");
   el.logoutBtn.classList.remove("is-hidden");
   el.accountMenuTrigger.disabled = false;
   const account = state.account;
@@ -422,6 +450,7 @@ function readRoute() {
   const requestedTab = p.get("tab") || "overview";
   const q = p.get("q") || "";
   return {
+    page: window.location.pathname.replace(/\/+$/, "") === ACCOUNT_PATH ? "account" : "project",
     project: p.get("project"),
     tab: TABS.includes(requestedTab) ? requestedTab : "overview",
     detail: p.get("detail"),
@@ -432,6 +461,7 @@ function readRoute() {
 }
 
 function routeUrl() {
+  if (state.page === "account") return ACCOUNT_PATH;
   const p = new URLSearchParams();
   if (state.currentProjectId) p.set("project", state.currentProjectId);
   if (state.activeTab !== "overview") p.set("tab", state.activeTab);
@@ -440,7 +470,7 @@ function routeUrl() {
     p.set("detailType", state.selectedDetail.type);
   }
   const q = p.toString();
-  return q ? `${window.location.pathname}?${q}` : window.location.pathname;
+  return q ? `/?${q}` : "/";
 }
 
 // "push" creates a browser history entry, "replace" updates the current one,
@@ -494,11 +524,12 @@ function revealActiveTab() {
 
 function switchTab(tab, { history = "push" } = {}) {
   if (!TABS.includes(tab)) return;
-  if (state.activeTab === tab) {
+  if (state.activeTab === tab && state.page !== "account") {
     window.scrollTo?.({ top: 0, behavior: "smooth" });
     return;
   }
   closeDrawer({ history: "none" });
+  leaveAccountSettings();
   state.activeTab = tab;
   setActiveTabUI();
   if (hasHistory()) renderView();
@@ -977,6 +1008,9 @@ function renderView() {
       break;
     case "decisions":
       renderDecisionsTab();
+      break;
+    case "settings":
+      renderProjectSettings();
       break;
     default:
       renderProjectSummary();
@@ -2913,9 +2947,531 @@ function renderSetupGuide(mode) {
     </div>`;
 }
 
+/* ---- Settings ---- */
+
+function currentProject() {
+  return state.projects.find((project) => project.id === state.currentProjectId) || null;
+}
+
+function updateDocumentTitle() {
+  const lead = state.page === "account" ? t("Settings") : currentProject()?.name;
+  document.title = lead ? `${lead} · IntHub` : "IntHub";
+}
+
+// A translated sentence whose placeholders are markup; the sentence itself is escaped.
+function tHtml(key, markup) {
+  const text = t(key, Object.fromEntries(Object.keys(markup).map((name) => [name, `\u0001${name}\u0001`])));
+  return esc(text).replace(/\u0001(\w+)\u0001/g, (_, name) => markup[name]);
+}
+
+function calendarDate(v) {
+  const d = new Date(v);
+  if (!v || Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat(window.IntHubI18n.language, { year: "numeric", month: "short", day: "numeric" }).format(d);
+}
+
+function settingsSection(id, title, body, lead = "") {
+  return `
+    <section class="settings-section" aria-labelledby="settings-${id}">
+      <h2 class="settings-section-title" id="settings-${id}">${esc(title)}</h2>
+      ${lead ? `<p class="settings-lead">${lead}</p>` : ""}
+      ${body}
+    </section>`;
+}
+
+function setFieldError(form, message) {
+  const error = form?.querySelector?.(".field-error");
+  if (!error) return;
+  error.textContent = message;
+  error.hidden = !message;
+  const field = form.querySelector(".text-field");
+  if (message) field?.setAttribute("aria-invalid", "true");
+  else field?.removeAttribute("aria-invalid");
+}
+
+/* Account settings: a page of its own at /settings, beside the project view. */
+
+function setPage(page) {
+  const account = page === "account";
+  state.page = account ? "account" : "project";
+  el.shell.classList.toggle("is-account", account);
+  el.detailContent.classList.toggle("is-hidden", account);
+  el.accountContent.classList.toggle("is-hidden", !account);
+  el.skipLink?.setAttribute("href", account ? "#account-content" : "#detail-content");
+  if (!account) {
+    // Focus inside the page about to be emptied moves to the project view.
+    if (el.accountContent.contains?.(document.activeElement)) el.detailContent.focus?.({ preventScroll: true });
+    // A new token is shown once: leaving the page drops it with the list.
+    beginViewRequest("account");
+    state._tokens = null;
+    state._tokensError = "";
+    state._newToken = null;
+    el.accountContent.innerHTML = "";
+  }
+  updateDocumentTitle();
+}
+
+function showAccountSettings({ history = "push", force = false } = {}) {
+  if (!state.config?.authRequired) return false;
+  closeHeaderMenus();
+  toggleProjectPicker(false);
+  closeDrawer({ history: "none" });
+  if (state.page !== "account" || force) {
+    setPage("account");
+    state._tokenDraft = { name: "itt", days: DEFAULT_TOKEN_DAYS };
+    renderAccountSettings();
+    loadAccountTokens();
+    window.scrollTo?.({ top: 0 });
+    el.accountContent.focus?.({ preventScroll: true });
+  }
+  writeRoute(history);
+  return true;
+}
+
+function leaveAccountSettings() {
+  if (state.page === "account") setPage("project");
+}
+
+function profileHtml() {
+  const account = state.account || {};
+  const name = account.display_name || account.login || t("Private session");
+  // A monogram: the page only loads its own images, and Tenon accounts carry no avatar URL.
+  const initial = [...String(name).trim()][0]?.toUpperCase() || "?";
+  return `
+    <div class="settings-card profile-card">
+      <span class="profile-avatar" aria-hidden="true">${esc(initial)}</span>
+      <div class="profile-copy">
+        <strong class="profile-name">${esc(name)}</strong>
+        ${account.login && account.login !== name ? `<span class="profile-login">@${esc(account.login)}</span>` : ""}
+      </div>
+      <p class="profile-note">${esc(t("Your name, avatar and sign-in are managed in Tenon."))}
+        <a class="profile-link" href="${TENON_ACCOUNT_URL}">${esc(t("Edit in Tenon"))}${icon("external")}</a></p>
+    </div>`;
+}
+
+function tokenFormHtml() {
+  const draft = state._tokenDraft || { name: "itt", days: DEFAULT_TOKEN_DAYS };
+  const days = TOKEN_LIFETIMES.includes(Number(draft.days)) ? Number(draft.days) : DEFAULT_TOKEN_DAYS;
+  return `
+    <form class="settings-card token-form" data-token-form novalidate>
+      <div class="token-form-field token-name-field">
+        <label class="field-label" for="token-name">${esc(t("Name"))}</label>
+        <input class="text-field" id="token-name" name="token-name" type="text" value="${esc(draft.name ?? "itt")}" maxlength="100" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="token-form-error">
+      </div>
+      <div class="token-form-field">
+        <label class="field-label" for="token-days">${esc(t("Expires in"))}</label>
+        <select class="text-field" id="token-days" name="token-days">
+          ${TOKEN_LIFETIMES.map((value) => `<option value="${value}"${value === days ? " selected" : ""}>${esc(plural(value, "{count} day", "{count} days"))}</option>`).join("")}
+        </select>
+      </div>
+      <button class="button button-primary" type="submit">${esc(t("Generate token"))}</button>
+      <p class="field-error" id="token-form-error" role="alert" hidden></p>
+    </form>`;
+}
+
+// Active tokens only: revoked and expired ones no longer let the CLI in.
+function activeTokens() {
+  const now = Date.now();
+  return (state._tokens || []).filter((token) => !token.revoked_at && !(token.expires_at && new Date(token.expires_at).getTime() <= now));
+}
+
+function tokenRowHtml(token) {
+  const fresh = state._newToken?.id === token.id ? state._newToken : null;
+  const meta = [
+    t("Created {date}", { date: calendarDate(token.created_at) }),
+    token.last_used_at ? t("Last used {time}", { time: relativeDate(token.last_used_at) }) : t("Never used"),
+    ...(token.expires_at ? [t("Expires {date}", { date: calendarDate(token.expires_at) })] : []),
+  ];
+  return `
+    <div class="token-row${fresh ? " is-new" : ""}">
+      <div class="token-main">
+        <strong class="token-name">${esc(token.name || "CLI")}</strong>
+        <p class="token-meta">${meta.map((part) => `<span>${esc(part)}</span>`).join("")}</p>
+      </div>
+      <button class="button button-danger button-small" type="button" data-revoke-token="${esc(token.id)}">${esc(t("Revoke"))}</button>
+      ${fresh ? `
+      <div class="token-secret-box">
+        <code class="token-secret">${esc(fresh.token)}</code>
+        <button class="button button-secondary button-small" type="button" data-copy-new-token>${icon("copy")}${esc(t("Copy"))}</button>
+        <p class="token-secret-note">${esc(t("Copy it now; it won't be shown again."))}</p>
+      </div>` : ""}
+    </div>`;
+}
+
+function tokenListHtml() {
+  if (state._tokensError) {
+    return `<div class="inline-empty token-list-error"><p>${esc(state._tokensError)}</p><button type="button" class="secondary-btn" data-retry-tokens>${esc(t("Retry"))}</button></div>`;
+  }
+  if (!state._tokens) return viewLoadingHtml();
+  const tokens = activeTokens();
+  if (!tokens.length) return `<p class="inline-empty">${esc(t("No active tokens. Generate one for each machine or Agent that runs the Intent CLI."))}</p>`;
+  return `<div class="list-card token-rows">${tokens.map(tokenRowHtml).join("")}</div>`;
+}
+
+function renderAccountSettings() {
+  if (state.page !== "account") return;
+  el.accountContent.innerHTML = `
+    <div class="settings-page account-settings">
+      ${pageHeader({ eyebrow: t("Account"), title: t("Settings") })}
+      ${settingsSection("profile", t("Profile"), profileHtml())}
+      ${settingsSection("tokens", t("Access tokens"), `${tokenFormHtml()}<div class="token-list" id="token-list" tabindex="-1">${tokenListHtml()}</div>`,
+        esc(t("The Intent CLI signs in with an access token to push this account's projects. Revoke a token when a machine no longer needs it.")))}
+      ${settingsSection("delete-account", t("Delete account"), `
+        <div class="settings-card settings-row">
+          <div class="settings-row-copy">
+            <strong>${esc(t("Delete your IntHub account"))}</strong>
+            <p>${esc(t("Removes the account with all its projects and access tokens. You confirm it in Tenon's account center."))}</p>
+          </div>
+          <button id="delete-account-btn" class="button button-danger" type="button" data-delete-account>${esc(t("Delete account"))}</button>
+        </div>`)}
+    </div>`;
+}
+
+function renderTokenList() {
+  const list = el.accountContent.querySelector?.("#token-list");
+  if (list) list.innerHTML = tokenListHtml();
+  else renderAccountSettings();
+}
+
+async function loadAccountTokens() {
+  const request = beginViewRequest("account");
+  state._tokensError = "";
+  try {
+    const result = await fetchJson(apiUrl("/api/v1/auth/tokens"));
+    if (!ownsViewRequest("account", request) || state.page !== "account") return;
+    state._tokens = result.tokens || [];
+  } catch (error) {
+    if (!ownsViewRequest("account", request) || state.page !== "account") return;
+    state._tokensError = error.message;
+  }
+  renderTokenList();
+}
+
+async function generateAccessToken({ name, days }) {
+  const label = String(name ?? "").trim();
+  if (!label) throw new ApiRequestError(t("Enter a token name."), 0, "INVALID_INPUT");
+  const lifetime = TOKEN_LIFETIMES.includes(Number(days)) ? Number(days) : DEFAULT_TOKEN_DAYS;
+  const issued = await fetchJson(apiUrl("/api/v1/auth/tokens"), {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ name: label, ttl_seconds: lifetime * 86400 }),
+  });
+  if (state.page !== "account") return issued;
+  // The secret lives only here, for this visit to the page; the list shows it once, on its own row.
+  state._newToken = { id: issued.id, token: issued.token };
+  state._tokens = [
+    { id: issued.id, name: issued.name, created_at: issued.created_at, expires_at: issued.expires_at, last_used_at: null, revoked_at: null },
+    ...(state._tokens || []).filter((token) => token.id !== issued.id),
+  ];
+  renderTokenList();
+  return issued;
+}
+
+async function submitTokenForm(form) {
+  const button = form.querySelector("[type=submit]");
+  if (!button || button.disabled) return;
+  setFieldError(form, "");
+  setButtonBusy(button, true, "Generating…", "Generate token");
+  try {
+    await generateAccessToken({ name: form.elements["token-name"].value, days: form.elements["token-days"].value });
+    // The next token starts from the default name again; the lifetime choice stays.
+    form.elements["token-name"].value = "itt";
+    state._tokenDraft = { ...(state._tokenDraft || {}), name: "itt" };
+    setStatus(t("Token created. Copy it now; it won't be shown again."));
+    el.accountContent.querySelector("[data-copy-new-token]")?.focus();
+  } catch (error) {
+    setFieldError(form, error.code === "INVALID_INPUT" && error.detail ? error.detail : error.message);
+  } finally {
+    setButtonBusy(button, false, "Generating…", "Generate token");
+  }
+}
+
+function confirmRevokeToken(id, trigger = null) {
+  const token = (state._tokens || []).find((entry) => entry.id === id);
+  if (!token) return;
+  openConfirm({
+    title: () => t("Revoke {name}?", { name: token.name || "CLI" }),
+    body: () => t("Every CLI that uses this token stops being able to push at once. This cannot be undone."),
+    action: "Revoke token",
+    busy: "Revoking…",
+    run: () => revokeAccessToken(id),
+    returnFocus: trigger,
+  });
+}
+
+async function revokeAccessToken(id) {
+  try {
+    await fetchJson(apiUrl(`/api/v1/auth/tokens/${encodeURIComponent(id)}/revoke`), { method: "POST", headers: JSON_HEADERS, body: "{}" });
+  } catch (error) {
+    // Already revoked (404) is the state we asked for.
+    if (error.status !== 404) throw error;
+  }
+  state._tokens = (state._tokens || []).filter((token) => token.id !== id);
+  if (state._newToken?.id === id) state._newToken = null;
+  renderTokenList();
+  setStatus(t("Token revoked."));
+}
+
+async function startAccountDeletion(button) {
+  if (button.disabled) return;
+  setButtonBusy(button, true, "Opening account management…", "Delete account");
+  try {
+    const result = await fetchJson(apiUrl("/api/auth/tenon/delete/start"), { method: "POST", headers: JSON_HEADERS, body: "{}" });
+    window.location.assign(productDeletionDestination(result));
+  } catch (error) {
+    setStatus(error.message, true);
+    setButtonBusy(button, false, "Opening account management…", "Delete account");
+  }
+}
+
+/* Project settings: the Settings tab. */
+
+function projectNameProblem(name) {
+  if (!name) return t("Enter a project name.");
+  if ([...name].length > PROJECT_NAME_MAX) return t("Use {count} characters or fewer.", { count: PROJECT_NAME_MAX });
+  if (/[\\/\u0000-\u001f\u007f]/.test(name)) return t("Project names cannot contain slashes or control characters.");
+  if (name === "." || name === "..") return t("Choose a name other than . or ..");
+  return "";
+}
+
+// What the rename field shows: the owner's draft (kept across re-renders) and its problem, if any.
+function renameState(project) {
+  const draft = state._renameDraft?.projectId === project.id ? state._renameDraft : null;
+  const value = draft ? draft.value : project.name;
+  const name = value.trim();
+  const problem = draft?.error || (name === project.name ? "" : projectNameProblem(name));
+  return { value, problem, ready: !problem && name !== project.name };
+}
+
+function renderProjectSettings() {
+  const project = currentProject();
+  if (!project) return;
+  const rename = renameState(project);
+  el.detailContent.innerHTML = `
+    <div class="settings-page project-settings">
+      ${pageHeader({ title: t("Settings") })}
+      ${settingsSection("general", t("General"), `
+        <form class="settings-card" data-rename-form novalidate>
+          <label class="field-label" for="project-name">${esc(t("Project name"))}</label>
+          <div class="field-row">
+            <input class="text-field" id="project-name" name="project-name" type="text" value="${esc(rename.value)}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="project-name-error project-name-note"${rename.problem ? ' aria-invalid="true"' : ""}>
+            <button class="button button-secondary" type="submit" data-rename-submit${rename.ready ? "" : " disabled"}>${esc(t("Rename"))}</button>
+          </div>
+          <p class="field-error" id="project-name-error" role="alert"${rename.problem ? "" : " hidden"}>${esc(rename.problem)}</p>
+          <p class="field-note" id="project-name-note">${tHtml("Clones on itt 7.3 or later follow the new name on their next push or pull. Older versions report {code} until they upgrade.", { code: "<code>REMOTE_CHANGED</code>" })}</p>
+        </form>`)}
+      ${settingsSection("export", t("Export"), `
+        <div class="settings-card settings-row">
+          <div class="settings-row-copy">
+            <strong>${esc(t("Download project data"))}</strong>
+            <p>${esc(t("The current semantic snapshot and the revision list as JSON: everything itt pull can restore."))}</p>
+          </div>
+          <button class="button button-secondary" type="button" data-export-project>${icon("download")}<span>${esc(t("Download export"))}</span></button>
+        </div>`)}
+      ${settingsSection("danger", t("Danger zone"), `
+        <div class="settings-card settings-row">
+          <div class="settings-row-copy">
+            <strong>${esc(t("Delete this project"))}</strong>
+            <p>${esc(t("Removes the project and its semantic history from this hub. Local .intent data is not touched."))}</p>
+          </div>
+          <button class="button button-danger" type="button" data-delete-project>${esc(t("Delete project"))}</button>
+        </div>`)}
+    </div>`;
+}
+
+function updateRenameForm(form) {
+  const project = currentProject();
+  const input = form?.elements?.["project-name"];
+  if (!project || !input) return;
+  state._renameDraft = { projectId: project.id, value: input.value, error: "" };
+  const rename = renameState(project);
+  setFieldError(form, rename.problem);
+  form.querySelector("[data-rename-submit]").disabled = !rename.ready;
+}
+
+function renameErrorMessage(error, name) {
+  if (error.code === "NAME_TAKEN") return t("You already have a project named {name}.", { name });
+  if (error.code === "INVALID_INPUT" && error.detail) return error.detail;
+  return error.message;
+}
+
+async function renameProject(projectId, name) {
+  const result = await fetchJson(apiUrl(`/api/v1/projects/${encodeURIComponent(projectId)}/rename`), {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ name }),
+  });
+  const renamed = result.project || { id: projectId, name };
+  // The URL carries the ID, so it stays; the picker, the title and the brief take the new name.
+  state.projects = state.projects.map((project) => project.id === renamed.id ? { ...project, name: renamed.name } : project);
+  if (state.overview?.project && state._loadedProjectId === renamed.id) state.overview.project = { ...state.overview.project, name: renamed.name };
+  renderProjectSelector();
+  return renamed;
+}
+
+async function renameCurrentProject(form) {
+  const project = currentProject();
+  const input = form.elements["project-name"];
+  const button = form.querySelector("[data-rename-submit]");
+  if (!project || !input || !button || button.disabled) return;
+  const name = input.value.trim();
+  if (projectNameProblem(name) || name === project.name) {
+    updateRenameForm(form);
+    return;
+  }
+  setButtonBusy(button, true, "Renaming…", "Rename");
+  try {
+    const renamed = await renameProject(project.id, name);
+    state._renameDraft = null;
+    if (state.activeTab === "settings" && state.page === "project") renderView();
+    el.detailContent.querySelector?.("#project-name")?.focus();
+    setStatus(t("Renamed to {name}.", { name: renamed.name }));
+  } catch (error) {
+    state._renameDraft = { projectId: project.id, value: input.value, error: renameErrorMessage(error, name) };
+    setButtonBusy(button, false, "Renaming…", "Rename");
+    setFieldError(form, state._renameDraft.error);
+    button.disabled = true;
+    input.focus();
+  }
+}
+
+function exportFileName(name) {
+  // Keep the name readable (spaces, CJK); drop only what file systems refuse.
+  const safe = String(name || "").replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, "-").replace(/^\.+/, "").trim();
+  return `${safe || "project"}.inthub-export.json`;
+}
+
+function downloadFile(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.hidden = true;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function exportCurrentProject(button) {
+  const project = currentProject();
+  if (!project || button.disabled) return;
+  setButtonBusy(button, true, "Preparing export…", "Download export");
+  try {
+    const data = await fetchJson(apiUrl(`/api/v1/projects/${encodeURIComponent(project.id)}/export`));
+    downloadFile(exportFileName(data.project?.name || project.name), `${JSON.stringify(data, null, 2)}\n`, "application/json");
+    setStatus(t("Export downloaded."));
+  } catch (error) {
+    setStatus(error.message, true);
+  } finally {
+    setButtonBusy(button, false, "Preparing export…", "Download export");
+    button.innerHTML = `${icon("download")}<span>${esc(t("Download export"))}</span>`;
+  }
+}
+
+function confirmDeleteProject(trigger = null) {
+  const project = currentProject();
+  if (!project) return;
+  openConfirm({
+    title: () => t("Delete {name}?", { name: project.name }),
+    body: () => t("This removes the project and its semantic history from this hub. Local .intent data is not touched. This cannot be undone."),
+    label: () => tHtml("Type {name} to confirm.", { name: `<strong class="confirm-name">${esc(project.name)}</strong>` }),
+    expect: project.name,
+    action: "Delete project",
+    busy: "Deleting…",
+    run: (typed) => deleteProject(project.id, typed),
+    returnFocus: trigger,
+  });
+}
+
+async function deleteProject(projectId, confirm) {
+  await fetchJson(apiUrl(`/api/v1/projects/${encodeURIComponent(projectId)}/delete`), {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ confirm }),
+  });
+  const name = state.projects.find((project) => project.id === projectId)?.name || "";
+  state.projects = state.projects.filter((project) => project.id !== projectId);
+  state._renameDraft = null;
+  setStatus(t("Deleted {name}.", { name }));
+  // Go on to another project, or to the empty state when none is left.
+  closeDrawer({ history: "none" });
+  state.overview = null;
+  state.handoff = null;
+  state.activeTab = "overview";
+  setActiveTabUI();
+  const next = state.projects[0]?.id;
+  if (!next) {
+    beginViewRequest("project");
+    state.currentProjectId = null;
+    state._loadedProjectId = null;
+    el.intentCount.textContent = "";
+    el.decisionCount.textContent = "";
+    el.snapCount.textContent = "";
+    renderProjectSelector();
+    updateSyncChip();
+    renderSetupGuide("unlinked");
+    writeRoute("replace");
+    return;
+  }
+  // Not awaited: the dialog closes as soon as the project is gone, while the next one loads.
+  loadProject(next, { history: "replace" }).catch((error) => setStatus(error.message, true));
+}
+
+/* One dialog for destructive confirmations. */
+
+function openConfirm(spec) {
+  state._confirm = spec;
+  state._confirmBusy = false;
+  el.confirmInput.value = "";
+  el.confirmField.hidden = spec.expect === undefined;
+  el.confirmError.textContent = "";
+  el.confirmError.hidden = true;
+  el.confirmOk.disabled = spec.expect !== undefined;
+  el.confirmCancel.disabled = false;
+  localizeConfirm();
+  el.confirmDialog.showModal();
+  (spec.expect === undefined ? el.confirmCancel : el.confirmInput).focus();
+}
+
+function localizeConfirm() {
+  const spec = state._confirm;
+  if (!spec) return;
+  el.confirmTitle.textContent = spec.title();
+  el.confirmBody.textContent = spec.body();
+  el.confirmLabel.innerHTML = spec.label ? spec.label() : "";
+  el.confirmOk.textContent = t(state._confirmBusy ? spec.busy : spec.action);
+}
+
+async function runConfirm() {
+  const spec = state._confirm;
+  if (!spec || state._confirmBusy || el.confirmOk.disabled) return;
+  const typed = el.confirmInput.value;
+  if (spec.expect !== undefined && typed !== spec.expect) return;
+  state._confirmBusy = true;
+  setButtonBusy(el.confirmOk, true, spec.busy, spec.action);
+  el.confirmCancel.disabled = true;
+  el.confirmError.hidden = true;
+  try {
+    await spec.run(typed);
+    state._confirmBusy = false;
+    if (el.confirmDialog.open) el.confirmDialog.close();
+  } catch (error) {
+    state._confirmBusy = false;
+    el.confirmError.textContent = error.code === "CONFIRMATION_MISMATCH" ? t("Type the name exactly as shown.") : error.message;
+    el.confirmError.hidden = false;
+  } finally {
+    state._confirmBusy = false;
+    setButtonBusy(el.confirmOk, false, spec.busy, spec.action);
+    el.confirmCancel.disabled = false;
+    if (spec.expect !== undefined) el.confirmOk.disabled = el.confirmInput.value !== spec.expect;
+  }
+}
+
 /* ---- Project selector ---- */
 
 function renderProjectSelector() {
+  updateDocumentTitle();
   if (!state.projects.length) {
     el.projectPickerTrigger.disabled = true;
     el.projectPickerLabel.textContent = t("No projects yet");
@@ -3147,6 +3703,10 @@ function setActiveSearchOption(index) {
 async function activateSearchOption(option) {
   if (!option) return;
   closeSearch();
+  if (state.page === "account" && !option.dataset.tabJump) {
+    leaveAccountSettings();
+    writeRoute("push");
+  }
   if (option.dataset.tabJump) {
     switchTab(option.dataset.tabJump);
     return;
@@ -3165,6 +3725,7 @@ function renderSearchSuggestions() {
     ["flow", t("Flow"), "flow"],
     ["snaps", t("Timeline"), "timeline"],
     ["decisions", t("Decisions"), "decision"],
+    ["settings", t("Settings"), "settings"],
   ];
   const active = state.handoff?.intents || [];
   let index = 0;
@@ -3349,7 +3910,7 @@ function selectToken() {
 
 async function createAccessToken(button) {
   if (button.disabled) return;
-  const idle = button === el.tokenBtn ? "Access token" : "Create access token";
+  const idle = "Create access token";
   setButtonBusy(button, true, "Creating token…", idle);
   try {
     const issued = await fetchJson(apiUrl("/api/v1/auth/tokens"), {
@@ -3358,15 +3919,17 @@ async function createAccessToken(button) {
       body: JSON.stringify({ name: "CLI token", ttl_seconds: 7776000 }),
     });
     el.tokenOutput.value = issued.token;
-    state._tokenReturnFocus = button === el.tokenBtn ? el.accountMenuTrigger : button;
+    state._tokenReturnFocus = button;
     closeHeaderMenus();
     el.tokenDialog.showModal();
-    selectToken();
+    // An automatically focused field drew the hard focus outline; the action takes focus instead.
+    el.tokenCopy.focus();
+    el.tokenOutput.scrollLeft = 0;
   } catch (err) {
     setStatus(err.message, true);
   } finally {
     setButtonBusy(button, false, "Creating token…", idle);
-    if (button !== el.tokenBtn) button.innerHTML = `${icon("key")}${esc(t(idle))}`;
+    button.innerHTML = `${icon("key")}${esc(t(idle))}`;
   }
 }
 
@@ -3386,6 +3949,9 @@ function localizeWorkspace() {
       if (hasHistory()) renderView();
       else if (state.authenticated) renderSetupGuide(state.projects.length ? "unsynced" : "unlinked");
     }
+    if (state.page === "account") renderAccountSettings();
+    if (el.confirmDialog.open) localizeConfirm();
+    updateDocumentTitle();
     if (sheetIsOpen()) {
       if (state._drawerPayload) el.drawerContent.innerHTML = buildDetailHtml(state._drawerPayload.type, state._drawerPayload.payload);
       renderSheetHeader(state._drawerPayload?.payload);
@@ -3412,6 +3978,11 @@ function sheetFocusables() {
 
 async function applyRoute(route) {
   if (el.shell.inert && !sheetIsOpen()) return;
+  if (route.page === "account" && state.config?.authRequired) {
+    showAccountSettings({ history: "none" });
+    return;
+  }
+  leaveAccountSettings();
   if (route.project && route.project !== state.currentProjectId && state.projects.some((project) => project.id === route.project)) {
     state.activeTab = route.tab;
     setActiveTabUI();
@@ -3543,24 +4114,79 @@ function bindEvents() {
 
   window.addEventListener("pageshow", () => {
     setTenonLoginLoading(false);
-    setButtonBusy(el.deleteAccountBtn, false, "Opening account management…", "Delete account");
+    // Coming back from Tenon's deletion page restores the button.
+    for (const button of document.querySelectorAll("[data-delete-account]")) setButtonBusy(button, false, "Opening account management…", "Delete account");
   });
 
-  el.deleteAccountBtn.addEventListener("click", async () => {
-    if (el.deleteAccountBtn.disabled) return;
-    setButtonBusy(el.deleteAccountBtn, true, "Opening account management…", "Delete account");
-    try {
-      const result = await fetchJson(apiUrl("/api/auth/tenon/delete/start"), {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
-      });
-      window.location.assign(productDeletionDestination(result));
-    } catch (error) {
-      setStatus(error.message, true);
-      setButtonBusy(el.deleteAccountBtn, false, "Opening account management…", "Delete account");
+  el.accountSettingsLink?.addEventListener("click", (event) => {
+    if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    showAccountSettings();
+  });
+
+  el.accountContent.addEventListener("input", (event) => {
+    const field = event.target;
+    if (field?.name !== "token-name" && field?.name !== "token-days") return;
+    state._tokenDraft = { ...(state._tokenDraft || {}), [field.name === "token-name" ? "name" : "days"]: field.value };
+    if (field.name === "token-name") setFieldError(field.form, "");
+  });
+  el.accountContent.addEventListener("submit", (event) => {
+    const form = event.target.closest?.("[data-token-form]");
+    if (!form) return;
+    event.preventDefault();
+    submitTokenForm(form);
+  });
+  el.accountContent.addEventListener("click", async (event) => {
+    const revoke = event.target.closest?.("[data-revoke-token]");
+    if (revoke) {
+      confirmRevokeToken(revoke.dataset.revokeToken, revoke);
+      return;
     }
+    if (event.target.closest?.("[data-copy-new-token]")) {
+      if (state._newToken) await copyText(state._newToken.token, t("Token copied."));
+      return;
+    }
+    if (event.target.closest?.("[data-retry-tokens]")) {
+      state._tokens = null;
+      state._tokensError = "";
+      renderTokenList();
+      await loadAccountTokens();
+      return;
+    }
+    const deletion = event.target.closest?.("[data-delete-account]");
+    if (deletion) await startAccountDeletion(deletion);
   });
 
-  el.tokenBtn.addEventListener("click", () => createAccessToken(el.tokenBtn));
+  el.detailContent.addEventListener("input", (event) => {
+    if (event.target?.name === "project-name") updateRenameForm(event.target.form);
+  });
+  el.detailContent.addEventListener("submit", (event) => {
+    const form = event.target.closest?.("[data-rename-form]");
+    if (!form) return;
+    event.preventDefault();
+    renameCurrentProject(form);
+  });
+
+  el.confirmInput.addEventListener("input", () => {
+    if (state._confirm?.expect === undefined) return;
+    el.confirmOk.disabled = el.confirmInput.value !== state._confirm.expect;
+    el.confirmError.hidden = true;
+  });
+  el.confirmForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    runConfirm();
+  });
+  el.confirmCancel.addEventListener("click", () => el.confirmDialog.close());
+  // Escape does not abandon a request that is already running.
+  el.confirmDialog.addEventListener("cancel", (event) => { if (state._confirmBusy) event.preventDefault(); });
+  el.confirmDialog.addEventListener("close", () => {
+    const target = state._confirm?.returnFocus;
+    state._confirm = null;
+    el.confirmInput.value = "";
+    // The trigger may be gone (a revoked row, a deleted project): fall back to the list or the page.
+    const fallback = state.page === "account" ? el.accountContent.querySelector?.("#token-list") || el.accountContent : el.detailContent;
+    (target?.isConnected ? target : fallback).focus?.({ preventScroll: true });
+  });
 
   el.tokenCopy.addEventListener("click", async () => {
     if (el.tokenCopy.disabled) return;
@@ -3615,7 +4241,16 @@ function bindEvents() {
     if (!option || state._projectBusy) return;
     toggleProjectPicker(false);
     const id = option.dataset.id;
-    if (!id || id === state.currentProjectId) return;
+    if (!id) return;
+    if (id === state.currentProjectId) {
+      if (state.page === "account") {
+        leaveAccountSettings();
+        writeRoute("push");
+        el.detailContent.focus?.({ preventScroll: true });
+      }
+      return;
+    }
+    leaveAccountSettings();
     state._projectBusy = true;
     setProjectPickerBusy(true);
     try {
@@ -3702,6 +4337,16 @@ function bindEvents() {
       if (state.overview) await copyText(briefMarkdown(), t("Brief copied."));
       return;
     }
+    const exportButton = e.target.closest("[data-export-project]");
+    if (exportButton) {
+      await exportCurrentProject(exportButton);
+      return;
+    }
+    const deleteProjectButton = e.target.closest("[data-delete-project]");
+    if (deleteProjectButton) {
+      confirmDeleteProject(deleteProjectButton);
+      return;
+    }
     const createToken = e.target.closest("[data-create-token]");
     if (createToken) {
       await createAccessToken(createToken);
@@ -3784,7 +4429,7 @@ function bindEvents() {
   el.drawerOverlay.addEventListener("mousedown", (event) => event.preventDefault());
 
   document.addEventListener("keydown", (event) => {
-    if (el.aboutDialog.open || el.tokenDialog.open || el.searchDialog.open) return;
+    if (el.aboutDialog.open || el.tokenDialog.open || el.searchDialog.open || el.confirmDialog.open) return;
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k" && !el.shell.inert) {
       event.preventDefault();
       openSearch();
@@ -3851,10 +4496,12 @@ async function init(bind = true) {
     const route = readRoute();
     state.activeTab = route.tab;
     setActiveTabUI();
+    if (route.page === "account" && state.config.authRequired) setPage("account");
     await loadCurrentAccount();
     await loadProjects(route);
     hideAuthGate();
-    if (route.search && state.currentProjectId) openSearch(route.q);
+    if (state.page === "account") showAccountSettings({ history: "replace", force: true });
+    else if (route.search && state.currentProjectId) openSearch(route.q);
   } catch (err) {
     if (err.status === 401 && state.config?.authRequired) {
       showAuthGate(authError);

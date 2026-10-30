@@ -22,12 +22,29 @@ def _project(conn, name, account_id):
     return conn.execute(f"SELECT * FROM projects WHERE provider = 'intent' AND repo_id = ? AND {clause}", params).fetchone()
 
 
+def _project_by_id(conn, project_id, account_id):
+    clause = "account_id = ?" if account_id else "account_id IS NULL"
+    params = (project_id, account_id) if account_id else (project_id,)
+    return conn.execute(f"SELECT * FROM projects WHERE provider = 'intent' AND id = ? AND {clause}", params).fetchone()
+
+
+def _local_project_id(conn, name):
+    # Anonymous local mode also needs a deterministic identity (NULL unique
+    # constraints do not enforce uniqueness on either supported database).
+    # A renamed project keeps the ID derived from its old name, so step past it.
+    for attempt in range(100):
+        seed = name if attempt == 0 else f"{name}\n{attempt}"
+        pid = "proj_local_" + hashlib.sha256(seed.encode("utf-8")).hexdigest()[:24]
+        row = conn.execute("SELECT repo_id FROM projects WHERE id = ?", (pid,)).fetchone()
+        if row is None or row["repo_id"] == name:
+            return pid
+    raise APIError("CONFLICT", "Could not allocate a local project identity.", 409)
+
+
 def link_history(db_path, name, account_id=None):
     name = project_name(name)
     with connect(db_path) as conn:
-        # Anonymous local mode also needs a deterministic identity (NULL unique
-        # constraints do not enforce uniqueness on either supported database).
-        pid = new_id("proj") if account_id else "proj_local_" + hashlib.sha256(name.encode("utf-8")).hexdigest()[:24]
+        pid = new_id("proj") if account_id else _local_project_id(conn, name)
         conn.execute("""INSERT INTO projects
             (id, account_id, name, provider, repo_id, owner, repo_name, created_at)
             VALUES (?, ?, ?, 'intent', ?, ?, ?, ?) ON CONFLICT DO NOTHING""",
@@ -47,15 +64,16 @@ def _head(conn, pid):
             "snapshot_sha256": snapshot_sha256(snapshot), "accepted_at": row["created_at"]}
 
 
-def read_history(db_path, name, account_id=None):
+def read_history(db_path, name, account_id=None, project_id=None):
     name = project_name(name)
     with connect(db_path) as conn:
-        project = _project(conn, name, account_id)
+        # A clone that knows its project ID follows a rename made on IntHub.
+        project = (_project_by_id(conn, project_id, account_id) if project_id else None) or _project(conn, name, account_id)
         head = _head(conn, project["id"]) if project else {
             "revision": None, "parent": None, "snapshot": None,
             "snapshot_sha256": None, "accepted_at": None}
         return {"format_version": 2, "project_id": project["id"] if project else None,
-                "project_name": name, **head}
+                "project_name": project["repo_id"] if project else name, **head}
 
 
 def push_history(db_path, payload, account_id=None):
@@ -71,12 +89,12 @@ def push_history(db_path, payload, account_id=None):
     with connect(db_path) as conn:
         if conn.backend == "sqlite":
             conn.execute("BEGIN IMMEDIATE")
-        project = _project(conn, name, account_id)
+        project = _project_by_id(conn, payload.get("project_id"), account_id) if payload.get("project_id") else None
         if project is None:
+            if _project(conn, name, account_id) is not None:
+                raise APIError("REMOTE_CHANGED", "Remote project identity changed; check status before relinking.", 409)
             raise APIError("NOT_LINKED", "Configure the remote project before pushing.", 404)
-        pid = project["id"]
-        if payload.get("project_id") != pid:
-            raise APIError("REMOTE_CHANGED", "Remote project identity changed; check status before relinking.", 409)
+        pid, name = project["id"], project["repo_id"]
         if conn.backend == "postgresql":
             conn.execute("SELECT project_id FROM semantic_heads WHERE project_id = ? FOR UPDATE", (pid,))
         head = _head(conn, pid)
