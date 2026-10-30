@@ -217,7 +217,7 @@ explicit bootstrap instruction; the release never upgrades its own production co
 
 1. requires a complete, clean `main` Commit and rejects shallow history, submodules, and LFS;
 2. verifies the pinned PostgreSQL runtime config digest and `linux/amd64` platform;
-3. runs the full suite, including real PostgreSQL integration, in the pinned pytest/psycopg environment;
+3. runs the full suite, including real PostgreSQL integration, in the pinned pytest/psycopg environment, once and in parallel; the server Builder repeats every other check but not the tests;
 4. runs `git diff --check` and Commit-object checks;
 5. exports the exact Commit with `git archive` and scans it for unsafe entries and high-confidence credentials;
 6. proves that HEAD and the worktree did not change during qualification.

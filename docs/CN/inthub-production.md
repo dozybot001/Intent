@@ -201,7 +201,7 @@ bootstrap，不会偷偷更新生产控制面。
 
 1. 要求完整、clean 的 `main` Commit，拒绝 submodule、LFS 和 shallow history；
 2. 校验固定 PostgreSQL runtime config digest 与 `linux/amd64` 平台；
-3. 使用固定 pytest/psycopg 环境运行完整测试和真实 PostgreSQL 集成测试；
+3. 使用固定 pytest/psycopg 环境并行运行一次完整测试和真实 PostgreSQL 集成测试；服务器 Builder 重复其余检查，不再重跑测试；
 4. 执行 `git diff --check`、Commit object 检查；
 5. 用 `git archive` 导出精确 Commit，并扫描高置信度凭据和不安全文件项；
 6. 再次确认门禁期间 HEAD 和 worktree 未变化。

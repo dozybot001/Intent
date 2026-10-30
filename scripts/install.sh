@@ -6,7 +6,7 @@
 set -euo pipefail
 
 REPO="https://github.com/dozybot001/Intent.git"
-RELEASE_TAG="${INTENT_VERSION:-v7.6.1}"
+RELEASE_TAG="${INTENT_VERSION:-v7.6.2}"
 # Releases before 7.1.0 were published under the distribution name intent-cli.
 case "$RELEASE_TAG" in
   v[0-6].*|v7.0.*) DIST="intent-cli" ;;

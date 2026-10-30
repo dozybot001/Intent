@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Qualify one clean, complete main Commit without building the production App
-# image. This gate runs locally before publishing to Gitee and runs again in
-# the isolated server Builder before the one production image build.
+# image. Locally this runs the full test suite once, in parallel. The isolated
+# server Builder names the exact Commit and repeats every check but the tests.
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -99,6 +99,7 @@ PYTEST_VERSION="$(
 [[ "${PYTEST_VERSION}" == "${REQUIRED_PYTEST_VERSION}" ]] \
     || fail "pytest ${REQUIRED_PYTEST_VERSION} is required, found ${PYTEST_VERSION}"
 
+if [[ -z "${EXPECTED_SHA}" ]]; then
 TEST_DATABASE_CONTAINER="inthub-qualification-postgres-${RELEASE_SHA:0:12}-$$"
 docker run \
     --detach \
@@ -132,9 +133,10 @@ TEST_DATABASE_PORT="$(
 [[ "${TEST_DATABASE_PORT}" =~ ^[1-9][0-9]*$ ]] \
     || fail "could not resolve the qualification PostgreSQL port"
 INTHUB_TEST_POSTGRES_URL="postgresql://inthub_test:inthub_test_password@127.0.0.1:${TEST_DATABASE_PORT}/inthub_test" \
-    "${QUALIFICATION_PYTHON}" -m pytest -q
+    "${QUALIFICATION_PYTHON}" -m pytest -q -n auto
 docker rm --force "${TEST_DATABASE_CONTAINER}" >/dev/null
 TEST_DATABASE_CONTAINER=""
+fi
 
 git diff --check
 git show --check --format= "${RELEASE_SHA}" >/dev/null

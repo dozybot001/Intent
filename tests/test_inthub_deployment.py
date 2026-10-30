@@ -283,6 +283,8 @@ def test_local_qualification_does_not_build_the_application_image():
     assert "release_manifest.py\" scan" in qualify
     assert "git diff --check" in qualify
     assert "docker buildx build" not in qualify
+    # One full test run per release: the Builder names the Commit and skips it.
+    assert 'if [[ -z "${EXPECTED_SHA}" ]]; then\nTEST_DATABASE_CONTAINER=' in qualify
 
 
 def test_gitee_bootstrap_only_installs_the_stable_launcher():
