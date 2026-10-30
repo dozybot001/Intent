@@ -16,7 +16,8 @@ SERVER = ["tests/test_inthub_api_server.py", "tests/test_inthub_auth.py", "tests
           "tests/test_inthub_queries.py", "tests/test_inthub_teams.py", "tests/test_inthub_tenon.py"]
 SYNC = ["tests/test_hub_client.py", "tests/test_hub_credentials.py", "tests/test_hub_runtime.py", "tests/test_shared_history.py",
         "tests/test_snapshot_restore.py"]
-CLI = ["tests/test_cli.py", "tests/test_identity.py", "tests/test_maintenance.py", "tests/test_origin.py", "tests/test_output.py",
+CLI = ["tests/test_cli_global.py", "tests/test_cli_hub.py", "tests/test_cli_inspect.py", "tests/test_cli_objects.py", "tests/test_cli_storage.py",
+       "tests/test_identity.py", "tests/test_maintenance.py", "tests/test_origin.py", "tests/test_output.py",
        "tests/test_relations.py", "tests/test_store_security.py"]
 # First match wins. Paths that match nothing, such as docs, need no tests.
 AREAS = (
