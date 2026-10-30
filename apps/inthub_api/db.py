@@ -17,7 +17,9 @@ from urllib.parse import urlsplit, urlunsplit
 _INITIALIZED = set()
 _INIT_LOCK = threading.Lock()
 
-LATEST_SCHEMA_VERSION = 5
+LATEST_SCHEMA_VERSION = 6
+_IDENTITY_SCHEMA_NAME = "revision-identity"
+_IDENTITY_SCHEMA_CHECKSUM = hashlib.sha256(b"0006:account-email:project-repository:revision-pusher-changes:verified-objects").hexdigest()
 _DELETION_SCHEMA_NAME = "product-deletion-receipts"
 _DELETION_SCHEMA_CHECKSUM = hashlib.sha256(b"0005:product-deletion:operation-subject-receipts:login-start").hexdigest()
 _HISTORY_SCHEMA_NAME = "shared-semantic-history"
@@ -127,6 +129,14 @@ _EXPECTED_SCHEMA_COLUMNS.update({
     "product_deletion_receipts": {"operation_id", "issuer", "subject", "completed_at"},
 })
 _EXPECTED_SCHEMA_COLUMNS["tenon_login_attempts"] = _EXPECTED_SCHEMA_COLUMNS["tenon_login_attempts"] | {"started_at"}
+_IDENTITY_COLUMNS = {
+    "accounts": {"email"},
+    "projects": {"repository_url"},
+    "semantic_versions": {"pushed_by", "pusher_json", "changes_json"},
+}
+for _table, _columns in _IDENTITY_COLUMNS.items():
+    _EXPECTED_SCHEMA_COLUMNS[_table] = _EXPECTED_SCHEMA_COLUMNS[_table] | _columns
+_EXPECTED_SCHEMA_COLUMNS["verified_objects"] = {"project_id", "object_id", "revision"}
 
 
 def _backend_for(target):
@@ -646,6 +656,8 @@ def _validate_migration_ledger(rows):
             "backward_compatible": 1},
         5: {"name": _DELETION_SCHEMA_NAME, "checksum": _DELETION_SCHEMA_CHECKSUM,
             "backward_compatible": 1},
+        6: {"name": _IDENTITY_SCHEMA_NAME, "checksum": _IDENTITY_SCHEMA_CHECKSUM,
+            "backward_compatible": 1},
     }
     observed_versions = set()
     for row in rows:
@@ -761,6 +773,23 @@ def migrate_db(conn, *, require_backward_compatible=True):
             (version, name, checksum, backward_compatible, applied_at)
             VALUES (?, ?, ?, ?, ?)""",
             (5, _DELETION_SCHEMA_NAME, _DELETION_SCHEMA_CHECKSUM, 1,
+             datetime.now(timezone.utc).isoformat()))
+
+    if 6 not in applied_versions:
+        # Additive, so the previous image keeps working after a rollback. The
+        # cascade keeps its project deletion working too: these rows are derived.
+        observed = _observed_schema_columns(conn)
+        for table, columns in _IDENTITY_COLUMNS.items():
+            for column in sorted(columns - observed[table]):
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} TEXT")
+        conn.execute("""CREATE TABLE IF NOT EXISTS verified_objects (
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            object_id TEXT NOT NULL, revision TEXT NOT NULL,
+            PRIMARY KEY (project_id, object_id))""")
+        conn.execute("""INSERT INTO schema_migrations
+            (version, name, checksum, backward_compatible, applied_at)
+            VALUES (?, ?, ?, ?, ?)""",
+            (6, _IDENTITY_SCHEMA_NAME, _IDENTITY_SCHEMA_CHECKSUM, 1,
              datetime.now(timezone.utc).isoformat()))
 
     rows = _migration_rows(conn)

@@ -9,8 +9,9 @@ import subprocess
 import pytest
 
 from apps.inthub_api import queries
+from apps.inthub_api.server import REVISION_PAGE_MAX
 from apps.inthub_web import product_version
-from intent_cli import relations, store
+from intent_cli import identity, relations, store
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -178,7 +179,7 @@ def test_workspace_is_one_fluid_page_with_tabs_instead_of_three_fixed_panes():
     for retired in ('id="sidebar"', 'class="primary-nav"', 'id="back-btn"', 'id="nav-health"', "Continuation queue"):
         assert retired not in html
     tabs = [attributes["data-tab"] for _, attributes, _ in markup.tags if "data-tab" in attributes]
-    assert tabs == ["overview", "intents", "flow", "snaps", "decisions", "settings"]
+    assert tabs == ["overview", "intents", "flow", "snaps", "history", "decisions", "settings"]
     tab_bar = markup.by_id("tab-bar")
     assert tab_bar[0] == "nav" and tab_bar[1].get("aria-label")
     content = _block(css, ".page-content")
@@ -595,6 +596,46 @@ def test_project_settings_stay_neutral_and_delete_only_after_the_exact_name():
     assert '`${safe || "project"}.inthub-export.json`' in javascript and "JSON.stringify(data, null, 2)" in javascript
 
 
+def test_history_tab_follows_the_timeline_and_opens_revisions_in_the_sheet():
+    html = _static("index.html")
+    javascript = _static("app.js")
+    css = _static("styles.css")
+    assert html.index('data-tab="snaps"') < html.index('data-tab="history"') < html.index('data-tab="decisions"')
+    assert 'revision: "revisions"' in re.search(r"const DETAIL_PATHS = \{[^}]+\}", javascript).group(0)
+    size = int(re.search(r"const REVISION_PAGE_SIZE = (\d+);", javascript).group(1))
+    assert size <= REVISION_PAGE_MAX
+    assert 'if (type === "revision") return buildRevisionDetailHtml(payload);' in javascript
+    # The row keeps its two columns on phones, where .list-row has an icon column and no third one.
+    assert "grid-template-columns: minmax(0, 1fr) auto" in _rule(css, ".list-row.history-row")
+    assert "/api/v1/projects/${encodeURIComponent(projectIdFromRemoteId(rId))}/revisions/${encodeURIComponent(revision)}" in javascript
+    assert "t(\"{count} more not shown\"" in javascript
+
+
+def test_identity_shows_as_a_quiet_line_and_verified_as_a_dot_and_text_pill():
+    javascript = _static("app.js")
+    css = _static("styles.css")
+    help_copy = _static("help.js")
+    assert "originBadge" not in javascript
+    assert '<span class="status-dot" aria-hidden="true"></span>${esc(t("Verified"))}</span>' in javascript
+    assert "background: var(--green-dot)" in _rule(css, ".status-verified .status-dot")
+    assert 'verified: "Pushed by the account that owns this email."' in help_copy
+    byline = _rule(css, ".row-byline")
+    assert "color: var(--muted)" in byline and not re.search(r"--(red|amber|green|blue)", byline)
+    # Every row that names an object says who recorded it.
+    for name in ("snapTimelineEntry", "intentEntry", "pausedRow", "decisionConstraint", "decisionRows"):
+        assert "rowByline(" in javascript.split(f"function {name}(", 1)[1].split("\n}\n", 1)[0], name
+    for name in ("buildIntentDetailHtml", "buildDecisionDetailHtml", "buildSnapDetailHtml"):
+        assert "identityMeta(" in javascript.split(f"function {name}(", 1)[1].split("\n}\n", 1)[0], name
+
+
+def test_commit_links_use_the_clis_hosts_and_open_safely():
+    javascript = _static("app.js")
+    url = javascript.split("function commitUrl(", 1)[1].split("\n}\n", 1)[0]
+    for host in identity.REPOSITORY_HOSTS.split("|"):
+        assert f'"{host.replace(chr(92), "")}"' in url
+    assert 'target="_blank" rel="noopener noreferrer"' in javascript.split("function commitLine(", 1)[1].split("\n}\n", 1)[0]
+
+
 def test_web_shell_uses_monochrome_continuity_logo_and_explicit_account_icon():
     html = _static("index.html")
     javascript = _static("app.js")
@@ -770,7 +811,7 @@ def test_flow_tab_is_a_keyboard_reachable_inline_svg_without_inline_styles():
     javascript = _static("app.js")
     css = _static("styles.css")
     translations = _static("i18n.js")
-    assert re.search(r'const TABS = \["overview", "intents", "flow", "snaps", "decisions", "settings"\];', javascript)
+    assert re.search(r'const TABS = \["overview", "intents", "flow", "snaps", "history", "decisions", "settings"\];', javascript)
     assert '"Flow": "流转"' in translations and '"Project": "项目"' in translations
     assert 'case "flow":' in javascript and "function flowLayout(" in javascript and "function renderFlowSvg(" in javascript
     # CSP style-src 'self': no style attributes in markup strings; SVG presentation attributes only.
@@ -809,10 +850,10 @@ def test_timeline_pages_from_the_snaps_endpoint_and_search_reports_truncation():
     assert queries.SEARCH_LIMIT == 50
 
 
-def test_static_revision_names_the_login_release():
+def test_static_revision_names_the_history_release():
     for name in ("index.html", "auth-redirect.html"):
-        assert "rev=flow-9" not in _static(name) and "rev=settings-1" not in _static(name)
-        assert "rev=login-1" in _static(name)
+        assert "rev=login-1" not in _static(name) and "rev=settings-1" not in _static(name)
+        assert "rev=history-1" in _static(name)
 
 
 

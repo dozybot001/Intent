@@ -33,7 +33,7 @@ def populate(target, subject="person-1"):
     with connect(target) as conn:
         conn.execute("INSERT INTO workspaces VALUES ('ws-' || ?, ?, 'intent', 'repo', 'now')", (subject, pid))
         conn.execute("INSERT INTO sync_batches(id,project_id,workspace_id,generated_at,accepted_at,payload_json) VALUES (?, ?, ?, 'now','now','{}')", ("batch-" + subject, pid, "ws-" + subject))
-        conn.execute("INSERT INTO semantic_versions VALUES (?, 'revision', NULL, '{}', 'now')", (pid,))
+        conn.execute("INSERT INTO semantic_versions (project_id, revision, parent, snapshot_json, created_at) VALUES (?, 'revision', NULL, '{}', 'now')", (pid,))
         conn.execute("INSERT INTO public_profiles VALUES (?, ?, 'Title', 'Description', 'now', 'now')", ("profile-" + subject, account["id"]))
         conn.execute("INSERT INTO public_profile_projects VALUES (?, ?, 1, 'now')", ("profile-" + subject, pid))
     return account, session, pat, pid

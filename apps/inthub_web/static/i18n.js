@@ -193,6 +193,22 @@ window.IntHubI18n = (() => {
     "Delete project": "删除项目", "Deleting…": "正在删除…", "Delete {name}?": "删除 {name}？", "Deleted {name}.": "已删除 {name}。",
     "This removes the project and its semantic history from this hub. Local .intent data is not touched. This cannot be undone.": "这会从此 IntHub 删除项目及其语义历史，不影响本地的 .intent 数据。此操作无法撤销。",
     "Type {name} to confirm.": "输入 {name} 以确认。", "Type the name exactly as shown.": "请按显示的名称准确输入。",
+
+    "History": "历史", "{count} push": "{count} 次推送", "{count} pushes": "{count} 次推送", "First push": "首次推送", "Revision": "修订",
+    "No semantic changes": "没有语义变化", "No pushes yet.": "还没有推送。",
+    "Each push is one revision: what changed, who pushed it and when.": "每次推送是一条修订：改了什么、谁推送的、什么时候推送的。",
+    "Each push to IntHub is one revision, like a Git commit: what it added or changed, who pushed it and when. Open one to see the objects.": "每次推送到 IntHub 是一条修订，相当于 Git 的一次 commit：新增或变更了什么、谁推送的、什么时候推送的。打开一条可以查看具体对象。",
+    "Added {added}; changed {changed}": "新增 {added}，变更 {changed}", "Added {items}": "新增 {items}", "Changed {items}": "变更 {items}",
+    "{count} Intent": "{count} 个意图", "{count} Intents": "{count} 个意图", "{count} Snap": "{count} 个 Snap", "{count} Snaps": "{count} 个 Snap",
+    "{count} Decision": "{count} 个决策", "{count} Decisions": "{count} 个决策", ", ": "、", "{items} and {last}": "{items}、{last}",
+    "Added Intents": "新增的意图", "Added Snaps": "新增的 Snap", "Added Decisions": "新增的决策", "Changed": "变更",
+    "Added: {relation} {intent}": "新增关系：{relation} {intent}", "Removed: {relation} {intent}": "移除关系：{relation} {intent}",
+    "Pushed by {name}": "由 {name} 推送", "{count} more not shown": "另有 {count} 个未显示", "This push added and changed nothing.": "这次推送没有新增或变更任何内容。",
+    "Pushed by the account that owns this email.": "由拥有此邮箱的账号推送。",
+    "Commit {sha}": "提交 {sha}", "with uncommitted changes": "含未提交的修改",
+    "All authors": "全部作者", "Filter timeline by author": "按作者筛选时间线", "No checkpoints match these filters.": "没有符合筛选条件的检查点。",
+    "Link your Snaps": "关联 Snap", "Sign in again to link Snaps to this account.": "请重新登录，把 Snap 关联到此账号。",
+    "Snaps link to this account when their author email is {email}. Set Git to the same address:": "作者邮箱为 {email} 的 Snap 会关联到此账号。请把 Git 设成同一邮箱：",
   };
   let language;
   try { language = localStorage.getItem("inthub.language"); } catch {}

@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from intent_cli import relations as relation_rules
+from intent_cli.identity import COMMIT
 
 INTENT_DIR = ".intent"
 SUBDIRS = {"intent": "intents", "snap": "snaps", "decision": "decisions"}
@@ -236,6 +237,20 @@ def _validate_checkpoint(checkpoint, path):
             )
 
 
+def _validate_author(author, path):
+    """Validate the optional author, recorded like a Git identity (see identity.py)."""
+    if (not isinstance(author, dict) or not author
+            or not all(isinstance(author.get(key, ""), str) for key in ("name", "email"))):
+        raise StoredObjectSchemaError(path, "field 'author' must be an object with string name and email", field="author")
+
+
+def _validate_git(git, path):
+    """Validate the optional commit a Snap was recorded on."""
+    if (not isinstance(git, dict) or not isinstance(git.get("commit"), str) or not COMMIT.fullmatch(git["commit"])
+            or not isinstance(git.get("dirty", False), bool)):
+        raise StoredObjectSchemaError(path, "field 'git' must hold a commit hash and an optional dirty flag", field="git")
+
+
 def _validate_relations(entries, path):
     """Validate the optional Intent relations list (see relations.py)."""
     if not isinstance(entries, list):
@@ -332,6 +347,11 @@ def _validate_object_schema(
             ) from exc
         if "checkpoint" in obj:
             _validate_checkpoint(obj["checkpoint"], path)
+        if "git" in obj:
+            _validate_git(obj["git"], path)
+
+    if "author" in obj:
+        _validate_author(obj["author"], path)
 
     if object_type == "intent" and "relations" in obj:
         _validate_relations(obj["relations"], path)

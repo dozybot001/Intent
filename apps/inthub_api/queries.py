@@ -18,11 +18,18 @@ def _load_project(db_path, project_id, account_id=None):
     with connect(db_path) as conn:
         project = dict(_project_row(conn, project_id, account_id))
         head = _head(conn, project_id)
+        verified = {row["object_id"] for row in conn.execute(
+            "SELECT object_id FROM verified_objects WHERE project_id = ?", (project_id,)).fetchall()}
+    # Every read view starts here, so each gets the flag; the stored snapshot does not change.
+    for objects in _snapshot(head).values():
+        for obj in objects:
+            if obj["id"] in verified:
+                obj["verified"] = True
     return project, head
 
 
 def _project_view(project):
-    return {key: project[key] for key in ("id", "name", "created_at")}
+    return {key: project[key] for key in ("id", "name", "created_at", "repository_url")}
 
 
 def _snapshot(head):
@@ -36,6 +43,22 @@ def _entry(project_id, obj):
 OVERVIEW_SNAPS = 20  # the rest of the timeline is paged through project_snaps
 SNAP_PAGE_MAX = 200
 SEARCH_LIMIT = 50
+
+
+def _author_key(obj):
+    author = obj.get("author") or {}
+    return author.get("email") or author.get("name")
+
+
+def _authors(snaps):
+    """Everyone with a Snap in this project, most active first, for the timeline filter."""
+    authors = {}
+    for snap in snaps:
+        key = _author_key(snap)
+        if key:
+            entry = authors.setdefault(key, {"key": key, "name": snap["author"].get("name") or key, "snaps": 0})
+            entry["snaps"] += 1
+    return sorted(authors.values(), key=lambda entry: -entry["snaps"])
 
 
 def _newest_first(project_id, snaps):
@@ -59,16 +82,18 @@ def project_overview(db_path, project_id, account_id=None):
         "other_intents": [obj for obj in intents if obj["status"] != "active"],
         "active_decisions": [obj for obj in decisions if obj["status"] == "active"],
         "deprecated_decisions": [obj for obj in decisions if obj["status"] == "deprecated"],
-        "recent_snaps": snaps[:OVERVIEW_SNAPS], "total_snaps": len(snaps),
+        "recent_snaps": snaps[:OVERVIEW_SNAPS], "total_snaps": len(snaps), "authors": _authors(snaps),
     }
 
 
-def project_snaps(db_path, project_id, offset=0, limit=50, intent_id=None, account_id=None):
-    """One page of the timeline, newest first, optionally for one Intent."""
+def project_snaps(db_path, project_id, offset=0, limit=50, intent_id=None, author=None, account_id=None):
+    """One page of the timeline, newest first, optionally for one Intent or one author."""
     _, head = _load_project(db_path, project_id, account_id)
     snaps = _snapshot(head)["snaps"]
     if intent_id is not None:
         snaps = [obj for obj in snaps if obj["intent_id"] == intent_id]
+    if author is not None:
+        snaps = [obj for obj in snaps if _author_key(obj) == author]
     ordered = _newest_first(project_id, snaps)
     page = ordered[offset:offset + limit]
     return {"project_id": project_id, "snaps": page, "total": len(ordered),

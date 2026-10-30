@@ -261,11 +261,21 @@ def _log(result):
     return lines
 
 
+def _author(obj):
+    author = obj.get("author") or {}
+    return author.get("name") or author.get("email")
+
+
+def _commit(obj):
+    git = obj.get("git") or {}
+    return git["commit"][:7] + ("-dirty" if git.get("dirty") else "") if git.get("commit") else None
+
+
 def _show(result):
     obj = result["object"]
     kind = obj.get("object", "")
     meta = [STATUS_WORDS.get(obj.get("status"), obj.get("status")) if obj.get("status") else None,
-            f"created {_when(obj.get('created_at'))}", obj.get("origin") or None]
+            f"created {_when(obj.get('created_at'))}", _author(obj), obj.get("origin") or None, _commit(obj)]
     lines = [f"{bold(obj['id'])}  {dim(' · '.join(part for part in meta if part))}", _wrap(obj.get("what"), "")]
     if obj.get("why"):
         lines += ["", dim("Why"), _wrap(obj["why"], "  ")]
@@ -409,6 +419,10 @@ def _init(result):
     hooks = (result.get("maintenance") or {}).get("hooks") or {}
     project = os.path.basename(os.path.dirname(result["path"]))
     lines = [f"Initialized Intent for {bold(project)} {dim('(' + result['path'] + ')')}"]
+    author = result.get("author") or {}
+    if author:
+        who = f"{author['name']} <{author['email']}>" if len(author) > 1 else _author(result)
+        lines.append(f"Recording as {who}.")
     if hooks.get("configured"):
         lines.append(f"Recording is on for {HOST_NAMES.get(hooks.get('host'), hooks.get('host'))}; "
                      f"its hooks are in {os.path.relpath(hooks['path'], os.path.dirname(result['path'])) if hooks.get('path') else 'this project'}.")

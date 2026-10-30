@@ -3,11 +3,17 @@ window.IntHubI18n.bindStatic(document.body);
 
 /* ---- State ---- */
 
-const TABS = ["overview", "intents", "flow", "snaps", "decisions", "settings"];
-const DETAIL_PATHS = { intent: "intents", decision: "decisions", snap: "snaps" };
+const TABS = ["overview", "intents", "flow", "snaps", "history", "decisions", "settings"];
+const DETAIL_PATHS = { intent: "intents", decision: "decisions", snap: "snaps", revision: "revisions" };
 const PAGE_SIZE = 30;
 // One timeline page from /projects/{id}/snaps; the overview only carries the newest Snaps.
 const SNAP_PAGE_SIZE = 50;
+const REVISION_PAGE_SIZE = 30;
+// Agents by name; any other label stays as the CLI recorded it.
+const ORIGIN_NAMES = {
+  "claude-code": "Claude Code", codex: "Codex", cursor: "Cursor", vscode: "VS Code",
+  codespaces: "Codespaces", "github-actions": "GitHub Actions", gitpod: "Gitpod",
+};
 const INSTALL_COMMAND = "curl -fsSL https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.sh | bash";
 // Two agents by default: --all would create dozens of agent folders in the home directory.
 const SKILL_COMMAND = "npx skills add dozybot001/Intent -g -a claude-code -a codex";
@@ -122,6 +128,7 @@ const ICONS = {
   flow: '<path d="M5.5 3v14"/><circle cx="14.5" cy="13" r="2.2"/><path d="M5.5 6.2c0 3.8 9 2.6 9 4.6"/>',
   focus: '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.8v3M10 14.2v3M2.8 10h3M14.2 10h3"/>',
   hide: '<path d="M3 10s2.6-5 7-5 7 5 7 5-2.6 5-7 5-7-5-7-5Z"/><path d="m4 16 12-12"/>',
+  history: '<path d="M3.6 10a6.4 6.4 0 1 0 1.9-4.6L3.5 7.3"/><path d="M3.5 3.7v3.6h3.6"/><path d="M10 6.6V10l2.4 1.5"/>',
   settings: '<path d="m8 2-.5 2-1.5.9-2-.6-2 3.4 1.5 1.4v1.8L2 12.3l2 3.4 2-.6 1.5.9.5 2h4l.5-2 1.5-.9 2 .6 2-3.4-1.5-1.4V9.1L18 7.7l-2-3.4-2 .6-1.5-.9-.5-2Z"/><circle cx="10" cy="10" r="2.5"/>',
   download: '<path d="M10 3.5v9M6 8.5l4 4 4-4"/><path d="M4 16h12"/>',
   external: '<path d="M8 4H4.5v11.5H16V12"/><path d="M11 4h5v5M16 4l-7 7"/>',
@@ -258,9 +265,40 @@ function rowStatusIcon(status) {
   return `<span class="row-icon status-${esc(status || "unknown")}" aria-hidden="true"><span class="status-dot"></span></span>`;
 }
 
-function originBadge(origin) {
-  if (!origin) return "";
-  return `<span class="chip">${esc(origin)}</span>`;
+function originName(origin) {
+  return ORIGIN_NAMES[origin] || origin || "";
+}
+
+function authorName(object) {
+  return object?.author?.name || object?.author?.email || "";
+}
+
+// "Ana Lee · Claude Code": who recorded it and with which agent. Without an author, only the agent.
+function byline(object) {
+  return [authorName(object), originName(object?.origin)].filter(Boolean).join(" · ");
+}
+
+function verifiedBadge(object) {
+  if (!object?.verified) return "";
+  return `<span class="status-pill status-verified" title="${esc(t("Pushed by the account that owns this email."))}"><span class="status-dot" aria-hidden="true"></span>${esc(t("Verified"))}</span>`;
+}
+
+// One quiet line in a list row or timeline entry; nothing when the object names nobody.
+function rowByline(object) {
+  const line = byline(object);
+  const badge = verifiedBadge(object);
+  return line || badge ? `<span class="row-byline">${line ? `<span>${esc(line)}</span>` : ""}${badge}</span>` : "";
+}
+
+// Sheets name the author in full, and can explain "Verified".
+function identityMeta(object) {
+  const line = byline(object);
+  const email = object?.author?.name ? object.author.email : "";
+  return [
+    line ? `<span class="chip">${esc(line)}</span>` : "",
+    email ? `<span class="detail-email">${esc(email)}</span>` : "",
+    object?.verified ? `<span class="detail-verified">${verifiedBadge(object)}${helpButton("verified")}</span>` : "",
+  ].join("");
 }
 
 function idChip(id) {
@@ -458,6 +496,8 @@ function readRoute() {
     page: window.location.pathname.replace(/\/+$/, "") === ACCOUNT_PATH ? "account" : "project",
     project: p.get("project"),
     tab: TABS.includes(requestedTab) ? requestedTab : "overview",
+    intent: p.get("intent") || "",
+    author: p.get("author") || "",
     detail: p.get("detail"),
     detailType: p.get("detailType"),
     q,
@@ -470,6 +510,9 @@ function routeUrl() {
   const p = new URLSearchParams();
   if (state.currentProjectId) p.set("project", state.currentProjectId);
   if (state.activeTab !== "overview") p.set("tab", state.activeTab);
+  const timeline = state.activeTab === "snaps" && state._timeline?.projectId === state.currentProjectId ? state._timeline : null;
+  if (timeline?.intentId) p.set("intent", timeline.intentId);
+  if (timeline?.author) p.set("author", timeline.author);
   if (state.selectedDetail) {
     p.set("detail", state.selectedDetail.remoteId);
     p.set("detailType", state.selectedDetail.type);
@@ -955,6 +998,10 @@ function emptyState({ iconName = "intent", title = "", body = "", extra = "" }) 
 
 // Each hyphenated word (--depends-on, -g, claude-code) is one inline block, so a narrow screen never breaks a
 // line after its hyphen; a word wider than the line still wraps inside its block. Copy uses the plain text.
+function shellArg(value) {
+  return `'${String(value).replaceAll("'", "'\\''")}'`;
+}
+
 function commandSnippet(lines) {
   const text = lines.join("\n");
   const shown = esc(text).replace(/\S*-\S*/g, (word) => `<span class="command-word">${word}</span>`);
@@ -1010,6 +1057,9 @@ function renderView() {
       break;
     case "snaps":
       renderSnapsTab();
+      break;
+    case "history":
+      renderHistoryTab();
       break;
     case "decisions":
       renderDecisionsTab();
@@ -1080,7 +1130,7 @@ function continuationCard(intent) {
       <footer class="brief-foot">
         <span class="brief-foot-meta">
           ${snap
-            ? `<span>${esc(t("Latest checkpoint"))} <span class="mono">${esc(snap.id)}</span></span><span>${esc(fmtDate(snap.created_at))}</span>${snap.origin ? `<span>${esc(snap.origin)}</span>` : ""}`
+            ? `<span>${esc(t("Latest checkpoint"))} <span class="mono">${esc(snap.id)}</span></span><span>${esc(fmtDate(snap.created_at))}</span>${byline(snap) ? `<span>${esc(byline(snap))}</span>` : ""}${verifiedBadge(snap)}`
             : `<span>${esc(t("No continuation checkpoint recorded."))}</span>`}
         </span>
         ${snap ? `<button class="link-button" type="button" data-detail-type="snap" data-remote-id="${esc(snapRemoteId)}">${esc(t("View checkpoint"))}${icon("arrow")}</button>` : ""}
@@ -1101,6 +1151,7 @@ function pausedRow(intent) {
       <span class="row-main">
         <span class="row-title">${esc(intent.what)}</span>
         <span class="row-summary">${summary}</span>
+        ${rowByline(intent)}
         ${attention.length ? `<span class="row-relations">${attention.map((row) => `<span class="row-relation">${relationBadge(row.state, row)}<span>${esc(relationLabel(row.type, row.direction))} ${esc(row.intent.id)}</span></span>`).join("")}</span>` : ""}
       </span>
       <span class="row-meta">
@@ -1122,6 +1173,7 @@ function decisionRows(decisions, limit = 5) {
         <span class="row-main">
           <span class="row-title">${esc(decision.what)}</span>
           ${decision.why ? `<span class="row-summary">${esc(truncate(decision.why, 160))}</span>` : ""}
+          ${rowByline(decision)}
         </span>
       </button>`)
     .join("")}</div>`;
@@ -1255,6 +1307,7 @@ function intentEntry(intent) {
       <span class="row-main">
         <strong class="row-title intent-entry-title">${esc(intent.what)}</strong>
         ${intent.why ? `<span class="row-summary">${esc(truncate(intent.why, 220))}</span>` : ""}
+        ${rowByline(intent)}
       </span>
       <span class="row-meta">
         <span class="row-id">${esc(intent.id)}</span>
@@ -2308,15 +2361,32 @@ function timelineIntentOptions(intents) {
     .sort((left, right) => right.latest - left.latest || left.label.localeCompare(right.label));
 }
 
-function snapPageUrl(projectId, { offset = 0, limit = SNAP_PAGE_SIZE, intentId = "" } = {}) {
+function snapPageUrl(projectId, { offset = 0, limit = SNAP_PAGE_SIZE, intentId = "", author = "" } = {}) {
   const query = new URLSearchParams({ offset: String(offset), limit: String(limit) });
   if (intentId) query.set("intent_id", intentId);
+  if (author) query.set("author", author);
   return apiUrl(`/api/v1/projects/${encodeURIComponent(projectId)}/snaps?${query}`);
 }
 
-function resetTimeline(intentId = "") {
-  state._timeline = { projectId: state.currentProjectId, intentId, snaps: [], total: null, hasMore: false, loaded: false, loading: false, error: "" };
+function resetTimeline(intentId = "", author = "") {
+  state._timeline = { projectId: state.currentProjectId, intentId, author, snaps: [], total: null, hasMore: false, loaded: false, loading: false, error: "" };
   return state._timeline;
+}
+
+// A link can carry the timeline's filters; they apply when that project's timeline first opens.
+function routedTimelineFilters(projectId) {
+  const route = readRoute();
+  return route.tab === "snaps" && (!route.project || route.project === projectId)
+    ? { intentId: route.intent, author: route.author }
+    : { intentId: "", author: "" };
+}
+
+function setTimelineFilter(change, trigger) {
+  const current = state._timeline;
+  resetTimeline(change.intentId ?? current?.intentId ?? "", change.author ?? current?.author ?? "");
+  renderView();
+  writeRoute("push");
+  el.detailContent.querySelector(trigger)?.focus();
 }
 
 // Pages are newest first; the server filters by Intent. A newer timeline (filter, project) owns the view.
@@ -2326,7 +2396,7 @@ async function loadTimelinePage() {
   timeline.loading = true;
   timeline.error = "";
   try {
-    const page = await fetchJson(snapPageUrl(timeline.projectId, { offset: timeline.snaps.length, intentId: timeline.intentId }));
+    const page = await fetchJson(snapPageUrl(timeline.projectId, { offset: timeline.snaps.length, intentId: timeline.intentId, author: timeline.author }));
     if (state._timeline !== timeline) return;
     const seen = new Set(timeline.snaps.map((snap) => snap.remote_id));
     for (const snap of page?.snaps || []) {
@@ -2347,8 +2417,9 @@ async function loadTimelinePage() {
   }
   if (state._timeline !== timeline || state.activeTab !== "snaps" || !state.overview || state.currentProjectId !== timeline.projectId) return;
   const refocus = document.activeElement?.closest?.(".timeline-filter-trigger");
+  const author = Boolean(refocus?.closest?.(".author-filter"));
   renderView();
-  if (refocus) el.detailContent.querySelector(".timeline-filter-trigger")?.focus();
+  if (refocus) el.detailContent.querySelector(author ? ".author-filter .timeline-filter-trigger" : ".timeline-filter-trigger")?.focus();
 }
 
 function timelineDate(value) {
@@ -2411,22 +2482,25 @@ function snapTimelineEntry(snap) {
         </span>
         <strong class="timeline-entry-title">${esc(conciseSnapTitle(snap, 120))}</strong>
         ${supportingValue ? `<span class="timeline-entry-summary"><i>${esc(supportingLabel)}</i>${esc(truncate(supportingValue, 240))}</span>` : ""}
+        ${rowByline(snap)}
       </span>
     </button>`;
 }
 
-function renderTimeline(timeline) {
+// Consecutive items of one local day, for the Timeline and History lists.
+function groupByDay(items) {
   const groups = [];
-  for (const snap of timeline.snaps) {
-    const date = timelineDate(snap.created_at);
+  for (const item of items) {
+    const date = timelineDate(item.created_at);
     const current = groups.at(-1);
-    if (!current || current.key !== date.key) {
-      groups.push({ key: date.key, label: date.label, snaps: [snap] });
-    } else {
-      current.snaps.push(snap);
-    }
+    if (current?.key === date.key) current.items.push(item);
+    else groups.push({ key: date.key, label: date.label, items: [item] });
   }
+  return groups;
+}
 
+function renderTimeline(timeline) {
+  const groups = groupByDay(timeline.snaps);
   const remaining = Math.max(0, (timeline.total ?? timeline.snaps.length) - timeline.snaps.length);
   const more = timeline.hasMore
     ? `<button type="button" class="load-more-btn" id="load-more-snaps"${timeline.loading ? ' disabled aria-busy="true"' : ""}>${esc(timeline.loading ? t("Loading…") : t("Load more ({count})", {count: remaining}))}</button>`
@@ -2434,8 +2508,8 @@ function renderTimeline(timeline) {
   return groups
     .map((group) => `
       <section class="timeline-group">
-        <h2 class="timeline-day"><span>${esc(group.label)}</span><span>${group.snaps.length}</span></h2>
-        <div class="timeline-events">${group.snaps.map(snapTimelineEntry).join("")}</div>
+        <h2 class="timeline-day"><span>${esc(group.label)}</span><span>${group.items.length}</span></h2>
+        <div class="timeline-events">${group.items.map(snapTimelineEntry).join("")}</div>
       </section>`)
     .join("")
     + (timeline.error ? `<p class="timeline-error" role="alert">${esc(timeline.error)}</p>` : "")
@@ -2455,30 +2529,212 @@ function renderSnapsTab() {
   let timeline = state._timeline;
   if (!timeline || timeline.projectId !== state.currentProjectId) timeline = resetTimeline("");
   const options = timelineIntentOptions(overviewIntents());
-  if (timeline.intentId && !options.some((option) => option.key === timeline.intentId)) timeline = resetTimeline("");
+  // The author menu only appears once a project has two authors; a filter nothing can clear is dropped.
+  const authors = (state.overview.authors || []).length >= 2 ? state.overview.authors : [];
+  const staleIntent = timeline.intentId && !options.some((option) => option.key === timeline.intentId);
+  const staleAuthor = timeline.author && !authors.some((entry) => entry.key === timeline.author);
+  if (staleIntent || staleAuthor) {
+    timeline = resetTimeline(staleIntent ? "" : timeline.intentId, staleAuthor ? "" : timeline.author);
+    writeRoute("replace");
+  }
   const selected = options.find((option) => option.key === timeline.intentId);
-  const optionHtml = (key, label, count) => `<button type="button" class="timeline-filter-option${timeline.intentId === key ? " is-selected" : ""}" data-timeline-intent="${esc(key)}" aria-pressed="${timeline.intentId === key}"><span>${esc(label)}</span><small>${count}</small></button>`;
+  const author = authors.find((entry) => entry.key === timeline.author);
+  const optionHtml = (attribute, value, chosen, label, count) => `<button type="button" class="timeline-filter-option${chosen === value ? " is-selected" : ""}" ${attribute}="${esc(value)}" aria-pressed="${chosen === value}"><span>${esc(label)}</span><small>${count}</small></button>`;
   const filter = `
     <div class="timeline-toolbar">
       <details class="timeline-filter">
         <summary class="timeline-filter-trigger" title="${esc(t("Filter timeline by Intent"))}"><span>${esc(selected ? truncate(selected.label, 44) : t("All Intents"))}</span>${icon("chevronDown")}</summary>
-        <div class="timeline-filter-menu">${optionHtml("", t("All Intents"), total)}${options.map((option) => optionHtml(option.key, option.label, option.count)).join("")}</div>
+        <div class="timeline-filter-menu">${optionHtml("data-timeline-intent", "", timeline.intentId, t("All Intents"), total)}${options.map((option) => optionHtml("data-timeline-intent", option.key, timeline.intentId, option.label, option.count)).join("")}</div>
       </details>
+      ${authors.length ? `<details class="timeline-filter author-filter">
+        <summary class="timeline-filter-trigger" title="${esc(t("Filter timeline by author"))}"><span>${esc(author ? truncate(author.name, 28) : t("All authors"))}</span>${icon("chevronDown")}</summary>
+        <div class="timeline-filter-menu">${optionHtml("data-timeline-author", "", timeline.author, t("All authors"), total)}${authors.map((entry) => optionHtml("data-timeline-author", entry.key, timeline.author, entry.name, entry.snaps)).join("")}</div>
+      </details>` : ""}
     </div>`;
-  const count = timeline.total ?? (selected ? selected.count : total);
+  const count = timeline.total ?? (selected ? selected.count : author ? author.snaps : total);
   const body = !timeline.loaded
     ? timeline.error
       ? `<div class="empty-state"><p>${esc(timeline.error)}</p><button type="button" class="secondary-btn" data-retry-timeline>${esc(t("Retry"))}</button></div>`
       : viewLoadingHtml()
     : timeline.snaps.length
       ? renderTimeline(timeline)
-      : `<div class="inline-empty">${esc(t("No snaps synced yet."))}</div>`;
+      : `<div class="inline-empty">${esc(selected || author ? t("No checkpoints match these filters.") : t("No snaps synced yet."))}</div>`;
   el.detailContent.innerHTML = pageHeader({
     title: t("Timeline"),
-    meta: [esc(plural(count, "{count} checkpoint", "{count} checkpoints")), esc(selected ? truncate(selected.label, 60) : t("All Intents"))],
+    meta: [
+      esc(plural(count, "{count} checkpoint", "{count} checkpoints")),
+      esc(selected ? truncate(selected.label, 60) : t("All Intents")),
+      ...(author ? [esc(truncate(author.name, 40))] : []),
+    ],
     actions: filter,
   }) + `<div class="timeline" aria-busy="${timeline.loading || !timeline.loaded && !timeline.error}">${body}</div>`;
   if (!timeline.loaded && !timeline.loading && !timeline.error) loadTimelinePage();
+}
+
+/* History */
+
+// Who pushed: the signed-in account when there is one, else what the CLI declared.
+function pushedBy(revision) {
+  return revision?.pushed_by?.name || revision?.pushed_by?.login || revision?.pusher?.name || revision?.pusher?.email || "";
+}
+
+function joinList(items) {
+  if (items.length < 2) return items[0] || "";
+  return t("{items} and {last}", { items: items.slice(0, -1).join(t(", ")), last: items.at(-1) });
+}
+
+// One sentence for a revision: "Added 2 Intents and 5 Snaps; changed 1 Decision".
+function revisionSummary(summary = {}) {
+  const counts = (kind) => joinList([
+    ["intents", "{count} Intent", "{count} Intents"],
+    ["snaps", "{count} Snap", "{count} Snaps"],
+    ["decisions", "{count} Decision", "{count} Decisions"],
+  ].filter(([collection]) => summary[`${collection}_${kind}`]).map(([collection, one, other]) => plural(summary[`${collection}_${kind}`], one, other)));
+  const added = counts("added");
+  const changed = counts("changed");
+  if (added && changed) return t("Added {added}; changed {changed}", { added, changed });
+  if (added) return t("Added {items}", { items: added });
+  return changed ? t("Changed {items}", { items: changed }) : t("No semantic changes");
+}
+
+function revisionPageUrl(projectId, offset = 0, limit = REVISION_PAGE_SIZE) {
+  return apiUrl(`/api/v1/projects/${encodeURIComponent(projectId)}/revisions?${new URLSearchParams({ offset: String(offset), limit: String(limit) })}`);
+}
+
+function resetHistory() {
+  state._history = { projectId: state.currentProjectId, revisions: [], total: null, hasMore: false, loaded: false, loading: false, error: "" };
+  return state._history;
+}
+
+async function loadHistoryPage() {
+  const history = state._history;
+  if (!history || history.loading || (history.loaded && !history.hasMore)) return;
+  history.loading = true;
+  history.error = "";
+  try {
+    const page = await fetchJson(revisionPageUrl(history.projectId, history.revisions.length));
+    if (state._history !== history) return;
+    const seen = new Set(history.revisions.map((entry) => entry.revision));
+    history.revisions.push(...(page?.revisions || []).filter((entry) => !seen.has(entry.revision)));
+    history.total = Number.isFinite(page?.total) ? page.total : history.revisions.length;
+    history.hasMore = Boolean(page?.has_more) && Boolean((page?.revisions || []).length);
+    history.loaded = true;
+  } catch (error) {
+    if (state._history !== history) return;
+    history.error = error.message || t("Could not load data. Try again.");
+  } finally {
+    history.loading = false;
+  }
+  if (state._history === history && state.activeTab === "history" && state.overview && state.currentProjectId === history.projectId) renderView();
+}
+
+function revisionRow(revision, projectId) {
+  const who = pushedBy(revision);
+  return `
+    <button type="button" class="list-row history-row" data-detail-type="revision" data-remote-id="${esc(remoteId(projectId, revision.revision))}">
+      <span class="row-main">
+        <strong class="row-title">${esc(revisionSummary(revision.summary))}</strong>
+        <span class="row-byline">
+          ${who ? `<span>${esc(who)}</span>` : ""}
+          <span title="${esc(fmtDate(revision.created_at))}">${esc(relativeDate(revision.created_at))}</span>
+          ${revision.parent ? "" : `<span class="chip">${esc(t("First push"))}</span>`}
+        </span>
+      </span>
+      <span class="row-id">${esc(shortRevision(revision.revision))}</span>
+    </button>`;
+}
+
+function renderHistoryTab() {
+  let history = state._history;
+  if (!history || history.projectId !== state.currentProjectId) history = resetHistory();
+  const header = pageHeader({
+    title: t("History"),
+    help: "history",
+    meta: history.total ? [esc(plural(history.total, "{count} push", "{count} pushes"))] : [],
+  });
+  if (history.loaded && !history.revisions.length) {
+    el.detailContent.innerHTML = header + emptyState({
+      iconName: "history",
+      title: t("No pushes yet."),
+      body: t("Each push is one revision: what changed, who pushed it and when."),
+      extra: commandSnippet(["itt push"]),
+    });
+    return;
+  }
+  const remaining = Math.max(0, (history.total ?? history.revisions.length) - history.revisions.length);
+  const list = groupByDay(history.revisions).map((group) => `
+    <section class="history-group">
+      <h2 class="history-day"><span>${esc(group.label)}</span><span>${group.items.length}</span></h2>
+      <div class="list-card">${group.items.map((revision) => revisionRow(revision, history.projectId)).join("")}</div>
+    </section>`).join("");
+  const body = !history.loaded
+    ? history.error
+      ? `<div class="empty-state"><p>${esc(history.error)}</p><button type="button" class="secondary-btn" data-retry-history>${esc(t("Retry"))}</button></div>`
+      : viewLoadingHtml()
+    : list
+      + (history.error ? `<p class="timeline-error" role="alert">${esc(history.error)}</p>` : "")
+      + (history.hasMore ? `<button type="button" class="load-more-btn" id="load-more-history"${history.loading ? ' disabled aria-busy="true"' : ""}>${esc(history.loading ? t("Loading…") : t("Load more ({count})", {count: remaining}))}</button>` : "");
+  el.detailContent.innerHTML = `${header}<div class="history" aria-busy="${history.loading || !history.loaded && !history.error}">${body}</div>`;
+  if (!history.loaded && !history.loading && !history.error) loadHistoryPage();
+}
+
+function revisionObjectRow(type, object, projectId) {
+  const title = type === "snap" ? conciseSnapTitle(object) : object.what || object.id;
+  return relationItem(type, remoteId(projectId, object.id), object.id, title, byline(object), type === "snap" ? "" : object.status);
+}
+
+function revisionChange(change, type, projectId) {
+  if (change.field === "status") {
+    const label = (status) => (type === "decision" ? decisionStatusLabel(status) : intentStatusLabel(status));
+    return `<li><span>${esc(label(change.from))} → ${esc(label(change.to))}</span>${change.reason ? `<span class="revision-reason">${esc(change.reason)}</span>` : ""}</li>`;
+  }
+  const target = `<button type="button" class="revision-target" data-detail-type="intent" data-remote-id="${esc(remoteId(projectId, change.intent))}">${esc(change.intent)}</button>`;
+  return `<li><span>${tHtml(change.action === "removed" ? "Removed: {relation} {intent}" : "Added: {relation} {intent}", { relation: esc(relationLabel(change.type, "out")), intent: target })}</span></li>`;
+}
+
+function revisionChangedRow(type, item, projectId) {
+  return `<div class="revision-changed">
+    ${revisionObjectRow(type, item.object, projectId)}
+    <ul class="revision-changes">${item.changes.map((change) => revisionChange(change, type, projectId)).join("")}</ul>
+  </div>`;
+}
+
+// Each list stops at 200 entries while the summary stays exact, so a long push says what it left out.
+function revisionList(rows, total) {
+  const hidden = total - rows.length;
+  return collapsibleRelation(rows, 8) + (hidden > 0 ? `<p class="revision-more">${esc(t("{count} more not shown", {count: hidden}))}</p>` : "");
+}
+
+function buildRevisionDetailHtml(payload) {
+  const summary = payload.summary || {};
+  const changes = payload.changes || {};
+  const projectId = payload.project_id;
+  const who = pushedBy(payload);
+  const collections = [
+    ["intents", "intent", t("Added Intents")],
+    ["snaps", "snap", t("Added Snaps")],
+    ["decisions", "decision", t("Added Decisions")],
+  ];
+  const sections = collections.map(([collection, type, title]) => {
+    const total = summary[`${collection}_added`] || 0;
+    const rows = (changes[collection]?.added || []).map((object) => revisionObjectRow(type, object, projectId));
+    return total ? detailSection(title, revisionList(rows, total), total) : "";
+  });
+  const changed = collections.flatMap(([collection, type]) => (changes[collection]?.changed || []).map((item) => revisionChangedRow(type, item, projectId)));
+  const changedTotal = collections.reduce((sum, [collection]) => sum + (summary[`${collection}_changed`] || 0), 0);
+  if (changedTotal) sections.push(detailSection(t("Changed"), revisionList(changed, changedTotal), changedTotal));
+  return `
+    <div class="detail-header">
+      ${detailMeta([
+        payload.parent ? "" : `<span class="chip">${esc(t("First push"))}</span>`,
+        idChip(shortRevision(payload.revision)),
+        who ? `<span>${esc(t("Pushed by {name}", {name: who}))}</span>` : "",
+        `<span>${esc(fmtDate(payload.created_at))}</span>`,
+      ])}
+      <h2 class="detail-title" tabindex="-1">${esc(revisionSummary(summary))}</h2>
+    </div>
+    ${sections.join("") || `<div class="inline-empty">${esc(t("This push added and changed nothing."))}</div>`}
+    ${rawToggle(payload)}`;
 }
 
 /* Decisions */
@@ -2504,6 +2760,7 @@ function decisionConstraint(decision, index, deprecated = false) {
           <strong>${esc(scopeLabel)}</strong>
           <span>${esc(scopePreview)}</span>
         </span>
+        ${rowByline(decision)}
       </span>
     </button>`;
 }
@@ -2566,8 +2823,9 @@ function sheetIsOpen() {
 
 function renderSheetHeader(payload = null) {
   const entry = state._sheetStack?.at(-1);
-  const labels = { intent: t("Intent"), snap: t("Snap"), decision: t("Decision") };
-  const id = payload?.id || (entry ? entry.remoteId.split("__").slice(1).join("__") : "");
+  const labels = { intent: t("Intent"), snap: t("Snap"), decision: t("Decision"), revision: t("Revision") };
+  const raw = payload?.id || (entry ? entry.remoteId.split("__").slice(1).join("__") : "");
+  const id = entry?.type === "revision" ? shortRevision(raw) : raw;
   el.drawerTitle.innerHTML = entry ? `${esc(labels[entry.type] || "")} · <b class="mono">${esc(id)}</b>` : esc(t("Details"));
   el.drawerBack.classList.toggle("is-hidden", (state._sheetStack?.length || 0) < 2);
 }
@@ -2614,11 +2872,18 @@ function closeDrawer({ history = "auto" } = {}) {
 }
 
 function buildDetailHtml(type, payload) {
+  if (type === "revision") return buildRevisionDetailHtml(payload);
   return type === "intent"
     ? buildIntentDetailHtml(payload)
     : type === "decision"
       ? buildDecisionDetailHtml(payload)
       : buildSnapDetailHtml(payload);
+}
+
+function detailUrl(type, rId) {
+  if (type !== "revision") return apiUrl(`/api/v1/${DETAIL_PATHS[type]}/${encodeURIComponent(rId)}`);
+  const revision = rId.split("__").slice(1).join("__");
+  return apiUrl(`/api/v1/projects/${encodeURIComponent(projectIdFromRemoteId(rId))}/revisions/${encodeURIComponent(revision)}`);
 }
 
 // mode: "reset" opens a fresh stack, "push" adds a related object, "replace" retries the top.
@@ -2656,7 +2921,7 @@ async function openDetail(type, rId, { mode = "reset", history = "auto" } = {}) 
   el.drawerContent.scrollTop = 0;
   setViewBusy("sheet", true);
   try {
-    const payload = await fetchJson(apiUrl(`/api/v1/${DETAIL_PATHS[type]}/${encodeURIComponent(rId)}`));
+    const payload = await fetchJson(detailUrl(type, rId));
     if (!ownsViewRequest("sheet", request) || !sheetIsOpen()) return;
     state._detailCache?.set(cacheKey, payload);
     showDetailPayload(type, payload, wasOpen);
@@ -2757,7 +3022,7 @@ function buildIntentDetailHtml(payload) {
 
   return `
     <div class="detail-header">
-      ${detailMeta([statusBadge(intent.status), idChip(intent.id), originBadge(intent.origin), `<span>${esc(t("Created {time}", {time: fmtDate(intent.created_at)}))}</span>`])}
+      ${detailMeta([statusBadge(intent.status), idChip(intent.id), identityMeta(intent), `<span>${esc(t("Created {time}", {time: fmtDate(intent.created_at)}))}</span>`])}
       <h2 class="detail-title" tabindex="-1">${esc(intent.what)}</h2>
     </div>
     ${intent.why ? detailSection(t("Why"), formatText(intent.why)) : ""}
@@ -2839,7 +3104,7 @@ function buildDecisionDetailHtml(payload) {
 
   return `
     <div class="detail-header">
-      ${detailMeta([statusBadge(decision.status, "decision"), idChip(decision.id), originBadge(decision.origin), `<span>${esc(t("Created {time}", {time: fmtDate(decision.created_at)}))}</span>`])}
+      ${detailMeta([statusBadge(decision.status, "decision"), idChip(decision.id), identityMeta(decision), `<span>${esc(t("Created {time}", {time: fmtDate(decision.created_at)}))}</span>`])}
       <h2 class="detail-title" tabindex="-1">${esc(decision.what)}</h2>
       <p class="detail-context decision-detail-scope">${esc(decision.status === "active" ? t("Current cross-Intent constraint") : t("Deprecated constraint history"))} · ${esc(scopeSummary)}</p>
     </div>
@@ -2848,6 +3113,23 @@ function buildDecisionDetailHtml(payload) {
     ${decisionSourceSection(payload)}
     ${detailSection(t("Affected Intents"), intentsBody, payload.intents.length)}
     ${rawToggle({ decision, intents: payload.intents })}`;
+}
+
+// {repo}/commit/{sha}, or the /-/ form on GitLab; only https on the hosts the CLI recognises becomes a link.
+function commitUrl(repository, sha) {
+  let url;
+  try { url = new URL(repository); } catch { return ""; }
+  if (url.protocol !== "https:" || !["github.com", "gitlab.com", "gitee.com"].includes(url.hostname) || !/^[0-9a-f]{40,64}$/.test(sha)) return "";
+  return `${url.origin}${url.pathname.replace(/\/+$/, "")}${url.hostname === "gitlab.com" ? "/-" : ""}/commit/${sha}`;
+}
+
+function commitLine(snap) {
+  const sha = snap.git?.commit;
+  if (!sha) return "";
+  const label = tHtml("Commit {sha}", { sha: `<span class="mono">${esc(sha.slice(0, 7))}</span>` });
+  const url = commitUrl(state.overview?.project?.repository_url, sha);
+  const commit = url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label}</a>` : label;
+  return `<p class="detail-context snap-commit">${commit}${snap.git.dirty ? ` · ${esc(t("with uncommitted changes"))}` : ""}</p>`;
 }
 
 function buildSnapDetailHtml(payload) {
@@ -2870,9 +3152,10 @@ function buildSnapDetailHtml(payload) {
 
   return `
     <div class="detail-header detail-header-snap">
-      ${detailMeta([stateBadge(status), idChip(snap.id), originBadge(snap.origin), `<span>${esc(fmtDate(snap.created_at))}</span>`])}
+      ${detailMeta([stateBadge(status), idChip(snap.id), identityMeta(snap), `<span>${esc(fmtDate(snap.created_at))}</span>`])}
       <h2 class="detail-title detail-title-snap" tabindex="-1">${esc(conciseSnapTitle(snap, 110))}</h2>
       <p class="detail-context snap-detail-context">${esc(t("Semantic checkpoint for"))} ${parent}</p>
+      ${commitLine(snap)}
     </div>
     ${detailSection(
       t("Continuation checkpoint"),
@@ -2889,7 +3172,6 @@ function buildSnapDetailHtml(payload) {
 function renderSetupGuide(mode) {
   el.shell.classList.add("is-empty");
   const projectName = state.projects.find(p => p.id === state.currentProjectId)?.name;
-  const shellArg = value => `'${String(value).replaceAll("'", "'\\''")}'`;
   const linkCmd = `itt remote add origin ${shellArg(state.config.apiBaseUrl)} --project ${projectName ? shellArg(projectName) : "PROJECT"}`;
   const hosted = String(state.config.apiBaseUrl || "").replace(/\/+$/, "") === HOSTED_INTHUB;
   const steps = [];
@@ -3051,6 +3333,20 @@ function profileHtml() {
       </div>
       <p class="profile-note">${esc(t("Your name, avatar and sign-in are managed in Tenon."))}
         <a class="profile-link" href="${TENON_ACCOUNT_URL}">${esc(t("Edit in Tenon"))}${icon("external")}</a></p>
+      ${profileIdentityHtml(account)}
+    </div>`;
+}
+
+// The link between Git and this account is the author email, as on GitHub.
+function profileIdentityHtml(account) {
+  const title = `<strong class="profile-identity-title">${esc(t("Link your Snaps"))}</strong>`;
+  if (!account.email) return `<div class="profile-identity">${title}<p>${esc(t("Sign in again to link Snaps to this account."))}</p></div>`;
+  const email = /^[\w.+@-]+$/.test(account.email) ? account.email : shellArg(account.email);
+  return `
+    <div class="profile-identity">
+      ${title}
+      <p>${tHtml("Snaps link to this account when their author email is {email}. Set Git to the same address:", { email: `<span class="profile-email">${esc(account.email)}</span>` })}</p>
+      ${commandSnippet([`git config --global user.email ${email}`])}
     </div>`;
 }
 
@@ -3525,7 +3821,7 @@ async function loadProject(projectId, { detail = null, history = "replace" } = {
   const previous = {
     projectId: state._loadedProjectId || state.currentProjectId,
     overview: state.overview, handoff: state.handoff,
-    pageState: state._pageState, timeline: state._timeline, flow: state._flow,
+    pageState: state._pageState, timeline: state._timeline, history: state._history, flow: state._flow,
     searchResults: state._searchResults, detailCache: state._detailCache, snapCache: state._snapCache,
   };
   const switching = Boolean(state._loadedProjectId && state._loadedProjectId !== projectId);
@@ -3537,6 +3833,7 @@ async function loadProject(projectId, { detail = null, history = "replace" } = {
     state.handoff = null;
     state._searchResults = null;
     state._timeline = null;
+    state._history = null;
     state._flow = null;
     state._pageState = {};
     state._detailCache = new Map();
@@ -3563,6 +3860,7 @@ async function loadProject(projectId, { detail = null, history = "replace" } = {
       state.handoff = previous.handoff;
       state._pageState = previous.pageState;
       state._timeline = previous.timeline;
+      state._history = previous.history;
       state._flow = previous.flow;
       state._searchResults = previous.searchResults;
       state._detailCache = previous.detailCache;
@@ -3588,7 +3886,9 @@ async function loadProject(projectId, { detail = null, history = "replace" } = {
   state._detailCache = new Map();
   state._snapFailed = new Set();
   // The timeline pages again from the new revision, keeping the reader's Intent filter.
-  resetTimeline(state._timeline?.projectId === projectId ? state._timeline.intentId : "");
+  const filters = state._timeline?.projectId === projectId ? state._timeline : routedTimelineFilters(projectId);
+  resetTimeline(filters.intentId, filters.author);
+  state._history = null;
 
   el.intentCount.textContent = (overview.active_intents?.length || 0) + (overview.other_intents?.length || 0) || "";
   el.decisionCount.textContent = (overview.active_decisions?.length || 0) + (overview.deprecated_decisions?.length || 0) || "";
@@ -3729,6 +4029,7 @@ function renderSearchSuggestions() {
     ["intents", t("Intents"), "intent"],
     ["flow", t("Flow"), "flow"],
     ["snaps", t("Timeline"), "timeline"],
+    ["history", t("History"), "history"],
     ["decisions", t("Decisions"), "decision"],
     ["settings", t("Settings"), "settings"],
   ];
@@ -3996,7 +4297,11 @@ async function applyRoute(route) {
     catch (error) { setStatus(error.message, true); }
     return;
   }
+  const filtersChanged = route.tab === "snaps" && state._timeline
+    && (state._timeline.intentId !== route.intent || state._timeline.author !== route.author);
+  if (filtersChanged) resetTimeline(route.intent, route.author);
   if (route.tab !== state.activeTab) switchTab(route.tab, { history: "none" });
+  else if (filtersChanged && hasHistory()) renderView();
   if (route.detail && DETAIL_PATHS[route.detailType]) {
     if (state.selectedDetail?.remoteId !== route.detail) {
       try { await openDetail(route.detailType, route.detail, { history: "none" }); }
@@ -4367,14 +4672,34 @@ function bindEvents() {
     }
     const filter = e.target.closest("[data-timeline-intent]");
     if (filter) {
-      resetTimeline(filter.dataset.timelineIntent);
-      renderView();
-      el.detailContent.querySelector(".timeline-filter-trigger")?.focus();
+      setTimelineFilter({ intentId: filter.dataset.timelineIntent }, ".timeline-filter-trigger");
+      return;
+    }
+    const authorFilter = e.target.closest("[data-timeline-author]");
+    if (authorFilter) {
+      setTimelineFilter({ author: authorFilter.dataset.timelineAuthor }, ".author-filter .timeline-filter-trigger");
       return;
     }
     if (e.target.closest("[data-retry-timeline]")) {
       if (state._timeline) state._timeline.error = "";
       renderView();
+      return;
+    }
+    if (e.target.closest("[data-retry-history]")) {
+      if (state._history) state._history.error = "";
+      renderView();
+      return;
+    }
+    const moreHistory = e.target.closest("#load-more-history");
+    if (moreHistory) {
+      if (moreHistory.disabled) return;
+      const shown = el.detailContent.querySelectorAll(".history-row").length;
+      moreHistory.disabled = true;
+      moreHistory.textContent = t("Loading…");
+      const scroll = window.scrollY;
+      await loadHistoryPage();
+      window.scrollTo?.(0, scroll);
+      el.detailContent.querySelectorAll(".history-row")[shown]?.focus({ preventScroll: true });
       return;
     }
     if (e.target.closest("[data-flow-hide-ended]")) {

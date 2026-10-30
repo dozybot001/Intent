@@ -56,7 +56,8 @@ The sole sign-in entry is the same-origin `/auth/redirect` page. It paints a loc
 Authlib validates signed ID Tokens, issuer, audience, expiration and nonce. Every attempt
 uses S256 PKCE and a single-use browser-bound state. The callback requests only
 `openid profile email`, verifies UserInfo sub, verified email and matching platform role,
-then creates an independent product session without persisting central tokens.
+then creates an independent product session without persisting central tokens. The verified
+email is stored on the account only to match object authors to it.
 
 Schema v3 adds exact `(issuer, subject)` mappings to existing `accounts.id`. Project ownership,
 local business roles, public grants and PAT ownership are preserved. First-time Tenon users
@@ -99,7 +100,7 @@ into that release's protected backup directory. The login button reuses Tenon's
 
 ## Product-only deletion
 
-The account menu calls `POST /api/auth/tenon/delete/start` with immediate loading feedback. The backend derives the exact subject from a valid local browser session and uses its existing confidential client to request a source-bound central link. The frontend accepts only `https://account.tenon.asia/account/delete/`. Tenon owns scope selection, recent authentication and final confirmation; IntHub provides no duplicate confirmation or identity flow.
+Account settings call `POST /api/auth/tenon/delete/start` with immediate loading feedback. The backend derives the exact subject from a valid local browser session and uses its existing confidential client to request a source-bound central link. The frontend accepts only `https://account.tenon.asia/account/delete/`. Tenon owns scope selection, recent authentication and final confirmation; IntHub provides no duplicate confirmation or identity flow.
 
 `POST /api/auth/tenon/delete/execute` is server-only. It claims a short-lived grant with `client_secret_basic`, validates the exact issuer, `productId=inthub`, operation ID and subject, then deletes business data and commits a durable receipt in the same transaction. Browser sessions, admin privileges and client-provided identity claims cannot replace the proof; GET never deletes. A temporary central finish outage does not turn a committed deletion into a false failure.
 
@@ -124,6 +125,8 @@ Historical table definitions remain only for migration integrity and old-image r
 without product entry points. This release does not migrate or reupload local exports.
 
 `GET /api/v2/history` also takes `project_id`: IntHub then finds the project by ID, so clones follow a rename. Renaming and deleting are browser actions: `POST /api/v1/projects/{id}/rename` and `/delete` need the session cookie and a same-origin JSON request, and access tokens are refused. Delete needs the exact project name and removes the project's versions, head and legacy rows; local `.intent` directories are untouched. `GET /api/v1/projects/{id}/export` returns the current snapshot and the revision chain to the session or an access token.
+
+Schema v6 is additive: `accounts.email`, `projects.repository_url`, `pushed_by`, `pusher_json` and `changes_json` on `semantic_versions`, and `verified_objects`. Its cascade lets an earlier image delete projects after a rollback. A push stores the authenticated account, the identity the CLI declares and a summary of the changes; older revisions get their summary the first time they are listed. An object is verified when the pushing account's verified email matches its author. `GET /api/v1/projects/{id}/revisions` pages the history and `/revisions/{revision}` returns one semantic diff.
 
 Sources: [server history](../../apps/inthub_api/history.py),
 [CLI synchronization](../../src/intent_cli/commands/shared.py),

@@ -53,7 +53,8 @@ bash deploy/inthub/release.sh
 `https://account.tenon.asia/api/auth`，端点和签名公钥通过 discovery 获取；Authlib
 验证签名、issuer、audience、期限及 nonce，授权码采用 S256 PKCE，一次性 state
 绑定当前浏览器。回调仅申请 `openid profile email`，核对 UserInfo 的同一 sub、
-已验证邮箱和平台角色后建立 IntHub 独立会话，不保存中央 token。
+已验证邮箱和平台角色后建立 IntHub 独立会话，不保存中央 token。已验证邮箱保存在账号上，
+只用于把对象作者关联到账号。
 
 Schema v3 增加 `(issuer, subject)` 到原 `accounts.id` 的映射及会话授权记录。
 现有项目外键、业务角色、公开发布和 CLI PAT 保持原归属。新 Tenon 用户首次进入时
@@ -90,7 +91,7 @@ HttpOnly、Secure、SameSite=Strict Cookie 使用相同 Max-Age。回调及签�
 
 ## 产品级删除
 
-账号菜单的「删除账号」调用 `POST /api/auth/tenon/delete/start`，立即显示等待状态。后端只从有效浏览器会话读取确切 Tenon subject，用已有机密客户端请求中央来源绑定链接；前端仅接受 `https://account.tenon.asia/account/delete/`。中央统一承担整个账号与产品账号的选择、近期认证及最终确认，IntHub 不另建确认或认证页面。
+账号设置的「删除账号」调用 `POST /api/auth/tenon/delete/start`，立即显示等待状态。后端只从有效浏览器会话读取确切 Tenon subject，用已有机密客户端请求中央来源绑定链接；前端仅接受 `https://account.tenon.asia/account/delete/`。中央统一承担整个账号与产品账号的选择、近期认证及最终确认，IntHub 不另建确认或认证页面。
 
 `POST /api/auth/tenon/delete/execute` 为服务端删除入口。它先以 `client_secret_basic` 向中央 claim 短期 grant，严格核对 issuer、`productId=inthub`、操作 ID 与 subject，再在同一数据库事务中删除产品身份和记录持久回执；不能用浏览器会话、管理员角色或前端提交的身份代替证明，GET 不删除。中央 finish 暂时失败时仍返回已经提交的真实完成结果。
 
@@ -114,6 +115,8 @@ Web 会话不能写入。旧 workspace 的 link/sync/snapshot 接口、恢复参
 此次上线不迁移、不重上传本地导出数据。
 
 `GET /api/v2/history` 也接受 `project_id`，此时按 ID 查找项目，所以本地副本能跟随改名。改名和删除只能在浏览器里做：`POST /api/v1/projects/{id}/rename` 与 `/delete` 需要会话 Cookie 和同源 JSON 请求，访问令牌会被拒绝。删除需要输入完整项目名，会删除该项目的版本、head 和旧表数据，本机 `.intent` 目录不受影响。`GET /api/v1/projects/{id}/export` 向会话或访问令牌返回当前快照和修订链。
+
+Schema v6 只做加法：`accounts.email`、`projects.repository_url`、`semantic_versions` 的 `pushed_by`、`pusher_json`、`changes_json`，以及 `verified_objects` 表。该表随项目级联删除，回滚到旧镜像后仍能删除项目。每次推送保存认证账号、CLI 声明的身份和变化摘要；更早的修订在首次被列出时补算摘要。推送账号的已验证邮箱与作者邮箱一致时，对象标为已验证。`GET /api/v1/projects/{id}/revisions` 分页返回历史，`/revisions/{revision}` 返回一次修订的语义 diff。
 
 实现与验证：[history.py](../../apps/inthub_api/history.py)、
 [shared.py](../../src/intent_cli/commands/shared.py)、

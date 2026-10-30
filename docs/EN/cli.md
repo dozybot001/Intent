@@ -173,10 +173,12 @@ stateDiagram-v2
 | `created_at` | ✓ | ✓ | ✓ | ISO 8601 UTC timestamp |
 | `what` | ✓ | ✓ | ✓ | Intent/Decision: short theme. Snap: what was done (concise action). |
 | `origin` | ✓ | ✓ | ✓ | Auto-detected from environment (e.g. `claude-code`, `cursor`, `codex-desktop`) |
+| `author` | ✓ | ✓ | ✓ | Optional `{name, email}` of who recorded it, read the way Git reads its identity |
 | `why` | ✓ | ✓ | ✓ | Intent: why this goal. Snap: why this approach. Decision: why this constraint. |
 | `status` | ✓ | | ✓ | Intent: `active` / `suspend` / `done` / `cancelled`. Decision: `active` / `deprecated`. |
 | `intent_id` | | ✓ | | Parent intent |
 | `checkpoint` | | ✓ | | Optional continuation cells from the checkpoint flags: any of `verified`, `boundary`, `next`, `blocker`, `constraints`, each a non-blank string of at most 2,000 characters. Absent when none was recorded. |
+| `git` | | ✓ | | Optional commit the Snap was recorded on: `{commit}`, plus `dirty: true` when tracked files had uncommitted changes |
 | `snap_ids` | ✓ | | | Ordered list of child snaps |
 | `decision_ids` | ✓ | | | Linked decisions (auto-attached on create) |
 | `intent_ids` | | | ✓ | Linked intents (auto-attached on create) |
@@ -184,7 +186,7 @@ stateDiagram-v2
 | `relations` | ✓ | | | Optional, on the intent that declared them: `{type, intent, created_at}` entries, append-only; a withdrawn entry gains `removed_at` |
 | `source_intent_id` | | | ✓ | Optional intent the decision came from (`--from`); absent for project-level decisions |
 
-Once created through the CLI, descriptive fields such as `what`, `why`, `origin`, `checkpoint`, `source_intent_id`, and `created_at` are treated as write-once.
+Once created through the CLI, descriptive fields such as `what`, `why`, `origin`, `author`, `git`, `checkpoint`, `source_intent_id`, and `created_at` are treated as write-once.
 Later commands may advance `status`, add `reason`, append auto-maintained relationship fields such as `snap_ids`, `decision_ids`, and `intent_ids`, and append or withdraw `relations` entries.
 
 ### Origin detection
@@ -201,6 +203,20 @@ Later commands may advance `status`, add `reason`, append auto-maintained relati
 | Codespaces / GitHub Actions / Gitpod env vars | `codespaces` / `github-actions` / `gitpod` |
 
 Priority: explicit `--origin LABEL` > `ITT_ORIGIN` / `INTENT_ORIGIN` > built-in heuristics.
+
+### Author and commit
+
+`author` says who recorded an object; `origin` says which agent did. They work like a commit's author and a `Co-authored-by` line.
+
+| Source, in order | Note |
+|---|---|
+| `ITT_AUTHOR_NAME`, `ITT_AUTHOR_EMAIL` | Intent only |
+| `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL` | As for a commit |
+| Git's `user.name`, `user.email` | Project config, then global |
+
+A missing identity never stops recording: the field is left out, and `itt init`, `itt status` and `itt doctor` warn. Inside a Git repository a Snap also stores `git`.
+
+`itt push` sends the same identity as the declared pusher. It also sends the `origin` remote as a link when that is on github.com, gitlab.com or gitee.com, without credentials, so IntHub can open a Snap's commit.
 
 ## JSON Output
 

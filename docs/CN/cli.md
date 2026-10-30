@@ -173,10 +173,12 @@ stateDiagram-v2
 | `created_at` | ✓ | ✓ | ✓ | ISO 8601 UTC 时间戳 |
 | `what` | ✓ | ✓ | ✓ | Intent/Decision: 简短主题。Snap: 做了什么（简洁行为描述）。 |
 | `origin` | ✓ | ✓ | ✓ | 从环境自动检测（如 `claude-code`、`cursor`、`codex-desktop`） |
+| `author` | ✓ | ✓ | ✓ | 可选的 `{name, email}`，记录者身份，取值方式与 Git 相同 |
 | `why` | ✓ | ✓ | ✓ | Intent: 为什么要做。Snap: 为什么这么做。Decision: 为什么有这个约束。 |
 | `status` | ✓ | | ✓ | Intent: `active` / `suspend` / `done` / `cancelled`。Decision: `active` / `deprecated`。 |
 | `intent_id` | | ✓ | | 所属 intent |
 | `checkpoint` | | ✓ | | 可选的接续检查点，由检查点参数写入：`verified`、`boundary`、`next`、`blocker`、`constraints` 中的任意项，每项为非空字符串且最多 2000 个字符；未记录时不存在该字段 |
+| `git` | | ✓ | | 可选，记录 Snap 时所在的 commit：`{commit}`；已跟踪文件有未提交改动时加 `dirty: true` |
 | `snap_ids` | ✓ | | | 有序子 snap 列表 |
 | `decision_ids` | ✓ | | | 关联 decision（创建时自动挂载） |
 | `intent_ids` | | | ✓ | 关联 intent（创建时自动挂载） |
@@ -184,7 +186,7 @@ stateDiagram-v2
 | `relations` | ✓ | | | 可选，写在声明关系的 intent 上：只追加的 `{type, intent, created_at}` 记录；撤回时追加 `removed_at` |
 | `source_intent_id` | | | ✓ | 可选，decision 出自的 intent（`--from`）；项目级决策没有该字段 |
 
-通过 CLI 创建后，`what`、`why`、`origin`、`checkpoint`、`source_intent_id`、`created_at` 等描述性字段视为写一次。
+通过 CLI 创建后，`what`、`why`、`origin`、`author`、`git`、`checkpoint`、`source_intent_id`、`created_at` 等描述性字段视为写一次。
 后续命令可能推进 `status`，补充 `reason`，追加自动维护的关系字段（如 `snap_ids`、`decision_ids`、`intent_ids`），以及追加或撤回 `relations` 记录。
 
 ### Origin 检测
@@ -201,6 +203,20 @@ stateDiagram-v2
 | Codespaces / GitHub Actions / Gitpod 环境变量 | `codespaces` / `github-actions` / `gitpod` |
 
 优先级：显式 `--origin LABEL` > `ITT_ORIGIN` / `INTENT_ORIGIN` > 内置启发式。
+
+### 作者与 commit
+
+`author` 说明对象是谁记录的，`origin` 说明是哪个 Agent 写的，相当于 commit 的作者和 `Co-authored-by`。
+
+| 来源（按顺序） | 说明 |
+|---|---|
+| `ITT_AUTHOR_NAME`、`ITT_AUTHOR_EMAIL` | Intent 专用 |
+| `GIT_AUTHOR_NAME`、`GIT_AUTHOR_EMAIL` | 与 commit 相同 |
+| Git 的 `user.name`、`user.email` | 先项目配置，后全局配置 |
+
+没有身份不影响记录：字段留空，`itt init`、`itt status`、`itt doctor` 会提示。在 Git 仓库里记录的 Snap 还会写入 `git`。
+
+`itt push` 会把同一身份作为声明的推送人发送。`origin` 远端在 github.com、gitlab.com 或 gitee.com 上时，还会发送它的链接（不含凭据），IntHub 用它打开 Snap 对应的 commit。
 
 ## JSON 输出
 

@@ -114,7 +114,7 @@ def account_for_session(db_target, token):
             """
             SELECT
                 a.id, a.provider, a.provider_user_id, a.login,
-                a.display_name, a.avatar_url, a.role,
+                a.display_name, a.email, a.avatar_url, a.role,
                 a.created_at, a.updated_at, a.last_login_at,
                 s.expires_at
             FROM web_sessions AS s
@@ -197,7 +197,7 @@ def account_for_access_token(db_target, token):
             """
             SELECT
                 a.id, a.provider, a.provider_user_id, a.login,
-                a.display_name, a.avatar_url, a.role,
+                a.display_name, a.email, a.avatar_url, a.role,
                 a.created_at, a.updated_at, a.last_login_at,
                 t.expires_at, t.revoked_at
             FROM account_access_tokens AS t
@@ -262,6 +262,7 @@ def public_account(row):
         "provider_user_id": row["provider_user_id"],
         "login": row["login"],
         "display_name": row["display_name"],
+        "email": row["email"],
         "avatar_url": row["avatar_url"],
         "role": row["role"],
         "created_at": row["created_at"],

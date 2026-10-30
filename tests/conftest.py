@@ -18,7 +18,7 @@ for path in (REPO_ROOT, REPO_ROOT / "src"):
 def _hermetic_environment(monkeypatch, tmp_path_factory):
     """Ignore the developer's IntHub tokens, Intent config and git settings."""
     for name in list(os.environ):
-        if name.startswith(("INTHUB_", "ITT_", "INTENT_")) and name != "INTHUB_TEST_POSTGRES_URL":
+        if name.startswith(("INTHUB_", "ITT_", "INTENT_", "GIT_AUTHOR_")) and name != "INTHUB_TEST_POSTGRES_URL":
             monkeypatch.delenv(name)
         # The agent running the suite must not choose hosts or output formats for it.
         if name == "CLAUDECODE" or name.startswith("CODEX_"):

@@ -97,8 +97,8 @@ def account_for_identity(db_target, identity, *, request_started_at=None):
             conn.execute("INSERT INTO account_identities VALUES (?, ?, ?, ?)",
                          (ISSUER, subject, account_id, timestamp))
         conn.execute(
-            "UPDATE accounts SET display_name = COALESCE(?, display_name), updated_at = ?, last_login_at = ? WHERE id = ?",
-            (identity.get("name"), timestamp, timestamp, account_id),
+            "UPDATE accounts SET display_name = COALESCE(?, display_name), email = COALESCE(?, email), updated_at = ?, last_login_at = ? WHERE id = ?",
+            (identity.get("name"), identity.get("email"), timestamp, timestamp, account_id),
         )
         row = conn.execute("SELECT * FROM accounts WHERE id = ?", (account_id,)).fetchone()
     return public_account(row)
@@ -208,9 +208,11 @@ class TenonOIDCClient:
             expiration = min(float(claims["exp"]), time.time() + float(token["expires_in"]))
             if expiration <= time.time():
                 raise ValueError("Expired identity")
-            name = info.get("name")
+            name, email = info.get("name"), info.get("email")
+            # email_verified is required above; the address links Snaps to this account.
             return {"sub": claims["sub"], "platform_role": role, "expires_at": expiration,
-                    "name": name.strip()[:80] if isinstance(name, str) and name.strip() else None}
+                    "name": name.strip()[:80] if isinstance(name, str) and name.strip() else None,
+                    "email": email.strip()[:200] if isinstance(email, str) and email.strip() else None}
         except Exception as exc:
             # Never include provider payloads, claims, tokens or secrets in the error.
             raise APIError("OAUTH_IDENTITY_INVALID", "Tenon sign-in could not be verified.", 502) from exc

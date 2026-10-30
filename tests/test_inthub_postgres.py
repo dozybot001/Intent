@@ -17,6 +17,7 @@ from apps.inthub_api.db import connect
 from apps.inthub_api.history import link_history, push_history, read_history
 from intent_cli.hub.versions import revision_id
 from apps.inthub_api.projects import delete_project, export_project, rename_project
+from apps.inthub_api.revisions import project_revisions, revision_detail
 from apps.inthub_api.queries import list_projects, project_overview
 from apps.inthub_api.tenon import (
     account_for_identity, account_for_session as tenon_account_for_session,
@@ -119,6 +120,33 @@ def test_postgresql_project_rename_export_and_delete():
     assert [row["revision"] for row in export_project(POSTGRES_URL, pid, account["id"])["revisions"]] == [pushed["revision"]]
     assert delete_project(POSTGRES_URL, pid, renamed, account["id"]) == {"deleted": True, "id": pid}
     assert [project["id"] for project in list_projects(POSTGRES_URL, account_id=account["id"])["projects"]] == [taken]
+
+
+@pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")
+def test_postgresql_records_pushers_and_verifies_authors():
+    subject = "identity-" + os.urandom(6).hex()
+    email = f"{subject}@example.com"
+    account = account_for_identity(POSTGRES_URL, {"sub": subject, "name": "Ana", "email": email,
+                                                  "platform_role": "user", "expires_at": time.time() + 60})
+    pid = link_history(POSTGRES_URL, subject, account["id"])["project_id"]
+    intents = [{"id": f"intent-{number:03d}", "object": "intent", "status": "active", "origin": "test",
+                "created_at": "2026-10-30T00:00:00+00:00", "what": str(number), "why": "", "snap_ids": [], "decision_ids": [],
+                "author": {"name": "Ana", "email": email.upper()}} for number in range(1, 602)]
+    intents.append({**intents[0], "id": "intent-602", "author": {"name": "Bo", "email": "bo@example.com"}})
+    snapshot = {"intents": intents, "snaps": [], "decisions": []}
+    revision = revision_id(None, snapshot)
+    push_history(POSTGRES_URL, {"project_name": subject, "project_id": pid, "parent": None, "revision": revision,
+                                "snapshot": snapshot, "pusher": {"name": "Ana", "email": email},
+                                "repository": "https://github.com/acme/app"}, account["id"])
+    overview = project_overview(POSTGRES_URL, pid, account_id=account["id"])
+    assert overview["project"]["repository_url"] == "https://github.com/acme/app"
+    assert sum(1 for intent in overview["active_intents"] if intent.get("verified")) == 601
+    view = project_revisions(POSTGRES_URL, pid, account_id=account["id"])["revisions"][0]
+    assert view["pushed_by"]["name"] == "Ana" and view["pusher"]["email"] == email and view["summary"]["intents_added"] == 602
+    assert revision_detail(POSTGRES_URL, pid, revision, account["id"])["changes"]["intents"]["truncated"] is True
+    delete_project(POSTGRES_URL, pid, subject, account["id"])
+    with connect(POSTGRES_URL) as conn:
+        assert conn.execute("SELECT count(*) AS n FROM verified_objects WHERE project_id = ?", (pid,)).fetchone()["n"] == 0
 
 
 @pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")

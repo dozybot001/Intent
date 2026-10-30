@@ -5,8 +5,10 @@ import json
 
 from apps.inthub_api.common import APIError, new_id, now_utc
 from apps.inthub_api.db import connect
+from intent_cli.hub.changes import COLLECTIONS, semantic_changes, summarize
 from intent_cli.hub.snapshots import SnapshotError, require_fast_forward, snapshot_sha256, validate_snapshot
 from intent_cli.hub.versions import revision_id, validate_project_name
+from intent_cli.identity import FIELD_MAX_CHARS, REPOSITORY
 
 
 def project_name(value):
@@ -76,6 +78,30 @@ def read_history(db_path, name, account_id=None, project_id=None):
                 "project_name": project["repo_id"] if project else name, **head}
 
 
+def _declared_pusher(value):
+    """The identity the CLI declares, like a Git committer; the token proves the account."""
+    if not isinstance(value, dict):
+        return None
+    pusher = {key: value[key][:FIELD_MAX_CHARS] for key in ("name", "email")
+              if isinstance(value.get(key), str) and value[key].strip()}
+    return json.dumps(pusher, ensure_ascii=False) if pusher else None
+
+
+def _record_verified(conn, project_id, revision, changes, account_id):
+    """An object is verified when the account that pushed it has the author's verified email."""
+    row = conn.execute("SELECT email FROM accounts WHERE id = ?", (account_id,)).fetchone() if account_id else None
+    email = (row["email"] or "").casefold() if row else ""
+    if not email:
+        return
+    verified = [obj["id"] for collection in COLLECTIONS for obj in changes[collection]["added"]
+                if str((obj.get("author") or {}).get("email", "")).casefold() == email]
+    for start in range(0, len(verified), 500):
+        batch = verified[start:start + 500]
+        conn.execute(f"""INSERT INTO verified_objects (project_id, object_id, revision)
+            VALUES {", ".join(["(?, ?, ?)"] * len(batch))} ON CONFLICT DO NOTHING""",
+            tuple(value for object_id in batch for value in (project_id, object_id, revision)))
+
+
 def push_history(db_path, payload, account_id=None):
     name = project_name(payload.get("project_name"))
     snapshot = payload.get("snapshot")
@@ -111,10 +137,17 @@ def push_history(db_path, payload, account_id=None):
             except SnapshotError as exc:
                 raise APIError("HISTORY_CONFLICT", str(exc), 409) from exc
         accepted = now_utc()
+        changes = semantic_changes(head["snapshot"], snapshot)
         conn.execute("""INSERT INTO semantic_versions
-            (project_id, revision, parent, snapshot_json, created_at) VALUES (?, ?, ?, ?, ?)""",
-            (pid, expected_revision, head["revision"], json.dumps(snapshot, ensure_ascii=False), accepted))
+            (project_id, revision, parent, snapshot_json, created_at, pushed_by, pusher_json, changes_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (pid, expected_revision, head["revision"], json.dumps(snapshot, ensure_ascii=False), accepted,
+             account_id, _declared_pusher(payload.get("pusher")), json.dumps(summarize(changes))))
         conn.execute("UPDATE semantic_heads SET revision = ? WHERE project_id = ?", (expected_revision, pid))
+        _record_verified(conn, pid, expected_revision, changes, account_id)
+        repository = payload.get("repository")
+        if isinstance(repository, str) and REPOSITORY.fullmatch(repository):
+            conn.execute("UPDATE projects SET repository_url = ? WHERE id = ?", (repository, pid))
         return {"format_version": 2, "project_id": pid, "project_name": name,
                 "revision": expected_revision, "parent": head["revision"],
                 "snapshot_sha256": digest, "accepted_at": accepted, "changed": True}

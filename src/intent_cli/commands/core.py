@@ -4,6 +4,7 @@ from intent_cli import __version__
 from intent_cli import relations as relation_rules
 from intent_cli.commands.common import now_utc, require_init, workspace_mutation
 from intent_cli.output import emit_json, error, json_mode, success
+from intent_cli import identity
 from intent_cli.origin import detect_origin
 from intent_cli.store import (
     CHECKPOINT_FIELDS,
@@ -31,6 +32,13 @@ def cmd_version(_args):
     success("version", {"version": __version__})
 
 
+def _attribute(obj):
+    """Record the author, omitted rather than empty so objects keep the older shape without one."""
+    author = identity.author()
+    if author:
+        obj["author"] = author
+
+
 def cmd_init(args):
     path, err = init_workspace()
     if err == "ALREADY_EXISTS":
@@ -56,7 +64,10 @@ def cmd_init(args):
         set_enabled(path, True)
         maintenance = {"enabled": True, "hooks": {"host": host, "configured": False, "enforcement": "not_attested"}}
         warnings.append(f"Local maintenance is enabled but hooks were not installed: {type(exc).__name__}.")
-    success("init", {"path": str(path), "maintenance": maintenance}, warnings)
+    author = identity.author()
+    if not author:
+        warnings.append(identity.MISSING)
+    success("init", {"path": str(path), "author": author, "maintenance": maintenance}, warnings)
 
 
 def cmd_inspect(args):
@@ -210,7 +221,7 @@ def cmd_doctor(_args):
     base = require_init()
     with workspace_write_lock(base, operation="doctor"):
         graph = load_graph_once(base, tolerant=True)
-    success("doctor", validate_graph(graph))
+    success("doctor", validate_graph(graph), [] if identity.author() else [identity.MISSING])
 
 
 def _intent_result_for_json(intent):
@@ -346,6 +357,7 @@ def cmd_intent_create(args):
     }
     if relations:
         intent["relations"] = relations
+    _attribute(intent)
     create_object(base, "intent", obj_id, intent)
 
     for decision in active_decisions:
@@ -650,6 +662,10 @@ def cmd_snap_create(args):
     # Omitted rather than empty, so Snaps without a checkpoint keep the legacy shape.
     if checkpoint:
         snap["checkpoint"] = checkpoint
+    _attribute(snap)
+    commit = identity.commit()
+    if commit:
+        snap["git"] = commit
     create_object(base, "snap", obj_id, snap)
 
     intent.setdefault("snap_ids", []).append(obj_id)
@@ -697,6 +713,7 @@ def cmd_decision_create(args):
     }
     if source:
         decision["source_intent_id"] = source
+    _attribute(decision)
     create_object(base, "decision", obj_id, decision)
 
     for intent in active_intents:

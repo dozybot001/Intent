@@ -3,6 +3,7 @@
 import re
 from urllib.parse import urlencode
 
+from intent_cli import identity
 from intent_cli.commands.common import require_init
 from intent_cli.hub.client import http_json
 from intent_cli.hub.credentials import normalize_api_base_url, GlobalHubConfigError
@@ -95,6 +96,10 @@ def _remote(base, args, config, name):
     return api, result
 
 
+def _identity_warning():
+    return [] if identity.author() else [identity.MISSING]
+
+
 def _followed(name, remote):
     """The remote's current name, and the old one when the project was renamed on IntHub."""
     return remote["project_name"], ({"renamed_from": name} if remote["project_name"] != name else {})
@@ -129,13 +134,13 @@ def cmd_status(args):
     if getattr(args, "local", False) or not remote_configured:
         success("status", {"project_name": name, "remote_checked": False, "remote_configured": remote_configured,
             "local_changes": digest != config.get("baseline_sha256") and bool(config.get("baseline_sha256") or any(snapshot.values())),
-            "revision": config.get("revision"), "counts": {k: len(v) for k, v in snapshot.items()}})
+            "revision": config.get("revision"), "counts": {k: len(v) for k, v in snapshot.items()}}, _identity_warning())
         return
     api, remote = _remote(base, args, config, name)
     name, followed = _followed(name, remote)
     success("status", {"project_name": name, **followed, "api_base_url": api, "remote_checked": True,
         "state": _relation(config, snapshot, digest, remote), "revision": config.get("revision"),
-        "remote_revision": remote["revision"], "counts": {k: len(v) for k, v in snapshot.items()}})
+        "remote_revision": remote["revision"], "counts": {k: len(v) for k, v in snapshot.items()}}, _identity_warning())
 
 
 def cmd_remote(args):
@@ -229,7 +234,8 @@ def cmd_push(args):
         revision = revision_id(parent, snapshot)
         result = http_json("POST", f"{api}/api/v2/history", {
             "project_name": name, "project_id": remote["project_id"],
-            "parent": parent, "revision": revision, "snapshot": snapshot}, token)
+            "parent": parent, "revision": revision, "snapshot": snapshot,
+            "pusher": identity.author(), "repository": identity.repository()}, token)
         if (not isinstance(result, dict) or result.get("project_id") != remote["project_id"]
                 or result.get("revision") != revision or result.get("snapshot_sha256") != digest):
             error("SERVER_ERROR", "Push response does not match the submitted revision; check status.")

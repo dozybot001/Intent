@@ -1193,6 +1193,10 @@ select.text-field {
   background: transparent;
 }
 
+.status-verified .status-dot {
+  background: var(--green-dot);
+}
+
 .status-done .status-dot {
   background: var(--muted);
 }
@@ -1450,6 +1454,10 @@ select.text-field {
   color: var(--faint);
 }
 
+.brief-foot-meta > .status-pill::before {
+  content: none;
+}
+
 .brief-open,
 .link-button {
   display: inline-flex;
@@ -1604,6 +1612,31 @@ select.text-field {
 .row-id {
   color: var(--muted);
   font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.row-byline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.row-byline > span:not(.status-pill, .chip) + span:not(.status-pill, .chip)::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--faint);
+}
+
+.row-byline .status-pill {
+  height: 20px;
+  padding: 0 7px;
   font-size: 11.5px;
 }
 
@@ -1772,7 +1805,8 @@ select.text-field {
 .timeline-toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .timeline-filter {
@@ -2033,6 +2067,77 @@ select.text-field {
 .timeline-error {
   margin-top: 14px;
   color: var(--red);
+  font-size: 13px;
+}
+
+/* --- History ------------------------------------------------------------- */
+
+.history-group + .history-group {
+  margin-top: 24px;
+}
+
+.history-day {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.history-day span + span {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.list-row.history-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.detail-header + .inline-empty {
+  margin-top: 20px;
+}
+
+.revision-changed + .revision-changed {
+  border-top: 1px solid var(--border);
+}
+
+.revision-changes {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0 14px 12px 44px;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.5;
+  list-style: none;
+}
+
+.revision-reason {
+  display: block;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.revision-target {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+}
+
+.revision-target:hover {
+  text-decoration-color: currentColor;
+}
+
+.detail-section .revision-more {
+  margin-top: 8px;
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -3106,6 +3211,31 @@ select.text-field {
   flex: 0 0 auto;
 }
 
+.profile-identity {
+  grid-column: 1 / -1;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.profile-identity-title {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.profile-email {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+
 .token-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 150px auto;
@@ -3331,6 +3461,32 @@ select.text-field {
 
 .detail-context button:hover {
   text-decoration-color: currentColor;
+}
+
+.detail-context a {
+  color: var(--ink);
+  font-weight: 560;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+}
+
+.detail-context a:hover {
+  text-decoration-color: currentColor;
+}
+
+.snap-commit .mono {
+  font-size: 0.94em;
+}
+
+.detail-email {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.detail-verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .detail-section {
@@ -4645,6 +4801,11 @@ select.text-field {
 
   .token-row {
     padding: 14px 16px;
+  }
+
+  /* The filter menus right below already name what is selected; a long title would only wrap here. */
+  .shell[data-active-tab="snaps"] .page-meta > :not(:first-child) {
+    display: none;
   }
 
   /* One fact per line: a wrapped line never starts with a separator. */

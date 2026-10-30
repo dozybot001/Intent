@@ -33,6 +33,7 @@ from apps.inthub_api.db import check_database, describe_database
 from apps.inthub_api.history import link_history, push_history, read_history
 from apps.inthub_api.product_deletion import ProductDeletionClient, subject_for_account
 from apps.inthub_api.projects import delete_project, export_project, rename_project
+from apps.inthub_api.revisions import project_revisions, revision_detail
 from apps.inthub_api.queries import (
     SNAP_PAGE_MAX,
     get_decision_detail,
@@ -52,6 +53,7 @@ DEFAULT_MAX_BODY_BYTES = 16 * 1024 * 1024
 AUTH_BODY_LIMIT = 16 * 1024
 # Host-only and HTTPS-only: no other *.tenon.asia site can plant this cookie.
 SESSION_COOKIE = "__Host-inthub_session"
+REVISION_PAGE_MAX = 100
 OAUTH_STATE_COOKIE = "inthub_oauth_state"
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 QUIET_PATHS = {"/health", "/healthz", "/readyz"}
@@ -655,9 +657,20 @@ def make_handler(
                         raise APIError("INVALID_INPUT", "Invalid intent_id.", status=400) from exc
                 self._send_json(
                     200,
-                    _json_success(project_snaps(db_path, project_id, offset, limit, intent_id, account_id=account_id)),
+                    _json_success(project_snaps(db_path, project_id, offset, limit, intent_id, query.get("author", [None])[0], account_id=account_id)),
                     compact=True,
                 )
+                return
+
+            if path.startswith("/api/v1/projects/") and path.endswith("/revisions"):
+                offset = _query_int(query, "offset", 0, 0, None)
+                limit = _query_int(query, "limit", 30, 1, REVISION_PAGE_MAX)
+                self._send_json(200, _json_success(project_revisions(db_path, path.split("/")[4], offset, limit, account_id=account_id)), compact=True)
+                return
+
+            if re.fullmatch(r"/api/v1/projects/[^/]+/revisions/[^/]+", path):
+                _, _, _, _, project_id, _, revision = path.split("/")
+                self._send_json(200, _json_success(revision_detail(db_path, project_id, revision, account_id=account_id)), compact=True)
                 return
 
             if path.startswith("/api/v1/projects/") and path.endswith("/export"):

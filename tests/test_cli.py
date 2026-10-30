@@ -785,7 +785,7 @@ class TestSnap:
         r = _run(workspace, "snap", "create", "Verified: legacy prose", "--why", "Next: unchanged")
         stored = json.loads((workspace / ".intent" / "snaps" / "snap-001.json").read_text())
         assert "checkpoint" not in r["result"]
-        assert set(stored) == {"id", "object", "created_at", "what", "why", "intent_id", "origin"}
+        assert set(stored) - {"author", "git"} == {"id", "object", "created_at", "what", "why", "intent_id", "origin"}
 
     @pytest.mark.parametrize(
         ("flag", "value", "message"),
