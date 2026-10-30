@@ -9,13 +9,15 @@
     verified: "Pushed by the account that owns this email.",
     flow: "Part of branches off its parent and rejoins it once done or dropped. Derived from branches off without rejoining. Succeeds is a thick arrow: the lane flows on into its successor. Depends on is a thin arrow from the prerequisite: amber while blocked, green once satisfied, red if it was cancelled. Conflicts with is a dashed line marked vs until one side ends. Diamonds are Decisions; hollow ones are deprecated.",
   };
+  // Short hints on hover or focus take the same popover in place of the browser's own title tooltip.
+  const hints = "[data-help], [data-help-copy], [data-tip]";
   const panel = document.getElementById("help-popover");
   let trigger = null;
   let pinned = false;
   let timer;
   function close() {
     if (trigger) {
-      trigger.setAttribute("aria-expanded", "false");
+      if (trigger.dataset.tip === undefined) trigger.setAttribute("aria-expanded", "false");
       trigger.removeAttribute("aria-describedby");
     }
     if (panel.matches(":popover-open")) panel.hidePopover();
@@ -32,7 +34,7 @@
     const left = viewport?.offsetLeft || 0;
     const top = viewport?.offsetTop || 0;
     if (rect.bottom < top + 16 || rect.top > top + height - 16) return close();
-    panel.style.width = `${Math.min(260, width - 32)}px`;
+    panel.style.width = panel.classList.contains("is-tip") ? "" : `${Math.min(260, width - 32)}px`;
     const below = top + height - rect.bottom - 24;
     const above = rect.top - top - 24;
     const useAbove = below < 150 && above > below;
@@ -45,14 +47,17 @@
     clearTimeout(timer);
     if (pin && trigger === button && pinned) return close();
     if (trigger !== button) close();
+    const tip = button.dataset.tip;
+    if (tip === "") return;
     trigger = button;
     pinned = pin || pinned;
-    panel.textContent = window.IntHubI18n.t(copy[button.dataset.help] || button.dataset.helpCopy || "");
+    panel.textContent = tip ?? window.IntHubI18n.t(copy[button.dataset.help] || button.dataset.helpCopy || "");
+    panel.classList.toggle("is-tip", tip !== undefined);
     (button.closest("dialog") || document.body).appendChild(panel);
     panel.hidden = false;
     if (!panel.matches(":popover-open")) panel.showPopover();
     button.setAttribute("aria-describedby", "help-popover");
-    button.setAttribute("aria-expanded", "true");
+    if (tip === undefined) button.setAttribute("aria-expanded", "true");
     position();
   }
   document.addEventListener("click", (event) => {
@@ -62,15 +67,15 @@
   });
   document.addEventListener("pointerover", (event) => {
     if (event.pointerType === "touch") return;
-    const button = event.target.closest("[data-help], [data-help-copy]");
+    const button = event.target.closest(hints);
     if (button && (!pinned || trigger === button)) open(button);
     if (panel.contains(event.target)) clearTimeout(timer);
   });
   document.addEventListener("pointerout", (event) => {
-    if (!pinned && (event.target.closest("[data-help], [data-help-copy]") || panel.contains(event.target))) timer = setTimeout(close, 180);
+    if (!pinned && (event.target.closest(hints) || panel.contains(event.target))) timer = setTimeout(close, 180);
   });
   document.addEventListener("focusin", (event) => {
-    const button = event.target.closest("[data-help], [data-help-copy]");
+    const button = event.target.closest(hints);
     if (button) open(button);
   });
   document.addEventListener("focusout", () => { if (!pinned) timer = setTimeout(close, 180); });

@@ -19,9 +19,11 @@ const INSTALL_COMMAND = "curl -fsSL https://raw.githubusercontent.com/dozybot001
 const SKILL_COMMAND = "npx skills add dozybot001/Intent -g -a claude-code -a codex";
 // The CLI's default endpoint: there `itt auth login` needs no URL and a push names the project after its directory.
 const HOSTED_INTHUB = "https://inthub.tenon.asia";
-// Account, settings and team pages live on their own paths; project views stay on / with query parameters.
+// Account and Settings open in a dialog over the current page, and team pages have paths of their own;
+// project views stay on / with query parameters.
 const ACCOUNT_PATHS = { profile: "/account", danger: "/account/danger" };
 const SETTINGS_PATHS = { tokens: "/settings", teams: "/settings/teams" };
+const DIALOG_PATHS = { account: ACCOUNT_PATHS, settings: SETTINGS_PATHS };
 const TENON_ACCOUNT_URL = "https://account.tenon.asia/account/";
 // Lifetimes the token form offers, in days.
 const TOKEN_LIFETIMES = [30, 90, 365];
@@ -44,7 +46,7 @@ const state = {
   handoff: null,
   authenticated: false,
   account: null,
-  // "project" shows the tabs; "home", "account", "settings", "team" and "invite" render beside the untouched project view.
+  // "project" shows the tabs; "home", "team" and "invite" render beside the untouched project view.
   page: "project",
   // A visitor reads one public project on a hosted hub, without an account.
   visitor: false,
@@ -72,6 +74,10 @@ const el = {
   siteContent: document.getElementById("site-content"),
   skipLink: document.querySelector(".skip-link"),
   statusLine: document.getElementById("status-line"),
+  settingsDialog: document.getElementById("settings-dialog"),
+  settingsDialogTitle: document.getElementById("settings-dialog-title"),
+  settingsDialogBody: document.getElementById("settings-dialog-body"),
+  settingsDialogClose: document.getElementById("settings-dialog-close"),
   intentCount: document.getElementById("intent-count"),
   decisionCount: document.getElementById("decision-count"),
   snapCount: document.getElementById("snap-count"),
@@ -325,7 +331,7 @@ function byline(object) {
 
 function verifiedBadge(object) {
   if (!object?.verified) return "";
-  return `<span class="status-pill status-verified" title="${esc(t("Pushed by the account that owns this email."))}"><span class="status-dot" aria-hidden="true"></span>${esc(t("Verified"))}</span>`;
+  return `<span class="status-pill status-verified" data-tip="${esc(t("Pushed by the account that owns this email."))}"><span class="status-dot" aria-hidden="true"></span>${esc(t("Verified"))}</span>`;
 }
 
 // One quiet line in a list row or timeline entry; nothing when the object names nobody.
@@ -463,6 +469,7 @@ function showAuthGate(message = "", { keepPage = false } = {}) {
   closeDrawer({ history: "none" });
   if (el.searchDialog.open) el.searchDialog.close();
   if (el.confirmDialog.open) el.confirmDialog.close();
+  closeSettingsDialog({ history: "none" });
   if (!keepPage) {
     if (state.page !== "project") setPage("project");
     for (const view of ["projects", "project", "detail", "sheet", "search"]) beginViewRequest(view);
@@ -557,12 +564,11 @@ function readRoute() {
   const requestedTab = p.get("tab") || "overview";
   const q = p.get("q") || "";
   const path = window.location.pathname.replace(/\/+$/, "");
-  const account = path.match(/^\/account(?:\/(danger))?$/);
-  const settings = path.match(/^\/settings(?:\/(teams))?$/);
+  const dialog = dialogRoute(path);
   const team = path.match(/^\/teams\/([^/]+)(?:\/(projects|settings))?$/);
   return {
-    page: account ? "account" : settings ? "settings" : team ? "team" : path === "/invite" ? "invite" : "project",
-    pane: account ? account[1] || "profile" : settings ? settings[1] || "tokens" : team ? team[2] || "members" : "",
+    page: dialog?.page || (team ? "team" : path === "/invite" ? "invite" : "project"),
+    pane: dialog?.pane || (team ? team[2] || "members" : ""),
     team: team ? team[1] : "",
     token: p.get("token") || "",
     project: p.get("project"),
@@ -577,6 +583,15 @@ function readRoute() {
   };
 }
 
+// Which dialog pane a path opens, if any.
+function dialogRoute(path) {
+  for (const [page, panes] of Object.entries(DIALOG_PATHS)) {
+    const pane = Object.keys(panes).find((name) => panes[name] === path);
+    if (pane) return { page, pane };
+  }
+  return null;
+}
+
 function teamPath(slug, pane = "members") {
   return `/teams/${encodeURIComponent(slug)}${pane === "members" ? "" : `/${pane}`}`;
 }
@@ -586,8 +601,7 @@ function projectPath(projectId, query = {}) {
 }
 
 function routeUrl() {
-  if (state.page === "account") return ACCOUNT_PATHS[state._pane] || ACCOUNT_PATHS.profile;
-  if (state.page === "settings") return SETTINGS_PATHS[state._pane] || SETTINGS_PATHS.tokens;
+  if (state._dialog) return DIALOG_PATHS[state._dialog][state._pane];
   if (state.page === "team") return teamPath(state._team.slug, state._team.pane);
   if (state.page === "invite") return `/invite${window.location.search}`;
   if (state.page === "home") return "/";
@@ -623,8 +637,15 @@ function writeRoute(mode = "replace", entry = "page") {
 
 /* ---- Status ---- */
 
+// A modal dialog leaves the page inert and under its backdrop, so the message moves into the top one.
+function placeStatusLine() {
+  const parent = [...document.querySelectorAll("dialog[open]")].at(-1) || el.statusHome;
+  if (parent && el.statusLine.parentElement !== parent) parent.append(el.statusLine);
+}
+
 function setStatus(msg, isError = false) {
   state._statusMessage = window.IntHubI18n.keyFor(msg);
+  placeStatusLine();
   el.statusLine.textContent = msg;
   el.statusLine.classList.toggle("muted", !isError);
   el.statusLine.classList.toggle("is-error", isError);
@@ -2373,7 +2394,7 @@ function flowControls(flow, options, focused) {
     <div class="flow-controls">
       <button type="button" class="flow-toggle" data-flow-hide-ended aria-pressed="${Boolean(flow.hideEnded)}">${icon("hide")}<span>${esc(t("Hide ended"))}</span></button>
       <details class="timeline-filter flow-focus">
-        <summary class="timeline-filter-trigger" title="${esc(t("Focus on one Intent and its direct relations"))}">${icon("focus")}<span>${esc(focused ? truncate(focused.what || focused.id, 36) : t("Focus on…"))}</span>${icon("chevronDown")}</summary>
+        <summary class="timeline-filter-trigger" data-tip="${esc(t("Focus on one Intent and its direct relations"))}">${icon("focus")}<span>${esc(focused ? truncate(focused.what || focused.id, 36) : t("Focus on…"))}</span>${icon("chevronDown")}</summary>
         <div class="timeline-filter-menu">${option("", t("All Intents"))}${options.map((intent) => option(intent.id, intent.what || intent.id, intent.id)).join("")}</div>
       </details>
     </div>`;
@@ -2656,11 +2677,11 @@ function renderSnapsTab() {
   const filter = `
     <div class="timeline-toolbar">
       <details class="timeline-filter">
-        <summary class="timeline-filter-trigger" title="${esc(t("Filter timeline by Intent"))}">${icon("intent")}<span>${esc(selected ? truncate(selected.label, 44) : t("All Intents"))}</span>${icon("chevronDown")}</summary>
+        <summary class="timeline-filter-trigger" data-tip="${esc(t("Filter timeline by Intent"))}">${icon("intent")}<span>${esc(selected ? truncate(selected.label, 44) : t("All Intents"))}</span>${icon("chevronDown")}</summary>
         <div class="timeline-filter-menu">${optionHtml("data-timeline-intent", "", timeline.intentId, t("All Intents"), total)}${options.map((option) => optionHtml("data-timeline-intent", option.key, timeline.intentId, option.label, option.count)).join("")}</div>
       </details>
       ${authors.length ? `<details class="timeline-filter author-filter">
-        <summary class="timeline-filter-trigger" title="${esc(t("Filter timeline by author"))}">${icon("user")}<span>${esc(author ? truncate(author.name, 28) : t("All authors"))}</span>${icon("chevronDown")}</summary>
+        <summary class="timeline-filter-trigger" data-tip="${esc(t("Filter timeline by author"))}">${icon("user")}<span>${esc(author ? truncate(author.name, 28) : t("All authors"))}</span>${icon("chevronDown")}</summary>
         <div class="timeline-filter-menu">${optionHtml("data-timeline-author", "", timeline.author, t("All authors"), total)}${authors.map((entry) => optionHtml("data-timeline-author", entry.key, timeline.author, entry.name, entry.snaps)).join("")}</div>
       </details>` : ""}
     </div>`;
@@ -2749,7 +2770,7 @@ function revisionRow(revision, projectId) {
         <strong class="row-title">${esc(revisionSummary(revision.summary))}</strong>
         <span class="row-byline">
           ${who ? `<span>${esc(who)}</span>` : ""}
-          <span title="${esc(fmtDate(revision.created_at))}">${esc(relativeDate(revision.created_at))}</span>
+          <span data-tip="${esc(fmtDate(revision.created_at))}">${esc(relativeDate(revision.created_at))}</span>
           ${revision.parent ? "" : `<span class="chip">${esc(t("First push"))}</span>`}
         </span>
       </span>
@@ -3379,11 +3400,9 @@ function currentProject() {
 
 function updateDocumentTitle() {
   const project = currentProject();
-  const lead = {
+  const lead = state._dialog ? dialogTitle() : {
     project: project?.full_name,
     home: t("Projects"),
-    account: t("Account"),
-    settings: t("Settings"),
     team: state._team?.data?.team?.name || state._team?.slug,
     invite: t("Team invite"),
   }[state.page];
@@ -3415,7 +3434,7 @@ function monogram(name) {
   return `<span class="monogram" aria-hidden="true">${esc([...String(name || "").trim()][0]?.toUpperCase() || "?")}</span>`;
 }
 
-// One layout for Account, Team and the project's Settings tab: a nav of links and one pane at a time.
+// One layout for the Account and Settings dialog, a team and the project's Settings tab: a nav of links and one pane at a time.
 function settingsLayout({ title = "", label, items, pane }) {
   return `
     <div class="settings-layout">
@@ -3453,6 +3472,100 @@ function settingsList(rows) {
 
 function metaParts(parts) {
   return parts.filter(Boolean).map((part) => `<span>${esc(part)}</span>`).join("");
+}
+
+/* Select: the browser's popup ignores the page's look, so this is a listbox of our own. The value lives in a
+   hidden input, which forms and change listeners read like any field. */
+function selectField({ id, name = "", value, options, label = "", className = "", attrs = "" }) {
+  const selected = options.find((option) => String(option.value) === String(value)) || options[0];
+  return `
+    <div class="select${className ? ` ${className}` : ""}" data-select>
+      <input type="hidden"${name ? ` name="${esc(name)}"` : ""} value="${esc(selected.value)}"${attrs}>
+      <button class="text-field select-trigger" id="${esc(id)}" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-controls="${esc(id)}-options"${label ? ` aria-label="${esc(label)}"` : ""}>
+        <span class="select-value">${esc(selected.label)}</span>${icon("chevronDown")}
+      </button>
+      <div class="select-menu" id="${esc(id)}-options" role="listbox" popover="manual"${label ? ` aria-label="${esc(label)}"` : ""}>
+        ${options.map((option) => `<button class="select-option" type="button" role="option" tabindex="-1" data-value="${esc(option.value)}" aria-selected="${option === selected}">${icon("check")}<span>${esc(option.label)}</span></button>`).join("")}
+      </div>
+    </div>`;
+}
+
+function selectParts(root) {
+  return { input: root.querySelector("input"), trigger: root.querySelector(".select-trigger"), menu: root.querySelector(".select-menu") };
+}
+
+function closeSelect({ focus = false } = {}) {
+  const root = state._openSelect;
+  if (!root) return;
+  state._openSelect = null;
+  const { trigger, menu } = selectParts(root);
+  trigger.setAttribute("aria-expanded", "false");
+  if (menu.matches(":popover-open")) menu.hidePopover();
+  if (focus) trigger.focus();
+}
+
+// The menu sits in the top layer, so nothing clips it; it opens below the field unless the window ends first.
+function openSelect(root) {
+  closeSelect();
+  const { trigger, menu } = selectParts(root);
+  if (trigger.disabled) return;
+  state._openSelect = root;
+  trigger.setAttribute("aria-expanded", "true");
+  menu.style.minWidth = `${trigger.offsetWidth}px`;
+  menu.showPopover();
+  const rect = trigger.getBoundingClientRect();
+  const fits = rect.bottom + menu.offsetHeight + 12 <= window.innerHeight;
+  menu.style.top = `${fits ? rect.bottom + 4 : Math.max(8, rect.top - menu.offsetHeight - 4)}px`;
+  menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - menu.offsetWidth - 8))}px`;
+  menu.querySelector('[aria-selected="true"]').focus({ preventScroll: true });
+}
+
+function setSelectValue(input, value) {
+  const { trigger, menu } = selectParts(input.closest("[data-select]"));
+  input.value = value;
+  for (const option of menu.querySelectorAll("[role=option]")) {
+    const selected = option.dataset.value === String(value);
+    option.setAttribute("aria-selected", String(selected));
+    if (selected) trigger.querySelector(".select-value").textContent = option.textContent;
+  }
+}
+
+function chooseOption(option) {
+  const root = option.closest("[data-select]");
+  const { input } = selectParts(root);
+  const changed = input.value !== option.dataset.value;
+  setSelectValue(input, option.dataset.value);
+  closeSelect({ focus: true });
+  if (!changed) return;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function selectKeydown(event) {
+  const root = event.target.closest?.("[data-select]");
+  if (!root) return;
+  if (event.key === "Escape") {
+    if (root !== state._openSelect) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    closeSelect({ focus: true });
+    return;
+  }
+  if (root !== state._openSelect) {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    openSelect(root);
+    return;
+  }
+  const options = [...root.querySelectorAll("[role=option]")];
+  const current = options.indexOf(document.activeElement);
+  const typed = event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey && event.key !== " "
+    ? [...options.slice(current + 1), ...options.slice(0, current + 1)].find((option) => option.textContent.trim().toLowerCase().startsWith(event.key.toLowerCase()))
+    : null;
+  const target = typed || { ArrowDown: options[(current + 1) % options.length], ArrowUp: options.at(current - 1), Home: options[0], End: options.at(-1) }[event.key];
+  if (!target) return;
+  event.preventDefault();
+  target.focus();
 }
 
 // A secret the server returns once: a new access token, an invite link.
@@ -3496,14 +3609,10 @@ function setPage(page) {
   el.detailContent.classList.toggle("is-hidden", site);
   el.siteContent.classList.toggle("is-hidden", !site);
   el.skipLink?.setAttribute("href", site ? "#site-content" : "#detail-content");
-  if (page === "settings") el.settingsLink.setAttribute("aria-current", "page");
-  else el.settingsLink.removeAttribute("aria-current");
   if (!site) {
     // Focus inside the page about to be emptied moves to the project view.
     if (el.siteContent.contains?.(document.activeElement)) el.detailContent.focus?.({ preventScroll: true });
     beginViewRequest("site");
-    state._tokens = null;
-    state._tokensError = "";
     state._team = null;
     state._invite = null;
     // Teams change on these pages: the project's Settings tab asks again.
@@ -3525,29 +3634,36 @@ function closeOverlays() {
   closeHeaderMenus();
   toggleProjectPicker(false);
   closeDrawer({ history: "none" });
+  closeSettingsDialog({ history: "none" });
+}
+
+// On a phone the nav is one scrolling row: bring the current item into it.
+function revealNavItem(root) {
+  const nav = root.querySelector?.(".settings-nav");
+  const item = nav?.querySelector?.('[aria-current="page"]');
+  if (item && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = Math.max(0, item.offsetLeft - nav.offsetLeft - (nav.clientWidth - item.offsetWidth) / 2);
+  return item;
 }
 
 // Keep the reader's place: focus a page on arrival, and the nav item when moving between panes.
 function settlePage(root, arriving) {
-  const nav = root.querySelector?.(".settings-nav");
-  const item = nav?.querySelector?.('[aria-current="page"]');
-  if (item && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = Math.max(0, item.offsetLeft - nav.offsetLeft - (nav.clientWidth - item.offsetWidth) / 2);
+  const item = revealNavItem(root);
   window.scrollTo?.({ top: 0 });
   // The first paint leaves focus where the browser put it.
   if (state._ready) (!arriving && item ? item : root).focus?.({ preventScroll: true });
 }
 
 function renderSitePage() {
+  if (state._dialog) renderSettingsDialog();
   if (state.page === "home") renderHomePage();
-  else if (state.page === "account" || state.page === "settings") renderPanePage();
   else if (state.page === "team") renderTeamPage();
   else if (state.page === "invite") renderInvitePage();
   updateDocumentTitle();
 }
 
 async function reloadSitePage() {
-  if (state.page === "home") await loadHome();
-  else if (state.page === "account" || state.page === "settings") await loadPane();
+  if (state._dialog) await loadPane();
+  else if (state.page === "home") await loadHome();
   else if (state.page === "team") await loadTeam();
   else if (state.page === "invite") await loadInvite();
 }
@@ -3630,21 +3746,54 @@ function settingsNav(pane) {
   ];
 }
 
-function showPanePage(page, pane, { history = "push", force = false } = {}) {
-  closeOverlays();
-  const arriving = state.page !== page;
-  const changed = arriving || force || state._pane !== pane;
-  if (changed) {
+function dialogTitle() {
+  return t(state._dialog === "account" ? "Account" : "Settings");
+}
+
+// The dialog keeps its size whichever pane shows, opens over the current page, and adds one history entry however
+// many panes it passes through, so Back closes it. A dialog restored by a link or Back leaves its entry in place.
+function openSettingsDialog(page, pane, { history = "auto" } = {}) {
+  closeHeaderMenus();
+  toggleProjectPicker(false);
+  closeDrawer({ history: "none" });
+  const wasOpen = Boolean(state._dialog);
+  if (state._dialog !== page || state._pane !== pane) {
     forgetShownSecrets();
-    setPage(page);
+    state._dialog = page;
     state._pane = pane;
     state._tokenDraft = { name: "itt", days: DEFAULT_TOKEN_DAYS };
     state._teamDraft = { name: "", slug: "", edited: false };
-    renderPanePage();
+    renderSettingsDialog();
     loadPane();
-    settlePage(el.siteContent, arriving);
   }
-  writeRoute(history);
+  if (!el.settingsDialog.open) el.settingsDialog.showModal();
+  revealNavItem(el.settingsDialogBody)?.focus?.({ preventScroll: true });
+  updateDocumentTitle();
+  const routed = writeRoute(history === "auto" ? (wasOpen ? "replace" : "push") : history, "dialog");
+  if (!wasOpen) state._dialogPushed = routed === "pushed";
+}
+
+function closeSettingsDialog({ history = "auto" } = {}) {
+  if (!state._dialog) return;
+  closeSelect();
+  const trigger = state._dialog === "settings" ? el.settingsLink : el.accountMenuTrigger;
+  beginViewRequest("dialog");
+  forgetShownSecrets();
+  state._dialog = null;
+  state._pane = "";
+  state._tokens = null;
+  state._tokensError = "";
+  state._teams = null;
+  state._teamsError = "";
+  if (el.settingsDialog.open) el.settingsDialog.close();
+  el.settingsDialogBody.innerHTML = "";
+  updateDocumentTitle();
+  trigger.focus?.();
+  if (history === "auto") {
+    if (state._dialogPushed && window.history.state?.inthub === "dialog" && window.history.back) window.history.back();
+    else writeRoute("replace");
+  }
+  state._dialogPushed = false;
 }
 
 async function loadPane() {
@@ -3652,13 +3801,13 @@ async function loadPane() {
   else if (state._pane === "teams") await loadTeams();
 }
 
-function renderPanePage() {
+function renderSettingsDialog() {
   const pane = state._pane;
-  const account = state.page === "account";
-  if (!account && state.page !== "settings") return;
-  const title = account ? t("Account") : t("Settings");
-  el.siteContent.innerHTML = settingsLayout({
-    title,
+  const account = state._dialog === "account";
+  if (!state._dialog) return;
+  const title = dialogTitle();
+  el.settingsDialogTitle.textContent = title;
+  el.settingsDialogBody.innerHTML = settingsLayout({
     label: title,
     items: account ? accountNav(pane) : settingsNav(pane),
     pane: { profile: profilePane, danger: accountDangerPane, tokens: tokensPane, teams: teamsPane }[pane](),
@@ -3711,9 +3860,7 @@ function tokenFormHtml() {
       </div>
       <div class="settings-field">
         <label class="field-label" for="token-days">${esc(t("Expires in"))}</label>
-        <select class="text-field" id="token-days" name="token-days">
-          ${TOKEN_LIFETIMES.map((value) => `<option value="${value}"${value === days ? " selected" : ""}>${esc(plural(value, "{count} day", "{count} days"))}</option>`).join("")}
-        </select>
+        ${selectField({ id: "token-days", name: "token-days", value: days, options: TOKEN_LIFETIMES.map((value) => ({ value, label: plural(value, "{count} day", "{count} days") })) })}
       </div>
       <button class="button button-primary" type="submit">${iconLabel("key", t("Generate token"))}</button>
       <p class="field-error" id="token-form-error" role="alert" hidden></p>
@@ -3750,20 +3897,20 @@ function tokenListHtml() {
 }
 
 function renderTokenList() {
-  const list = el.siteContent.querySelector?.("#token-list");
+  const list = el.settingsDialogBody.querySelector?.("#token-list");
   if (list) list.innerHTML = tokenListHtml();
-  else renderPanePage();
+  else renderSettingsDialog();
 }
 
 async function loadAccountTokens() {
-  const request = beginViewRequest("site");
+  const request = beginViewRequest("dialog");
   state._tokensError = "";
   try {
     const result = await fetchJson(apiUrl("/api/v1/auth/tokens"));
-    if (!ownsViewRequest("site", request) || state.page !== "settings") return;
+    if (!ownsViewRequest("dialog", request) || state._dialog !== "settings") return;
     state._tokens = result.tokens || [];
   } catch (error) {
-    if (!ownsViewRequest("site", request) || state.page !== "settings") return;
+    if (!ownsViewRequest("dialog", request) || state._dialog !== "settings") return;
     state._tokensError = error.message;
   }
   renderTokenList();
@@ -3778,7 +3925,7 @@ async function generateAccessToken({ name, days }) {
     headers: JSON_HEADERS,
     body: JSON.stringify({ name: label, ttl_seconds: lifetime * 86400 }),
   });
-  if (state.page !== "settings") return issued;
+  if (state._dialog !== "settings") return issued;
   // The secret lives only here, for this visit to the pane; the list shows it once, under its row.
   state._newToken = { id: issued.id, token: issued.token };
   state._tokens = [
@@ -3800,7 +3947,7 @@ async function submitTokenForm(form) {
     form.elements["token-name"].value = "itt";
     state._tokenDraft = { ...(state._tokenDraft || {}), name: "itt" };
     setStatus(t("Token created. Copy it now; it won't be shown again."));
-    el.siteContent.querySelector("[data-copy-new-token]")?.focus();
+    el.settingsDialogBody.querySelector("[data-copy-new-token]")?.focus();
   } catch (error) {
     setFieldError(form, error.code === "INVALID_INPUT" && error.detail ? error.detail : error.message);
   } finally {
@@ -3847,20 +3994,20 @@ async function startAccountDeletion(button) {
   }
 }
 
-/* Teams: the list in Account, and each team's own page. */
+/* Teams: the list in Settings, and each team's own page. */
 
 async function loadTeams() {
-  const request = beginViewRequest("site");
+  const request = beginViewRequest("teams");
   state._teamsError = "";
   try {
     const result = await fetchJson(apiUrl("/api/v1/teams"));
-    if (!ownsViewRequest("site", request)) return;
+    if (!ownsViewRequest("teams", request)) return;
     state._teams = result.teams || [];
   } catch (error) {
-    if (!ownsViewRequest("site", request)) return;
+    if (!ownsViewRequest("teams", request)) return;
     state._teamsError = error.message;
   }
-  if (state.page === "settings" && state._pane === "teams") renderTeamList();
+  if (state._dialog === "settings" && state._pane === "teams") renderTeamList();
   else if (state.page === "project" && state.activeTab === "settings") renderTransferControl();
 }
 
@@ -3917,9 +4064,9 @@ function teamListHtml() {
 }
 
 function renderTeamList() {
-  const list = el.siteContent.querySelector?.("#team-list");
+  const list = el.settingsDialogBody.querySelector?.("#team-list");
   if (list) list.innerHTML = teamListHtml();
-  else renderPanePage();
+  else renderSettingsDialog();
 }
 
 function teamsPane() {
@@ -4046,8 +4193,8 @@ function renderTeamPage() {
   });
 }
 
-function roleOptions(selected) {
-  return TEAM_ROLES.map((role) => `<option value="${role}"${role === selected ? " selected" : ""}>${esc(roleLabel(role))}</option>`).join("");
+function roleOptions() {
+  return TEAM_ROLES.map((role) => ({ value: role, label: roleLabel(role) }));
 }
 
 function memberRow(member, admin) {
@@ -4057,7 +4204,7 @@ function memberRow(member, admin) {
     title: name,
     meta: metaParts([member.email, t("Joined {date}", { date: calendarDate(member.joined_at) })]),
     control: admin
-      ? `<select class="text-field role-select" data-member-role="${esc(member.id)}" aria-label="${esc(t("Role of {name}", { name: member.name }))}">${roleOptions(member.role)}</select>
+      ? `${selectField({ id: `member-role-${member.id}`, value: member.role, options: roleOptions(), label: t("Role of {name}", { name: member.name }), className: "role-select", attrs: ` data-member-role="${esc(member.id)}"` })}
          <button class="button button-danger button-small" type="button" data-remove-member="${esc(member.id)}">${iconLabel("userMinus", t("Remove"))}</button>`
       : `<span class="settings-role">${esc(roleLabel(member.role))}</span>`,
   });
@@ -4080,7 +4227,7 @@ function teamMembersPane(data) {
       <form class="settings-form invite-form" data-invite-form novalidate>
         <div class="settings-field">
           <label class="field-label" for="invite-role">${esc(t("Role"))}</label>
-          <select class="text-field" id="invite-role" name="invite-role">${roleOptions(state._inviteRole || "member")}</select>
+          ${selectField({ id: "invite-role", name: "invite-role", value: state._inviteRole || "member", options: roleOptions() })}
         </div>
         <button class="button button-primary" type="submit">${iconLabel("link", t("Create invite link"))}</button>
         <p class="field-error" role="alert" hidden></p>
@@ -4176,9 +4323,8 @@ function confirmDeleteTeam(trigger = null) {
 async function leaveTeamPage(message) {
   state._teams = null;
   setStatus(message);
-  window.history.replaceState({ inthub: "page" }, "", SETTINGS_PATHS.teams);
-  showPanePage("settings", "teams", { history: "none", force: true });
   await refreshProjectList();
+  await openDefault();
 }
 
 async function deleteTeam(team, confirm) {
@@ -4238,7 +4384,8 @@ async function changeMemberRole(select) {
   const member = data?.members.find((entry) => entry.id === select.dataset.memberRole);
   if (!member || select.value === member.role) return;
   const role = select.value;
-  select.disabled = true;
+  const { trigger } = selectParts(select.closest("[data-select]"));
+  trigger.disabled = true;
   try {
     await fetchJson(apiUrl(`/api/v1/teams/${encodeURIComponent(data.team.id)}/members/${encodeURIComponent(member.id)}/role`), { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ role }) });
     member.role = role;
@@ -4249,10 +4396,10 @@ async function changeMemberRole(select) {
       el.siteContent.focus?.({ preventScroll: true });
     }
   } catch (error) {
-    select.value = member.role;
+    setSelectValue(select, member.role);
     setStatus(serverMessage(error), true);
   } finally {
-    select.disabled = false;
+    trigger.disabled = false;
   }
 }
 
@@ -4492,7 +4639,7 @@ function transferControlHtml() {
   const targets = transferTargets();
   if (!state._teams && !state._teamsError) return `<span class="settings-role">${esc(t("Loading…"))}</span>`;
   if (!targets.length) return `<a class="settings-link" href="${SETTINGS_PATHS.teams}" data-route>${icon("plus")}${esc(t("Create a team"))}</a>`;
-  return `<select class="text-field transfer-select" id="transfer-target" aria-label="${esc(t("New owner"))}">${targets.map((target) => `<option value="${esc(target.value)}">${esc(target.label)}</option>`).join("")}</select>
+  return `${selectField({ id: "transfer-target", value: targets[0].value, options: targets, label: t("New owner"), className: "transfer-select" })}
     <button class="button button-danger" type="button" data-transfer-project>${iconLabel("transfer", t("Transfer"))}</button>`;
 }
 
@@ -4614,7 +4761,7 @@ function transferErrorMessage(error) {
 
 function confirmTransfer(trigger = null) {
   const project = currentProject();
-  const select = el.detailContent.querySelector?.("#transfer-target");
+  const select = el.detailContent.querySelector?.(".transfer-select input");
   const target = transferTargets().find((entry) => entry.value === select?.value);
   if (!project || !target) return;
   openConfirm({
@@ -4815,7 +4962,8 @@ function updateSyncChip() {
   el.syncChip.textContent = ws
     ? t("Synced {time}", {time: relativeDate(ws.last_synced_at)})
     : state.currentProjectId ? t("Not synced") : t("Waiting for first project");
-  el.syncChip.title = ws ? fmtDate(ws.last_synced_at) : "";
+  if (ws) el.syncChip.dataset.tip = fmtDate(ws.last_synced_at);
+  else delete el.syncChip.dataset.tip;
   el.syncIndicator.classList.toggle("is-unsynced", !ws);
 }
 
@@ -4954,9 +5102,13 @@ function routedDetail(route, projectId) {
     : null;
 }
 
-// Account, team and invite pages exist only where there are accounts.
+// Account, team and invite views exist only where there are accounts.
+function isDialogRoute(route) {
+  return Boolean(DIALOG_PATHS[route.page] && state.config?.authRequired);
+}
+
 function isSiteRoute(route) {
-  return route.page !== "project" && Boolean(state.config?.authRequired);
+  return (route.page === "team" || route.page === "invite") && Boolean(state.config?.authRequired);
 }
 
 // The project `/` opens: the hub's default, else the only one there is.
@@ -5386,9 +5538,14 @@ function sheetFocusables() {
 
 async function applyRoute(route) {
   if (el.shell.inert && !sheetIsOpen()) return;
+  if (isDialogRoute(route)) {
+    if (state.visitor) showAuthGate();
+    else openSettingsDialog(route.page, route.pane, { history: "none" });
+    return;
+  }
+  closeSettingsDialog({ history: "none" });
   if (isSiteRoute(route)) {
     if (state.visitor) showAuthGate();
-    else if (route.page === "account" || route.page === "settings") showPanePage(route.page, route.pane, { history: "none" });
     else if (route.page === "team") await showTeam(route.team, route.pane);
     else await showInvite(route.token);
     return;
@@ -5429,6 +5586,7 @@ async function applyRoute(route) {
 }
 
 function bindEvents() {
+  el.statusHome = el.statusLine.parentElement;
   // styles.css keeps the focus ring for keyboards. Shortcuts and bare modifiers do not count: they move no focus.
   document.addEventListener("pointerdown", () => { document.documentElement.dataset.input = "pointer"; }, true);
   document.addEventListener("keydown", (event) => {
@@ -5564,6 +5722,11 @@ function bindEvents() {
     closeHeaderMenus(Boolean(link.closest(".header-menu")));
     toggleProjectPicker(false);
     const target = link.getAttribute("href");
+    const dialog = dialogRoute(target);
+    if (dialog && isDialogRoute(dialog) && !state.visitor) {
+      openSettingsDialog(dialog.page, dialog.pane);
+      return;
+    }
     if (target !== `${window.location.pathname}${window.location.search}`) window.history.pushState({ inthub: "page" }, "", target);
     applyRoute(readRoute());
   });
@@ -5571,7 +5734,7 @@ function bindEvents() {
   el.signInButton.addEventListener("click", () => showAuthGate("", { keepPage: true }));
   el.authDismiss.addEventListener("click", dismissAuthGate);
 
-  el.siteContent.addEventListener("input", (event) => {
+  const siteInput = (event) => {
     const field = event.target;
     if (field?.name === "token-name" || field?.name === "token-days") {
       state._tokenDraft = { ...(state._tokenDraft || {}), [field.name === "token-name" ? "name" : "days"]: field.value };
@@ -5584,11 +5747,8 @@ function bindEvents() {
       state._team.edit = { name: field.form.elements["team-name"].value, slug: field.form.elements["team-slug"].value };
       setFieldError(field.form, "");
     }
-  });
-  el.siteContent.addEventListener("change", (event) => {
-    if (event.target.matches?.("[data-member-role]")) changeMemberRole(event.target);
-  });
-  el.siteContent.addEventListener("submit", (event) => {
+  };
+  const siteSubmit = (event) => {
     const form = event.target;
     const submit = form.matches?.("[data-token-form]") ? submitTokenForm
       : form.matches?.("[data-team-form]") ? createTeam
@@ -5598,7 +5758,7 @@ function bindEvents() {
     if (!submit) return;
     event.preventDefault();
     submit(form);
-  });
+  };
   const siteActions = {
     "[data-revoke-token]": (button) => confirmRevokeToken(button.dataset.revokeToken, button),
     "[data-copy-new-token]": () => state._newToken && copyText(state._newToken.token, t("Token copied.")),
@@ -5617,7 +5777,7 @@ function bindEvents() {
     "[data-delete-team]": confirmDeleteTeam,
     "[data-accept-invite]": acceptInvite,
   };
-  el.siteContent.addEventListener("click", (event) => {
+  const siteClick = (event) => {
     for (const [selector, action] of Object.entries(siteActions)) {
       const button = event.target.closest?.(selector);
       if (button) {
@@ -5625,7 +5785,37 @@ function bindEvents() {
         return;
       }
     }
+  };
+  for (const root of [el.siteContent, el.settingsDialogBody]) {
+    root.addEventListener("input", siteInput);
+    root.addEventListener("submit", siteSubmit);
+    root.addEventListener("click", siteClick);
+  }
+  el.siteContent.addEventListener("change", (event) => {
+    if (event.target.matches?.("[data-member-role]")) changeMemberRole(event.target);
   });
+
+  document.addEventListener("click", (event) => {
+    const option = event.target.closest?.(".select-option");
+    const trigger = event.target.closest?.(".select-trigger");
+    if (option) chooseOption(option);
+    else if (!trigger) closeSelect();
+    else if (trigger.closest("[data-select]") === state._openSelect) closeSelect({ focus: true });
+    else openSelect(trigger.closest("[data-select]"));
+  });
+  document.addEventListener("keydown", selectKeydown, true);
+  document.addEventListener("focusin", (event) => { if (!state._openSelect?.contains(event.target)) closeSelect(); });
+  document.addEventListener("scroll", (event) => { if (!event.target.closest?.(".select-menu")) closeSelect(); }, true);
+  window.addEventListener("resize", () => closeSelect());
+
+  el.settingsDialogClose.addEventListener("click", () => closeSettingsDialog());
+  el.settingsDialog.addEventListener("close", () => closeSettingsDialog());
+  // Only a press and release on the backdrop itself closes: a text selection dragged off the card ends there too.
+  el.settingsDialog.addEventListener("pointerdown", (event) => { state._dialogPress = event.target === el.settingsDialog; });
+  el.settingsDialog.addEventListener("click", (event) => {
+    if (event.target === el.settingsDialog && state._dialogPress && !state._newToken) closeSettingsDialog();
+  });
+  for (const dialog of document.querySelectorAll("dialog")) dialog.addEventListener("close", placeStatusLine);
 
   el.detailContent.addEventListener("input", (event) => {
     if (event.target?.name === "project-name") updateRenameForm(event.target.form);
@@ -5654,7 +5844,7 @@ function bindEvents() {
     state._confirm = null;
     el.confirmInput.value = "";
     // The trigger may be gone (a revoked row, a deleted project): fall back to the list or the page.
-    const fallback = state.page === "project" ? el.detailContent : el.siteContent.querySelector?.("#token-list") || el.siteContent;
+    const fallback = state._dialog ? el.settingsDialogBody.querySelector?.("#token-list") || el.settingsDialogClose : state.page === "project" ? el.detailContent : el.siteContent;
     (target?.isConnected ? target : fallback).focus?.({ preventScroll: true });
   });
 
@@ -5937,7 +6127,7 @@ function bindEvents() {
   el.drawerOverlay.addEventListener("mousedown", (event) => event.preventDefault());
 
   document.addEventListener("keydown", (event) => {
-    if (el.aboutDialog.open || el.tokenDialog.open || el.searchDialog.open || el.confirmDialog.open) return;
+    if (el.aboutDialog.open || el.tokenDialog.open || el.searchDialog.open || el.confirmDialog.open || el.settingsDialog.open) return;
     if (event.key === "Escape" && state.visitor && !el.authGate.classList.contains("is-hidden")) {
       event.preventDefault();
       dismissAuthGate();
@@ -6021,6 +6211,7 @@ async function init(bind = true) {
       await loadProjects(route);
       hideAuthGate();
       if (isSiteRoute(route)) await applyRoute(route);
+      else if (isDialogRoute(route)) openSettingsDialog(route.page, route.pane, { history: "replace" });
     }
     state._ready = true;
     if (route.search && state.currentProjectId && state.page === "project") openSearch(route.q);

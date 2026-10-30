@@ -1235,13 +1235,15 @@ async function settingsCases() {
 
     // IntHub Local has no accounts: those paths are ordinary project routes there.
     state.config = {authRequired: false, authMode: 'none', apiBaseUrl: 'http://127.0.0.1:7317'};
-    assert.equal(isSiteRoute({page: 'account'}), false);
+    assert.equal(isDialogRoute({page: 'account'}), false);
     assert.equal(isSiteRoute({page: 'team'}), false);
     state.config = {authRequired: true, authMode: 'tenon', apiBaseUrl: 'https://inthub.tenon.asia'};
-    assert.equal(isSiteRoute({page: 'account'}), true);
+    assert.equal(isDialogRoute({page: 'account'}), true);
+    assert.equal(isDialogRoute({page: 'settings'}), true);
+    assert.equal(isSiteRoute({page: 'team'}), true);
     assert.equal(isSiteRoute({page: 'project'}), false);
 
-    // A Tenon hub: Account opens beside the untouched project view, without the project tabs.
+    // A Tenon hub: Account opens in a dialog over the untouched project view.
     state.account = {id: 'acct_1', login: 'dozy', display_name: 'Dozy <QA>'};
     state.projects = [{id: 'p', name: 'checkout', full_name: 'checkout'}, {id: 'q', name: 'docs', full_name: 'docs'}];
     state.currentProjectId = 'p';
@@ -1249,28 +1251,44 @@ async function settingsCases() {
     state.activeTab = 'overview';
     state.overview = {history: {project_id: 'p', revision: 'a'.repeat(64), last_synced_at: iso(0)}, project: {id: 'p', name: 'checkout', full_name: 'checkout', permission: 'admin', visibility: 'private', owner: {type: 'account', name: 'Dozy'}}};
     el.detailContent.innerHTML = 'project view';
-    showPanePage('account', 'profile');
-    assert.equal(state.page, 'account');
-    assert.equal(el.shell.classList.contains('is-site'), true);
-    assert.equal(el.detailContent.classList.contains('is-hidden'), true);
-    assert.equal(el.siteContent.classList.contains('is-hidden'), false);
+    routes.length = 0;
+    openSettingsDialog('account', 'profile');
+    assert.equal(routes.join(), 'push', 'one history entry, so Back closes it');
+    assert.equal(state._dialog, 'account');
+    assert.equal(state.page, 'project', 'the page stays where it was, under the dialog');
+    assert.equal(el.settingsDialog.open, true);
+    assert.equal(el.settingsDialogTitle.textContent, '账号');
+    assert.equal(el.shell.classList.contains('is-site'), false);
     assert.equal(el.detailContent.innerHTML, 'project view');
     assert.equal(document.title, '账号 · IntHub');
     assert.equal(routeUrl(), '/account');
-    let page = el.siteContent.innerHTML;
-    assert.equal((page.match(/<h1/g) || []).length, 1, 'one page title, no eyebrow');
-    assert.ok(page.includes('class="page-title settings-title">账号</h1>') && !page.includes('eyebrow'));
+    let page = el.settingsDialogBody.innerHTML;
+    assert.ok(!page.includes('<h1') && !page.includes('eyebrow'), 'the dialog header carries the title');
     assert.ok(page.includes('class="settings-nav-item" href="/account" data-route aria-current="page"><svg') && page.includes('<span>个人资料</span></a>'));
     assert.ok(page.includes('href="/account/danger" data-route><svg') && page.includes('<span>危险操作</span></a>'));
     assert.ok(!page.includes('访问令牌') && !page.includes('/settings'), 'tokens and teams are settings, not the account');
     assert.ok(page.includes('Dozy &lt;QA&gt;') && page.includes('@dozy') && !page.includes('<QA>'));
     assert.ok(page.includes('href="https://account.tenon.asia/account/"') && page.includes('在 Tenon 中修改'));
     assert.ok(page.includes('class="monogram"') && !page.includes('data-delete-account'));
-    showPanePage('account', 'danger');
+    routes.length = 0;
+    openSettingsDialog('account', 'danger');
+    assert.equal(routes.join(), 'replace', 'moving between panes adds no entry');
     assert.equal(routeUrl(), '/account/danger');
-    page = el.siteContent.innerHTML;
+    page = el.settingsDialogBody.innerHTML;
     assert.ok(page.includes('data-delete-account') && page.includes('button button-danger') && page.includes('<span class="button-label">删除账号</span>'));
-    assert.equal(el.settingsLink.getAttribute('aria-current'), undefined);
+
+    // Closing steps back over the entry the dialog added; a dialog restored by a link only drops its URL.
+    routes.length = 0;
+    window.history.state = {inthub: 'dialog'};
+    closeSettingsDialog();
+    assert.deepEqual([routes.join(), el.settingsDialog.open, state._dialog, el.settingsDialogBody.innerHTML], ['back', false, null, '']);
+    assert.equal(document.title, 'checkout · IntHub');
+    assert.equal(document.activeElement, el.accountMenuTrigger, 'focus returns to what opened it');
+    routes.length = 0;
+    openSettingsDialog('account', 'profile', {history: 'none'});
+    closeSettingsDialog();
+    assert.equal(routes.join(), 'replace');
+    assert.equal(routeUrl(), '/?project=p');
 
     reply = (url) => url === '/api/v1/auth/tokens' ? {tokens: [
       {id: 'pat_used', name: 'laptop', created_at: iso(-day), expires_at: iso(80 * day), last_used_at: iso(-3600000), revoked_at: null},
@@ -1279,23 +1297,27 @@ async function settingsCases() {
       {id: 'pat_late', name: 'stale-runner', created_at: iso(-40 * day), expires_at: iso(-60000), last_used_at: null, revoked_at: null},
     ]} : {};
     routes.length = 0;
-    showPanePage('settings', 'tokens');
+    openSettingsDialog('settings', 'tokens');
     await flush();
     assert.equal(routes.join(), 'push');
     assert.equal(routeUrl(), '/settings');
     assert.equal(document.title, '设置 · IntHub');
-    assert.equal(el.settingsLink.getAttribute('aria-current'), 'page', 'the gear shows where you are');
-    page = el.siteContent.innerHTML;
-    assert.ok(page.includes('class="page-title settings-title">设置</h1>'));
+    assert.equal(el.settingsDialogTitle.textContent, '设置');
+    page = el.settingsDialogBody.innerHTML;
     assert.ok(page.includes('href="/settings" data-route aria-current="page"><svg') && page.includes('<span>访问令牌</span>') && page.includes('href="/settings/teams" data-route><svg'));
-    assert.ok(page.includes('value="itt"') && page.includes('<option value="90" selected>90 天</option>') && page.includes('<option value="365">365 天</option>'));
+    // A listbox of our own: the value sits in a hidden input and every option is a button.
+    assert.ok(page.includes('value="itt"') && !page.includes('<select') && !page.includes('<option'));
+    assert.ok(page.includes('<input type="hidden" name="token-days" value="90">'));
+    assert.ok(page.includes('id="token-days" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-controls="token-days-options"'));
+    assert.ok(page.includes('<span class="select-value">90 天</span>') && page.includes('id="token-days-options" role="listbox" popover="manual"'));
+    assert.ok(page.includes('data-value="90" aria-selected="true"') && page.includes('data-value="365" aria-selected="false"') && page.includes('<span>365 天</span>'));
     assert.ok(page.includes('laptop') && page.includes('ci-runner') && page.includes('从未使用') && page.includes('最近使用'));
     assert.ok(!page.includes('old-macbook') && !page.includes('stale-runner'), 'revoked and expired tokens are not listed');
     assert.equal((page.match(/class="settings-list"/g) || []).length, 1, 'one list');
     assert.ok(page.indexOf('data-token-form') < page.indexOf('class="settings-list"'), 'the form sits on top of the list');
     routes.length = 0;
     window.location.pathname = '/settings';
-    showPanePage('settings', 'tokens');
+    openSettingsDialog('settings', 'tokens');
     assert.equal(routes.join(), 'replace', 'the same pane adds no history entry');
     window.location.pathname = '/';
     routes.length = 0;
@@ -1306,7 +1328,7 @@ async function settingsCases() {
     calls.length = 0;
     await generateAccessToken({name: '  release-bot ', days: '30'});
     assert.deepEqual(calls[0], {url: '/api/v1/auth/tokens', method: 'POST', body: {name: 'release-bot', ttl_seconds: 30 * 86400}});
-    page = el.siteContent.innerHTML;
+    page = el.settingsDialogBody.innerHTML;
     assert.ok(page.indexOf('ith_pat_SECRET') > 0 && page.indexOf('ith_pat_SECRET') < page.indexOf('laptop'));
     assert.ok(page.includes('release-bot') && page.indexOf('release-bot') < page.indexOf('ith_pat_SECRET'));
     assert.ok(page.includes('class="secret-box"') && page.includes('data-copy-new-token') && page.includes('请立即复制，此后不会再显示。'));
@@ -1327,28 +1349,29 @@ async function settingsCases() {
     await runConfirm();
     assert.deepEqual(calls.map((call) => call.method + ' ' + call.url), ['POST /api/v1/auth/tokens/pat_idle/revoke']);
     assert.equal(el.confirmDialog.open, false);
-    assert.ok(!el.siteContent.innerHTML.includes('ci-runner'));
+    assert.ok(!el.settingsDialogBody.innerHTML.includes('ci-runner'));
     assert.equal(el.statusLine.textContent, '令牌已作废。');
     fetchJson = async () => { throw new ApiRequestError('gone', 404, 'OBJECT_NOT_FOUND'); };
     await revokeAccessToken('pat_fresh');
-    assert.ok(!el.siteContent.innerHTML.includes('ith_pat_SECRET'), 'already revoked is gone too');
+    assert.ok(!el.settingsDialogBody.innerHTML.includes('ith_pat_SECRET'), 'already revoked is gone too');
     fetchJson = track;
 
-    // Moving to another pane or page drops a new secret; the project view comes back as it was.
+    // Moving to another pane or closing the dialog drops a new secret; the project view never left.
     reply = (url, options) => options.method === 'POST' ? {id: 'pat_again', token: 'ith_pat_AGAIN', name: 'again', created_at: iso(0), expires_at: iso(90 * day)} : {teams: [], tokens: []};
     await generateAccessToken({name: 'again', days: 90});
-    assert.ok(el.siteContent.innerHTML.includes('ith_pat_AGAIN'));
-    showPanePage('account', 'profile');
+    assert.ok(el.settingsDialogBody.innerHTML.includes('ith_pat_AGAIN'));
+    openSettingsDialog('account', 'profile');
     assert.equal(state._newToken, null);
-    showPanePage('settings', 'tokens');
+    openSettingsDialog('settings', 'tokens');
     await flush();
-    assert.ok(!el.siteContent.innerHTML.includes('ith_pat_AGAIN'));
+    assert.ok(!el.settingsDialogBody.innerHTML.includes('ith_pat_AGAIN'));
     await generateAccessToken({name: 'again', days: 90});
+    closeSettingsDialog({history: 'none'});
+    assert.equal(state._newToken, null);
+    assert.equal(state._tokens, null);
+    assert.equal(el.settingsDialogBody.innerHTML, '');
     switchTab('settings');
     assert.equal(state.page, 'project');
-    assert.equal(state._newToken, null);
-    assert.equal(el.siteContent.innerHTML, '');
-    assert.equal(el.shell.classList.contains('is-site'), false);
     assert.equal(el.detailContent.classList.contains('is-hidden'), false);
     assert.equal(document.title, 'checkout · IntHub');
     assert.equal(routeUrl(), '/?project=p&tab=settings');
@@ -1465,7 +1488,7 @@ async function settingsCases() {
     const transferSelect = document.getElementById('transfer-target');
     transferSelect.value = 'account';
     const detailQuery = el.detailContent.querySelector;
-    el.detailContent.querySelector = (selector) => selector === '#transfer-target' ? transferSelect : null;
+    el.detailContent.querySelector = (selector) => selector === '.transfer-select input' ? transferSelect : null;
     confirmTransfer();
     assert.equal(el.confirmTitle.textContent, '将 checkout v2 转移到 我的账号？');
     assert.equal(el.confirmOk.disabled, true);
@@ -1612,14 +1635,14 @@ async function teamCases() {
     updateTeamDraft({name: 'team-name', value: 'Back', form: draftForm});
     assert.equal(slugField.value, 'back', 'clearing it starts deriving again');
 
-    // My teams, in the Account pane.
+    // My teams, in the Settings dialog.
     reply = () => ({teams: [
       {id: 't1', slug: 'acme', name: 'Acme <Inc>', created_at: iso, role: 'admin', members: 3, projects: 1},
       {id: 't2', slug: 'beta', name: '贝塔', created_at: iso, role: 'viewer', members: 1, projects: 2},
     ]});
-    showPanePage('settings', 'teams');
+    openSettingsDialog('settings', 'teams');
     await flush();
-    let page = el.siteContent.innerHTML;
+    let page = el.settingsDialogBody.innerHTML;
     assert.ok(page.includes('href="/teams/acme" data-route') && page.includes('Acme &lt;Inc&gt;') && !page.includes('Acme <Inc>'));
     assert.ok(page.includes('管理员') && page.includes('只读成员') && page.includes('3 位成员') && page.includes('2 个项目'));
     assert.ok(page.includes('data-team-form') && page.includes('id="new-team-slug"'));
@@ -1640,7 +1663,7 @@ async function teamCases() {
     await createTeam(form);
     assert.equal(form.error.textContent, '团队 URL taken 已被占用。');
     assert.equal(form.elements['team-slug'].invalid, true);
-    assert.equal(state.page, 'settings');
+    assert.equal(state._dialog, 'settings');
     form = fakeForm({'team-name': 'Many', 'team-slug': 'many'});
     reply = () => new ApiRequestError('x', 409, 'TEAM_LIMIT', 'An account can create up to 50 teams.');
     await createTeam(form);
@@ -1674,20 +1697,28 @@ async function teamCases() {
     assert.ok(page.includes('href="/teams/acme" data-route aria-current="page"><svg') && page.includes('<span>成员</span></a>') && page.includes('href="/teams/acme/projects" data-route><svg') && page.includes('<span>项目列表</span></a>') && page.includes('href="/teams/acme/settings" data-route><svg'));
     assert.ok(page.includes('ana@example.com') && page.includes('class="chip">你</span>') && page.includes('Ben &lt;Wu&gt;'));
     assert.ok(page.includes('data-member-role="ben"') && page.includes('data-remove-member="ben"') && page.includes('data-invite-form') && page.includes('data-revoke-invite="inv1"') && page.includes('data-leave-team'));
-    assert.ok(page.includes('<option value="viewer">只读成员</option>'));
+    assert.ok(page.includes('data-value="viewer" aria-selected="false"') && page.includes('<span>只读成员</span>') && page.includes('class="select role-select"'));
 
     // A role change is one request; a refusal puts the select back and shows the server's reason.
     calls.length = 0;
     reply = () => ({role: 'viewer'});
-    const select = {dataset: {memberRole: 'ben'}, value: 'viewer', disabled: false};
-    await changeMemberRole(select);
+    const fakeSelect = (memberRole, value) => {
+      const shown = {textContent: ''};
+      const options = ['admin', 'member', 'viewer'].map((role) => ({dataset: {value: role}, textContent: role, setAttribute(key, selected) {this[key] = selected;}}));
+      const trigger = {disabled: false, querySelector: () => shown};
+      const input = {dataset: {memberRole}, value, shown, trigger, closest: () => root};
+      const root = {querySelector: (selector) => selector === 'input' ? input : selector === '.select-trigger' ? trigger : {querySelectorAll: () => options}};
+      return input;
+    };
+    await changeMemberRole(fakeSelect('ben', 'viewer'));
     assert.deepEqual(calls.at(-1), {url: '/api/v1/teams/t1/members/ben/role', method: 'POST', body: {role: 'viewer'}});
     assert.equal(el.statusLine.textContent, 'Ben <Wu> 现在是只读成员。');
-    const own = {dataset: {memberRole: 'me'}, value: 'member', disabled: false};
+    const own = fakeSelect('me', 'member');
     reply = () => new ApiRequestError('x', 409, 'LAST_ADMIN', 'Make another member an admin first.');
     await changeMemberRole(own);
     assert.equal(own.value, 'admin');
-    assert.equal(own.disabled, false);
+    assert.equal(own.shown.textContent, 'admin', 'the field shows the role that stayed');
+    assert.equal(own.trigger.disabled, false);
     assert.equal(el.statusLine.textContent, '请先把另一位成员设为管理员。');
 
     // An invite link is built from the page's own origin and shown once, like a new token.
@@ -1739,8 +1770,7 @@ async function teamCases() {
     reply = (url) => url === '/api/v1/projects' ? {projects: []} : url === '/api/v1/teams' ? {teams: []} : {};
     await runConfirm();
     assert.equal(el.confirmDialog.open, false);
-    assert.equal(state.page, 'settings');
-    assert.equal(state._pane, 'teams');
+    assert.equal(state.page, 'project', 'the team page is gone: the default view takes over');
     assert.equal(routes[0], 'replace');
     assert.equal(el.statusLine.textContent, '你已退出 Acme。');
 
@@ -1784,9 +1814,10 @@ async function teamCases() {
     reply = (url) => url === '/api/v1/projects' ? {projects: []} : url === '/api/v1/teams' ? {teams: []} : {};
     await runConfirm();
     assert.deepEqual(calls[0], {url: '/api/v1/teams/t1/delete', method: 'POST', body: {confirm: 'acme-2'}});
-    assert.equal(state.page, 'settings');
+    assert.equal(state.page, 'project');
 
     // Teams change on these pages: leaving them drops the lists the project's Settings tab keeps.
+    setPage('home');
     state._teams = [{id: 't1', role: 'admin'}];
     state._projectTeam = {id: 't1', data: {members: []}};
     leaveSitePage();
@@ -2068,10 +2099,12 @@ async function homeAndVisitorCases() {
     reply = (url) => url === '/api/v1/home' ? {projects: homeRows} : url === '/api/v1/teams/acme' ? {team: {id: 't1', slug: 'acme', name: 'Acme'}, role: 'member', members: [], invites: [], projects: []} : {tokens: [], teams: []};
     window.location.pathname = '/settings/teams';
     await applyRoute(readRoute());
-    assert.equal(state.page, 'settings');
+    assert.equal(state._dialog, 'settings');
     assert.equal(state._pane, 'teams');
     window.location.pathname = '/teams/acme';
     await applyRoute(readRoute());
+    assert.equal(state._dialog, null, 'leaving for a page closes the dialog');
+    assert.equal(el.settingsDialog.open, false);
     assert.equal(state.page, 'team');
     window.location.pathname = '/';
     await applyRoute(readRoute());

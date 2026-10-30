@@ -170,7 +170,6 @@ svg {
 
 button,
 input,
-select,
 textarea {
   color: inherit;
   font: inherit;
@@ -471,9 +470,94 @@ kbd {
   border-color: var(--red-line);
 }
 
-select.text-field {
+/* Select: a field that opens a menu of its own, in the top layer so a dialog or a scrolling pane cannot clip it. */
+.select {
+  min-width: 0;
+}
+
+.select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding-right: 8px;
+  text-align: left;
   cursor: pointer;
+}
+
+.select-trigger:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.select-trigger svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--muted);
+  transition: transform 120ms ease;
+}
+
+.select-trigger[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-menu {
+  position: fixed;
+  inset: auto;
+  max-width: calc(100vw - 16px);
+  max-height: min(280px, calc(100dvh - 16px));
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+}
+
+.select-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px 6px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-size: 13.5px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.select-option:hover,
+.select-option:focus-visible {
+  outline: none;
+  color: var(--ink);
+  background: var(--surface-hover);
+}
+
+.select-option[aria-selected="true"] {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.select-option svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  visibility: hidden;
+}
+
+.select-option[aria-selected="true"] svg {
+  visibility: visible;
 }
 
 .field-label {
@@ -3359,6 +3443,9 @@ select.text-field {
 
 .role-select {
   width: 116px;
+}
+
+.role-select .select-trigger {
   height: 32px;
   font-size: 13px;
 }
@@ -4137,6 +4224,80 @@ select.text-field {
 
 /* --- Dialogs --------------------------------------------------------------- */
 
+/* Account and Settings: one size for every pane, so switching never moves the frame. */
+.settings-dialog {
+  width: min(920px, calc(100vw - 32px));
+  max-width: none;
+  height: min(640px, calc(100dvh - 32px));
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+}
+
+.settings-dialog[open] {
+  animation: pop-in 160ms var(--ease);
+}
+
+.settings-dialog::backdrop {
+  background: var(--backdrop);
+}
+
+html:has(.settings-dialog[open]) {
+  overflow: hidden;
+}
+
+.settings-dialog-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+}
+
+.settings-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px 10px 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-dialog-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.settings-dialog-body {
+  min-height: 0;
+}
+
+.settings-dialog .settings-layout {
+  grid-template-columns: 200px minmax(0, 1fr);
+  justify-content: stretch;
+  align-items: stretch;
+  gap: 0;
+  height: 100%;
+}
+
+.settings-dialog .settings-nav {
+  align-content: start;
+  margin: 0;
+  padding: 12px;
+  border-right: 1px solid var(--border);
+}
+
+.settings-dialog .settings-pane {
+  padding: 20px 24px 28px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
 .about-dialog,
 .token-dialog {
   width: var(--dialog-width);
@@ -4387,6 +4548,13 @@ select.text-field {
   font-style: normal;
   font-weight: 600;
   line-height: 1;
+}
+
+.help-popover.is-tip {
+  width: max-content;
+  max-width: min(260px, calc(100vw - 32px));
+  padding: 6px 10px;
+  font-size: 12.5px;
 }
 
 .help-popover {
@@ -5118,6 +5286,33 @@ select.text-field {
   .settings-nav-item {
     flex: 0 0 auto;
     white-space: nowrap;
+  }
+
+  .settings-dialog {
+    width: 100vw;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .settings-dialog-header {
+    padding-left: 16px;
+  }
+
+  .settings-dialog .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .settings-dialog .settings-nav {
+    display: flex;
+    padding: 8px 6px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .settings-dialog .settings-pane {
+    padding: 16px;
   }
 
   .token-form {

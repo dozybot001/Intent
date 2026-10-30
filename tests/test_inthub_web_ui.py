@@ -69,7 +69,7 @@ def test_header_keeps_preferences_settings_and_account_apart():
     assert 'aria-label="Preferences"' in trigger
     assert 'id="account-menu-trigger"' in header
     assert 'data-theme-switch' not in header and 'data-language-switch' not in header
-    # Preferences have their own icon: the gear means Settings, and it is a page.
+    # Preferences have their own icon: the gear means Settings, and its link opens the dialog.
     assert header.count('<circle cx="10" cy="10" r="2.5"/>') == 1
     assert header.count('<circle cx="11" cy="6" r="2"/>') == 1
     gear = re.search(r'<a[^>]*id="settings-link"[^>]*>(.*?)</a>', header).group(0)
@@ -589,12 +589,48 @@ def test_text_fields_share_a_soft_focus_ring_instead_of_the_hard_outline():
     assert "border: 1px solid var(--border-strong)" in field
     focus = _rule(css, ".text-field:focus, .text-field:focus-visible")
     assert "outline: none" in focus and "box-shadow: 0 0 0 3px var(--field-ring)" in focus
-    # Every text field but the search palette's borderless one uses the shared style (selects too).
-    fields = re.findall(r"<(?:input|select|textarea)\b[^>]*>", html + javascript)
+    # Every text field but the search palette's borderless one uses the shared style; a select's trigger does too.
+    fields = re.findall(r"<(?:input|textarea)\b[^>]*>", html + javascript)
     assert len(fields) >= 5
     for tag in fields:
-        if 'id="search-input"' not in tag:
+        if 'id="search-input"' not in tag and 'type="hidden"' not in tag:
             assert 'class="text-field' in tag, tag
+    assert 'class="text-field select-trigger"' in javascript
+
+
+def test_no_control_falls_back_to_the_browsers_own_look():
+    javascript = _static("app.js")
+    html = _static("index.html")
+    css = _static("styles.css")
+    # Selects are listboxes of our own, in the top layer so a dialog or a scrolling pane cannot clip them.
+    assert "<select" not in html + javascript and "<option" not in html + javascript
+    assert 'role="listbox" popover="manual"' in javascript and "position: fixed" in _rule(css, ".select-menu")
+    assert "aria-selected" in javascript and all(key in javascript for key in ("ArrowDown", "Home:", "End:"))
+    # Hints use the page's popover, not the browser's title tooltip. The form's own title attributes stay out too.
+    assert not re.search(r'<[a-z][^>]*\stitle="', html + javascript)
+    assert ".title =" not in javascript.replace("document.title =", "")
+    assert "data-tip" in javascript and 'data-tip]' in _static("help.js")
+    assert not re.search(r"\b(alert|confirm|prompt)\(", javascript.replace("window.confirm", ""))
+    for kind in ("checkbox", "radio", "date", "number", "range", "file", "color"):
+        assert f'type="{kind}"' not in html + javascript
+
+
+def test_settings_open_in_one_fixed_size_dialog_over_the_page():
+    css = _static("styles.css")
+    html = _static("index.html")
+    javascript = _static("app.js")
+    frame = _rule(css.split("@media (max-width: 1180px)", 1)[0], ".settings-dialog")
+    assert "width: min(920px, calc(100vw - 32px))" in frame and "height: min(640px, calc(100dvh - 32px))" in frame
+    # The pane scrolls, never the frame: its height does not follow what it holds.
+    desktop = css.split("@media (max-width: 1180px)", 1)[0]
+    assert "overflow: hidden" in frame and "overflow-y: auto" in _rule(desktop, ".settings-dialog .settings-pane")
+    assert "scrollbar-gutter: stable" in _rule(desktop, ".settings-dialog .settings-pane")
+    phone = css.split("@media (max-width: 720px)", 1)[1].split("@media (hover: none)", 1)[0]
+    assert "width: 100vw" in _block(phone, ".settings-dialog") and "height: 100dvh" in _block(phone, ".settings-dialog")
+    assert 'id="settings-dialog" aria-labelledby="settings-dialog-title"' in html
+    assert html.index('id="settings-dialog"') < html.index('id="confirm-dialog"'), "a confirmation stacks on top"
+    # Toasts follow the top dialog: the page behind it is inert and under the backdrop.
+    assert 'querySelectorAll("dialog[open]")' in javascript.split("function placeStatusLine", 1)[1]
 
 
 def test_token_dialog_opens_on_copy_token_with_a_read_only_field():
@@ -879,7 +915,7 @@ def test_product_brand_and_about_follow_tenon_standard():
     assert 'state.config?.productVersion || t("Unavailable")' in javascript
     assert 'el.aboutDialog.showModal()' in javascript
     assert 'el.aboutDialog.close()' in javascript
-    assert 'if (el.aboutDialog.open || el.tokenDialog.open || el.searchDialog.open || el.confirmDialog.open) return' in javascript
+    assert 'if (el.aboutDialog.open || el.tokenDialog.open || el.searchDialog.open || el.confirmDialog.open || el.settingsDialog.open) return' in javascript
     assert 'fill="#f06b32"' in mark
     assert 'M13 16H51V28H38V48H26V28H13Z' in mark
 
