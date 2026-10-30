@@ -63,7 +63,7 @@ PY
     [[ "$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${base_url}/api/v1/auth/github/start")" == 410 ]] \
         || { echo "Legacy GitHub login must be retired." >&2; return 1; }
 
-    for retired_path in /showcase /showcase/config.json /api/v1/public-profiles/showcase/projects; do
+    for retired_path in /showcase/config.json /api/v1/public-profiles/showcase/projects; do
         [[ "$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${base_url}${retired_path}")" == 410 ]] \
             || { echo "Retired public route ${retired_path} remains available." >&2; return 1; }
     done

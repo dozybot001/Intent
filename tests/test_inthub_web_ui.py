@@ -348,7 +348,7 @@ def test_visitors_see_what_this_is_and_every_page_names_its_operator():
     assert 'el.authPitch.classList.toggle("is-hidden", keepPage);' in javascript
     # The operator's terms, privacy policy, contact and filing number, on the app and on the sign-in page.
     assert html.count('class="site-footer') == 2
-    for target in ("https://tenon.asia/legal/terms/", "https://tenon.asia/privacy/", "https://tenon.asia/legal/acceptable-use/",
+    for target in ("https://tenon.asia/legal/terms/", "/privacy", "https://tenon.asia/legal/acceptable-use/",
                    "mailto:support@tenonai.cn", "https://beian.miit.gov.cn/"):
         assert html.count(f'href="{target}"') >= 2, target
     # Public projects can be reported; a project's managers have no need to.

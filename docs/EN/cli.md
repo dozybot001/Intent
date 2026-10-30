@@ -406,7 +406,7 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 - Explicit `--token` and `INTHUB_TOKEN` override the stored credential and are never persisted to `hub.json`
 - Pull validates and atomically restores shared history, rejecting divergent overwrites; automatic maintenance does not imply pull authorization
 - IntHub Local binds to `127.0.0.1` by default, but its current API does not enforce bearer-token authentication and uses permissive CORS; do not expose it to a LAN or the public internet
-- The IntHub production profile uses Tenon sign-in and bounded read-only HttpOnly Web sessions; CLI writes use an access token issued by the current account (sent as HTTP `Bearer`), project reads and writes follow the account's ownership and team roles, and production uses PostgreSQL; see [IntHub Production Deployment](inthub-production.md)
+- The IntHub production profile uses Tenon sign-in and bounded read-only HttpOnly Web sessions; CLI writes use an access token issued by the current account (sent as HTTP `Bearer`), project reads and writes follow the account's ownership and team roles, and production uses PostgreSQL
 - Object and Hub-config replacements are atomic, and mutating object commands use a workspace-level cross-process lock with bounded owner diagnostics; this serializes Intent CLI writers but does not turn `.intent/` into a multi-user database
 - IntHub requests use a 15-second per-attempt timeout and at most two attempts; the bundled argv adapter has a 60-second process safety timeout and always emits one JSON document
 - Object IDs are validated before path I/O, object paths must remain under their type directory, and `.intent/` object storage refuses symlink redirection

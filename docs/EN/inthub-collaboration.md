@@ -1,126 +1,145 @@
-# IntHub Management and Collaboration
+# IntHub collaboration guide
 
-Status: settings and management (7.3), identity and history (7.4), and teams and public projects (7.5) are implemented. Device-code sign-in is still a proposal.
+[中文](../CN/inthub-collaboration.md) | English
 
-IntHub is benchmarked against GitHub. Pushing, browsing and resuming already work; this document covers the three layers around them: management (settings, rename, delete, export), history (what each push changed) and collaboration (teams, visibility, public pages).
+IntHub is the optional service for browsing and sharing Intent history. This guide covers the hosted service at [inthub.tenon.asia](https://inthub.tenon.asia). The model follows GitHub's: each project has an owner and is private or public, and a team gives its members roles.
 
-## Principles
+Two rules hold throughout:
 
-- **The browser manages projects; the CLI writes history.** Renames, visibility and members happen on the web. Semantic history only accepts CLI pushes with an access token, and a browser session can never rewrite it.
-- **Private by default.** New projects are private. Going public takes an explicit confirmation in settings, and a push never publishes anything.
-- **Deletable and portable.** You can delete a project or export its data at any time.
-- **Follow GitHub's habits.** Names, layers and locations match what developers already know.
+- **The browser manages, the CLI writes history.** Renames, visibility, teams and deletion happen in the browser. History changes only through `itt push` with an access token. A browser session cannot write history, and a token cannot manage anything.
+- **Private by default.** Every new project starts private. Going public takes an explicit confirmation, and a push never changes visibility.
 
-## How GitHub splits visibility
+A local hub (`itt hub start`) runs on your own machine and has no accounts, teams, visibility or quotas. You can still rename, export and delete projects there.
 
-GitHub repositories are public or private. A third level, internal, exists only in GitHub Enterprise organizations.
-
-"Visible to the team" is not a visibility level on GitHub. It comes from ownership plus grants: the repository belongs to an organization, stays private, and its members get a base permission. Permissions run Read, Triage, Write, Maintain, Admin.
-
-## The IntHub model
-
-IntHub reduces GitHub's organization to a **team**: a flat group of members.
-
-| | Who can read | Who can push | Who can manage |
-|---|---|---|---|
-| Personal private project | The owner | The owner | The owner |
-| Team private project | Every team member | Admins and members | Admins |
-| Public project | Everyone, including signed-out visitors | As above | As above |
-
-- **Visibility has two levels,** as on GitHub. A team's private project is naturally visible to the team, which gives the private, team and public layers with one switch.
-- **The owner is a person or a team.** Names are unique per owner. A team project's full name is `team/project`, like GitHub's `owner/repo`. Personal projects have no prefix, because Tenon accounts have no chosen username. A project can move between a person and a team.
-- **Three team roles:** admin (members, settings, deletion), member (read and push), viewer (read only). GitHub's five levels are too fine for small teams.
-- **Public projects are read-only.** Visitors see the overview, Intents, Flow, Timeline, History, Decisions and search, but no members or settings. Pushing still takes membership.
-- **Public projects hide author emails from visitors.** Author emails come from Git config and can be private, so visitors and non-members see names only. `itt pull` and export stay members-only: they carry the complete snapshot, and removing emails would change the revision checksum.
-- **Links use the project ID.** A public link is `/?project=ID`, which keeps working after a rename or transfer.
-
-## Settings
-
-The header has three entries:
-
-- **Preferences** (sliders): appearance, language, refresh, about. It needs no sign-in, so visitors can use it.
-- **Settings** (gear): opens the settings dialog, with access tokens and teams.
-- **Account** (avatar): the account and nothing else: profile, Tenon account center, sign out.
-
-Account and Settings open in one fixed-size dialog over the current page (full screen on phones): the frame stays put between sections and the content scrolls inside it. Each section keeps its own address and can be opened directly; Back closes the dialog. Team and project settings stay pages with the same layout: navigation on the left, one section at a time on the right. Every option reads as an icon and a label, and selects and hints are drawn by IntHub rather than the browser.
-
-**Account** (`/account`):
-
-- Profile: the name and sign-in come from Tenon and are shown read-only with a link to edit them; the email that links Snaps to the account.
-- Danger zone: account deletion through Tenon.
-
-**Settings** (`/settings`):
-
-- Access tokens: a name and a 30-, 90- or 365-day lifetime; the list shows when each was created, last used and expires; any token can be revoked. A new token is shown once, in the list.
-- Teams: the teams you belong to, your role in each, and creating a team.
-
-**Team page** (`/teams/TEAM`):
-
-- Members: roles, removal, invite links and leaving. A team always keeps at least one admin.
-- Projects: all of the team's projects.
-- Settings (admins): name and URL; deleting the team, which needs its URL typed and removes its projects.
-
-**Project settings** (the Settings tab, shown to admins):
-
-- General: rename; visibility (going public needs the project name typed); a JSON export of the current snapshot and the revision list, which holds everything `itt pull` can restore.
-- Members: team projects show the team's members and roles.
-- Danger zone: transfer to a team you administer or back to your account; delete, which needs the project name typed.
-
-## How the CLI follows renames and transfers
-
-- Current CLIs send the project ID. IntHub finds the project by ID and returns its current name, and the CLI updates its local configuration and says so. Transfers and team URL changes work the same way.
-- CLIs from 7.2.1 and earlier look projects up by name, so a rename gives `REMOTE_CHANGED` rather than a duplicate project. Upgrading fixes it. Do not use `itt remote add` to rename: it clears the sync baseline, so unpushed local work becomes "diverged".
-- Old names do not redirect. GitHub redirects old repository URLs, but IntHub project names are only used by the CLI.
-
-## Identity
-
-As in Git, authors declare who they are, and the platform links that to an account and verifies it.
-
-- **Each object records its author.** New Intents, Snaps and Decisions store `author: {name, email}`, read in Git's order: `ITT_AUTHOR_NAME` and `ITT_AUTHOR_EMAIL`, then Git's `user.name` and `user.email`. Most developers have nothing to set up.
-- **A missing identity never blocks recording.** `itt init`, `itt status` and `itt doctor` warn instead. Older objects have no author, and the interface shows none.
-- **Agents are recorded separately.** The existing `origin` field records which Agent wrote an object, like Git's `Co-authored-by`.
-- **Each push records its pusher:** the account behind the token, and the name and email the CLI declares.
-- **Changes belong to revisions.** Status and relation changes have no author of their own; they belong to the revision that brought them, as a Git commit does.
-- **IntHub links identities.** Sign-in stores the verified Tenon email. An author email that matches a member's shows that member.
-- **Verified.** When an object was also pushed by the author's own account, it is marked Verified, like GitHub's badge. The server works this out at push time.
-- **No signatures.** Pushes already need an access token, so "the pushing account is the author" is enough.
-
-## History
-
-- **History page:** each push is one revision with its time, pusher and a summary such as "2 Intents and 5 Snaps added, 1 Decision deprecated". The timeline filters by author, like `git log --author`.
-- **Semantic diff:** comparing adjacent snapshots lists added objects, status changes and relation changes, like a GitHub commit page.
-- **Snaps link to Git:** inside a Git repository a Snap records the current commit, and IntHub links it when the project has a known remote.
-
-## Teams and collaboration
-
-- Create a team, add people by invite link (single use, valid for 7 days, stored as a hash), change roles, remove members. Accepting an invite is a browser action, so an access token cannot join a team.
-- From the CLI, a team project is `itt remote add origin URL --project team/project`. Without a prefix it is a personal project, so existing configurations are unaffected. Admins and members can create and push; viewers can pull.
-- When an account is deleted, its teams keep an admin: the longest-standing member takes over, preferring members over viewers. A team with nobody left is deleted with its projects.
-- **Concurrent pushes still fast-forward.** With several people on a project, the later push has to `itt pull` first. An Agent can do that, but if both sides changed, a person has to resolve it. Real semantic merging belongs to Intent 8 (see [Semantic Git](semantic-git.md)), and teams will be its main users.
-- **Home page:** lists your projects and your teams' projects, most recently synced first, with how many active Intents are blocked. With a single project, it opens that project.
-
-## CLI sign-in
-
-`itt auth login` uses a device code, like `gh auth login`:
-
-1. The terminal shows an 8-letter code and opens `/device` when the machine has a browser.
-2. You sign in, type the code (it is never in a link, so nobody can send you one to approve), check the device name and click Authorize.
-3. The CLI receives a 90-day token named "itt on machine", which can be revoked in Settings.
-
-A code expires after 10 minutes and is stored hashed, approval needs a browser session, and the token is delivered once. The token never appears on screen, so this also works over SSH and in containers. Unattended machines keep using a token from Settings with `INTHUB_TOKEN`; against an older hub without this endpoint, the CLI falls back to a pasted token.
-
-## Releases
-
-| Version | Content |
+| Where | What is there |
 |---|---|
-| 7.3 | Account settings and token management; project rename, export and delete; CLI follows renames; focus styling |
-| 7.4 | Author and pusher identity; history page and semantic diff; Snaps link to Git commits |
-| 7.5 | Teams and roles; private and public; public project pages; project transfer; cross-project home |
+| **Settings** (gear icon) | Access tokens, Teams, Usage |
+| **Account** (avatar) | Profile, Danger zone |
+| Team page, `/teams/TEAM` | Members, Projects, Settings (admins only) |
+| A project's **Settings** tab (admins only) | General, Members (team projects), Danger zone |
 
-The database only ever grows:
+## Accounts and sign-in
 
-- 7.3 changes no tables.
-- 7.4 adds the pusher and change summary to revisions, and the verified email to accounts.
-- 7.5 adds team, member and invite tables, and owner team and visibility columns on projects. After a rollback the previous image ignores them: team projects and public pages become unreachable, and the data stays.
+An IntHub account is a Tenon account. In the browser, sign in with GitHub, Apple or email. IntHub requests no access to your repositories, and a browser session lasts up to 30 days. Your name and email come from Tenon. **Account** shows them and links to Tenon to change them.
 
-Each release can roll back to the previous image. Older CLIs do not validate unknown fields, so they read and write objects carrying `author` without trouble.
+To sign in from the terminal, run `itt auth login`:
+
+1. The terminal shows an 8-letter code, and opens the `/device` page if the machine has a browser.
+2. In any browser, sign in, type the code, check the device name and click **Authorize**.
+3. The CLI receives a 90-day access token named "itt on MACHINE".
+
+The code expires after 10 minutes. You always type it by hand, so nobody can send you a link to approve. Step 2 can happen on another device, so this also works over SSH and in containers. `itt auth status` shows whether you are signed in.
+
+Each Intent, Snap and Decision records its author, read from your Git config or from `ITT_AUTHOR_NAME` and `ITT_AUTHOR_EMAIL`. When your account pushes an object whose author email is your Tenon email, IntHub marks it **Verified**. **Account** shows the command that sets Git to that address.
+
+## Projects and visibility
+
+A project's owner is your account or a team. Names are unique per owner. A personal project is `NAME`. A team project is `TEAM/NAME`, where `TEAM` is the team's URL. The home page lists your projects and your teams' projects, most recently synced first.
+
+You create projects from the CLI:
+
+```bash
+itt push    # a personal project, named after this directory
+
+itt remote add origin https://inthub.tenon.asia --project acme/checkout    # a team project
+itt push
+```
+
+A project is private or public, and there is no third setting. A team's private project is the middle layer: the whole team can read it, and nobody else can.
+
+| Project | Read in the browser | `itt pull` | `itt push` | Manage |
+|---|---|---|---|---|
+| Personal, private | You | You | You | You |
+| Personal, public | Everyone | You | You | You |
+| Team, private | All team members | All team members | Admins and members | Admins |
+| Team, public | Everyone | All team members | Admins and members | Admins |
+
+Manage means rename, change visibility, transfer, export from settings and delete.
+
+To go public, open the project's **Settings** tab, choose **Make public** and type the project name. IntHub first checks the current history for likely credentials: private keys, API keys, access tokens and passwords in URLs. If it finds any, it lists the objects. Check them, then confirm again if you still want to publish. **Make private** takes effect at once, but people who already read the project may have kept a copy.
+
+A project's link is `/?project=ID`, which keeps working after a rename or transfer. IntHub has no public directory, so visitors reach a public project through its link.
+
+Admins rename a project in its **Settings** tab, and transfer it under **Danger zone** to a team they administer or back to their own account. A transfer needs the project name typed. The new owner needs a free project slot and no project with that name. Who can read, push and manage then follows the new owner.
+
+Clones follow a rename, a transfer or a new team URL on their next push or pull, because they find the project by ID. A very old `itt` reports `REMOTE_CHANGED` until you upgrade it. Do not use `itt remote add` to follow a rename: it clears the sync baseline, so unpushed local work reads as diverged.
+
+## Teams and roles
+
+A team is a flat group of accounts that own projects together. Create one under **Settings → Teams** with a name and a URL. The URL uses lowercase letters, digits and hyphens, up to 39 characters, with no hyphen at either end. You become its admin. An account can create up to 10 teams.
+
+| Role | Read and pull | Push and create projects | Manage members, the team and its projects |
+|---|---|---|---|
+| Admin | Yes | Yes | Yes |
+| Member | Yes | Yes | No |
+| Viewer | Yes | No | No |
+
+- Only members can open a team page. Everyone in the team sees the member list, and only admins see email addresses.
+- Admins change roles, remove members, rename the team and change its URL.
+- Anyone can leave a team. A team always keeps at least one admin, so the last admin has to make someone else an admin first.
+- Team changes are browser actions. An access token uses a membership but cannot change it.
+
+## Invites
+
+Admins add people with invite links on the team page:
+
+- Choose a role and create a link. It is shown once, and IntHub keeps only its hash.
+- A link works once and expires after 7 days.
+- Pending invites are listed and can be revoked. A team can hold up to 50.
+- Anyone who opens the link and signs in can join with that role, because a link is not tied to an email address. Send it only to the person you mean.
+- Accepting happens in the browser, so an access token cannot join a team.
+
+## What visitors can see
+
+A visitor is anyone reading a public project without belonging to it: signed out, or signed in with an account that is not a member.
+
+Visitors can read the Overview, Intents, Flow, Timeline, History and Decisions tabs, and search the project. They see the names of authors and pushers.
+
+Visitors cannot:
+
+- See author or pusher emails. Emails come from Git config and can be private.
+- See the Settings tab or the member list.
+- Run `itt pull` or export. Both carry the complete snapshot with author emails, and removing them would change the revision checksum.
+- Push.
+
+To anyone outside it, a private project looks the same as one that does not exist.
+
+Public projects show **Report this project** to everyone who cannot manage them. A project that IntHub takes down becomes private and cannot go public again without contacting support.
+
+## Push and pull rights
+
+The table above shows who can do what. Pulling takes membership, even on a public project. Pushing takes the admin or member role, or owning the personal project. Both use an access token.
+
+Each project has one shared history, and pushes only fast-forward:
+
+- If someone pushed before you, run `itt pull`, then `itt push`.
+- If you both recorded work, `itt status` reports `diverged` and neither copy changes. Run `itt pull --rebase` to put your local work on top of the remote, then `itt push`. Objects that exist only locally take the next free IDs.
+
+Merging parallel work is planned for Intent 8. See [Semantic Git](semantic-git.md).
+
+## Access tokens
+
+The CLI reads and pushes with an access token. A token belongs to your account and carries all of its rights, so it cannot be limited to one project.
+
+- `itt auth login` creates a token and stores it for you.
+- Under **Settings → Access tokens** you can generate one by hand, with a name and a lifetime of 30, 90 or 365 days. It is shown once, in the list. Generate one for each machine or agent.
+- The list shows active tokens with their creation date, last use and expiry. **Revoke** stops a token at once.
+- On unattended machines, set `INTHUB_TOKEN` or pass `--token`.
+- `itt auth logout` removes the token from this machine only. It stays valid until it expires or you revoke it.
+- Tokens cannot manage projects, teams, other tokens or your account. Those need a browser session.
+
+## Quotas
+
+Each owner, an account or a team, can keep 100 projects and 1 GB of history on the hosted service. **Settings → Usage** shows your personal allowance and each team's.
+
+Each push stores a whole snapshot, so storage grows with every push. At a limit, creating a project or pushing fails with `QUOTA_EXCEEDED`. Deleting a project frees its storage.
+
+## Export and deletion
+
+**Export a project.** In the project's **Settings** tab, **Download export** saves a JSON file with the current snapshot and the revision list. It holds everything `itt pull` can restore.
+
+**Delete a project.** Under **Danger zone** in the project's **Settings** tab, type the project name. This removes the project and its history from IntHub and cannot be undone. Your local `.intent/` is not touched. To publish it again, run `itt hub link`, then `itt push`.
+
+**Delete a team.** On the team's **Settings** page, type the team URL. This removes the team and all of its projects from IntHub and cannot be undone. Local `.intent/` directories are not touched.
+
+**Delete your account.** Under **Account → Danger zone**, start the deletion and confirm it in Tenon's account center. This removes your account, personal projects and access tokens from IntHub. A team where you are the only admin passes to its longest-standing member, or to its longest-standing viewer if it has no members. A team with nobody else in it is deleted with its projects. Your local `.intent/` is not touched.

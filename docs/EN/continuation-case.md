@@ -1,106 +1,78 @@
-# Reproducible continuation case
+# Continuation case
 
 [中文](../CN/continuation-case.md) | English
 
-This synthetic case demonstrates Intent's core product contract: recording stays small, while a later agent receives enough structured context to resume. It is a reproducible product example, not a measured productivity claim.
+This synthetic case shows the core promise: recording stays small, and a later agent still gets enough to continue. It is a reproducible example, not a measurement of time saved.
 
-## Session A — record only the semantic milestones
+## Session A: record only the milestones
 
-Start in an initialized Git repository:
+In a Git repository:
 
 ```bash
 itt init
 
 itt intent create "Stabilize checkout retries" \
-  --why "intermittent payment-provider timeouts leave orders pending"
+  --why "Intermittent payment-provider timeouts leave orders pending"
 
 itt decision create "Outbound payment calls use bounded retries" \
-  --why "unbounded retries can duplicate charges and hide provider incidents"
+  --why "Unbounded retries can duplicate charges and hide provider incidents"
 
-itt snap create "Separated provider timeout from business rejection" \
-  --intent intent-001 \
-  --why "only transient provider failures are safe to retry"
+itt snap create "Separated provider timeouts from business rejections" \
+  --why "Only transient provider failures are safe to retry" \
+  --verified "Timeouts retry; declined payments do not"
 
-itt snap create "Checkpoint: verified provider-timeout/business-rejection separation and a three-attempt exponential backoff; idempotency and failure observability remain unverified" \
-  --intent intent-001 \
-  --why "Next, prove repeated submissions cannot duplicate charges and add alerts; no current blocker; outbound payment calls remain bounded"
+itt snap create "Retries stop after three attempts with exponential backoff" \
+  --verified "Integration tests cover timeout, rejection and the three-attempt limit" \
+  --boundary "Checkout calls only; refunds are unchanged" \
+  --next "Prove repeated submissions cannot duplicate charges, then add alerts" \
+  --blocker none
 
 itt intent suspend intent-001
 ```
 
-The recording contains one recoverable goal, two meaningful milestones, and one user-confirmed standing constraint. Its final Snap is also a self-contained continuation checkpoint. It does not store the raw conversation, command log, or every implementation step.
+That is one goal, two milestones and one standing rule. The session's commands, file reads and false starts are not recorded.
 
-## Session B — recover without reconstructing the old chat
+## Session B: recover without the old chat
 
-The next agent starts with:
+A new agent, which never saw Session A, runs:
 
 ```bash
 itt inspect
 ```
 
-The recovery response includes the suspended goal and its motivation, the complete latest Snap, Snap-count hints, and the active Decision with its reason. Variable fields such as timestamps and origin are shortened below:
+```text
+Suspended
+  intent-001  Stabilize checkout retries
+              Next         Prove repeated submissions cannot duplicate charges, then add alerts
+              Blocker      none
+              Boundary     Checkout calls only; refunds are unchanged
+              Verified     Integration tests cover timeout, rejection and the three-attempt limit
+              snap-002 · 2026-10-31 05:39 · 2 snaps
 
-```json
-{
-  "ok": true,
-  "active_intents": [],
-  "active_decisions": [
-    {
-      "id": "decision-001",
-      "what": "Outbound payment calls use bounded retries",
-      "why": "unbounded retries can duplicate charges and hide provider incidents"
-    }
-  ],
-  "suspended": [
-    {
-      "id": "intent-001",
-      "what": "Stabilize checkout retries",
-      "why": "intermittent payment-provider timeouts leave orders pending",
-      "snap_count": 2,
-      "has_more": true,
-      "latest_snap_id": "snap-002",
-      "latest_snap": {
-        "id": "snap-002",
-        "object": "snap",
-        "created_at": "...",
-        "what": "Checkpoint: verified provider-timeout/business-rejection separation and a three-attempt exponential backoff; idempotency and failure observability remain unverified",
-        "why": "Next, prove repeated submissions cannot duplicate charges and add alerts; no current blocker; outbound payment calls remain bounded",
-        "intent_id": "intent-001",
-        "origin": "..."
-      }
-    }
-  ],
-  "warnings": []
-}
+Decisions
+  decision-001  Outbound payment calls use bounded retries
 ```
 
-The agent can now state the recovery boundary before changing code:
+Agents get the same data as JSON. That is enough to state the position before touching code:
 
-> The goal is to stabilize checkout retries because provider timeouts leave orders pending. Timeout/rejection separation and a three-attempt backoff are verified; idempotency and failure observability remain unverified. Next, test repeated submissions and add alerts; there is no current blocker. The bounded-payment-retry Decision still applies.
+> The goal is to stabilize checkout retries, because provider timeouts leave orders pending. The three-attempt limit is verified, for checkout calls only. Next I'll prove repeated submissions can't duplicate charges, then add alerts. Retries stay bounded.
 
-That statement comes entirely from the goal, latest Snap, and Decision returned by default `inspect`; it does not borrow facts from the first Snap or rediscover them in code. `has_more: true` only signals older history. If the latest checkpoint is still insufficient, expand narrowly:
+Every part of that statement comes from the goal, the latest Snap and the Decision. Nothing is borrowed from the previous conversation. If the latest checkpoint is not enough, `itt inspect --intent intent-001 --history 3 --json` adds the most recent Snaps, oldest first.
 
-```bash
-itt inspect --intent intent-001 --history 3
-```
-
-The target entry then adds `recent_snaps`, returning up to the three most recent Snaps in oldest-to-newest order. This case returns both `snap-001` and `snap-002`. Bounded history can add detail, but it does not replace the final-Snap continuation contract.
-
-Then it resumes explicitly:
+Then the agent resumes the goal:
 
 ```bash
 itt intent activate intent-001
 ```
 
-If investigation later invalidates the goal, preserve that history instead of calling it complete:
+If later work shows the goal is no longer needed, the history keeps the reason instead of pretending it was finished:
 
 ```bash
-itt intent cancel intent-001 \
-  --reason "provider-side idempotency removed the client retry requirement"
+itt intent cancel intent-001 --reason "Provider-side idempotency removed the need for client retries"
 ```
 
-If the goal is completed, close it with `itt intent done intent-001`.
+When the goal is finished, close it with `itt intent done intent-001`.
 
-## IntHub's role
+## Where IntHub fits
 
-Intent remains sufficient for local recording and terminal recovery. After `itt remote add origin URL --project NAME`, `itt push` publishes the same graph to IntHub as one shared history for browsing and handoff, independent of any Git remote. This is the intended boundary: Intent owns portable semantic history; IntHub amplifies it as an organization and collaboration surface.
+All of this works locally. After `itt remote add origin URL --project NAME` and `itt push`, IntHub shows the same history in a browser and the Overview page offers it as a brief you can copy to the next agent.

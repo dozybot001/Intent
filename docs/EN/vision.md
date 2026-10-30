@@ -2,7 +2,7 @@
 
 [中文](../CN/vision.md) | English
 
-## 1. Core thesis
+## Core claim
 
 ```mermaid
 flowchart LR
@@ -31,183 +31,55 @@ flowchart LR
   traditional ~~~ agent ~~~ withintent
 ```
 
-Git remains foundational infrastructure for the code world. That hasn't changed.
+Git remains the foundation of the code world. What has changed is how code gets written. People now shape code through agents: you state a goal, check the result, correct course and settle on rules. That work produces knowledge Git was never built to hold: what the goal is, what has been verified, which decisions still stand. It lives in a session, and when the session ends or the agent changes, it is gone.
 
-What has changed is how software development works:
+So people who work through agents need a layer above Git that keeps this knowledge. We call it semantic history, and Intent is that layer.
 
-- People increasingly shape code indirectly through agents
-- The development process looks more like "propose a goal, drive toward results, continuously correct, crystallize decisions"
-- The development process reliably produces higher-level semantic nodes: current intent, semantic snapshots, long-term decisions, corrections, and continuations
+**Git records how the code changed. Intent records why, what has been verified, and what comes next.**
 
-The new question is therefore not "how to replace Git", but:
+## Why existing tools don't cover it
 
-**How to add a semantic history layer on top of Git for human-agent collaboration.**
+The information already exists. It sits in commit messages, issues, PR discussions, docs, team chat, agent conversations and private notes. A person with time can piece it together. A new session cannot: each tool holds a fragment, a goal or a rule has no stable boundary to reference, and an agent has no stable entry point to query.
 
-Intent is that layer.
+You can see how the code changed, yet these questions stay hard to answer:
 
-## 2. What's truly missing is not information — it's stable object boundaries
+- What problem are we solving right now?
+- What did the last session actually finish?
+- Why this approach?
+- Which long-term decisions still apply?
 
-High-level semantic information is not scarce today. It's typically scattered across:
+Intent turns these answers into objects you can reference: an Intent for each goal, a Snap for each verified checkpoint, and a Decision for each long-term rule.
 
-- Commit messages
-- Issues
-- PR discussions
-- Docs
-- Team chat
-- Agent conversations
-- Ad-hoc notes and verbal agreements
+## Where Intent sits
 
-The problem is not that this information doesn't exist, but that it's usually:
+| Layer | What it keeps | Typical content |
+|---|---|---|
+| Git | Code history | Commits, branches, diffs |
+| Intent | Semantic history | Goals (Intent), verified checkpoints (Snap), long-term rules (Decision) |
+| IntHub | Sharing and browsing | Timeline, continuation brief, team access |
 
-- Readable, but unstable
-- Discussable, but hard to track continuously
-- Recallable, but lacking unified boundaries
-- Passable for humans, but unreliable for agents
+Intent is local and open. It keeps plain JSON in `.intent/` beside your code, validates it, and gives agents a way to recover context.
 
-This leads to a very practical problem: we can see how code changed, but we can't reliably answer these questions:
+IntHub is optional, and its relation to Intent resembles GitHub's to Git. People and teams use it to browse and share this history, hosted or run locally with `itt hub start`. Projects are private by default. A team can share them by role or publish them read-only. Merging parallel work is not built yet. Intent stays useful without IntHub, and recording never depends on it.
 
-- What problem are we actually solving right now
-- What did the last interaction actually accomplish
-- What reasoning led to the current approach
-- Which long-term decisions are still in effect
-- Why are we continuing along this particular path
+## Project boundaries
 
-What Intent solves is not "recording more information", but:
+Intent does not try to:
 
-**Promoting these high-level semantics to first-class objects.**
+- Replace Git's version control
+- Replace issues, PRs or docs
+- Store every conversation, or become a heavy platform that records everything
+- Require remote collaboration
 
-## 3. Why the existing tool combination falls short
+It records only what is worth tracking, linking, correcting and reusing.
 
-`Git + PR + issue + docs + chat` is certainly useful, but it hasn't turned this semantic history layer into a unified system.
+## Light recording, full recovery
 
-Four main problems:
+Intent is built on a deliberate contrast:
 
-- Semantics are expressed in a scattered way, not formally modeled
-- Semantic node boundaries are unstable — hard to reference, compare, and trace back
-- For agents, there's no stable entry point or queryable context
-- "Progress, correction, and decision crystallization" remain scattered across different media
+- **Recording is low-disturbance.** It costs little, stays out of your way and keeps only a few high-value records. A turn with nothing important writes nothing.
+- **Resuming is a full recovery.** A new session gets the goal, the latest verified progress, the reasoning and the rules still in force. You don't rebuild the session by hand.
 
-In traditional development, the central action is more like "writing code."
+Corrections stay in the history. A later Snap explains what changed, a dropped Intent is cancelled with a reason, and a replaced Decision is deprecated with a reason.
 
-In agent-driven development, the increasingly critical actions are:
-
-- Proposing goals
-- Driving implementation
-- Continuously correcting
-- Recording interaction feedback
-- Crystallizing long-lived decisions
-
-The center of gravity in development is shifting from "writing" to "guiding, connecting, and crystallizing."
-
-## 4. What layer Intent fills
-
-Intent does not replace Git. It fills the layer of history that Git was never designed to carry.
-
-```mermaid
-flowchart TB
-  Hub["IntHub — Collaboration Layer"]
-  Intent["Intent — Semantic History Layer"]
-  Git["Git — Code History Layer"]
-  Hub <--> Intent <--> Git
-```
-
-| Layer | Responsible for | Typical content |
-| --- | --- | --- |
-| Git | code history | commits, branches, diffs |
-| Intent | semantic history | goals (intent), semantic snapshots (snap), long-term constraints (decision) |
-| Collaboration layer | remote organization & collaboration | timelines, shared views, collaboration context |
-
-Intent can be understood as:
-
-**A semantic history layer built on top of Git.**
-
-In one sentence:
-
-**Git records code changes. Intent records semantic history.**
-
-### The Intent–IntHub ecosystem direction
-
-The long-term shape is analogous to Git and GitHub, while serving a different kind of history:
-
-- **Intent** is the local, open semantic-history substrate. It owns portable objects, lifecycle rules, validation, and agent-readable recovery.
-- **IntHub** is the organization and collaboration surface. It turns multiple local histories into browsable handoffs, shared context, and eventually a networked ecosystem.
-
-Today IntHub is a history browser for individuals and teams (hosted, or local via `itt hub start`): projects are private by default, and a team shares them with roles or publishes them read-only. Merging parallel work is not built yet. Intent must remain useful without IntHub; IntHub should amplify Intent rather than becoming a prerequisite for recording.
-
-## 5. Project boundaries
-
-Intent currently does not intend to:
-
-- Replace Git's version control capabilities
-- Replace issue, PR, or docs systems
-- Store all raw conversations and all intermediate processes
-- Become a heavyweight "record everything" process platform
-- Treat remote collaboration as a first-priority prerequisite
-
-Intent's boundary is clear:
-
-**Only record the semantic nodes worth formally tracking, linking, correcting, and reusing.**
-
-## 6. Why this is more urgent in the agent era
-
-```mermaid
-sequenceDiagram
-  participant H as Human
-  participant A as Agent A
-  participant I as Intent
-  participant B as Agent B
-
-  H->>A: enable local maintenance for this repository once
-  H->>A: "improve the login flow"
-  A->>I: itt inspect (read existing semantics)
-  A->>A: fix and verify the timeout
-  A->>I: reuse/create Intent, append verified milestone
-  A->>I: checkpoint: fix verified, deployment remains
-  A-->>H: turn result (no separate recording request)
-
-  Note over A,B: session ends, context lost
-
-  H->>B: "continue where we left off"
-  B->>I: itt inspect
-  I-->>B: active intents, decisions, latest snap
-  B->>B: reads snap → knows what was done and why
-```
-
-In traditional development, semantics lived in the programmer's head. In the agent era, sessions are interrupted, agents are swapped, and context is lost between turns. Intent makes this handoff structural — not verbal.
-
-The loop requires explicit one-time enablement and currently runs as a Skill/agent instruction contract. Project-local hooks for Codex or Claude Code supply the opening context and a Stop closure check once the user trusts them ([Codex](../../references/codex-hooks.md), [Claude Code](../../references/claude-code-hooks.md)); they check closure, not semantic quality. Each turn assesses critical semantic change; unchanged turns write nothing rather than reverting to per-query logging.
-
-## 7. Judging whether this works
-
-Whether Intent is valid depends not on how much it records, but on whether it genuinely reduces semantic loss in collaboration.
-
-More specifically:
-
-- Are new sessions needing to re-explain context less often
-- Can humans more easily understand what's being solved, what's been progressed, and why
-- Is interrupted work easier to resume
-- Are long-term decisions more reliably inherited, rather than buried in chat or memory
-
-If these benefits don't materialize, then no matter how elegant the schema or how complete the commands, Intent doesn't hold up.
-
-The desired product experience has an intentional contrast:
-
-- **At recording time:** low interruption, low resource cost, and only a few high-value semantic nodes.
-- **At continuation time:** enough context to recover the goal, latest meaningful progress, reasoning, and standing constraints without asking the user to reconstruct the session.
-
-That contrast is the product's success criterion. It remains a hypothesis to validate with reproducible continuation cases; it should not be treated as a proven efficiency claim yet.
-
-Intent also preserves corrections as history instead of silently rewriting it: a later snap explains a changed understanding, an abandoned intent is cancelled with a reason, and a superseded decision is deprecated with a reason.
-
-## 8. One-line definition
-
-Intent is a Git-compatible semantic history layer for agent-driven software development, centered on product formation history and cross-session / cross-agent recovery.
-
-## 9. Summary
-
-Intent focuses not on Git's version control capability, but on the semantic history beyond Git:
-
-- How the product, workflow, or design direction gradually took shape
-- How a later session or another agent can resume work without losing that semantic context
-- Which long-term decisions are still in effect
-- How the current path was formed, and how later corrections should be understood
+This contrast is also the test of the project. Intent works if new sessions need less re-explaining, interrupted work resumes more easily, and decisions carry forward. We have not proven that yet. We check it with reproducible [continuation cases](continuation-case.md).

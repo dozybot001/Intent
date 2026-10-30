@@ -78,7 +78,7 @@ window.IntHubI18n = (() => {
     "That sign-in attempt expired. Please try again.": "登录请求已失效，请重试。", "Tenon sign-in could not be completed. Please try again.": "未能完成 Tenon 登录，请重试。", "Sign-in could not be completed.": "未能完成登录。",
     "Sign in again to continue.": "请重新登录后继续。", "Could not load data. Try again.": "无法加载数据，请重试。", "Permission denied.": "没有操作权限。", "Object no longer exists.": "对象已不存在。",
     "Login request timed out. Try again.": "登录请求超时，请重试。", "Could not prepare Tenon sign-in. Try again.": "无法准备 Tenon 登录，请重试。", "Retry": "重试", "Return to IntHub": "返回 IntHub",
-    "Switch language": "切换语言", "Explanation": "说明", "No repository access is requested. Tenon manages identity; IntHub keeps its own 30-day session.": "无需仓库权限。Tenon 管理身份，IntHub 保持独立的30天会话。",
+    "Showcase": "示例项目", "IntHub · Semantic history for agent-driven development": "IntHub · 面向 Agent 驱动开发的语义历史", "See Intent's own history": "查看 Intent 自己的历史", "Switch language": "切换语言", "Explanation": "说明", "No repository access is requested. Tenon manages identity; IntHub keeps its own 30-day session.": "无需仓库权限。Tenon 管理身份，IntHub 保持独立的30天会话。",
     "Search matches goals, checkpoints and decisions within the selected project. Cmd/Ctrl+K opens search.": "搜索当前项目中的目标、检查点和决策。Cmd/Ctrl+K 可打开搜索。",
     "A token grants CLI access to your own projects. It is shown once; keep it secret and revoke it when no longer needed.": "令牌供 CLI 访问你自己的项目，只显示一次。请妥善保管，不再使用时撤销。",
     "{count} decisions": "{count} 条决策", "{count} linked Intents": "{count} 个关联意图", "Applies to {count} linked Intents.": "适用于 {count} 个关联意图。",
@@ -168,7 +168,7 @@ window.IntHubI18n = (() => {
     "Rejoin": "汇回", "+{count} more": "还有 {count} 条",
     "Source": "来源", "Project-level": "项目级", "Not traced to one Intent; it applies across the project.": "未追溯到具体意图，适用于整个项目。",
     "Showing {shown} of {total} — refine the search": "显示前 {shown} 条，共 {total} 条，请细化搜索",
-    "Part of branches off its parent and rejoins it once done or dropped. Derived from branches off without rejoining. Succeeds is a thick arrow: the lane flows on into its successor. Depends on is a thin arrow from the prerequisite: amber while blocked, green once satisfied, red if it was cancelled. Conflicts with is a dashed line marked vs until one side ends. Diamonds are Decisions; hollow ones are deprecated.": "属于：从上级分出，完成或放弃后汇回上级。衍生自：分出后不汇回。继承自：粗箭头，泳道流入接手的意图。依赖：从前置意图指来的细箭头，阻塞时为琥珀色，满足后为绿色，前置被取消则为红色。对立：标有 vs 的虚线，直到一方结束。菱形是决策，空心表示已废弃。",
+    "Part of branches off its parent, and ended parts come back together at one point. Derived from branches off without coming back. Succeeds is a thick arrow into the next goal on the row. Depends on is a thin arrow from the prerequisite: amber while blocked, green once satisfied, red if it was cancelled. Conflicts with is a dashed line marked vs until one side ends. Diamonds are Decisions; hollow ones are deprecated.": "属于：从上级分出，结束后汇到一个点。衍生自：分出后不汇回。继承自：粗箭头，指向同一行的下一个意图。依赖：从前置意图指来的细箭头，阻塞时为琥珀色，满足后为绿色，前置被取消则为红色。对立：标有 vs 的虚线，直到一方结束。菱形是决策，空心表示已废弃。",
 
     "Profile": "个人资料", "Edit in Tenon": "在 Tenon 中修改",
     "Access tokens": "访问令牌", "The Intent CLI signs in with an access token to push this account's projects. Revoke a token when a machine no longer needs it.": "Intent CLI 使用访问令牌登录，推送本账号的项目。某台机器不再需要时，请作废它的令牌。",

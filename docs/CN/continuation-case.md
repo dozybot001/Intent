@@ -1,106 +1,78 @@
-# 可复现的项目接续案例
+# 接续案例
 
 中文 | [English](../EN/continuation-case.md)
 
-这个合成案例展示 Intent 的核心产品契约：记录时保持克制，后续 agent 又能拿到足以接续的结构化上下文。它是可复现的产品示例，不是已经完成的效率测量。
+这个合成案例展示核心承诺：记录保持克制，之后的 Agent 仍然拿得到足够接着做的信息。它是可复现的示例，不是节省时间的测量。
 
-## Session A：只记录有价值的语义节点
+## 会话 A：只记录里程碑
 
-在一个已经初始化的 Git 仓库中执行：
+在一个 Git 仓库中：
 
 ```bash
 itt init
 
-itt intent create "稳定结账重试链路" \
-  --why "支付服务偶发超时会让订单停留在处理中"
+itt intent create "Stabilize checkout retries" \
+  --why "Intermittent payment-provider timeouts leave orders pending"
 
-itt decision create "支付出站请求必须使用有界重试" \
-  --why "无界重试可能造成重复扣款，也会掩盖供应商事故"
+itt decision create "Outbound payment calls use bounded retries" \
+  --why "Unbounded retries can duplicate charges and hide provider incidents"
 
-itt snap create "区分供应商超时与业务拒绝" \
-  --intent intent-001 \
-  --why "只有供应商的瞬时故障适合重试"
+itt snap create "Separated provider timeouts from business rejections" \
+  --why "Only transient provider failures are safe to retry" \
+  --verified "Timeouts retry; declined payments do not"
 
-itt snap create "检查点：已验证供应商超时与业务拒绝分流，并加入最多三次的指数退避；当前边界是幂等性与失败可观测性尚未验证" \
-  --intent intent-001 \
-  --why "下一步验证重复提交不会重复扣款并补齐告警；当前无 blocker；支付出站请求仍受有界重试约束"
+itt snap create "Retries stop after three attempts with exponential backoff" \
+  --verified "Integration tests cover timeout, rejection and the three-attempt limit" \
+  --boundary "Checkout calls only; refunds are unchanged" \
+  --next "Prove repeated submissions cannot duplicate charges, then add alerts" \
+  --blocker none
 
 itt intent suspend intent-001
 ```
 
-这次记录只有一个可恢复目标、两个有意义的里程碑，以及一条经过用户确认的长期约束。最后一个 Snap 同时是自包含接续检查点；它不保存原始对话、命令日志，也不记录每个实现步骤。
+这里只有一个目标、两个里程碑和一条长期规则。会话里的命令、读过的文件和走过的弯路都不记录。
 
-## Session B：不重建旧对话也能恢复
+## 会话 B：不靠旧对话恢复
 
-下一个 agent 从这里开始：
+一个没见过会话 A 的新 Agent 运行：
 
 ```bash
 itt inspect
 ```
 
-恢复结果会包含被暂停目标及其动机、完整的最新 Snap、Snap 数量提示，以及带理由的现行 Decision。下面缩略了时间戳和来源等可变字段：
+```text
+Suspended
+  intent-001  Stabilize checkout retries
+              Next         Prove repeated submissions cannot duplicate charges, then add alerts
+              Blocker      none
+              Boundary     Checkout calls only; refunds are unchanged
+              Verified     Integration tests cover timeout, rejection and the three-attempt limit
+              snap-002 · 2026-10-31 05:39 · 2 snaps
 
-```json
-{
-  "ok": true,
-  "active_intents": [],
-  "active_decisions": [
-    {
-      "id": "decision-001",
-      "what": "支付出站请求必须使用有界重试",
-      "why": "无界重试可能造成重复扣款，也会掩盖供应商事故"
-    }
-  ],
-  "suspended": [
-    {
-      "id": "intent-001",
-      "what": "稳定结账重试链路",
-      "why": "支付服务偶发超时会让订单停留在处理中",
-      "snap_count": 2,
-      "has_more": true,
-      "latest_snap_id": "snap-002",
-      "latest_snap": {
-        "id": "snap-002",
-        "object": "snap",
-        "created_at": "...",
-        "what": "检查点：已验证供应商超时与业务拒绝分流，并加入最多三次的指数退避；当前边界是幂等性与失败可观测性尚未验证",
-        "why": "下一步验证重复提交不会重复扣款并补齐告警；当前无 blocker；支付出站请求仍受有界重试约束",
-        "intent_id": "intent-001",
-        "origin": "..."
-      }
-    }
-  ],
-  "warnings": []
-}
+Decisions
+  decision-001  Outbound payment calls use bounded retries
 ```
 
-在改代码前，agent 已经可以明确说出接续边界：
+Agent 得到的是同样内容的 JSON。这已经足够在动代码之前说清现状：
 
-> 目标是稳定结账重试链路，原因是供应商超时会让订单停留在处理中。已验证超时与业务拒绝分流，并加入最多三次的退避；当前边界是幂等性与失败可观测性尚未验证。下一步验证重复提交并补齐告警，目前无 blocker；同时遵守“支付出站请求必须使用有界重试”的 Decision。
+> 目标是稳定结账重试，因为支付服务超时会让订单卡在待处理。三次重试上限已经验证，只涉及结账调用。接下来我要证明重复提交不会重复扣款，然后加告警。重试仍然保持有界。
 
-这段陈述完全来自默认 `inspect` 返回的目标、最新 Snap 和 Decision，不需要借用第一个 Snap 或重新查看代码。`has_more: true` 只是提示还有更早历史；如果最新检查点仍不足，再做受限展开：
+这段话的每一部分都来自目标、最新 Snap 和 Decision，没有借助之前的对话。如果最新检查点还不够，`itt inspect --intent intent-001 --history 3 --json` 会按从旧到新的顺序补上最近的 Snap。
 
-```bash
-itt inspect --intent intent-001 --history 3
-```
-
-目标条目会新增 `recent_snaps`，按旧到新返回最近最多三条 Snap；本例会同时返回 `snap-001` 与 `snap-002`。这一步用于补充细节，不能替代最后 Snap 的自包含接续契约。
-
-然后显式恢复目标：
+然后 Agent 恢复这个目标：
 
 ```bash
 itt intent activate intent-001
 ```
 
-如果后续调查证明这个目标已经失效，应保留这段历史，而不是把它误记为完成：
+如果后来发现这个目标不再需要，历史会留下原因，而不是假装它完成了：
 
 ```bash
-itt intent cancel intent-001 \
-  --reason "供应商提供的幂等能力消除了客户端重试需求"
+itt intent cancel intent-001 --reason "Provider-side idempotency removed the need for client retries"
 ```
 
-如果目标确实完成，则使用 `itt intent done intent-001` 收口。
+目标完成后，用 `itt intent done intent-001` 收尾。
 
-## IntHub 的角色
+## IntHub 的位置
 
-Intent 本身足以完成本地记录和终端恢复。执行 `itt remote add origin URL --project NAME` 后，`itt push` 会把同一对象图作为一份共享历史发布到 IntHub，供浏览和交接，与任何 Git 远端无关。边界由此保持清晰：Intent 负责可迁移的语义历史，IntHub 作为组织与协作界面放大它的价值。
+以上全部可以在本地完成。运行 `itt remote add origin URL --project NAME` 和 `itt push` 之后，IntHub 会在浏览器里展示同一份历史，概览页还能把它复制成一份简报，交给下一个 Agent。

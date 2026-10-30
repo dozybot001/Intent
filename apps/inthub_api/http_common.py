@@ -35,7 +35,7 @@ TEAM_ACTIONS = (
     (r"/api/v1/invites/accept", lambda db, me, body: accept_invite(db, body.get("token"), me)),
 )
 # Paths the web app answers itself; anything else gets a real 404.
-WEB_ROUTES = re.compile(r"/(?:account(?:/danger)?|settings(?:/teams|/usage)?|invite|device|teams/[^/]+(?:/projects|/settings)?)?/?")
+WEB_ROUTES = re.compile(r"/(?:showcase|account(?:/danger)?|settings(?:/teams|/usage)?|invite|device|teams/[^/]+(?:/projects|/settings)?)?/?")
 OAUTH_STATE_COOKIE = "inthub_oauth_state"
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 QUIET_PATHS = {"/health", "/healthz", "/readyz"}

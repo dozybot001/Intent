@@ -6,7 +6,7 @@
     setup: "Run these commands where your .intent/ data lives.",
     history: "Each push to IntHub is one revision, like a Git commit: what it added or changed, who pushed it and when. Open one to see the objects.",
     verified: "Pushed by the account that owns this email.",
-    flow: "Part of branches off its parent and rejoins it once done or dropped. Derived from branches off without rejoining. Succeeds is a thick arrow: the lane flows on into its successor. Depends on is a thin arrow from the prerequisite: amber while blocked, green once satisfied, red if it was cancelled. Conflicts with is a dashed line marked vs until one side ends. Diamonds are Decisions; hollow ones are deprecated.",
+    flow: "Part of branches off its parent, and ended parts come back together at one point. Derived from branches off without coming back. Succeeds is a thick arrow into the next goal on the row. Depends on is a thin arrow from the prerequisite: amber while blocked, green once satisfied, red if it was cancelled. Conflicts with is a dashed line marked vs until one side ends. Diamonds are Decisions; hollow ones are deprecated.",
   };
   // Short hints on hover or focus take the same popover in place of the browser's own title tooltip.
   const hints = "[data-help], [data-help-copy], [data-tip]";

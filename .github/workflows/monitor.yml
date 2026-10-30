@@ -1,0 +1,29 @@
+# Probes the hosted IntHub from outside its server. A failed run emails the
+# repository owner, so nothing here needs an account or a secret.
+name: monitor
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CURL: curl --fail --silent --show-error --max-time 20 --retry 3 --retry-delay 30 --retry-all-errors
+    steps:
+      - name: Service is ready
+        run: $CURL https://inthub.tenon.asia/readyz
+
+      - name: Disk and backups are healthy
+        run: |
+          status="$($CURL https://inthub.tenon.asia/status.json)"
+          echo "$status"
+          oldest="$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ)"
+          echo "$status" | jq -e --arg oldest "$oldest" \
+            '.disk == "ok" and .backup == "ok" and .offsite == "ok" and .checked_at >= $oldest'

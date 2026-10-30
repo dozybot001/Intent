@@ -18,5 +18,12 @@ inthub.tenon.asia {
 		max_size 16MB
 	}
 
+	# Coarse disk and backup state for the outside monitor, written by backup.sh status.
+	handle /status.json {
+		header Cache-Control "no-store"
+		root * /var/lib/inthub-status
+		file_server
+	}
+
 	reverse_proxy 127.0.0.1:7250
 }

@@ -303,7 +303,8 @@ def test_gitee_bootstrap_only_installs_the_stable_launcher():
 
 
 def test_github_workflows_are_test_only():
-    # GitHub only runs tests; production builds come from an exact Gitee commit.
+    # GitHub only runs tests and probes; production builds come from an exact Gitee commit.
+    # The one exception is PyPI: trusted publishing needs id-token and holds no secret.
     workflows = sorted((REPOSITORY_ROOT / ".github" / "workflows").glob("*.y*ml"))
     assert workflows
     for path in workflows:
@@ -311,7 +312,8 @@ def test_github_workflows_are_test_only():
         assert re.search(r"(?m)^permissions:\n  contents: read$", text), path.name
         for forbidden in ("secrets.", "id-token", "docker push", "docker login", "gitee",
                           "ssh", "deploy/inthub/release", "twine upload", "gh-pages", "pages:"):
-            assert forbidden not in text.lower(), (path.name, forbidden)
+            if (path.name, forbidden) != ("publish.yml", "id-token"):
+                assert forbidden not in text.lower(), (path.name, forbidden)
         for action in re.findall(r"uses:\s*(\S+)", text):
             assert re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", action), action
 

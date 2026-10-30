@@ -166,7 +166,7 @@ def test_retired_showcase_routes_do_not_fall_through_to_private_shell(tmp_path):
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        for path in ("/showcase", "/showcase/", "/showcase/config.json",
+        for path in ("/showcase/", "/showcase/config.json",
                      "/api/v1/public-profiles/showcase",
                      "/api/v1/public-profiles/showcase/projects"):
             status, _, payload = _raw_request(server, path)
@@ -174,6 +174,9 @@ def test_retired_showcase_routes_do_not_fall_through_to_private_shell(tmp_path):
             assert json.loads(payload)["error"]["code"] == "FEATURE_RETIRED"
         assert _raw_request(server, "/api/v1/projects")[0] == 401
         assert _raw_request(server, "/")[0] == 200
+        assert _raw_request(server, "/showcase")[0] == 200
+        status, _, payload = _raw_request(server, "/privacy")
+        assert status == 200 and "support@tenonai.cn" in payload.decode("utf-8")
     finally:
         server.shutdown()
         thread.join()

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="light dark">
+    <title>Privacy notice · IntHub</title>
+    <meta name="description" content="What IntHub stores, where it is kept, who can see it and how to delete it.">
+    <link rel="icon" type="image/svg+xml" href="/tenon-mark.svg">
+    <script src="/theme.js?rev=__REV__"></script>
+    <link rel="stylesheet" href="/styles.css?rev=__REV__">
+  </head>
+  <body>
+    <main class="legal-page">
+      <a class="legal-home" href="/"><img class="brand-mark" src="/inthub-mark.svg?rev=3" alt="" width="28" height="28">IntHub</a>
+
+      <article lang="en">
+        <h1>IntHub privacy notice</h1>
+        <p class="legal-meta">Effective October 31, 2026 · <a href="#zh">中文</a></p>
+        <p>IntHub is operated by 榫卯 Tenon AI. This notice covers the hosted service at inthub.tenon.asia. <a href="https://tenon.asia/privacy/">Tenon's Privacy Policy</a> covers the company website, and the Tenon Account Privacy Notice covers sign-in. A hub you run yourself with <code>itt hub start</code> stays on your machine, and this notice doesn't apply to it.</p>
+
+        <h2>What we store</h2>
+        <ul>
+          <li><strong>Your account:</strong> your Tenon account identifier, login name, display name and avatar address, and the time you last signed in.</li>
+          <li><strong>What you push:</strong> the goals, checkpoints and decisions in your projects, including any reasoning, file names and commit identifiers you recorded, and the author name and email on each record. Review your history before you push. It may contain whatever you or your agent wrote down.</li>
+          <li><strong>Teams and access:</strong> team membership, roles and pending invites. Access tokens and invite links are stored only as hashes.</li>
+          <li><strong>Sign-in state:</strong> an HttpOnly session cookie. Your theme and language stay in your browser.</li>
+        </ul>
+        <p>Your IP address is held in memory to enforce rate limits. Application logs record the request path and status, not your address. IntHub has no analytics, advertising or third-party tracking, and it loads nothing from other sites.</p>
+
+        <h2>How we use it</h2>
+        <p>We use your data only to run IntHub: to show your projects, sync your history, keep the service secure and respond to reports of abuse. We do not sell it, and we do not use it to train models.</p>
+
+        <h2>Who can see it</h2>
+        <ul>
+          <li><strong>Private projects:</strong> you, or the members of the team that owns the project.</li>
+          <li><strong>Public projects:</strong> anyone. Visitors can read the goals, checkpoints and decisions, and see author names. Author emails are shown only to members. Making a project public is a separate step in its settings, and it asks you to confirm if a scan finds something that looks like a secret.</li>
+          <li><strong>Operators:</strong> Tenon staff can reach the production systems to run the service and act on abuse reports, and only do so for those purposes.</li>
+        </ul>
+
+        <h2>Where it is kept, and for how long</h2>
+        <p>Data is stored in mainland China. We use Tencent Cloud for the service and Baidu Cloud for encrypted off-site backups. Sign-in goes through Tenon Account, and through GitHub, Google or Apple if you choose one of them there.</p>
+        <p>Your data stays until you delete it. Daily encrypted backups are kept for up to 14 days on the production server and up to 30 days off-site. Copies taken before a software release are kept on the production server for rollback, for a limited time. Data you delete can remain in these backups until they expire, and we do not restore it to the service.</p>
+
+        <h2>Your choices</h2>
+        <ul>
+          <li><strong>Export</strong> a project at any time from its settings, or pull it with <code>itt pull</code>.</li>
+          <li><strong>Delete</strong> a project from its settings.</li>
+          <li><strong>Delete your account</strong> from Settings, confirmed in the Tenon account center. This removes your personal projects, access tokens and sessions. Teams you administer pass to the next member, and a team with no other members is deleted with its projects. Your local <code>.intent/</code> is not touched.</li>
+          <li><strong>Ask us</strong> to access, correct or delete your personal information, or explain how we process it, at <a href="mailto:support@tenonai.cn">support@tenonai.cn</a>. We reply within 15 working days.</li>
+        </ul>
+
+        <h2>Children and changes</h2>
+        <p>IntHub is for developers. We do not knowingly collect personal information from children under 14, and we delete any we find. We update this page with its effective date, and announce significant changes in advance.</p>
+      </article>
+
+      <article lang="zh-CN" id="zh">
+        <h1>IntHub 隐私说明</h1>
+        <p class="legal-meta">2026 年 10 月 31 日生效</p>
+        <p>IntHub 由榫卯 Tenon AI 运营。本说明适用于 inthub.tenon.asia 的托管服务。公司网站适用 <a href="https://tenon.asia/privacy/">Tenon 隐私政策</a>，登录适用 Tenon 账号隐私说明。用 <code>itt hub start</code> 自己运行的 Hub 只留在你的电脑上，不适用本说明。</p>
+
+        <h2>我们保存什么</h2>
+        <ul>
+          <li><strong>账号：</strong>Tenon 账号标识、登录名、显示名称、头像地址和最近登录时间。</li>
+          <li><strong>你推送的内容：</strong>项目里的目标、检查点和决策，包括你记录的推理、文件名和提交标识，以及每条记录的作者姓名和邮箱。推送前请检查历史内容，其中可能包含你或 Agent 写下的任何信息。</li>
+          <li><strong>团队与权限：</strong>团队成员、角色和待接受的邀请。访问令牌和邀请链接只保存哈希。</li>
+          <li><strong>登录状态：</strong>一个 HttpOnly 会话 Cookie。主题和语言保存在你的浏览器里。</li>
+        </ul>
+        <p>你的 IP 地址只在内存中用于限流。应用日志记录请求路径和状态，不记录你的地址。IntHub 没有统计分析、广告或第三方跟踪，也不从其他网站加载内容。</p>
+
+        <h2>我们如何使用</h2>
+        <p>这些数据只用于运行 IntHub：展示项目、同步历史、保障服务安全和处理滥用举报。我们不出售这些数据，也不用它们训练模型。</p>
+
+        <h2>谁能看到</h2>
+        <ul>
+          <li><strong>私有项目：</strong>你本人，或拥有该项目的团队成员。</li>
+          <li><strong>公开项目：</strong>任何人。访客可以读取目标、检查点和决策，也能看到作者姓名。作者邮箱只向成员显示。公开项目需要在设置里单独操作；如果扫描发现疑似密钥，会要求你再次确认。</li>
+          <li><strong>运营人员：</strong>Tenon 工作人员可以访问生产系统，仅用于运行服务和处理滥用举报。</li>
+        </ul>
+
+        <h2>存放位置与保存期限</h2>
+        <p>数据存放在中国大陆。服务运行在腾讯云，加密的异地备份存放在百度智能云。登录经由 Tenon 账号；如果你在其中选择 GitHub、Google 或 Apple，也会经由对应服务。</p>
+        <p>数据会一直保存到你删除为止。每日加密备份在生产服务器上最多保留 14 天，在异地最多保留 30 天。软件发布前的备份会在生产服务器上保留一段时间，用于回滚。你删除的数据在这些备份到期前可能仍然存在，我们不会把它恢复到服务中。</p>
+
+        <h2>你的选择</h2>
+        <ul>
+          <li><strong>导出：</strong>随时在项目设置里导出，或用 <code>itt pull</code> 拉取。</li>
+          <li><strong>删除项目：</strong>在项目设置里操作。</li>
+          <li><strong>删除账号：</strong>在设置里发起，并在 Tenon 账号中心确认。这会删除你的个人项目、访问令牌和会话。你管理的团队交给下一位成员，没有其他成员的团队连同项目一起删除。本地 <code>.intent/</code> 不受影响。</li>
+          <li><strong>联系我们：</strong>如需查阅、更正、删除个人信息，或了解处理方式，请发邮件至 <a href="mailto:support@tenonai.cn">support@tenonai.cn</a>，我们会在 15 个工作日内答复。</li>
+        </ul>
+
+        <h2>未成年人与变更</h2>
+        <p>IntHub 面向开发者。我们不会主动收集不满 14 周岁未成年人的个人信息，发现后会删除。本页更新时会注明生效日期，重大变更会提前公告。</p>
+      </article>
+    </main>
+  </body>
+</html>

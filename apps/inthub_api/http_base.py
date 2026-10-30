@@ -131,6 +131,9 @@ class HttpBase:
         if WEB_ROUTES.fullmatch(path):
             self._serve_index()
             return True
+        if path == "/privacy":
+            self._send_file(self.hub.root / "privacy.html")
+            return True
         if path == "/favicon.ico":
             self._send_redirect("/tenon-mark.svg")
             return True

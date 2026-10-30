@@ -14,8 +14,11 @@ pip install -e ".[server,release]"   # IntHub server dependencies + pytest
 Run tests before opening a PR (Node.js is needed for the web UI logic tests):
 
 ```bash
-python -m pytest -q
+python -m pytest -q                # the full suite
+python scripts/changed_tests.py    # only the tests your uncommitted changes affect
 ```
+
+Pass a commit, such as `python scripts/changed_tests.py HEAD~2`, to include what changed since then.
 
 PostgreSQL integration tests are skipped unless `INTHUB_TEST_POSTGRES_URL` points at a disposable database, for example one started with `docker run --rm -e POSTGRES_PASSWORD=test -p 5432:5432 postgres`.
 
@@ -23,17 +26,10 @@ To work on the agent skill locally, install it from your checkout with `npx skil
 
 ## Development Workflow
 
-This project dogfoods Intent. Local writes require either explicit one-off recording permission or explicit automatic-maintenance enablement; contributing alone grants neither. When the user asks to record through Intent, begin with `itt inspect`; if that first inspect returns `NOT_INITIALIZED`, the explicit recording request permits `itt init` and a second inspect. Recovery remains read-only unless the user asks to continue the recovered work.
-
-```bash
-itt inspect       # see current state
-itt init          # only after authorized recording returns NOT_INITIALIZED
-itt inspect       # repeat after the authorized initialization
-```
-
-Reuse a semantically matching active Intent, or reactivate a relevant suspended Intent, before creating a new one. Zero writes is valid when there is no new high-signal semantic information. Before suspending open work, make its latest Snap a self-contained continuation checkpoint.
-
-Continuous maintenance is a project-local opt-in (`itt init` for new histories, `itt maintenance on` for existing ones): each turn starts with inspect, records only verified important milestones, and closes as `recorded`, `no-op`, or `failed` through `itt maintenance close`. Per-turn closure does not mean per-turn Snap creation, and records must not be split by query, file, command, or tool call. Project-local Codex hooks supply the opening context and Stop check once the user trusts them; configuration alone is not evidence that a host executed them (see [references/codex-hooks.md](../references/codex-hooks.md)). Enablement never implies IntHub login or sync, automatic Decisions, or query-end `suspend` / `done` transitions.
+This repo dogfoods Intent, and maintainers record milestones with `itt`.
+You don't need to use Intent to contribute.
+If you want to try it, `itt inspect` shows the current state.
+`.intent/` is not in Git, so run `itt init` first in a fresh clone.
 
 ## Reporting Bugs
 

@@ -52,3 +52,63 @@
 .not-found .button {
   margin-top: 8px;
 }
+
+.legal-page {
+  display: grid;
+  gap: 32px;
+  width: min(100%, 720px);
+  margin: 0 auto;
+  padding: 32px 16px 64px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.legal-home {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.legal-page h1 {
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.legal-page h2 {
+  margin-top: 24px;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.legal-page p,
+.legal-page ul {
+  margin-top: 8px;
+}
+
+.legal-page ul {
+  padding-left: 20px;
+  list-style: disc;
+}
+
+.legal-page li + li {
+  margin-top: 4px;
+}
+
+.legal-page a:not(.legal-home) {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.legal-meta {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.legal-page article + article {
+  padding-top: 32px;
+  border-top: 1px solid var(--border);
+}

@@ -124,6 +124,31 @@
   min-width: 0;
 }
 
+.auth-showcase {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  justify-self: start;
+  width: fit-content;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 550;
+  text-decoration: none;
+}
+
+.auth-showcase:hover {
+  background: var(--surface-hover);
+}
+
+.auth-showcase svg {
+  width: 16px;
+  height: 16px;
+}
+
 .auth-panel {
   width: min(400px, 100%);
 }

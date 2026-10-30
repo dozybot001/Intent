@@ -1,5 +1,4 @@
-# Test-only CI. Production releases never read from GitHub; see
-# docs/EN/inthub-production.md for the release path.
+# Test-only CI. Production releases never read from GitHub.
 name: tests
 
 on:

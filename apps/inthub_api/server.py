@@ -196,7 +196,7 @@ def make_handler(
             parsed = urlparse(self.path)
             try:
                 self._check_host()
-                if parsed.path == "/showcase" or parsed.path.startswith(("/showcase/", "/api/v1/public-profiles/")):
+                if parsed.path.startswith(("/showcase/", "/api/v1/public-profiles/")):
                     raise APIError("FEATURE_RETIRED", "Public showcase has been removed.", status=410)
                 if parsed.path.startswith("/api/v1/auth/github/"):
                     raise APIError("ACCOUNT_MANAGED_BY_TENON", "Sign in with Tenon.", 410)
