@@ -160,6 +160,7 @@ window.IntHubI18n = (() => {
     "No related Intent is open. Show ended Intents to see the rest of the flow.": "没有进行中的关联意图。显示已结束的意图即可查看完整流转。",
     "Not related to other Intents": "与其他意图无关联", "No relations to other Intents.": "与其他意图没有关系。",
     "Show in Flow": "在流转图中查看", "Decisions from this Intent": "源自此意图的决策",
+    "Rejoin": "汇回", "+{count} more": "还有 {count} 条",
     "Source": "来源", "Project-level": "项目级", "Not traced to one Intent; it applies across the project.": "未追溯到具体意图，适用于整个项目。",
     "Showing {shown} of {total} — refine the search": "显示前 {shown} 条，共 {total} 条，请细化搜索",
     "Part of branches off its parent and rejoins it once done or dropped. Derived from branches off without rejoining. Succeeds is a thick arrow: the lane flows on into its successor. Depends on is a thin arrow from the prerequisite: amber while blocked, green once satisfied, red if it was cancelled. Conflicts with is a dashed line marked vs until one side ends. Diamonds are Decisions; hollow ones are deprecated.": "属于：从上级分出，完成或放弃后汇回上级。衍生自：分出后不汇回。继承自：粗箭头，泳道流入接手的意图。依赖：从前置意图指来的细箭头，阻塞时为琥珀色，满足后为绿色，前置被取消则为红色。对立：标有 vs 的虚线，直到一方结束。菱形是决策，空心表示已废弃。",

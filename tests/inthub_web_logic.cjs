@@ -747,12 +747,26 @@ async function flowAndPagingCases() {
     assert.equal(rejoin.points.at(-1)[1], place('intent-001').cy);
     const succession = layout.lines.find(line => line.kind === 'flow');
     assert.deepEqual(succession.points, [[place('intent-005').x + layout.geometry.nodeW, place('intent-005').cy], [place('intent-006').x, place('intent-006').cy]]);
-    const trunk = layout.lines.find(line => line.kind === 'branch' && line.subject === 'intent-003');
-    assert.equal(trunk.points[0][1], place('intent-001').y + layout.geometry.nodeH);
-    assert.equal(trunk.points.at(-1)[0], place('intent-003').x);
-    // A parent's lane runs on exactly as far as its ended part comes back; other lanes stop at their node.
-    assert.deepEqual(layout.lifelines.map(line => [line.row, line.x2]), [[place('intent-001').lane, rejoin.points[2][0]]]);
-    // Lines meeting one side of a node never share a height, and vertical runs in one gap never share a track.
+    // Each part leaves its parent's side on its own strand: nearer children leave higher and turn
+    // further out, so the strands nest instead of sharing a trunk or crossing.
+    const strands = ['intent-002', 'intent-003', 'intent-004'].map(id => layout.lines.find(line => line.kind === 'branch' && line.subject === id));
+    for (const strand of strands) {
+      assert.equal(strand.points[0][0], place('intent-001').x + layout.geometry.nodeW);
+      assert.deepEqual(strand.points.at(-1), [place(strand.subject).x, place(strand.subject).cy]);
+    }
+    assert.ok(strands[0].points[0][1] < strands[1].points[0][1] && strands[1].points[0][1] < strands[2].points[0][1]);
+    assert.ok(strands[0].points[1][0] > strands[1].points[1][0] && strands[1].points[1][0] > strands[2].points[1][0]);
+    // Between adjacent columns a line is one S: horizontal tangents, control points half way across the gap.
+    for (const strand of strands) {
+      assert.equal(strand.curve.segments.length, 1);
+      const [segment] = strand.curve.segments;
+      assert.deepEqual([segment.c1[1], segment.c2[1]], [strand.points[0][1], strand.points.at(-1)[1]]);
+      assert.equal(segment.c1[0] - strand.points[0][0], layout.geometry.gapX / 2);
+      assert.equal(strand.points.at(-1)[0] - segment.c2[0], layout.geometry.gapX / 2);
+    }
+    // A parent's lane runs on exactly as far as its ended part comes back; other lanes stop at their card.
+    assert.deepEqual(layout.laneLines.map(line => [line.row, line.x2]), [[place('intent-001').lane, rejoin.points[2][0]]]);
+    // Lines meeting one side of a node never share a height.
     const sides = new Map();
     for (const line of layout.lines.filter(line => !['branch', 'rejoin'].includes(line.kind))) {
       const [x, y] = line.points.at(-1);
@@ -760,15 +774,58 @@ async function flowAndPagingCases() {
       assert.ok(!sides.has(key), 'two lines end at ' + key);
       sides.set(key, line);
     }
-    // Decisions: the sourceless and the one whose source is gone sit in the Project band; sourced ones on their node.
-    assert.ok(layout.band);
-    assert.deepEqual(layout.markers.filter(marker => !marker.source).map(marker => [marker.decision.id, marker.band]), [['decision-001', true], ['decision-003', true]]);
+    // Decisions: the sourceless one and the one whose source is gone are chips in the Project band,
+    // at the column of their time; a sourced one hangs as a pin under its card, whose row grows for it.
+    assert.deepEqual(layout.band.chips.map(chip => [chip.decision.id, chip.col, chip.row]), [['decision-001', 1, 0], ['decision-003', 1, 1]]);
+    for (const chip of layout.band.chips) assert.ok(chip.y + 22 < place('intent-001').y);
     assert.deepEqual(place('intent-001').decisions.map(decision => decision.id), ['decision-002']);
-    for (const marker of layout.markers.filter(marker => !marker.source)) assert.ok(marker.y < place('intent-001').y);
-    // Every line stays in the gaps: no point lies strictly inside another node's box.
-    for (const line of layout.lines) for (const [x, y] of line.points) for (const node of layout.nodes) {
-      assert.ok(!(x > node.x + 1 && x < node.x + layout.geometry.nodeW - 1 && y > node.y + 1 && y < node.y + layout.geometry.nodeH - 1), line.kind + ' ' + line.subject + ' crosses ' + node.id);
+    assert.ok(place('intent-001').box.y2 > place('intent-001').y + layout.geometry.nodeH);
+    assert.ok(place('intent-002').y >= place('intent-001').box.y2 + layout.geometry.gapY);
+    // Every route stays in the gaps, and so does every curve drawn from it, pins included.
+    for (const line of layout.lines) {
+      for (const [x, y] of flowSamples(line.curve)) for (const node of layout.nodes) {
+        assert.ok(!(x > node.box.x1 + 0.5 && x < node.box.x2 - 0.5 && y > node.box.y1 + 0.5 && y < node.box.y2 - 0.5), line.kind + ' ' + line.subject + ' clips ' + node.id);
+      }
     }
+    // The quiet time axis labels a column only when the day changes; the view opens on the latest open card.
+    assert.deepEqual(layout.axis.map(tick => tick.col), [0]);
+    assert.equal(flowTarget(layout).id, 'intent-008');
+    const days = flowLayout([
+      {id:'intent-041', status:'active', created_at:'2026-10-01T10:00:00Z'},
+      {id:'intent-042', status:'active', created_at:'2026-10-01T10:02:00Z', relations:[rel('part_of', 'intent-041')]},
+      {id:'intent-043', status:'active', created_at:'2026-10-03T10:00:00Z', relations:[rel('succeeds', 'intent-042')]},
+      {id:'intent-044', status:'done', created_at:'2026-10-03T10:02:00Z', relations:[rel('succeeds', 'intent-043')]},
+    ]);
+    assert.deepEqual(days.axis.map(tick => tick.col), [0, 2]);
+    assert.equal(flowTarget(days).id, 'intent-043');
+    // A frame smaller than the graph opens with the target fully in view, over as much card area as it can.
+    const opening = flowViewport(layout, 360, 600);
+    const latest = place('intent-008');
+    assert.ok(opening.left <= latest.box.x1 && opening.left + 360 >= latest.box.x2 && opening.top <= latest.box.y1 && opening.top + 600 >= latest.box.y2);
+    assert.ok(opening.left >= 0 && opening.top >= 0 && opening.left <= layout.width - 360 && opening.top <= layout.height - 600);
+    assert.deepEqual(flowViewport(days, 4000, 4000), {left: 0, top: 0});
+    // On a phone the frame hugs the rows of the cards it opens on, keeping the target's direct relations.
+    const partsView = flowLayout(flowIntents, flowDecisions, {focus: 'intent-001'});
+    const focusSpan = flowVisibleSpan(partsView, 0, 360);
+    for (const id of ['intent-002', 'intent-003', 'intent-004']) assert.ok(focusSpan.bottom >= partsView.nodes.find(node => node.id === id).box.y2);
+    const span = flowVisibleSpan(layout, opening.left, 360);
+    assert.ok(span.top <= latest.box.y1 && span.bottom >= latest.box.y2);
+    for (const node of layout.nodes) {
+      const across = Math.min(node.box.x2, opening.left + 360) - Math.max(node.box.x1, opening.left);
+      if (across >= layout.geometry.nodeW / 2) assert.ok(node.box.y1 >= span.top && node.box.y2 <= span.bottom);
+    }
+    // A longer route keeps its waypoints; each bend becomes a cubic whose tangents follow the legs.
+    const blocked = [{x1: 100, y1: 40, x2: 300, y2: 260}];
+    const bendy = flowCurve([[0, 0], [40, 0], [40, 300], [400, 300]], blocked);
+    assert.deepEqual(bendy.segments.map(segment => (segment.c1 ? 'C' : 'L')), ['L', 'C', 'L', 'C', 'L']);
+    assert.deepEqual([bendy.segments[1].c1[1], bendy.segments[1].c2[0], bendy.segments[3].c1[0], bendy.segments[3].c2[1]], [0, 40, 40, 300]);
+    assert.deepEqual(bendy.segments[1].to, [40, 84]);
+    // A bend shrinks rather than clip a card standing in its way.
+    const squeezed = [...blocked, {x1: 44, y1: 200, x2: 120, y2: 280}];
+    for (const [x, y] of flowSamples(flowCurve([[0, 0], [40, 0], [40, 300], [400, 300]], squeezed))) {
+      for (const box of squeezed) assert.ok(!(x > box.x1 + 0.5 && x < box.x2 - 0.5 && y > box.y1 + 0.5 && y < box.y2 - 0.5));
+    }
+    assert.deepEqual(flowCurveEnd(flowCurve([[0, 0], [72, 0], [72, 80], [144, 80]])), {x: 144, y: 80, ux: 1, uy: 0, length: 72});
 
     // Hidden partners do not make an Intent standalone: intent-006 keeps its place in the flow.
     const hidden = flowLayout(flowIntents, flowDecisions, {hideEnded: true});
@@ -782,6 +839,7 @@ async function flowAndPagingCases() {
     assert.deepEqual(focused.nodes.map(node => node.id).sort(), ['intent-001', 'intent-003', 'intent-007']);
     assert.equal(focused.band, null);
     assert.equal(focused.focus, 'intent-003');
+    assert.equal(flowTarget(focused).id, 'intent-003');
 
     // Convergence and branching of succession: two Intents merge into one, which then splits.
     const merge = flowLayout([
@@ -808,15 +866,15 @@ async function flowAndPagingCases() {
 
     // Property check over seeded random histories that respect the relation rules: every Intent placed once,
     // no two nodes share a cell, parents and predecessors sit to the left, creation order never runs
-    // backwards, and no line passes through a node other than its own two ends.
+    // backwards, and no route or rendered curve (sampled 12 times per cubic) enters a card or its pins.
     let seed = 7;
     const random = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
     const relationKinds = ['part_of', 'derived_from', 'succeeds', 'depends_on', 'conflicts_with'];
     const familyOf = kind => (kind === 'part_of' || kind === 'derived_from') ? 'parent' : kind;
-    const crosses = (node, [x1, y1], [x2, y2], g) => {
-      const left = node.x + 0.5, right = node.x + g.nodeW - 0.5, top = node.y + 0.5, bottom = node.y + g.nodeH - 0.5;
-      if (y1 === y2) return y1 > top && y1 < bottom && Math.max(x1, x2) > left && Math.min(x1, x2) < right;
-      if (x1 === x2) return x1 > left && x1 < right && Math.max(y1, y2) > top && Math.min(y1, y2) < bottom;
+    const inside = (box, x, y) => x > box.x1 + 0.5 && x < box.x2 - 0.5 && y > box.y1 + 0.5 && y < box.y2 - 0.5;
+    const crosses = (box, [x1, y1], [x2, y2]) => {
+      if (y1 === y2) return y1 > box.y1 + 0.5 && y1 < box.y2 - 0.5 && Math.max(x1, x2) > box.x1 + 0.5 && Math.min(x1, x2) < box.x2 - 0.5;
+      if (x1 === x2) return x1 > box.x1 + 0.5 && x1 < box.x2 - 0.5 && Math.max(y1, y2) > box.y1 + 0.5 && Math.min(y1, y2) < box.y2 - 0.5;
       return true;
     };
     for (let round = 0; round < 120; round++) {
@@ -826,6 +884,10 @@ async function flowAndPagingCases() {
         status: ['active', 'active', 'suspend', 'done', 'cancelled'][Math.floor(random() * 5)],
         created_at: at(Math.floor(index * 2 + random() * 2)), relations: [],
       }));
+      const graphDecisions = graph.flatMap((intent, index) => Array.from({length: random() < 0.6 ? 0 : 1 + Math.floor(random() * 3)}, (_, number) => ({
+        id: 'decision-' + index + '-' + number, status: random() < 0.3 ? 'deprecated' : 'active', created_at: intent.created_at,
+        ...(random() < 0.8 ? {source_intent_id: intent.id} : {}),
+      })));
       const edges = {parent: new Map(), succeeds: new Map(), depends_on: new Map()};
       const order = new Map();  // parent and succeeds together must stay acyclic for the column rule
       const reaches = (map, from, goal) => { const stack = [from], seen = new Set(); while (stack.length) { const id = stack.pop(); if (id === goal) return true; if (!seen.has(id)) { seen.add(id); stack.push(...(map.get(id) || [])); } } return false; };
@@ -847,8 +909,7 @@ async function flowAndPagingCases() {
         if (family === 'parent' || family === 'succeeds') add(order, subject.id, target.id);
       }
       for (const options of [{}, {hideEnded: true}, {focus: graph[0].id}]) {
-        const result = flowLayout(graph, [], options);
-        const g = result.geometry;
+        const result = flowLayout(graph, graphDecisions, options);
         const ids = [...result.nodes.map(node => node.id), ...result.standalone.map(intent => intent.id)];
         assert.equal(new Set(ids).size, ids.length, 'placed once');
         if (!options.hideEnded && !options.focus) assert.equal(ids.length, count, 'every Intent shown');
@@ -866,11 +927,12 @@ async function flowAndPagingCases() {
           byTime.forEach((node, index) => { if (index) assert.ok(byTime[index - 1].col <= node.col, 'creation order, round ' + round); });
         }
         for (const line of result.lines) {
+          const label = line.kind + ' ' + line.subject + '→' + line.target;
           for (let index = 1; index < line.points.length; index++) {
-            for (const node of result.nodes) {
-              if (node.id === line.subject || node.id === line.target) continue;
-              assert.ok(!crosses(node, line.points[index - 1], line.points[index], g), line.kind + ' ' + line.subject + '→' + line.target + ' crosses ' + node.id + ', round ' + round);
-            }
+            for (const node of result.nodes) assert.ok(!crosses(node.box, line.points[index - 1], line.points[index]), label + ' route crosses ' + node.id + ', round ' + round);
+          }
+          for (const [x, y] of flowSamples(line.curve, 12)) {
+            for (const node of result.nodes) assert.ok(!inside(node.box, x, y), label + ' curve clips ' + node.id + ', round ' + round);
           }
         }
       }
@@ -890,11 +952,19 @@ async function flowAndPagingCases() {
     assert.ok(svg.includes('aria-label="intent-007: Launch to 10%. 进行中. 0 个 Snap. 依赖 intent-003 (被阻塞)"'));
     assert.ok(svg.includes('Server &lt;totals&gt;') && !svg.includes('Server <totals>'));
     assert.ok(svg.includes('>vs</text>'));
-    assert.ok(svg.includes('class="flow-decision is-deprecated" role="button" tabindex="0" data-detail-type="decision" data-remote-id="p__decision-002"'));
+    assert.ok(svg.includes('class="flow-decision flow-pin is-deprecated" role="button" tabindex="0" data-detail-type="decision" data-remote-id="p__decision-002"'));
+    assert.ok(svg.includes('class="flow-pin-stem"'));
     assert.ok(svg.includes('>项目</text>'));
-    assert.ok(svg.includes('<text class="flow-band-text"') && svg.includes('>Project rule</text>'));
+    assert.ok(svg.includes('class="flow-decision flow-chip" role="button" tabindex="0" data-detail-type="decision" data-remote-id="p__decision-001"'));
+    assert.ok(svg.includes('>Project rule</text>'));
     assert.ok(svg.includes('class="flow-line flow-depends flow-type-depends_on tone-attention"'));
     assert.ok(svg.indexOf('data-remote-id="p__decision-001"') < svg.indexOf('data-remote-id="p__intent-001"'));
+    // Curves rather than corners, a status pill sized after drawing, the accent clipped to the card, a time axis.
+    assert.ok(/class="flow-stroke" d="M[^"]*C/.test(svg));
+    assert.ok(svg.includes('<g class="flow-pill" data-fit="25">'));
+    assert.ok(svg.includes('<clipPath id="flow-card-clip">') && svg.includes('clip-path="url(#flow-card-clip)"'));
+    assert.ok(svg.includes('class="flow-axis-label"'));
+    assert.ok(svg.includes('<circle class="flow-terminal"'));
 
     state.currentProjectId = 'p';
     state.activeTab = 'flow';
@@ -916,7 +986,7 @@ async function flowAndPagingCases() {
     assert.ok(page.includes('data-flow-hide-ended aria-pressed="false"'));
     assert.ok(page.includes('data-flow-focus="intent-003"'));
     assert.ok(page.includes('6 条关系') && page.includes('2 条需要处理'));
-    assert.ok(page.includes('class="flow-card flow-card-done" data-detail-type="intent" data-remote-id="p__intent-009"'));
+    assert.ok(page.includes('class="flow-card status-done" data-detail-type="intent" data-remote-id="p__intent-009"'));
     assert.ok(page.includes('data-help="flow"'));
     state._flow.hideEnded = true;
     renderFlowTab();

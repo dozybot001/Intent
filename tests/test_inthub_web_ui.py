@@ -631,8 +631,9 @@ def test_flow_tab_is_a_keyboard_reachable_inline_svg_without_inline_styles():
     assert "cdn" not in javascript.lower() and "<script" not in javascript
     node = javascript.split("function flowNodeSvg", 1)[1].split("\n}\n", 1)[0]
     assert 'role="button" tabindex="0" data-detail-type="intent"' in node and "aria-label=" in node
-    decision = javascript.split("function flowDecisionSvg", 1)[1].split("\n}\n", 1)[0]
-    assert 'role="button" tabindex="0" data-detail-type="decision"' in decision and "aria-label=" in decision
+    for name in ("flowPinsSvg", "flowChipSvg"):
+        decision = javascript.split(f"function {name}", 1)[1].split("\n}\n", 1)[0]
+        assert 'role="button" tabindex="0" data-detail-type="decision"' in decision and "aria-label=" in decision
     assert 'event.key !== "Enter" && event.key !== " "' in javascript
     assert 'svg [role=button][data-detail-type][data-remote-id]' in javascript
     # The graph scrolls inside its own frame so the page never scrolls sideways.
@@ -663,5 +664,42 @@ def test_timeline_pages_from_the_snaps_endpoint_and_search_reports_truncation():
 
 def test_static_revision_names_the_flow_release():
     for name in ("index.html", "auth-redirect.html"):
-        assert "rev=continuity-5" not in _static(name)
-        assert "rev=flow-6" in _static(name)
+        assert "rev=continuity-5" not in _static(name) and "rev=flow-6" not in _static(name)
+        assert "rev=flow-7" in _static(name)
+
+
+
+def test_flow_draws_curves_cards_pins_and_a_quiet_time_axis():
+    javascript = _static("app.js")
+    css = _static("styles.css")
+    translations = _static("i18n.js")
+    # Bends are tangent-continuous cubics with a generous reach across a gap, clamped to half a shared leg.
+    bend = re.search(r"const FLOW_BEND = \{ across: (\d+), along: (\d+), fullness: ([\d.]+) \};", javascript)
+    assert 24 <= int(bend.group(1)) <= 36 and int(bend.group(2)) >= int(bend.group(1)) and 0.5 < float(bend.group(3)) < 1
+    curve = javascript.split("function flowCurve(", 1)[1].split("\n}\n", 1)[0]
+    assert "shared ? length / 2" in curve and "clear(" in curve
+    assert "`C${" in javascript.split("function flowCurvePath", 1)[1].split("\n}\n", 1)[0]
+    stroke = _block(css, ".flow-stroke")
+    assert "stroke-linecap: round" in stroke and "stroke-linejoin: round" in stroke
+
+    def width(selector):
+        return float(re.search(r"stroke-width:\s*([\d.]+)", _block(css, selector)).group(1))
+
+    # Succession strongest, structure medium, constraints thin; rejoins lighter than branches.
+    assert width(".flow-flow .flow-stroke") > width(".flow-branch .flow-stroke") > width(".flow-depends .flow-stroke,\n.flow-conflict .flow-stroke")
+    rejoin = _block(css, ".flow-rejoin .flow-stroke,\n.flow-lane-line")
+    assert "var(--faint)" in rejoin and float(re.search(r"stroke-width:\s*([\d.]+)", rejoin).group(1)) < width(".flow-branch .flow-stroke")
+    assert re.search(r"\n\.flow-conflict \.flow-stroke \{[^}]*stroke-dasharray", css)
+    # Cards carry a status accent that only repeats the pill's label; ended cards sit flat.
+    assert "flow-node-accent" in javascript and 'clip-path="url(#flow-card-clip)"' in javascript
+    assert "fill: var(--blue-dot)" in _block(css, ".flow-node.status-active .flow-node-accent,\n.flow-node.status-active .flow-node-dot")
+    assert "filter: none" in _block(css, ".flow-node.status-done .flow-node-box,\n.flow-node.status-cancelled .flow-node-box")
+    # Up to two Decision pins under a card, then "+N more"; Project-level ones are chips in the band.
+    assert re.search(r"const FLOW_PINS = 2;", javascript) and '"+{count} more": "还有 {count} 条"' in translations
+    # A quiet, localized time axis.
+    assert "Intl.DateTimeFormat(window.IntHubI18n.language" in javascript.split("function flowAxisLabel", 1)[1].split("\n}\n", 1)[0]
+    # On a phone the frame becomes a window that scrolls both ways and opens on the card that matters.
+    phone = css.split("@media (max-width: 720px)", 1)[1]
+    frame = _block(phone, ".flow-canvas")
+    assert "overflow: auto" in frame and "max-height: 72dvh" in frame
+    assert "flowViewport(layout, canvas.clientWidth, canvas.clientHeight)" in javascript

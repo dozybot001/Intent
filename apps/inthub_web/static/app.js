@@ -1307,19 +1307,30 @@ function renderIntentsTab() {
   fetchMissingSnaps([...active, ...suspended, ...(archiveOpen ? visibleArchive : [])].map(latestSnapRemoteId));
 }
 
-/* Flow: Intents as nodes, relations as lines */
+/* Flow: Intents as cards, relations as curves */
 
-const FLOW_GEOMETRY = { nodeW: 188, nodeH: 88, gapX: 56, gapY: 30, padX: 32, padY: 24, inset: 18, bandLabel: 30, bandRow: 22 };
-const FLOW_NODE_DECISIONS = 4;
+// Card size, gaps and padding of the Flow canvas. A row grows where a card carries Decision pins.
+const FLOW_GEOMETRY = {
+  nodeW: 200, nodeH: 100, gapX: 72, gapY: 32, padX: 28, padTop: 12, padBottom: 28,
+  axisH: 26, bandLabel: 24, bandRow: 28, pinTop: 18, pinRow: 18, pinBottom: 8,
+};
+const FLOW_PINS = 2;
 const FLOW_BAND_ROWS = 3;
-// Where vertical runs may sit inside a gap, as a share of its width, and where lines may meet a node's side.
+// Where vertical runs may sit inside a gap, as a share of its width; parts fan out nearest first.
 const FLOW_TRACKS = [0.5, 0.3, 0.7, 0.15, 0.85];
+const FLOW_FAN = [0.7, 0.5, 0.3, 0.15, 0.85];
+// Heights (from a card's middle) where lines may meet its side, in each kind's order of preference.
 const FLOW_PORTS = {
   flow: [0, -12, 12, -24, 24, -36, 36],
+  branch: [12, 24, 36, 0, -12, -24, -36],
   depends: [12, 24, 36, 0, -12, -24, -36],
   conflict: [-12, -24, -36, 0, 12, 24, 36],
 };
-const FLOW_LINE_ORDER = ["branch", "rejoin", "flow", "depends", "conflict"];
+// How far a bend may reach along a horizontal leg (across a gap) and a vertical one, and how full it is.
+const FLOW_BEND = { across: 36, along: 84, fullness: 0.62 };
+// Regular-weight labels run narrower than the semibold titles the width estimate is tuned for.
+const FLOW_REGULAR = 0.9;
+const FLOW_LINE_ORDER = ["rejoin", "branch", "flow", "depends", "conflict"];
 
 function flowTime(object) {
   const time = Date.parse(object?.created_at || "");
@@ -1330,13 +1341,18 @@ function byCreation(left, right) {
   return flowTime(left) - flowTime(right) || String(left.id).localeCompare(String(right.id));
 }
 
+function flowDay(time) {
+  const date = new Date(time);
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
 // Lay out the Flow graph: logical columns and lanes, pixel boxes and routed lines. Pure, no DOM.
 // - Columns follow creation time and never go back; a parent or predecessor also pushes the
 //   later Intent at least one column right.
 // - Lanes are rows. A successor continues its predecessor's lane; parts and derived Intents open
-//   lanes below their parent. Branches from later columns sit nearer their lane, so a parent's
-//   trunk only crosses lanes whose nodes all lie further right.
-// - Lines run in the gaps between columns and rows, never through a node box.
+//   lanes below their parent. A row is as tall as its tallest card with Decision pins.
+// - Routes run only through the gaps between columns and rows, so they never cross a card;
+//   flowCurve() then turns each route into curves that stay in the same free space.
 function flowLayout(intents, decisions = [], { hideEnded = false, focus = "", geometry = {} } = {}) {
   const g = { ...FLOW_GEOMETRY, ...geometry };
   const byId = intentMap(intents);
@@ -1429,33 +1445,74 @@ function flowLayout(intents, decisions = [], { hideEnded = false, focus = "", ge
   };
   lanes.filter((lane) => lane.kind === "root").sort((left, right) => rank.get(headOf(left)) - rank.get(headOf(right))).forEach(visit);
 
-  // Project-level (sourceless) Decisions sit in a band at the top, at the column of their time.
-  const knownDecisions = (decisions || []).filter((decision) => decision?.id);
+  // Decisions with a placed source hang as pins under its card; the others sit in the Project band.
+  const knownDecisions = (decisions || []).filter((decision) => decision?.id).sort(byCreation);
   const hasSource = (decision) => Boolean(decision.source_intent_id) && byId.has(decision.source_intent_id);
+  const pinned = new Map();
+  for (const decision of knownDecisions) {
+    if (hasSource(decision) && rank.has(decision.source_intent_id)) {
+      pinned.set(decision.source_intent_id, [...(pinned.get(decision.source_intent_id) || []), decision]);
+    }
+  }
+  const pinRows = (id) => {
+    const count = (pinned.get(id) || []).length;
+    return Math.min(count, FLOW_PINS) + (count > FLOW_PINS ? 1 : 0);
+  };
+  const pinSpace = (id) => (pinRows(id) ? g.pinTop + (pinRows(id) - 1) * g.pinRow + g.pinBottom : 0);
+
   const columnAt = (time) => order.reduce((col, intent) => (flowTime(intent) <= time ? Math.max(col, colOf.get(intent.id)) : col), 0);
   const bandColumns = new Map();
-  for (const decision of (focusId || !placed.length ? [] : knownDecisions.filter((entry) => !hasSource(entry))).sort(byCreation)) {
+  for (const decision of focusId || !placed.length ? [] : knownDecisions.filter((entry) => !hasSource(entry))) {
     const col = columnAt(flowTime(decision));
     bandColumns.set(col, [...(bandColumns.get(col) || []), decision]);
   }
-  const bandItems = [];
+  const chips = [];
   for (const [col, list] of bandColumns) {
     const listed = list.length > FLOW_BAND_ROWS ? list.slice(0, FLOW_BAND_ROWS - 1) : list;
-    listed.forEach((decision, row) => bandItems.push({ decision, col, row }));
-    if (list.length > listed.length) bandItems.push({ decision: null, col, row: listed.length, more: list.length - listed.length });
+    listed.forEach((decision, row) => chips.push({ decision, col, row }));
+    if (list.length > listed.length) chips.push({ decision: null, col, row: listed.length, more: list.length - listed.length });
   }
-  const bandRows = bandItems.reduce((most, item) => Math.max(most, item.row + 1), 0);
-  const bandHeight = bandRows ? g.bandLabel + bandRows * g.bandRow + 14 : 0;
+  const bandRows = chips.reduce((most, chip) => Math.max(most, chip.row + 1), 0);
 
+  // From the top: the time axis, the Project band, then the lanes.
   const colX = (col) => g.padX + col * (g.nodeW + g.gapX);
-  const top = g.padY + bandHeight;
-  const rowY = (row) => top + row * (g.nodeH + g.gapY);
+  const axisY = g.padTop;
+  const bandY = axisY + g.axisH;
+  const bandHeight = bandRows ? g.bandLabel + bandRows * g.bandRow : 0;
+  const top = bandY + bandHeight + (bandRows ? g.gapY : g.gapY / 2);
+  const extra = rows.map((lane) => Math.max(0, ...lane.nodes.map(pinSpace)));
+  const rowTop = [];
+  let next = top;
+  rows.forEach((lane, row) => {
+    rowTop[row] = next;
+    next += g.nodeH + extra[row] + g.gapY;
+  });
+  const rowBottom = (row) => rowTop[row] + g.nodeH + extra[row];
+
+  // A quiet time axis: the creation date of the first Intent to reach each column. An Intent moved right
+  // by its predecessor counts from that predecessor's date, so the axis never runs back; one label a day.
+  const reached = new Map();
+  let clock = 0;
+  for (const intent of order) {
+    clock = Math.max(clock, flowTime(intent));
+    if (!reached.has(colOf.get(intent.id))) reached.set(colOf.get(intent.id), clock);
+  }
+  const axis = [];
+  for (const col of [...reached.keys()].sort((left, right) => left - right)) {
+    const time = reached.get(col);
+    if (time && axis.at(-1)?.day !== flowDay(time)) axis.push({ col, x: colX(col), y: axisY, time, day: flowDay(time) });
+  }
+
   const nodes = order.map((intent) => {
+    const row = lanes[laneOf.get(intent.id)].row;
     const x = colX(colOf.get(intent.id));
-    const y = rowY(lanes[laneOf.get(intent.id)].row);
+    const y = rowTop[row];
     const { kind, anchor } = placement.get(intent.id);
-    return { id: intent.id, intent, col: colOf.get(intent.id), lane: lanes[laneOf.get(intent.id)].row, x, y,
-      cx: x + g.nodeW / 2, cy: y + g.nodeH / 2, placement: kind, anchor, decisions: [] };
+    return {
+      id: intent.id, intent, col: colOf.get(intent.id), lane: row, x, y, cx: x + g.nodeW / 2, cy: y + g.nodeH / 2,
+      placement: kind, anchor, decisions: pinned.get(intent.id) || [],
+      box: { x1: x, y1: y, x2: x + g.nodeW, y2: y + g.nodeH + pinSpace(intent.id) },
+    };
   });
   const nodeOf = new Map(nodes.map((node) => [node.id, node]));
   const rowNodes = new Map();
@@ -1476,7 +1533,7 @@ function flowLayout(intents, decisions = [], { hideEnded = false, focus = "", ge
     usedTracks.set(gap, used);
     return Math.max(4, colX(gap) - g.gapX + g.gapX * share);
   };
-  // Lines meeting the same side of a node do so at their own height.
+  // Lines meeting the same side of a card do so at their own height.
   const usedPorts = new Map();
   const portsOf = (node, side) => {
     const key = `${node.id}:${side}`;
@@ -1514,23 +1571,10 @@ function flowLayout(intents, decisions = [], { hideEnded = false, focus = "", ge
       const gx = track(besideSource, y1, y2, prefer);
       return [[exitX, y1], [gx, y1], [gx, y2], [enterX, y2]];
     }
-    const rowLine = from.cy <= to.cy ? to.y - g.gapY / 2 : to.y + g.nodeH + g.gapY / 2;
+    const rowLine = from.cy <= to.cy ? rowTop[to.lane] - g.gapY / 2 : rowBottom(to.lane) + g.gapY / 2;
     const sx = track(besideSource, y1, rowLine, prefer);
     const tx = track(besideTarget, rowLine, y2, prefer);
     return [[exitX, y1], [sx, y1], [sx, rowLine], [tx, rowLine], [tx, y2], [enterX, y2]];
-  };
-  const branch = (from, to) => {
-    const trunk = from.x + g.inset;
-    if (to.placement === "child" && to.anchor === from.id) return [[trunk, from.y + g.nodeH], [trunk, to.cy], [to.x, to.cy]];
-    // A part that carries on another lane: leave the parent into the gap row beside it, run down the gap
-    // after its column, cross on the gap row beside the part and enter it from above or below.
-    const down = to.y >= from.y;
-    const startX = from.x + g.nodeW - g.inset;
-    const enter = to.x + g.inset;
-    const sourceRow = down ? from.y + g.nodeH + g.gapY / 2 : from.y - g.gapY / 2;
-    const targetRow = to.y > from.y ? to.y - g.gapY / 2 : to.y + g.nodeH + g.gapY / 2;
-    const gx = track(from.col + 1, sourceRow, targetRow, 0.5);
-    return [[startX, down ? from.y + g.nodeH : from.y], [startX, sourceRow], [gx, sourceRow], [gx, targetRow], [enter, targetRow], [enter, to.y > from.y ? to.y : to.y + g.nodeH]];
   };
 
   const lines = [];
@@ -1539,90 +1583,239 @@ function flowLayout(intents, decisions = [], { hideEnded = false, focus = "", ge
   const about = (link) => ({ type: link.type, subject: link.subject, target: link.target, state: link.state });
   const carried = (from, to) => to.lane === from.lane && lanes[laneOf.get(to.id)].nodes[lanes[laneOf.get(to.id)].nodes.indexOf(to.id) - 1] === from.id;
   const forked = (from, to) => to.placement === "branch" && to.anchor === from.id;
-  // Structure first: branches, rejoins and successions along or off a lane keep the centre ports.
+  const tree = (from, to) => to.placement === "child" && to.anchor === from.id;
+
+  // A lane's own successions keep the middle of both sides.
   for (const link of relations) {
     const [from, to] = ends(link);
-    if (PARENT_RELATIONS.has(link.type)) {
-      if (to.placement === "child" && to.anchor === from.id) reserve(to, "left");
-      lines.push({ ...about(link), kind: "branch", points: branch(from, to) });
-      // A part that has ended (done or dropped) rejoins its parent's lane.
-      if (link.type === "part_of" && ENDED_STATUSES.has(to.intent.status) && to.lane !== from.lane) {
-        reserve(to, "right");
-        // Its last few pixels turn back along the parent's lane, so it keeps clear of the column edge.
-        const gx = track(to.col + 1, to.cy, from.cy, 0.3, FLOW_TRACKS.filter((share) => share >= 0.3));
-        lines.push({ ...about(link), kind: "rejoin", points: [[to.x + g.nodeW, to.cy], [gx, to.cy], [gx, from.cy], [gx - 12, from.cy]] });
-        laneEnd.set(from.lane, Math.max(laneEnd.get(from.lane), gx));
-      }
-    } else if (link.type === "succeeds" && (carried(from, to) || forked(from, to))) {
+    if (link.type !== "succeeds" || !carried(from, to)) continue;
+    reserve(from, "right");
+    reserve(to, "left");
+    lines.push({ ...about(link), kind: "flow", arrow: true, points: [[from.x + g.nodeW, from.cy], [to.x, to.cy]] });
+  }
+  // Each part or derived Intent gets its own strand from its parent's side, nearest child highest and
+  // furthest from the parent, so the strands nest instead of crossing.
+  const children = new Map();
+  for (const link of relations) {
+    const [from, to] = ends(link);
+    if (PARENT_RELATIONS.has(link.type) && tree(from, to)) children.set(from.id, [...(children.get(from.id) || []), { link, to }]);
+  }
+  for (const [parentId, list] of children) {
+    const from = nodeOf.get(parentId);
+    list.sort((left, right) => left.to.lane - right.to.lane).forEach(({ link, to }, index) => {
+      reserve(to, "left");
+      const y1 = port(from, "right", "branch");
+      const gx = track(from.col + 1, y1, to.cy, FLOW_FAN[index] ?? 0.5);
+      lines.push({ ...about(link), kind: "branch", points: [[from.x + g.nodeW, y1], [gx, y1], [gx, to.cy], [to.x, to.cy]] });
+    });
+  }
+  for (const link of relations) {
+    const [from, to] = ends(link);
+    // A part that has ended (done or dropped) rejoins its parent's lane.
+    if (link.type === "part_of" && ENDED_STATUSES.has(to.intent.status) && to.lane !== from.lane) {
+      reserve(to, "right");
+      // It turns back along the parent's lane, so it keeps clear of the column edge.
+      const gx = track(to.col + 1, to.cy, from.cy, 0.3, FLOW_TRACKS.filter((share) => share >= 0.3));
+      const endX = Math.max(to.x + g.nodeW + 2, gx - 30);
+      lines.push({ ...about(link), kind: "rejoin", points: [[to.x + g.nodeW, to.cy], [gx, to.cy], [gx, from.cy], [endX, from.cy]] });
+      laneEnd.set(from.lane, Math.max(laneEnd.get(from.lane), gx));
+    }
+    if (link.type === "succeeds" && forked(from, to)) {
       reserve(from, "right");
       reserve(to, "left");
-      const gx = carried(from, to) ? 0 : track(from.col + 1, from.cy, to.cy, 0.5);
-      lines.push({ ...about(link), kind: "flow", arrow: true, points: carried(from, to)
-        ? [[from.x + g.nodeW, from.cy], [to.x, to.cy]]
-        : [[from.x + g.nodeW, from.cy], [gx, from.cy], [gx, to.cy], [to.x, to.cy]] });
+      const gx = track(from.col + 1, from.cy, to.cy, 0.5);
+      lines.push({ ...about(link), kind: "flow", arrow: true, points: [[from.x + g.nodeW, from.cy], [gx, from.cy], [gx, to.cy], [to.x, to.cy]] });
     }
   }
-  for (const type of ["succeeds", "depends_on", "conflicts_with"]) {
+  for (const type of [...PARENT_RELATIONS, "succeeds", "depends_on", "conflicts_with"]) {
     for (const link of relations.filter((entry) => entry.type === type)) {
       const [from, to] = ends(link);
-      if (type === "succeeds" && !carried(from, to) && !forked(from, to)) {
+      if (PARENT_RELATIONS.has(type) && !tree(from, to)) {
+        lines.push({ ...about(link), kind: "branch", points: connect(from, to, "branch", 0.5) });
+      } else if (type === "succeeds" && !carried(from, to) && !forked(from, to)) {
         lines.push({ ...about(link), kind: "flow", arrow: true, points: connect(from, to, "flow", 0.5) });
       } else if (type === "depends_on") {
         lines.push({ ...about(link), kind: "depends", arrow: true, points: connect(from, to, "depends", 0.3) });
       } else if (type === "conflicts_with") {
-        lines.push({ ...about(link), kind: "conflict", points: connect(from, to, "conflict", 0.85) });
+        lines.push({ ...about(link), kind: "conflict", points: connect(from, to, "conflict", 0.7) });
       }
     }
   }
   lines.sort((left, right) => FLOW_LINE_ORDER.indexOf(left.kind) - FLOW_LINE_ORDER.indexOf(right.kind));
-  // A lane line only runs on where an ended part comes back to join it.
-  const lifelines = lanes.map((lane) => {
+  const obstacles = nodes.map((node) => node.box);
+  for (const line of lines) line.curve = flowCurve(line.points, obstacles);
+  // A parent's lane only runs on as far as its ended parts come back to join it.
+  const laneLines = lanes.map((lane) => {
     const last = nodeOf.get(lane.nodes.at(-1));
     const x2 = laneEnd.get(lane.row);
     return x2 > last.x + g.nodeW + 1 ? { row: lane.row, x1: last.x + g.nodeW, x2, y: last.cy } : null;
   }).filter(Boolean);
 
-  // Decisions with a source sit on that Intent's node, oldest first; a longer list is counted.
-  for (const decision of knownDecisions.filter((entry) => hasSource(entry) && nodeOf.has(entry.source_intent_id)).sort(byCreation)) {
-    nodeOf.get(decision.source_intent_id).decisions.push(decision);
-  }
-  // A band label may run on until the next Decision in its row, up to two columns.
-  const markers = bandItems.map((item) => {
-    const next = bandItems.filter((other) => other.row === item.row && other.col > item.col).reduce((nearest, other) => Math.min(nearest, other.col), item.col + 2);
-    return {
-      decision: item.decision, more: item.more || 0, source: "", band: true,
-      x: colX(item.col) + 8, y: g.padY + g.bandLabel + item.row * g.bandRow,
-      width: Math.min((Math.min(next, item.col + 2) - item.col) * (g.nodeW + g.gapX) - 40, colX(maxCol) + g.nodeW - colX(item.col) - 8),
-    };
-  });
-  for (const node of nodes) {
-    const shown = node.decisions.slice(0, FLOW_NODE_DECISIONS);
-    shown.forEach((decision, index) => {
-      markers.push({ decision, source: node.id, x: node.x + g.nodeW - 18 - (shown.length - 1 - index) * 17, y: node.y + g.nodeH - 15 });
-    });
-  }
-
-  const reach = Math.max(colX(maxCol) + g.nodeW + g.padX, ...lines.flatMap((line) => line.points.map((point) => point[0] + 16)), ...lifelines.map((line) => line.x2 + 16));
+  const reach = Math.max(colX(maxCol) + g.nodeW + g.padX, ...lines.flatMap((line) => line.points.map((point) => point[0] + 16)), ...laneLines.map((line) => line.x2 + 16));
   return {
     geometry: g, hasRelations: links.length > 0, focus: focusId, relations, standalone,
     nodes: [...nodes].sort((left, right) => left.lane - right.lane || left.col - right.col),
-    lines, lifelines, markers,
+    lines, laneLines, axis,
+    band: bandRows ? {
+      y: bandY, height: bandHeight,
+      // A chip may run on over the next column when no chip of its row starts there.
+      chips: chips.map((chip) => {
+        const next = chips.filter((other) => other.row === chip.row && other.col > chip.col).reduce((nearest, other) => Math.min(nearest, other.col), chip.col + 2);
+        const span = Math.min(next, chip.col + 2) - chip.col;
+        const width = Math.min(span * g.nodeW + (span - 1) * g.gapX, colX(maxCol) + g.nodeW - colX(chip.col));
+        return { ...chip, x: colX(chip.col), y: bandY + g.bandLabel + chip.row * g.bandRow, width };
+      }),
+    } : null,
     width: nodes.length ? Math.ceil(reach) : 0,
-    height: nodes.length ? Math.ceil(rowY(rows.length - 1) + g.nodeH + g.padY) : 0,
+    height: nodes.length ? Math.ceil(rowBottom(rows.length - 1) + g.padBottom) : 0,
     columns: nodes.length ? maxCol + 1 : 0, lanes: rows.length,
-    band: bandHeight ? { y: 10, height: g.padY + g.bandLabel + (bandRows - 1) * g.bandRow + 2, labelY: 31 } : null,
   };
+}
+
+// The card to bring into view first: the focused Intent, else the most recent open one.
+function flowTarget(layout) {
+  if (!layout.nodes.length) return null;
+  if (layout.focus) return layout.nodes.find((node) => node.id === layout.focus) || null;
+  const open = layout.nodes.filter((node) => !ENDED_STATUSES.has(node.intent.status));
+  return [...(open.length ? open : layout.nodes)].sort((left, right) => byCreation(right.intent, left.intent))[0];
+}
+
+// Drop repeated points and merge straight runs, so every remaining point is a real bend.
+function flowSimplify(points) {
+  const list = [];
+  for (const point of points) {
+    const last = list.at(-1);
+    if (last && last[0] === point[0] && last[1] === point[1]) continue;
+    const before = list.at(-2);
+    if (before && ((before[0] === last[0] && last[0] === point[0] && Math.sign(last[1] - before[1]) === Math.sign(point[1] - last[1]))
+        || (before[1] === last[1] && last[1] === point[1] && Math.sign(last[0] - before[0]) === Math.sign(point[0] - last[0])))) {
+      list.pop();
+    }
+    list.push(point);
+  }
+  return list;
+}
+
+// Turn an orthogonal route into tangent-continuous curves. A single step across a gap
+// (horizontal, vertical, horizontal) becomes one S with horizontal tangents and control points
+// half way across, when its box is clear. Otherwise each bend becomes a cubic reaching up to
+// FLOW_BEND.across along a horizontal leg and FLOW_BEND.along along a vertical one, never more than
+// half a shared leg; it shrinks until its control box, which holds the whole curve, clears every card.
+function flowCurve(points, obstacles = []) {
+  const list = flowSimplify(points);
+  const start = list[0] || [0, 0];
+  if (list.length < 2) return { start, segments: [] };
+  const clear = (x1, y1, x2, y2) => !obstacles.some((box) => Math.min(x1, x2) < box.x2 - 0.5 && Math.max(x1, x2) > box.x1 + 0.5
+    && Math.min(y1, y2) < box.y2 - 0.5 && Math.max(y1, y2) > box.y1 + 0.5);
+  const [p0, p1, p2, p3] = list;
+  if (list.length === 4 && p0[1] === p1[1] && p1[0] === p2[0] && p2[1] === p3[1]
+      && Math.sign(p1[0] - p0[0]) === Math.sign(p3[0] - p2[0]) && clear(p0[0], p0[1], p3[0], p3[1])) {
+    const half = (p3[0] - p0[0]) / 2;
+    return { start, segments: [{ c1: [p0[0] + half, p0[1]], c2: [p3[0] - half, p3[1]], to: p3 }] };
+  }
+  const segments = [];
+  let at = start;
+  for (let index = 1; index < list.length - 1; index++) {
+    const [px, py] = list[index - 1];
+    const [x, y] = list[index];
+    const [nx, ny] = list[index + 1];
+    const inLength = Math.hypot(x - px, y - py);
+    const outLength = Math.hypot(nx - x, ny - y);
+    const uIn = [(x - px) / inLength, (y - py) / inLength];
+    const uOut = [(nx - x) / outLength, (ny - y) / outLength];
+    // The legs at either end keep a short straight piece where they meet a card.
+    const reach = (length, unit, shared) => Math.max(0, Math.min(unit[1] ? FLOW_BEND.along : FLOW_BEND.across, shared ? length / 2 : length - 8));
+    let rIn = reach(inLength, uIn, index > 1);
+    let rOut = reach(outLength, uOut, index < list.length - 2);
+    const box = () => {
+      const ax = x - uIn[0] * rIn;
+      const ay = y - uIn[1] * rIn;
+      const bx = x + uOut[0] * rOut;
+      const by = y + uOut[1] * rOut;
+      return [Math.min(ax, bx, x), Math.min(ay, by, y), Math.max(ax, bx, x), Math.max(ay, by, y)];
+    };
+    for (let attempt = 0; attempt < 12 && !clear(...box()); attempt++) {
+      rIn *= 0.7;
+      rOut *= 0.7;
+    }
+    if (rIn < 1 || rOut < 1 || !clear(...box())) {
+      segments.push({ to: [x, y] });
+      at = [x, y];
+      continue;
+    }
+    const a = [x - uIn[0] * rIn, y - uIn[1] * rIn];
+    const b = [x + uOut[0] * rOut, y + uOut[1] * rOut];
+    if (Math.hypot(a[0] - at[0], a[1] - at[1]) > 0.01) segments.push({ to: a });
+    const k = FLOW_BEND.fullness;
+    segments.push({ c1: [a[0] + uIn[0] * rIn * k, a[1] + uIn[1] * rIn * k], c2: [b[0] - uOut[0] * rOut * k, b[1] - uOut[1] * rOut * k], to: b });
+    at = b;
+  }
+  const last = list.at(-1);
+  if (Math.hypot(last[0] - at[0], last[1] - at[1]) > 0.01) segments.push({ to: last });
+  return { start, segments };
+}
+
+function flowCubicPoint(from, c1, c2, to, t) {
+  const s = 1 - t;
+  return [0, 1].map((axis) => s * s * s * from[axis] + 3 * s * s * t * c1[axis] + 3 * s * t * t * c2[axis] + t * t * t * to[axis]);
+}
+
+// Points along a rendered curve: each cubic sampled `steps` times, each straight piece at its ends.
+function flowSamples(curve, steps = 12) {
+  const points = [curve.start];
+  let from = curve.start;
+  for (const segment of curve.segments) {
+    if (segment.c1) for (let index = 1; index <= steps; index++) points.push(flowCubicPoint(from, segment.c1, segment.c2, segment.to, index / steps));
+    else points.push(segment.to);
+    from = segment.to;
+  }
+  return points;
+}
+
+function flowCurveEnd(curve) {
+  const last = curve.segments.at(-1);
+  const [x, y] = last.to;
+  const from = last.c2 || curve.segments.at(-2)?.to || curve.start;
+  const length = Math.hypot(x - from[0], y - from[1]);
+  return { x, y, ux: length ? (x - from[0]) / length : 1, uy: length ? (y - from[1]) / length : 0, length };
+}
+
+// Stop the stroke short of an arrow tip so it never pokes through; a final cubic keeps its tangent.
+function flowTrimCurve(curve, by) {
+  const end = flowCurveEnd(curve);
+  const last = curve.segments.at(-1);
+  if (!last.c2 && end.length <= by) return curve;
+  const trimmed = { ...last, to: [end.x - end.ux * by, end.y - end.uy * by] };
+  if (last.c2) trimmed.c2 = [last.c2[0] - end.ux * by, last.c2[1] - end.uy * by];
+  return { start: curve.start, segments: [...curve.segments.slice(0, -1), trimmed] };
+}
+
+function flowCurvePath(curve) {
+  const n = flowNumber;
+  return [`M${n(curve.start[0])} ${n(curve.start[1])}`, ...curve.segments.map((segment) => (segment.c1
+    ? `C${n(segment.c1[0])} ${n(segment.c1[1])} ${n(segment.c2[0])} ${n(segment.c2[1])} ${n(segment.to[0])} ${n(segment.to[1])}`
+    : `L${n(segment.to[0])} ${n(segment.to[1])}`))].join(" ");
+}
+
+// A small arrowhead along the end tangent.
+function flowArrowHead(end, size) {
+  const n = flowNumber;
+  const bx = end.x - end.ux * size;
+  const by = end.y - end.uy * size;
+  const half = size * 0.5;
+  return `M${n(end.x)} ${n(end.y)} L${n(bx - end.uy * half)} ${n(by + end.ux * half)} L${n(bx + end.uy * half)} ${n(by - end.ux * half)} Z`;
 }
 
 const FLOW_WIDE = /[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe4f\uff00-\uff60\uffe0-\uffe6]/;
 
-// SVG text does not wrap, so titles are fitted by an estimate that errs on the narrow side.
-function flowTextWidth(text, size) {
+// SVG text does not wrap, so titles are fitted by an estimate that errs on the narrow side
+// (semibold by default; `scale` below 1 for regular text).
+function flowTextWidth(text, size, scale = 1) {
   let units = 0;
   for (const char of String(text)) {
     units += FLOW_WIDE.test(char) ? 1 : char === " " ? 0.3 : /[ijlrtf.,:;'|!()[\]]/.test(char) ? 0.36 : /[A-Z0-9mwMW@#%&]/.test(char) ? 0.72 : 0.6;
   }
-  return units * size;
+  return units * size * scale;
 }
 
 function flowTokens(text) {
@@ -1641,8 +1834,8 @@ function flowTokens(text) {
   return tokens;
 }
 
-function flowLines(text, maxWidth, size = 13, maxLines = 2) {
-  const fits = (value) => flowTextWidth(value, size) <= maxWidth;
+function flowLines(text, maxWidth, size = 13, maxLines = 2, scale = 1) {
+  const fits = (value) => flowTextWidth(value, size, scale) <= maxWidth;
   const tokens = flowTokens(text);
   const lines = [];
   let line = "";
@@ -1690,52 +1883,6 @@ function flowNumber(value) {
   return Math.round(value * 10) / 10;
 }
 
-// An orthogonal polyline with rounded corners.
-function flowPath(points, radius = 8) {
-  const list = points.filter((point, index) => !index || point[0] !== points[index - 1][0] || point[1] !== points[index - 1][1]);
-  if (list.length < 2) return "";
-  let path = `M${flowNumber(list[0][0])} ${flowNumber(list[0][1])}`;
-  for (let index = 1; index < list.length - 1; index++) {
-    const [px, py] = list[index - 1];
-    const [x, y] = list[index];
-    const [nx, ny] = list[index + 1];
-    const inLength = Math.hypot(x - px, y - py);
-    const outLength = Math.hypot(nx - x, ny - y);
-    const r = Math.min(radius, inLength / 2, outLength / 2);
-    path += ` L${flowNumber(x - (x - px) / inLength * r)} ${flowNumber(y - (y - py) / inLength * r)}`
-      + ` Q${flowNumber(x)} ${flowNumber(y)} ${flowNumber(x + (nx - x) / outLength * r)} ${flowNumber(y + (ny - y) / outLength * r)}`;
-  }
-  const [lx, ly] = list.at(-1);
-  return `${path} L${flowNumber(lx)} ${flowNumber(ly)}`;
-}
-
-function flowEnd(points) {
-  const [x, y] = points.at(-1);
-  for (let index = points.length - 2; index >= 0; index--) {
-    const [px, py] = points[index];
-    const length = Math.hypot(x - px, y - py);
-    if (length) return { x, y, ux: (x - px) / length, uy: (y - py) / length, length };
-  }
-  return { x, y, ux: 1, uy: 0, length: 0 };
-}
-
-function flowArrow(points, size) {
-  const { x, y, ux, uy } = flowEnd(points);
-  const bx = x - ux * size;
-  const by = y - uy * size;
-  const half = size * 0.55;
-  return `M${flowNumber(x)} ${flowNumber(y)} L${flowNumber(bx - uy * half)} ${flowNumber(by + ux * half)} L${flowNumber(bx + uy * half)} ${flowNumber(by - ux * half)} Z`;
-}
-
-// Stop the stroke short of an arrow tip so a thick line never pokes through it.
-function flowTrim(points, by) {
-  const { ux, uy, length } = flowEnd(points);
-  if (length <= by) return points;
-  const list = points.map((point) => [...point]);
-  list[list.length - 1] = [list.at(-1)[0] - ux * by, list.at(-1)[1] - uy * by];
-  return list;
-}
-
 function flowMidpoint(points) {
   const lengths = points.slice(1).map((point, index) => Math.hypot(point[0] - points[index][0], point[1] - points[index][1]));
   let remaining = lengths.reduce((sum, length) => sum + length, 0) / 2;
@@ -1756,17 +1903,21 @@ function flowLineTone(line) {
 }
 
 function flowLineSvg(line) {
-  const size = line.kind === "flow" ? 10 : 7;
-  const d = flowPath(line.arrow ? flowTrim(line.points, size * 0.7) : line.points);
+  const size = line.kind === "flow" ? 8 : 6;
+  const end = flowCurveEnd(line.curve);
+  const d = flowCurvePath(line.arrow ? flowTrimCurve(line.curve, size * 0.75) : line.curve);
   const state = relationStateLabel(line.state);
   const title = `${line.subject} · ${relationLabel(line.type, "out")} · ${line.target}${state ? ` · ${state}` : ""}`;
   const settled = line.state === "resolved" ? " is-settled" : "";
   let mark = "";
   if (line.kind === "conflict") {
-    const [mx, my] = flowMidpoint(line.points);
+    const [mx, my] = flowMidpoint(flowSamples(line.curve));
     mark = `<g class="flow-vs"><rect x="${flowNumber(mx - 12)}" y="${flowNumber(my - 8)}" width="24" height="16" rx="8"/><text x="${flowNumber(mx)}" y="${flowNumber(my + 3.5)}" text-anchor="middle">vs</text></g>`;
+  } else if (line.kind === "branch") {
+    // Where a branch meets the child: a filled dot for a part, a hollow one for a derived Intent.
+    mark = `<circle class="flow-terminal" cx="${flowNumber(end.x - end.ux * 4)}" cy="${flowNumber(end.y - end.uy * 4)}" r="2.75"/>`;
   }
-  return `<g class="flow-line flow-${line.kind} flow-type-${line.type} tone-${flowLineTone(line)}${settled}"><title>${esc(title)}</title><path class="flow-hit-line" d="${d}"/><path class="flow-stroke" d="${d}"/>${line.arrow ? `<path class="flow-arrow" d="${flowArrow(line.points, size)}"/>` : ""}${mark}</g>`;
+  return `<g class="flow-line flow-${line.kind} flow-type-${line.type} tone-${flowLineTone(line)}${settled}"><title>${esc(title)}</title><path class="flow-hit-line" d="${d}"/><path class="flow-stroke" d="${d}"/>${line.arrow ? `<path class="flow-arrow" d="${flowArrowHead(end, size)}"/>` : ""}${mark}</g>`;
 }
 
 function flowNodeLabel(node, layout) {
@@ -1786,74 +1937,218 @@ function flowNodeLabel(node, layout) {
   return parts.join(". ");
 }
 
+// A card: status pill and id, a title of up to two lines, then its Snaps and Decisions. The left
+// accent only repeats the status the pill already names.
 function flowNodeSvg(node, layout) {
   const g = layout.geometry;
   const intent = node.intent;
   const status = ["active", "suspend", "done", "cancelled"].includes(intent.status) ? intent.status : "unknown";
-  const title = flowLines(intent.what || intent.id, g.nodeW - 24, 13, 2);
-  const more = node.decisions.length - FLOW_NODE_DECISIONS;
+  const label = intentStatusLabel(intent.status);
+  const title = flowLines(intent.what || intent.id, g.nodeW - 28, 13, 2);
+  const meta = [plural((intent.snap_ids || []).length, "{count} snap", "{count} snaps")];
+  if (node.decisions.length) meta.push(plural(node.decisions.length, "{count} decision", "{count} decisions"));
   return `<g class="flow-node status-${status}${layout.focus === node.id ? " is-focus" : ""}" role="button" tabindex="0" data-detail-type="intent" data-remote-id="${esc(intent.remote_id || remoteId(intent.project_id, intent.id))}" aria-label="${esc(flowNodeLabel(node, layout))}" transform="translate(${flowNumber(node.x)} ${flowNumber(node.y)})">
     <title>${esc(intent.what || intent.id)}</title>
-    <rect class="flow-node-ring" x="-4" y="-4" width="${g.nodeW + 8}" height="${g.nodeH + 8}" rx="14"/>
-    <rect class="flow-node-box" width="${g.nodeW}" height="${g.nodeH}" rx="10"/>
-    <circle class="flow-node-dot" cx="16" cy="18" r="3.5"/>
-    <text class="flow-node-status" x="26" y="22">${esc(intentStatusLabel(intent.status))}</text>
-    <text class="flow-node-id" x="${g.nodeW - 12}" y="22" text-anchor="end">${esc(intent.id)}</text>
-    ${title.map((line, index) => `<text class="flow-node-title" x="12" y="${43 + index * 17}">${esc(line)}</text>`).join("")}
-    <text class="flow-node-meta" x="12" y="${g.nodeH - 11}">${esc(plural((intent.snap_ids || []).length, "{count} snap", "{count} snaps"))}</text>
-    ${more > 0 ? `<text class="flow-node-meta" x="${g.nodeW - 12 - FLOW_NODE_DECISIONS * 17}" y="${g.nodeH - 11}" text-anchor="end">+${more}</text>` : ""}
+    <g class="flow-node-body">
+      <rect class="flow-node-ring" x="-4" y="-4" width="${g.nodeW + 8}" height="${g.nodeH + 8}" rx="15"/>
+      <rect class="flow-node-box" width="${g.nodeW}" height="${g.nodeH}" rx="12"/>
+      <rect class="flow-node-accent" width="3" height="${g.nodeH}" clip-path="url(#flow-card-clip)"/>
+      <g class="flow-pill" data-fit="25"><rect class="flow-pill-box" x="12" y="12" width="${flowNumber(25 + flowTextWidth(label, 11, FLOW_REGULAR))}" height="20" rx="10" data-fit-box/><circle class="flow-node-dot" cx="21" cy="22" r="3"/><text class="flow-node-status" x="29" y="25.5" data-fit-text>${esc(label)}</text></g>
+      <text class="flow-node-id" x="${g.nodeW - 12}" y="25.5" text-anchor="end">${esc(intent.id)}</text>
+      ${title.map((line, index) => `<text class="flow-node-title" x="14" y="${50 + index * 17}">${esc(line)}</text>`).join("")}
+      <text class="flow-node-meta" x="14" y="${g.nodeH - 12}">${esc(meta.join(" · "))}</text>
+    </g>
   </g>`;
 }
 
-function flowDecisionSvg(marker) {
-  const { x, y } = marker;
-  if (!marker.decision) return `<text class="flow-band-more" x="${flowNumber(x - 6)}" y="${flowNumber(y + 4)}">+${marker.more}</text>`;
-  const decision = marker.decision;
-  const diamond = (size) => `M${flowNumber(x)} ${flowNumber(y - size)} L${flowNumber(x + size)} ${flowNumber(y)} L${flowNumber(x)} ${flowNumber(y + size)} L${flowNumber(x - size)} ${flowNumber(y)} Z`;
-  const label = `${t("Decision")} ${decision.id}: ${decision.what || ""} (${decisionStatusLabel(decision.status)}${marker.source ? "" : ` · ${t("Project-level")}`})`;
-  // In the Project band a Decision also shows its words; on a node it is only a diamond.
-  const text = marker.band ? flowLines(decision.what || decision.id, marker.width - 16, 12, 1)[0] || "" : "";
-  const hitWidth = text ? 26 + flowTextWidth(text, 12) : 20;
-  return `<g class="flow-decision${decision.status === "deprecated" ? " is-deprecated" : ""}" role="button" tabindex="0" data-detail-type="decision" data-remote-id="${esc(decision.remote_id || remoteId(decision.project_id, decision.id))}" aria-label="${esc(label)}">
+function flowDecisionLabel(decision, projectLevel) {
+  return `${t("Decision")} ${decision.id}: ${decision.what || ""} (${decisionStatusLabel(decision.status)}${projectLevel ? ` · ${t("Project-level")}` : ""})`;
+}
+
+function flowDiamond(x, y, size) {
+  const n = flowNumber;
+  return `M${n(x)} ${n(y - size)} L${n(x + size)} ${n(y)} L${n(x)} ${n(y + size)} L${n(x - size)} ${n(y)} Z`;
+}
+
+// Decisions taken from an Intent hang under its card: a dotted stem, then a diamond and a line of text each.
+function flowPinsSvg(node, layout) {
+  if (!node.decisions.length) return "";
+  const g = layout.geometry;
+  const x = node.x + 18;
+  const top = node.y + g.nodeH;
+  const listed = node.decisions.length > FLOW_PINS ? node.decisions.slice(0, FLOW_PINS) : node.decisions;
+  const more = node.decisions.length - listed.length;
+  const rowY = (index) => top + g.pinTop + index * g.pinRow;
+  const pins = listed.map((decision, index) => {
+    const y = rowY(index);
+    const text = flowLines(decision.what || decision.id, g.nodeW - 40, 11.5, 1, FLOW_REGULAR)[0] || "";
+    return `<g class="flow-decision flow-pin${decision.status === "deprecated" ? " is-deprecated" : ""}" role="button" tabindex="0" data-detail-type="decision" data-remote-id="${esc(decision.remote_id || remoteId(decision.project_id, decision.id))}" aria-label="${esc(flowDecisionLabel(decision, false))}" data-fit="0" data-fit-max="${g.nodeW - 40}">
+      <title>${esc(`${decision.id} · ${decision.what || ""}`)}</title>
+      <rect class="flow-hit" x="${flowNumber(x - 9)}" y="${flowNumber(y - 9)}" width="${flowNumber(g.nodeW - 18)}" height="18" rx="6"/>
+      <path class="flow-decision-shape" d="${flowDiamond(x, y, 4.5)}"/>
+      <text class="flow-pin-text" x="${flowNumber(x + 11)}" y="${flowNumber(y + 4)}" data-fit-text data-full="${esc(decision.what || decision.id)}">${esc(text)}</text>
+    </g>`;
+  }).join("");
+  return `<path class="flow-pin-stem" aria-hidden="true" d="M${flowNumber(x)} ${flowNumber(top + 3)} V${flowNumber(rowY(listed.length - 1) - 6)}"/>${pins}`
+    + (more ? `<text class="flow-pin-more" x="${flowNumber(x + 11)}" y="${flowNumber(rowY(listed.length) + 4)}">${esc(t("+{count} more", {count: more}))}</text>` : "");
+}
+
+// A Project-level Decision: a chip at the column of its time.
+function flowChipSvg(chip) {
+  const { x, y } = chip;
+  if (!chip.decision) {
+    return `<g class="flow-chip is-more" aria-hidden="true"><rect class="flow-chip-box" x="${x}" y="${y}" width="44" height="22" rx="11"/><text class="flow-chip-text" x="${x + 22}" y="${y + 15}" text-anchor="middle">+${chip.more}</text></g>`;
+  }
+  const decision = chip.decision;
+  const text = flowLines(decision.what || decision.id, chip.width - 38, 12, 1, FLOW_REGULAR)[0] || "";
+  return `<g class="flow-decision flow-chip${decision.status === "deprecated" ? " is-deprecated" : ""}" role="button" tabindex="0" data-detail-type="decision" data-remote-id="${esc(decision.remote_id || remoteId(decision.project_id, decision.id))}" aria-label="${esc(flowDecisionLabel(decision, true))}" data-fit="36" data-fit-max="${chip.width}">
     <title>${esc(`${decision.id} · ${decision.what || ""}`)}</title>
-    <rect class="flow-hit" x="${flowNumber(x - 10)}" y="${flowNumber(y - 10)}" width="${flowNumber(hitWidth)}" height="20" rx="5"/>
-    <path class="flow-decision-ring" d="${diamond(10)}"/>
-    <path class="flow-decision-shape" d="${diamond(6)}"/>
-    ${text ? `<text class="flow-band-text" x="${flowNumber(x + 14)}" y="${flowNumber(y + 4)}">${esc(text)}</text>` : ""}
+    <rect class="flow-chip-box" x="${x}" y="${y}" width="${flowNumber(Math.min(chip.width, 36 + flowTextWidth(text, 12, FLOW_REGULAR)))}" height="22" rx="11" data-fit-box/>
+    <path class="flow-decision-shape" d="${flowDiamond(x + 13, y + 11, 4.5)}"/>
+    <text class="flow-chip-text" x="${x + 24}" y="${y + 15}" data-fit-text data-full="${esc(decision.what || decision.id)}">${esc(text)}</text>
   </g>`;
+}
+
+function flowAxisLabel(time) {
+  const date = new Date(time);
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return new Intl.DateTimeFormat(window.IntHubI18n.language, sameYear ? { month: "short", day: "numeric" } : { year: "numeric", month: "short", day: "numeric" }).format(date);
 }
 
 function renderFlowSvg(layout) {
   if (!layout.nodes.length) return "";
   const g = layout.geometry;
-  const band = layout.band
-    ? `<g class="flow-band" aria-hidden="true"><rect class="flow-band-box" x="10" y="${layout.band.y}" width="${layout.width - 20}" height="${flowNumber(layout.band.height)}" rx="10"/><text class="flow-band-label" x="${g.padX - 8}" y="${layout.band.labelY}">${esc(t("Project"))}</text></g>`
+  const n = flowNumber;
+  const defs = `<defs>
+    <clipPath id="flow-card-clip"><rect width="${g.nodeW}" height="${g.nodeH}" rx="12"/></clipPath>
+    <filter id="flow-card-shadow" x="-10%" y="-15%" width="120%" height="150%"><feDropShadow class="flow-shadow" dx="0" dy="1" stdDeviation="1.4"/></filter>
+    <filter id="flow-card-lift" x="-15%" y="-20%" width="130%" height="170%"><feDropShadow class="flow-shadow-lift" dx="0" dy="5" stdDeviation="6"/></filter>
+  </defs>`;
+  const axis = layout.axis.length
+    ? `<g class="flow-axis" aria-hidden="true"><path class="flow-axis-rule" d="M${g.padX} ${n(g.padTop + g.axisH - 6)} H${n(layout.width - g.padX)}"/>${layout.axis.map((tick) => `<path class="flow-axis-tick" d="M${n(tick.x)} ${n(tick.y + g.axisH - 10)} V${n(tick.y + g.axisH - 2)}"/><text class="flow-axis-label" x="${n(tick.x)}" y="${n(tick.y + 11)}">${esc(flowAxisLabel(tick.time))}</text>`).join("")}</g>`
     : "";
-  const lifelines = layout.lifelines.map((line) => `<path class="flow-lifeline" d="M${flowNumber(line.x1)} ${flowNumber(line.y)} H${flowNumber(line.x2)}"/>`).join("");
-  const markersOf = (source) => layout.markers.filter((marker) => marker.source === source).map(flowDecisionSvg).join("");
-  // Reading order: the project band, then each node followed by its own Decisions.
-  const nodes = layout.nodes.map((node) => flowNodeSvg(node, layout) + markersOf(node.id)).join("");
+  const band = layout.band
+    ? `<g class="flow-band" aria-hidden="true"><rect class="flow-band-box" x="10" y="${n(layout.band.y)}" width="${layout.width - 20}" height="${n(layout.band.height + 6)}" rx="12"/><text class="flow-band-label" x="${g.padX}" y="${n(layout.band.y + 16)}">${esc(t("Project"))}</text></g>${layout.band.chips.map(flowChipSvg).join("")}`
+    : "";
+  const laneLines = layout.laneLines.map((line) => `<path class="flow-lane-line" d="M${n(line.x1)} ${n(line.y)} H${n(line.x2)}"/>`).join("");
+  // Reading order: the project band, then each card followed by its own Decisions.
+  const nodes = layout.nodes.map((node) => flowNodeSvg(node, layout) + flowPinsSvg(node, layout)).join("");
   return `<svg class="flow-svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="group" aria-label="${esc(t("Flow between Intents"))}">
+    ${defs}
+    ${axis}
     ${band}
-    <g class="flow-lines" aria-hidden="true">${lifelines}${layout.lines.map(flowLineSvg).join("")}</g>
-    ${markersOf("")}
+    <g class="flow-lines" aria-hidden="true">${laneLines}${layout.lines.map(flowLineSvg).join("")}</g>
     ${nodes}
   </svg>`;
 }
 
+// Cut a label to the longest start that fits, measured on the drawn text.
+function fitFlowLabel(text, maxWidth) {
+  const full = text.getAttribute("data-full");
+  if (full === null) return;
+  text.textContent = full;
+  if (text.getComputedTextLength() <= maxWidth) return;
+  let low = 0;
+  let high = full.length;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    text.textContent = `${full.slice(0, middle).trimEnd()}…`;
+    if (text.getComputedTextLength() <= maxWidth) low = middle;
+    else high = middle - 1;
+  }
+  text.textContent = `${full.slice(0, low).trimEnd()}…`;
+}
+
+// SVG text cannot size its own box. Once drawn, labels are cut to fit exactly and pills and chips
+// take the width of their text; the estimate drawn first stays wherever nothing can be measured.
+function fitFlowText() {
+  for (const group of el.detailContent.querySelectorAll?.(".flow-svg [data-fit]") || []) {
+    const text = group.querySelector("[data-fit-text]");
+    if (typeof text?.getComputedTextLength !== "function" || !text.getComputedTextLength()) continue;
+    const pad = Number(group.dataset.fit) || 0;
+    const max = Number(group.dataset.fitMax) || Infinity;
+    fitFlowLabel(text, max - pad);
+    group.querySelector("[data-fit-box]")?.setAttribute("width", String(flowNumber(Math.min(text.getComputedTextLength() + pad, max))));
+  }
+}
+
+// Where a frame smaller than the graph should start: the target card fully in view, and among those
+// positions the one showing the most card area, so the frame does not open on empty canvas.
+function flowViewport(layout, width, height) {
+  const target = flowTarget(layout);
+  if (!target) return { left: 0, top: 0 };
+  const margin = 16;
+  const range = (start, size, extent, frame) => {
+    const most = Math.max(0, extent - frame);
+    const low = Math.min(most, Math.max(0, start + size + margin - frame));
+    const high = Math.max(low, Math.min(most, start - margin));
+    return Array.from({ length: 9 }, (_, index) => low + (high - low) * index / 8);
+  };
+  const box = target.box;
+  let best = { left: 0, top: 0, score: -Infinity };
+  for (const left of range(box.x1, box.x2 - box.x1, layout.width, width)) {
+    for (const top of range(box.y1, box.y2 - box.y1, layout.height, height)) {
+      let score = 0;
+      for (const node of layout.nodes) {
+        const across = Math.min(node.box.x2, left + width) - Math.max(node.box.x1, left);
+        const down = Math.min(node.box.y2, top + height) - Math.max(node.box.y1, top);
+        if (across > 0 && down > 0) score += across * down;
+      }
+      // Ties go to the position that centres the target best.
+      score -= Math.abs(left + width / 2 - (box.x1 + box.x2) / 2) + Math.abs(top + height / 2 - (box.y1 + box.y2) / 2);
+      if (score > best.score) best = { left, top, score };
+    }
+  }
+  return { left: Math.round(best.left), top: Math.round(best.top) };
+}
+
+// The rows a window over [left, left + width] should keep: the target and its direct relations,
+// and every card at least half inside the window.
+function flowVisibleSpan(layout, left, width) {
+  const target = flowTarget(layout);
+  const near = new Set([target?.id]);
+  for (const link of layout.relations) {
+    if (link.subject === target?.id) near.add(link.target);
+    if (link.target === target?.id) near.add(link.subject);
+  }
+  const shown = layout.nodes.filter((node) => near.has(node.id)
+    || Math.min(node.box.x2, left + width) - Math.max(node.box.x1, left) >= (node.box.x2 - node.box.x1) / 2);
+  if (!shown.length) return null;
+  return { top: Math.min(...shown.map((node) => node.box.y1)), bottom: Math.max(...shown.map((node) => node.box.y2)) };
+}
+
+// When the graph is larger than its frame (a phone, a long history), open it at the card that matters.
+// A frame that scrolls both ways (phones) also shrinks to the rows it opens on instead of empty canvas.
+function revealFlowTarget(layout) {
+  const canvas = el.detailContent.querySelector?.(".flow-canvas");
+  if (!canvas?.clientWidth) return;
+  canvas.style.removeProperty("height");
+  if (canvas.scrollWidth <= canvas.clientWidth && canvas.scrollHeight <= canvas.clientHeight) return;
+  let { left, top } = flowViewport(layout, canvas.clientWidth, canvas.clientHeight);
+  const span = getComputedStyle(canvas).overflowY !== "hidden" ? flowVisibleSpan(layout, left, canvas.clientWidth) : null;
+  if (span && span.bottom - span.top + 48 < canvas.clientHeight) {
+    canvas.style.height = `${Math.max(280, Math.ceil(span.bottom - span.top + 48))}px`;
+    top = Math.max(0, Math.round(span.top - 24));
+  }
+  canvas.scrollLeft = left;
+  canvas.scrollTop = top;
+}
+
 function flowLegend() {
-  const sample = (className, d, extra = "") => `<svg class="flow-legend-sample" viewBox="0 0 32 16" aria-hidden="true"><g class="flow-line ${className}"><path class="flow-stroke" d="${d}"/>${extra}</g></svg>`;
+  const sample = (className, d, extra = "") => `<svg class="flow-legend-sample" viewBox="0 0 34 16" aria-hidden="true"><g class="flow-line ${className}"><path class="flow-stroke" d="${d}"/>${extra}</g></svg>`;
+  const curve = "M2 3C17 3 17 13 31 13";
   const items = [
-    [sample("flow-branch flow-type-part_of tone-neutral", "M4 1V8Q4 13 9 13H30"), t("Part of")],
-    [sample("flow-branch flow-type-derived_from tone-neutral", "M4 1V8Q4 13 9 13H30"), t("Derived from")],
-    [sample("flow-flow flow-type-succeeds tone-neutral", "M2 8H22", '<path class="flow-arrow" d="M30 8L21 3V13Z"/>'), t("Succeeds")],
-    [sample("flow-depends flow-type-depends_on tone-neutral", "M2 8H25", '<path class="flow-arrow" d="M30 8L24 4.5V11.5Z"/>'), t("Depends on")],
-    [sample("flow-conflict flow-type-conflicts_with tone-neutral", "M1 8H31"), t("Conflicts with")],
-    [sample("flow-depends tone-attention", "M2 8H30"), t("Needs attention")],
-    [sample("flow-depends tone-settled", "M2 8H30"), t("Satisfied")],
-    [sample("flow-depends tone-danger", "M2 8H30"), t("Broken")],
-    [`<svg class="flow-legend-sample is-mark" viewBox="0 0 16 16" aria-hidden="true"><g class="flow-decision"><path class="flow-decision-shape" d="M8 2L14 8L8 14L2 8Z"/></g></svg>`, t("Decision")],
-    [`<svg class="flow-legend-sample is-mark" viewBox="0 0 16 16" aria-hidden="true"><g class="flow-decision is-deprecated"><path class="flow-decision-shape" d="M8 2L14 8L8 14L2 8Z"/></g></svg>`, t("Deprecated")],
+    [sample("flow-branch flow-type-part_of tone-neutral", curve, '<circle class="flow-terminal" cx="30" cy="13" r="2.75"/>'), t("Part of")],
+    [sample("flow-branch flow-type-derived_from tone-neutral", curve, '<circle class="flow-terminal" cx="30" cy="13" r="2.75"/>'), t("Derived from")],
+    [sample("flow-rejoin flow-type-part_of tone-neutral", "M2 13C17 13 17 3 32 3"), t("Rejoin")],
+    [sample("flow-flow flow-type-succeeds tone-neutral", "M2 8H25", `<path class="flow-arrow" d="${flowArrowHead({ x: 32, y: 8, ux: 1, uy: 0 }, 8)}"/>`), t("Succeeds")],
+    [sample("flow-depends flow-type-depends_on tone-neutral", "M2 3C15 3 15 13 27 13", `<path class="flow-arrow" d="${flowArrowHead({ x: 32, y: 13, ux: 1, uy: 0 }, 6)}"/>`), t("Depends on")],
+    [sample("flow-conflict flow-type-conflicts_with tone-neutral", "M2 8H32"), t("Conflicts with")],
+    [sample("flow-depends tone-attention", "M2 8H32"), t("Needs attention")],
+    [sample("flow-depends tone-settled", "M2 8H32"), t("Satisfied")],
+    [sample("flow-depends tone-danger", "M2 8H32"), t("Broken")],
+    [`<svg class="flow-legend-sample is-mark" viewBox="0 0 16 16" aria-hidden="true"><g class="flow-decision"><path class="flow-decision-shape" d="${flowDiamond(8, 8, 5)}"/></g></svg>`, t("Decision")],
+    [`<svg class="flow-legend-sample is-mark" viewBox="0 0 16 16" aria-hidden="true"><g class="flow-decision is-deprecated"><path class="flow-decision-shape" d="${flowDiamond(8, 8, 5)}"/></g></svg>`, t("Deprecated")],
   ];
   return `<ul class="flow-legend" aria-label="${esc(t("Legend"))}">${items.map(([visual, label]) => `<li>${visual}<span>${esc(label)}</span></li>`).join("")}</ul>`;
 }
@@ -1875,11 +2170,13 @@ function flowControls(flow, options, focused) {
     </div>`;
 }
 
+// Intents without relations, drawn as the same cards as the graph.
 function flowCard(intent, decisions) {
+  const status = ["active", "suspend", "done", "cancelled"].includes(intent.status) ? intent.status : "unknown";
   const snaps = (intent.snap_ids || []).length;
   return `
-    <button type="button" class="flow-card flow-card-${esc(intent.status)}" data-detail-type="intent" data-remote-id="${esc(intent.remote_id || remoteId(intent.project_id, intent.id))}">
-      <span class="flow-card-top">${statusBadge(intent.status)}<span class="row-id">${esc(intent.id)}</span></span>
+    <button type="button" class="flow-card status-${status}" data-detail-type="intent" data-remote-id="${esc(intent.remote_id || remoteId(intent.project_id, intent.id))}">
+      <span class="flow-card-top">${statusBadge(intent.status)}<span class="flow-card-id">${esc(intent.id)}</span></span>
       <strong class="flow-card-title">${esc(intent.what || intent.id)}</strong>
       <span class="flow-card-meta"><span>${esc(plural(snaps, "{count} snap", "{count} snaps"))}</span>${decisions ? `<span>${esc(plural(decisions, "{count} decision", "{count} decisions"))}</span>` : ""}</span>
     </button>`;
@@ -1932,6 +2229,10 @@ function renderFlowTab() {
       ${layout.standalone.length > cards.length ? `<button type="button" class="load-more-btn" id="load-more-flow-standalone">${esc(t("Load more ({count})", {count: layout.standalone.length - cards.length}))}</button>` : ""}
     </section>` : "";
   el.detailContent.innerHTML = `<div class="flow-page">${header}${flowLegend()}${canvas}${standalone}</div>`;
+  fitFlowText();
+  revealFlowTarget(layout);
+  // Text measured before the web font arrived is measured again once it has.
+  document.fonts?.ready?.then(() => { if (state.activeTab === "flow") fitFlowText(); });
 }
 
 // Focus the Flow on one Intent (or clear it with ""). From the sheet, the view moves to that node.

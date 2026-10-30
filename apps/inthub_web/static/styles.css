@@ -2064,6 +2064,11 @@ kbd {
 
 /* --- Flow ---------------------------------------------------------------- */
 
+/* The graph is the page's subject, so the Flow tab may use more of a wide screen. */
+.shell[data-active-tab="flow"] .page-content {
+  max-width: calc(1600px + 2 * var(--gutter));
+}
+
 .flow-controls {
   display: flex;
   align-items: center;
@@ -2108,7 +2113,7 @@ kbd {
 .flow-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 18px;
+  gap: 6px 16px;
   margin: 0 0 14px;
   padding: 0;
   color: var(--muted);
@@ -2124,7 +2129,7 @@ kbd {
 }
 
 .flow-legend-sample {
-  width: 32px;
+  width: 34px;
   height: 16px;
   flex: 0 0 auto;
   overflow: visible;
@@ -2144,7 +2149,7 @@ kbd {
   border-radius: var(--radius-lg);
   background-color: var(--canvas);
   background-image: radial-gradient(var(--border) 1px, transparent 1px);
-  background-size: 20px 20px;
+  background-size: 22px 22px;
   overscroll-behavior-x: contain;
 }
 
@@ -2158,43 +2163,75 @@ kbd {
   font-family: var(--sans);
 }
 
+/* A quiet time axis across the top. */
+.flow-axis-rule {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.flow-axis-tick {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.flow-axis-label {
+  fill: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Project-level Decisions: chips in a band, each at the column of its time. */
 .flow-band-box {
   fill: var(--surface);
-  stroke: var(--border-strong);
-  stroke-dasharray: 3 3;
+  fill-opacity: 0.72;
+  stroke: var(--border);
   stroke-width: 1;
 }
 
 .flow-band-label {
   fill: var(--muted);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-.flow-band-text {
+.flow-chip-box {
+  fill: var(--surface);
+  stroke: var(--border-strong);
+  stroke-width: 1;
+  transition: stroke 120ms ease;
+}
+
+.flow-chip-text {
   fill: var(--ink-2);
   font-size: 12px;
 }
 
-.flow-band-more {
+.flow-chip.is-more .flow-chip-text,
+.flow-chip.is-deprecated .flow-chip-text {
   fill: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
 }
 
-/* A parent's lane runs on only as far as its ended parts come back to join it. */
-.flow-lifeline {
-  fill: none;
-  stroke: var(--ink-2);
+.flow-chip:hover .flow-chip-box {
+  stroke: var(--muted);
+}
+
+.flow-chip:focus-visible .flow-chip-box {
+  stroke: var(--focus);
   stroke-width: 2;
 }
 
+/* Lines: succession is strongest, structure medium and neutral, constraints thin. */
 .flow-stroke {
   fill: none;
-  stroke: var(--ink-2);
+  stroke: var(--muted);
   stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .flow-hit-line {
@@ -2206,24 +2243,51 @@ kbd {
 
 .flow-arrow {
   fill: var(--ink-2);
-  stroke: none;
+  stroke: var(--ink-2);
+  stroke-width: 1;
+  stroke-linejoin: round;
 }
 
-.flow-type-part_of .flow-stroke {
-  stroke-width: 2;
+.flow-flow .flow-stroke {
+  stroke: var(--ink-2);
+  stroke-width: 3.25;
+}
+
+.flow-branch .flow-stroke {
+  stroke-width: 1.75;
 }
 
 .flow-type-derived_from .flow-stroke {
+  stroke-width: 1.5;
+  stroke-opacity: 0.65;
+}
+
+.flow-terminal {
+  fill: var(--muted);
   stroke: var(--muted);
   stroke-width: 1.25;
 }
 
-.flow-flow .flow-stroke {
-  stroke-width: 3.5;
+.flow-type-derived_from .flow-terminal {
+  fill: var(--canvas);
+}
+
+/* Rejoins and the parent lane they meet stay lighter than the branches. */
+.flow-rejoin .flow-stroke,
+.flow-lane-line {
+  fill: none;
+  stroke: var(--faint);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+}
+
+.flow-depends .flow-stroke,
+.flow-conflict .flow-stroke {
+  stroke-width: 1.25;
 }
 
 .flow-conflict .flow-stroke {
-  stroke-dasharray: 6 5;
+  stroke-dasharray: 5 5;
 }
 
 .flow-vs rect {
@@ -2243,7 +2307,11 @@ kbd {
   stroke: var(--amber);
 }
 
-.tone-attention .flow-arrow,
+.tone-attention .flow-arrow {
+  fill: var(--amber);
+  stroke: var(--amber);
+}
+
 .tone-attention .flow-vs text {
   fill: var(--amber);
 }
@@ -2254,6 +2322,7 @@ kbd {
 
 .tone-danger .flow-arrow {
   fill: var(--red);
+  stroke: var(--red);
 }
 
 .tone-settled .flow-stroke {
@@ -2262,6 +2331,7 @@ kbd {
 
 .tone-settled .flow-arrow {
   fill: var(--green);
+  stroke: var(--green);
 }
 
 .flow-line.is-settled .flow-stroke,
@@ -2273,33 +2343,61 @@ kbd {
   fill: var(--muted);
 }
 
+/* Cards: status pill and id, a two-line title, Snaps and Decisions; a status accent on the left. */
 .flow-node,
 .flow-decision {
   cursor: pointer;
   outline: none;
 }
 
+.flow-node-body {
+  transition: transform 160ms var(--ease);
+}
+
 .flow-node-box {
   fill: var(--surface);
   stroke: var(--border-strong);
   stroke-width: 1;
+  filter: url(#flow-card-shadow);
   transition: stroke 120ms ease;
 }
 
-.flow-node:hover .flow-node-box {
-  stroke: var(--muted);
+.flow-shadow {
+  flood-color: #000;
+  flood-opacity: 0.07;
 }
 
-.flow-node-ring,
-.flow-decision-ring {
+.flow-shadow-lift {
+  flood-color: #000;
+  flood-opacity: 0.14;
+}
+
+:root[data-theme="dark"] .flow-shadow {
+  flood-opacity: 0.45;
+}
+
+:root[data-theme="dark"] .flow-shadow-lift {
+  flood-opacity: 0.6;
+}
+
+.flow-node-ring {
   fill: none;
   stroke: transparent;
   stroke-width: 2;
 }
 
-.flow-node:focus-visible .flow-node-ring,
-.flow-decision:focus-visible .flow-decision-ring {
+.flow-node:focus-visible .flow-node-ring {
   stroke: var(--focus);
+}
+
+.flow-node-accent {
+  fill: var(--faint);
+}
+
+.flow-pill-box {
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: 1;
 }
 
 .flow-node-dot {
@@ -2308,7 +2406,7 @@ kbd {
 
 .flow-node-status {
   fill: var(--ink-2);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -2329,14 +2427,18 @@ kbd {
   font-size: 11.5px;
 }
 
-/* Node colour only shows status, and the status label is always drawn beside it. */
-.flow-node.status-active .flow-node-box {
-  stroke: var(--blue-line);
-  stroke-width: 1.5;
-}
-
+/* Status colour is never alone: the pill always names it. */
+.flow-node.status-active .flow-node-accent,
 .flow-node.status-active .flow-node-dot {
   fill: var(--blue-dot);
+}
+
+.flow-node.status-active .flow-node-status {
+  fill: var(--ink);
+}
+
+.flow-node.status-suspend .flow-node-accent {
+  fill: var(--muted);
 }
 
 .flow-node.status-suspend .flow-node-dot {
@@ -2345,21 +2447,25 @@ kbd {
   stroke-width: 1.5;
 }
 
-.flow-node.status-done .flow-node-box,
-.flow-node.status-cancelled .flow-node-box {
-  fill: var(--surface-subtle);
-}
-
 .flow-node.status-done .flow-node-dot {
   fill: var(--muted);
 }
 
-.flow-node.status-done .flow-node-title {
-  fill: var(--ink-2);
+/* Ended Intents sit flat and quieter, but stay readable. */
+.flow-node.status-done .flow-node-box,
+.flow-node.status-cancelled .flow-node-box {
+  fill: var(--surface-subtle);
+  stroke: var(--border);
+  filter: none;
 }
 
-.flow-node.status-cancelled .flow-node-box {
-  stroke: var(--border);
+.flow-node.status-done .flow-pill-box,
+.flow-node.status-cancelled .flow-pill-box {
+  fill: var(--surface-subtle);
+}
+
+.flow-node.status-done .flow-node-title {
+  fill: var(--ink-2);
 }
 
 .flow-node.status-cancelled .flow-node-dot {
@@ -2373,21 +2479,66 @@ kbd {
   fill: var(--muted);
 }
 
+.flow-node:hover .flow-node-body,
+.flow-node:focus-visible .flow-node-body {
+  transform: translateY(-1px);
+}
+
+.flow-node:hover .flow-node-box,
+.flow-node:focus-visible .flow-node-box {
+  stroke: var(--muted);
+  filter: url(#flow-card-lift);
+}
+
 .flow-node.is-focus .flow-node-box,
 .flow-node.is-selected .flow-node-box {
   stroke: var(--ink);
   stroke-width: 1.5;
 }
 
+/* Decisions taken from an Intent hang under its card. */
+.flow-pin-stem {
+  fill: none;
+  stroke: var(--faint);
+  stroke-width: 1.5;
+  stroke-dasharray: 0.5 3.5;
+  stroke-linecap: round;
+}
+
+.flow-pin-text {
+  fill: var(--ink-2);
+  font-size: 11.5px;
+}
+
+.flow-pin.is-deprecated .flow-pin-text {
+  fill: var(--muted);
+}
+
+.flow-pin:hover .flow-pin-text {
+  fill: var(--ink);
+}
+
+.flow-pin-more {
+  fill: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
 .flow-hit {
   fill: transparent;
-  stroke: none;
+  stroke: transparent;
+  stroke-width: 1.5;
+}
+
+.flow-pin:focus-visible .flow-hit {
+  stroke: var(--focus);
 }
 
 .flow-decision-shape {
   fill: var(--ink-2);
   stroke: var(--ink-2);
   stroke-width: 1.25;
+  stroke-linejoin: round;
 }
 
 .flow-decision.is-deprecated .flow-decision-shape {
@@ -2403,29 +2554,67 @@ kbd {
   fill: var(--ink);
 }
 
+/* Intents without relations are the same cards as the graph's. */
 .flow-standalone-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
 }
 
 .flow-card {
+  position: relative;
   display: grid;
   align-content: start;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  min-height: 100px;
+  overflow: hidden;
+  padding: 12px 12px 12px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
   background: var(--surface);
-  box-shadow: var(--shadow-xs);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07);
   text-align: left;
-  transition: background-color 120ms ease, border-color 120ms ease;
+  transition: transform 160ms var(--ease), box-shadow 160ms var(--ease), border-color 120ms ease;
 }
 
-.flow-card:hover {
-  border-color: var(--border-strong);
-  background: var(--surface-hover);
+.flow-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--faint);
+}
+
+.flow-card.status-active::before {
+  background: var(--blue-dot);
+}
+
+.flow-card.status-suspend::before {
+  background: var(--muted);
+}
+
+.flow-card.status-done,
+.flow-card.status-cancelled {
+  border-color: var(--border);
+  background: var(--surface-subtle);
+  box-shadow: none;
+}
+
+.flow-card:hover,
+.flow-card:focus-visible {
+  border-color: var(--muted);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.14);
+  transform: translateY(-1px);
+}
+
+:root[data-theme="dark"] .flow-card:not(.status-done):not(.status-cancelled) {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="dark"] .flow-card:hover,
+:root[data-theme="dark"] .flow-card:focus-visible {
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.6);
 }
 
 .flow-card.is-selected {
@@ -2440,21 +2629,36 @@ kbd {
   min-width: 0;
 }
 
+.flow-card-top .status-pill {
+  height: 20px;
+  font-size: 11px;
+}
+
+.flow-card-id {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
 .flow-card-title {
   display: -webkit-box;
   overflow: hidden;
   overflow-wrap: anywhere;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
-  line-height: 1.45;
+  line-height: 1.32;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
 }
 
-.flow-card-done .flow-card-title,
-.flow-card-cancelled .flow-card-title {
+.flow-card.status-done .flow-card-title {
   color: var(--ink-2);
+}
+
+.flow-card.status-cancelled .flow-card-title {
+  color: var(--muted);
 }
 
 .flow-card-meta {
@@ -2462,7 +2666,7 @@ kbd {
   flex-wrap: wrap;
   gap: 2px 8px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11.5px;
 }
 
 .flow-card-meta > * + *::before {
@@ -3965,7 +4169,11 @@ kbd {
     font-size: 12px;
   }
 
+  /* On a phone the frame is a window onto the graph, opened at the card that matters. */
   .flow-canvas {
+    max-height: 72vh;
+    max-height: 72dvh;
+    overflow: auto;
     border-radius: var(--radius);
   }
 
