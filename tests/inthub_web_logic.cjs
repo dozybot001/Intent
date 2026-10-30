@@ -32,7 +32,7 @@ function node(id) {
   return nodes.get(id);
 }
 const document = {
-  body: {querySelectorAll() {return [];}}, documentElement: {style: {setProperty() {}}},
+  body: {querySelectorAll() {return [];}}, documentElement: {style: {setProperty() {}}, dataset: {}},
   getElementById: node, querySelectorAll() {return [];},
   querySelector: node, createTreeWalker() {return {nextNode() {return null;}};},
   activeElement: node('focus'),
@@ -127,6 +127,15 @@ vm.runInContext(`
   assert.equal(el.tokenOutput.scrollLeft, 0);
   assert.equal(plural(1, '{count} blocked objective', '{count} blocked objectives'), '1 blocked objective');
   assert.equal(plural(2, '{count} blocked objective', '{count} blocked objectives'), '2 blocked objectives');
+  const labelled = document.getElementById('labelled-button');
+  const label = document.getElementById('labelled-button-label');
+  labelled.querySelector = (selector) => selector === ':scope > .button-label' ? label : null;
+  setButtonBusy(labelled, true, 'Creating team…', 'Create team');
+  assert.equal(label.textContent, 'Creating team…', 'only the label changes, so the icon stays');
+  assert.equal(labelled.textContent, '');
+  setButtonBusy(labelled, false, 'Creating team…', 'Create team');
+  assert.equal(label.textContent, 'Create team');
+  assert.ok(iconLabel('plus', 'A <b>').startsWith('<svg') && iconLabel('plus', 'A <b>').endsWith('<span class="button-label">A &lt;b&gt;</span>'));
   const setupTokenButton = document.getElementById('setup-token-button');
   setButtonBusy(setupTokenButton, true, 'Creating token…', 'Create access token');
   assert.equal(setupTokenButton.disabled, true);
@@ -310,10 +319,10 @@ console.log('Bilingual rendering, user-content preservation, truthful checkpoint
 async function headerMenuCases() {
   await vm.runInContext(`(async () => {
     const originalQueryAll = document.querySelectorAll;
-    const settingsTrigger = document.getElementById('settings-menu-trigger');
-    const settingsPanel = document.getElementById('settings-menu');
-    const authSettingsTrigger = document.getElementById('auth-settings-menu-trigger');
-    const authSettingsPanel = document.getElementById('auth-settings-menu');
+    const preferencesTrigger = document.getElementById('preferences-menu-trigger');
+    const preferencesPanel = document.getElementById('preferences-menu');
+    const authPreferencesTrigger = document.getElementById('auth-preferences-menu-trigger');
+    const authPreferencesPanel = document.getElementById('auth-preferences-menu');
     const resourcesTrigger = document.getElementById('resources-menu-trigger');
     const resourcesPanel = document.getElementById('resources-menu');
     const skillLink = document.getElementById('resource-skill-link');
@@ -323,33 +332,41 @@ async function headerMenuCases() {
     const aboutButton = document.getElementById('menu-about-button');
     languageChinese.dataset.languageSelect = 'zh-CN';
     languageEnglish.dataset.languageSelect = 'en';
-    settingsTrigger.setAttribute('aria-controls','settings-menu');
-    authSettingsTrigger.setAttribute('aria-controls','auth-settings-menu');
+    preferencesTrigger.setAttribute('aria-controls','preferences-menu');
+    authPreferencesTrigger.setAttribute('aria-controls','auth-preferences-menu');
     resourcesTrigger.setAttribute('aria-controls','resources-menu');
     resourcesPanel.querySelectorAll = () => [skillLink, repositoryLink];
     resourcesPanel.contains = target => target === resourcesPanel || target === skillLink || target === repositoryLink;
-    settingsPanel.querySelectorAll = () => [languageChinese, languageEnglish, aboutButton];
-    settingsPanel.contains = target => target === settingsPanel || target === languageChinese || target === languageEnglish || target === aboutButton;
-    authSettingsPanel.querySelectorAll = () => [languageEnglish];
-    document.querySelectorAll = selector => selector === '[data-settings-trigger]' ? [settingsTrigger, authSettingsTrigger] : selector === '[data-resources-trigger]' ? [resourcesTrigger] : selector === '[data-language-select]' ? [languageChinese, languageEnglish] : selector === '[data-about-open]' ? [aboutButton] : originalQueryAll(selector);
+    preferencesPanel.querySelectorAll = () => [languageChinese, languageEnglish, aboutButton];
+    preferencesPanel.contains = target => target === preferencesPanel || target === languageChinese || target === languageEnglish || target === aboutButton;
+    authPreferencesPanel.querySelectorAll = () => [languageEnglish];
+    document.querySelectorAll = selector => selector === '[data-preferences-trigger]' ? [preferencesTrigger, authPreferencesTrigger] : selector === '[data-resources-trigger]' ? [resourcesTrigger] : selector === '[data-language-select]' ? [languageChinese, languageEnglish] : selector === '[data-about-open]' ? [aboutButton] : originalQueryAll(selector);
     bindEvents();
     const dispatch = (type, target, key, extra={}) => {
       let stopped=false;
       const event={target,key,preventDefault(){},stopImmediatePropagation(){stopped=true;},...extra};
       for(const listener of document.events.get(type) || []) {listener(event);if(stopped)break;}
     };
-    toggleHeaderMenu(settingsTrigger);
-    assert.equal(settingsPanel.classList.contains('is-open'),true);
-    assert.equal(settingsPanel.inert,false);
+    // The focus ring follows the input: a shortcut or a bare modifier moves no focus.
+    dispatch('pointerdown', document.body);
+    assert.equal(document.documentElement.dataset.input, 'pointer');
+    dispatch('keydown', document.body, 'Meta', {metaKey: true});
+    dispatch('keydown', document.body, '4', {metaKey: true, shiftKey: true});
+    assert.equal(document.documentElement.dataset.input, 'pointer');
+    dispatch('keydown', document.body, 'Tab');
+    assert.equal(document.documentElement.dataset.input, 'keyboard');
+    toggleHeaderMenu(preferencesTrigger);
+    assert.equal(preferencesPanel.classList.contains('is-open'),true);
+    assert.equal(preferencesPanel.inert,false);
     toggleHeaderMenu(el.accountMenuTrigger);
-    assert.equal(settingsPanel.classList.contains('is-open'),false);
-    assert.equal(settingsPanel.inert,true);
+    assert.equal(preferencesPanel.classList.contains('is-open'),false);
+    assert.equal(preferencesPanel.inert,true);
     assert.equal(el.accountActions.classList.contains('is-open'),true);
-    toggleHeaderMenu(authSettingsTrigger);
+    toggleHeaderMenu(authPreferencesTrigger);
     assert.equal(el.accountActions.classList.contains('is-open'),false);
-    assert.equal(authSettingsPanel.classList.contains('is-open'),true);
+    assert.equal(authPreferencesPanel.classList.contains('is-open'),true);
     toggleProjectPicker(true);
-    assert.equal(authSettingsPanel.classList.contains('is-open'),false);
+    assert.equal(authPreferencesPanel.classList.contains('is-open'),false);
     assert.equal(el.projectPickerDropdown.classList.contains('is-open'),true);
 
     dispatch('keydown',resourcesTrigger,'ArrowDown');
@@ -363,9 +380,9 @@ async function headerMenuCases() {
     assert.equal(resourcesPanel.inert,true);
     assert.equal(document.activeElement,resourcesTrigger);
     toggleHeaderMenu(resourcesTrigger);
-    toggleHeaderMenu(settingsTrigger);
+    toggleHeaderMenu(preferencesTrigger);
     assert.equal(resourcesPanel.inert,true);
-    assert.equal(settingsPanel.inert,false);
+    assert.equal(preferencesPanel.inert,false);
     closeHeaderMenus();
 
     const projectOptions = [document.getElementById('project-option-first'), document.getElementById('project-option-last')];
@@ -391,46 +408,46 @@ async function headerMenuCases() {
     el.projectPickerDropdown.querySelectorAll = originalProjectOptions;
 
     closeHeaderMenus();
-    dispatch('keydown',settingsTrigger,'ArrowDown');
-    assert.equal(settingsPanel.classList.contains('is-open'),true);
+    dispatch('keydown',preferencesTrigger,'ArrowDown');
+    assert.equal(preferencesPanel.classList.contains('is-open'),true);
     assert.equal(document.activeElement,languageChinese);
     assert.equal(el.projectPickerDropdown.classList.contains('is-open'),false);
     dispatch('keydown',languageChinese,'ArrowDown');
     assert.equal(document.activeElement,languageEnglish);
     dispatch('keydown',languageEnglish,'Escape');
-    assert.equal(settingsPanel.classList.contains('is-open'),false);
-    assert.equal(document.activeElement,settingsTrigger);
-    toggleHeaderMenu(settingsTrigger,{focus:'first'});
+    assert.equal(preferencesPanel.classList.contains('is-open'),false);
+    assert.equal(document.activeElement,preferencesTrigger);
+    toggleHeaderMenu(preferencesTrigger,{focus:'first'});
     dispatch('keydown',languageChinese,'Tab',{shiftKey:true});
-    assert.equal(settingsPanel.classList.contains('is-open'),true);
-    document.activeElement=settingsTrigger;
-    dispatch('focusin',settingsTrigger);
-    assert.equal(settingsPanel.classList.contains('is-open'),true);
-    dispatch('keydown',settingsTrigger,'Tab',{shiftKey:true});
-    assert.equal(settingsPanel.inert,false);
+    assert.equal(preferencesPanel.classList.contains('is-open'),true);
+    document.activeElement=preferencesTrigger;
+    dispatch('focusin',preferencesTrigger);
+    assert.equal(preferencesPanel.classList.contains('is-open'),true);
+    dispatch('keydown',preferencesTrigger,'Tab',{shiftKey:true});
+    assert.equal(preferencesPanel.inert,false);
     document.activeElement=el.searchTrigger;
     dispatch('focusin',el.searchTrigger);
-    assert.equal(settingsPanel.classList.contains('is-open'),false);
-    toggleHeaderMenu(settingsTrigger);
+    assert.equal(preferencesPanel.classList.contains('is-open'),false);
+    toggleHeaderMenu(preferencesTrigger);
     dispatch('keydown',document.getElementById('outside-menu'),'Escape');
-    assert.equal(settingsPanel.classList.contains('is-open'),false);
-    assert.equal(document.activeElement,settingsTrigger);
-    toggleHeaderMenu(settingsTrigger);
+    assert.equal(preferencesPanel.classList.contains('is-open'),false);
+    assert.equal(document.activeElement,preferencesTrigger);
+    toggleHeaderMenu(preferencesTrigger);
     document.activeElement=aboutButton;
     dispatch('keydown',aboutButton,'Tab');
-    assert.equal(settingsPanel.inert,false);
+    assert.equal(preferencesPanel.inert,false);
     document.activeElement=el.accountMenuTrigger;
     dispatch('focusin',el.accountMenuTrigger);
-    assert.equal(settingsPanel.inert,true);
-    toggleHeaderMenu(settingsTrigger);
+    assert.equal(preferencesPanel.inert,true);
+    toggleHeaderMenu(preferencesTrigger);
     dispatch('click',document.getElementById('outside-menu'));
-    assert.equal(settingsPanel.classList.contains('is-open'),false);
-    toggleHeaderMenu(settingsTrigger);
+    assert.equal(preferencesPanel.classList.contains('is-open'),false);
+    toggleHeaderMenu(preferencesTrigger);
     aboutButton.events.get('click')[0]();
     assert.equal(el.aboutDialog.open,true);
-    assert.equal(settingsPanel.inert,true);
+    assert.equal(preferencesPanel.inert,true);
     el.aboutDialog.close();
-    assert.equal(document.activeElement,settingsTrigger);
+    assert.equal(document.activeElement,preferencesTrigger);
     el.tokenDialog.showModal();
     el.tokenDialog.close();
     assert.equal(document.activeElement,el.accountMenuTrigger);
@@ -464,8 +481,8 @@ async function headerMenuCases() {
     dispatch('keydown',document.getElementById('outside-menu'),'k',{ctrlKey:true});
     assert.equal(state.activeTab,gatedTab);
     assert.notEqual(el.searchDialog.open,true);
-    dispatch('keydown',authSettingsTrigger,'ArrowDown');
-    assert.equal(authSettingsPanel.classList.contains('is-open'),true);
+    dispatch('keydown',authPreferencesTrigger,'ArrowDown');
+    assert.equal(authPreferencesPanel.classList.contains('is-open'),true);
     hideAuthGate();
     assert.equal(el.shell.inert,false);
     closeHeaderMenus();
@@ -1113,7 +1130,7 @@ async function flowAndPagingCases() {
     await flush();
     assert.equal(state._timeline.snaps.length, 50);
     assert.ok(el.detailContent.innerHTML.includes('data-remote-id="p__snap-500"'));
-    assert.ok(el.detailContent.innerHTML.includes('id="load-more-snaps">加载更多（25）</button>'));
+    assert.ok(el.detailContent.innerHTML.includes('id="load-more-snaps"><svg') && el.detailContent.innerHTML.includes('<span class="button-label">加载更多（25）</span></button>'));
     assert.ok(el.detailContent.innerHTML.includes('75 个检查点'));
     responses.set('/api/v1/projects/p/snaps?offset=50&limit=50', Promise.resolve(snapPage(50, 25, 75, false)));
     await loadTimelinePage();
@@ -1202,13 +1219,15 @@ async function settingsCases() {
 
     // Routes: each account and team pane has its own path; project routes stay on / and keep their tab.
     assert.equal([at('/account').page, at('/account').pane].join(), 'account,profile');
-    assert.equal(at('/account/tokens').pane, 'tokens');
-    assert.equal(at('/account/teams/').pane, 'teams', 'a trailing slash is the same page');
+    assert.equal(at('/account/danger').pane, 'danger');
+    assert.equal([at('/settings').page, at('/settings').pane].join(), 'settings,tokens');
+    assert.equal(at('/settings/teams/').pane, 'teams', 'a trailing slash is the same page');
     assert.equal([at('/teams/acme').page, at('/teams/acme').team, at('/teams/acme').pane].join(), 'team,acme,members');
     assert.equal(at('/teams/acme/projects').pane, 'projects');
     assert.equal(at('/teams/acme/settings').pane, 'settings');
     assert.equal([at('/invite', '?token=abc').page, at('/invite', '?token=abc').token].join(), 'invite,abc');
-    assert.equal(at('/settings').page, 'project', '/settings shipped for a day and has no alias');
+    assert.equal(at('/account/tokens').page, 'project', 'these shipped for a day and have no alias');
+    assert.equal(at('/settings/other').page, 'project');
     assert.equal(at('/account/other').page, 'project');
     const settingsRoute = at('/', '?project=p&tab=settings&section=danger');
     assert.equal([settingsRoute.page, settingsRoute.tab, settingsRoute.section].join(), 'project,settings,danger');
@@ -1230,7 +1249,7 @@ async function settingsCases() {
     state.activeTab = 'overview';
     state.overview = {history: {project_id: 'p', revision: 'a'.repeat(64), last_synced_at: iso(0)}, project: {id: 'p', name: 'checkout', full_name: 'checkout', permission: 'admin', visibility: 'private', owner: {type: 'account', name: 'Dozy'}}};
     el.detailContent.innerHTML = 'project view';
-    showAccount();
+    showPanePage('account', 'profile');
     assert.equal(state.page, 'account');
     assert.equal(el.shell.classList.contains('is-site'), true);
     assert.equal(el.detailContent.classList.contains('is-hidden'), true);
@@ -1241,11 +1260,17 @@ async function settingsCases() {
     let page = el.siteContent.innerHTML;
     assert.equal((page.match(/<h1/g) || []).length, 1, 'one page title, no eyebrow');
     assert.ok(page.includes('class="page-title settings-title">账号</h1>') && !page.includes('eyebrow'));
-    assert.ok(page.includes('class="settings-nav-item" href="/account" data-route aria-current="page">个人资料</a>'));
-    assert.ok(page.includes('href="/account/tokens" data-route>访问令牌</a>') && page.includes('href="/account/teams" data-route>团队</a>'));
+    assert.ok(page.includes('class="settings-nav-item" href="/account" data-route aria-current="page"><svg') && page.includes('<span>个人资料</span></a>'));
+    assert.ok(page.includes('href="/account/danger" data-route><svg') && page.includes('<span>危险操作</span></a>'));
+    assert.ok(!page.includes('访问令牌') && !page.includes('/settings'), 'tokens and teams are settings, not the account');
     assert.ok(page.includes('Dozy &lt;QA&gt;') && page.includes('@dozy') && !page.includes('<QA>'));
     assert.ok(page.includes('href="https://account.tenon.asia/account/"') && page.includes('在 Tenon 中修改'));
-    assert.ok(page.includes('class="monogram"') && page.includes('data-delete-account') && page.includes('button button-danger'));
+    assert.ok(page.includes('class="monogram"') && !page.includes('data-delete-account'));
+    showPanePage('account', 'danger');
+    assert.equal(routeUrl(), '/account/danger');
+    page = el.siteContent.innerHTML;
+    assert.ok(page.includes('data-delete-account') && page.includes('button button-danger') && page.includes('<span class="button-label">删除账号</span>'));
+    assert.equal(el.settingsLink.getAttribute('aria-current'), undefined);
 
     reply = (url) => url === '/api/v1/auth/tokens' ? {tokens: [
       {id: 'pat_used', name: 'laptop', created_at: iso(-day), expires_at: iso(80 * day), last_used_at: iso(-3600000), revoked_at: null},
@@ -1254,19 +1279,23 @@ async function settingsCases() {
       {id: 'pat_late', name: 'stale-runner', created_at: iso(-40 * day), expires_at: iso(-60000), last_used_at: null, revoked_at: null},
     ]} : {};
     routes.length = 0;
-    showAccount('tokens');
+    showPanePage('settings', 'tokens');
     await flush();
     assert.equal(routes.join(), 'push');
-    assert.equal(routeUrl(), '/account/tokens');
+    assert.equal(routeUrl(), '/settings');
+    assert.equal(document.title, '设置 · IntHub');
+    assert.equal(el.settingsLink.getAttribute('aria-current'), 'page', 'the gear shows where you are');
     page = el.siteContent.innerHTML;
+    assert.ok(page.includes('class="page-title settings-title">设置</h1>'));
+    assert.ok(page.includes('href="/settings" data-route aria-current="page"><svg') && page.includes('<span>访问令牌</span>') && page.includes('href="/settings/teams" data-route><svg'));
     assert.ok(page.includes('value="itt"') && page.includes('<option value="90" selected>90 天</option>') && page.includes('<option value="365">365 天</option>'));
     assert.ok(page.includes('laptop') && page.includes('ci-runner') && page.includes('从未使用') && page.includes('最近使用'));
     assert.ok(!page.includes('old-macbook') && !page.includes('stale-runner'), 'revoked and expired tokens are not listed');
     assert.equal((page.match(/class="settings-list"/g) || []).length, 1, 'one list');
     assert.ok(page.indexOf('data-token-form') < page.indexOf('class="settings-list"'), 'the form sits on top of the list');
     routes.length = 0;
-    window.location.pathname = '/account/tokens';
-    showAccount('tokens');
+    window.location.pathname = '/settings';
+    showPanePage('settings', 'tokens');
     assert.equal(routes.join(), 'replace', 'the same pane adds no history entry');
     window.location.pathname = '/';
     routes.length = 0;
@@ -1293,7 +1322,7 @@ async function settingsCases() {
     assert.equal(el.confirmTitle.textContent, '作废 ci-runner？');
     assert.equal(el.confirmField.hidden, true);
     assert.equal(el.confirmOk.disabled, false);
-    assert.equal(el.confirmOk.textContent, '作废令牌');
+    assert.ok(el.confirmOk.innerHTML.includes('<svg') && el.confirmOk.innerHTML.includes('<span class="button-label">作废令牌</span>'), 'the action keeps its icon');
     assert.equal(document.activeElement, el.confirmCancel);
     await runConfirm();
     assert.deepEqual(calls.map((call) => call.method + ' ' + call.url), ['POST /api/v1/auth/tokens/pat_idle/revoke']);
@@ -1309,9 +1338,9 @@ async function settingsCases() {
     reply = (url, options) => options.method === 'POST' ? {id: 'pat_again', token: 'ith_pat_AGAIN', name: 'again', created_at: iso(0), expires_at: iso(90 * day)} : {teams: [], tokens: []};
     await generateAccessToken({name: 'again', days: 90});
     assert.ok(el.siteContent.innerHTML.includes('ith_pat_AGAIN'));
-    showAccount('profile');
+    showPanePage('account', 'profile');
     assert.equal(state._newToken, null);
-    showAccount('tokens');
+    showPanePage('settings', 'tokens');
     await flush();
     assert.ok(!el.siteContent.innerHTML.includes('ith_pat_AGAIN'));
     await generateAccessToken({name: 'again', days: 90});
@@ -1327,8 +1356,8 @@ async function settingsCases() {
     // The project Settings tab uses the same layout: no title of its own, one pane per URL.
     let html = el.detailContent.innerHTML;
     assert.ok(html.includes('class="settings-layout"') && !html.includes('<h1'));
-    assert.ok(html.includes('class="settings-nav-item" href="/?project=p&amp;tab=settings" data-route aria-current="page">常规</a>'));
-    assert.ok(html.includes('href="/?project=p&amp;tab=settings&amp;section=danger" data-route>危险操作</a>'));
+    assert.ok(html.includes('class="settings-nav-item" href="/?project=p&amp;tab=settings" data-route aria-current="page"><svg') && html.includes('<span>常规</span></a>'));
+    assert.ok(html.includes('href="/?project=p&amp;tab=settings&amp;section=danger" data-route><svg') && html.includes('<span>危险操作</span></a>'));
     assert.ok(!html.includes('section=members'), 'a personal project has no members section');
     assert.ok(html.includes('id="project-name"') && html.includes('value="checkout"') && html.includes('data-rename-submit disabled'));
     assert.ok(html.includes('<code>REMOTE_CHANGED</code>') && !html.includes('itt remote add'));
@@ -1352,8 +1381,8 @@ async function settingsCases() {
     await applyRoute(readRoute());
     assert.equal(routeUrl(), '/?project=p&tab=settings&section=danger');
     html = el.detailContent.innerHTML;
-    assert.ok(html.includes('aria-current="page">危险操作</a>') && html.includes('class="button button-danger" type="button" data-delete-project'));
-    assert.ok(html.includes('data-transfer-project') || html.includes('正在加载…') || html.includes('href="/account/teams"'));
+    assert.ok(html.includes('<span>危险操作</span></a>') && html.includes('class="button button-danger" type="button" data-delete-project'));
+    assert.ok(html.includes('data-transfer-project') || html.includes('正在加载…') || html.includes('href="/settings/teams"'));
     state._settingsSection = 'members';
     assert.equal(projectSettingsSection(), 'general');
     state._settingsSection = 'nonsense';
@@ -1588,7 +1617,7 @@ async function teamCases() {
       {id: 't1', slug: 'acme', name: 'Acme <Inc>', created_at: iso, role: 'admin', members: 3, projects: 1},
       {id: 't2', slug: 'beta', name: '贝塔', created_at: iso, role: 'viewer', members: 1, projects: 2},
     ]});
-    showAccount('teams');
+    showPanePage('settings', 'teams');
     await flush();
     let page = el.siteContent.innerHTML;
     assert.ok(page.includes('href="/teams/acme" data-route') && page.includes('Acme &lt;Inc&gt;') && !page.includes('Acme <Inc>'));
@@ -1611,7 +1640,7 @@ async function teamCases() {
     await createTeam(form);
     assert.equal(form.error.textContent, '团队 URL taken 已被占用。');
     assert.equal(form.elements['team-slug'].invalid, true);
-    assert.equal(state.page, 'account');
+    assert.equal(state.page, 'settings');
     form = fakeForm({'team-name': 'Many', 'team-slug': 'many'});
     reply = () => new ApiRequestError('x', 409, 'TEAM_LIMIT', 'An account can create up to 50 teams.');
     await createTeam(form);
@@ -1642,7 +1671,7 @@ async function teamCases() {
     // Members: admins manage; everyone can leave.
     page = el.siteContent.innerHTML;
     assert.ok(page.includes('class="page-title settings-title">Acme</h1>') && !page.includes('eyebrow'));
-    assert.ok(page.includes('href="/teams/acme" data-route aria-current="page">成员</a>') && page.includes('href="/teams/acme/projects" data-route>项目列表</a>') && page.includes('href="/teams/acme/settings" data-route>设置</a>'));
+    assert.ok(page.includes('href="/teams/acme" data-route aria-current="page"><svg') && page.includes('<span>成员</span></a>') && page.includes('href="/teams/acme/projects" data-route><svg') && page.includes('<span>项目列表</span></a>') && page.includes('href="/teams/acme/settings" data-route><svg'));
     assert.ok(page.includes('ana@example.com') && page.includes('class="chip">你</span>') && page.includes('Ben &lt;Wu&gt;'));
     assert.ok(page.includes('data-member-role="ben"') && page.includes('data-remove-member="ben"') && page.includes('data-invite-form') && page.includes('data-revoke-invite="inv1"') && page.includes('data-leave-team'));
     assert.ok(page.includes('<option value="viewer">只读成员</option>'));
@@ -1710,8 +1739,8 @@ async function teamCases() {
     reply = (url) => url === '/api/v1/projects' ? {projects: []} : url === '/api/v1/teams' ? {teams: []} : {};
     await runConfirm();
     assert.equal(el.confirmDialog.open, false);
-    assert.equal(state.page, 'account');
-    assert.equal(state._accountPane, 'teams');
+    assert.equal(state.page, 'settings');
+    assert.equal(state._pane, 'teams');
     assert.equal(routes[0], 'replace');
     assert.equal(el.statusLine.textContent, '你已退出 Acme。');
 
@@ -1755,7 +1784,7 @@ async function teamCases() {
     reply = (url) => url === '/api/v1/projects' ? {projects: []} : url === '/api/v1/teams' ? {teams: []} : {};
     await runConfirm();
     assert.deepEqual(calls[0], {url: '/api/v1/teams/t1/delete', method: 'POST', body: {confirm: 'acme-2'}});
-    assert.equal(state.page, 'account');
+    assert.equal(state.page, 'settings');
 
     // Teams change on these pages: leaving them drops the lists the project's Settings tab keeps.
     state._teams = [{id: 't1', role: 'admin'}];
@@ -1869,9 +1898,9 @@ async function homeAndVisitorCases() {
     assert.equal(state.page, 'project');
     assert.ok(el.detailContent.innerHTML.includes('setup-guide'));
 
-    // /settings shipped for a day: it is just / now, and the address follows.
+    // /account/tokens shipped for a day: it is just / now, and the address follows.
     reset();
-    window.location.pathname = '/settings';
+    window.location.pathname = '/account/tokens';
     reply = (url) => url === '/api/v1/projects' ? {projects: homeRows} : url === '/api/v1/home' ? {projects: homeRows} : {};
     await loadProjects(readRoute());
     assert.equal(state.page, 'home');
@@ -2000,7 +2029,7 @@ async function homeAndVisitorCases() {
     loginLink.dataset.loginMethod = 'github';
     loginLink.querySelector = () => document.getElementById('login-link-part');
     el.tenonLogin.querySelectorAll = () => [loginLink];
-    for (const [pathname, search, returnTo] of [['/account/tokens', '', '%2Faccount%2Ftokens'], ['/invite', '?token=abc', '%2Finvite%3Ftoken%3Dabc']]) {
+    for (const [pathname, search, returnTo] of [['/settings', '', '%2Fsettings'], ['/invite', '?token=abc', '%2Finvite%3Ftoken%3Dabc']]) {
       reset();
       window.location.pathname = pathname;
       window.location.search = search;
@@ -2037,10 +2066,10 @@ async function homeAndVisitorCases() {
     state.account = {id: 'me', display_name: 'Ana'};
     state.projects = homeRows;
     reply = (url) => url === '/api/v1/home' ? {projects: homeRows} : url === '/api/v1/teams/acme' ? {team: {id: 't1', slug: 'acme', name: 'Acme'}, role: 'member', members: [], invites: [], projects: []} : {tokens: [], teams: []};
-    window.location.pathname = '/account/teams';
+    window.location.pathname = '/settings/teams';
     await applyRoute(readRoute());
-    assert.equal(state.page, 'account');
-    assert.equal(state._accountPane, 'teams');
+    assert.equal(state.page, 'settings');
+    assert.equal(state._pane, 'teams');
     window.location.pathname = '/teams/acme';
     await applyRoute(readRoute());
     assert.equal(state.page, 'team');

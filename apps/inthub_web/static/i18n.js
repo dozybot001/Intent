@@ -1,7 +1,7 @@
 /* UI copy only. User-authored goals, checkpoints, identifiers and JSON stay intact. */
 window.IntHubI18n = (() => {
   const zh = {
-    "Settings": "设置", "Appearance": "外观", "Language": "语言", "System": "跟随系统", "Light": "浅色", "Dark": "深色",
+    "Settings": "设置", "Preferences": "偏好设置", "Appearance": "外观", "Language": "语言", "System": "跟随系统", "Light": "浅色", "Dark": "深色",
     "Theme: System": "主题：跟随系统", "Theme: Light": "主题：浅色", "Theme: Dark": "主题：深色", "Switch theme": "切换主题",
     "All Intents": "全部意图", "Filter timeline by Intent": "按意图筛选时间线", "{count} checkpoints": "{count} 个检查点",
     "{count} incomplete checkpoints": "{count} 个检查点待补充", "{count} blocked objectives": "{count} 个目标被阻塞", "Ready to continue": "可以继续工作",

@@ -19,8 +19,9 @@ const INSTALL_COMMAND = "curl -fsSL https://raw.githubusercontent.com/dozybot001
 const SKILL_COMMAND = "npx skills add dozybot001/Intent -g -a claude-code -a codex";
 // The CLI's default endpoint: there `itt auth login` needs no URL and a push names the project after its directory.
 const HOSTED_INTHUB = "https://inthub.tenon.asia";
-// Account and team pages live on their own paths; project views stay on / with query parameters.
-const ACCOUNT_PATHS = { profile: "/account", tokens: "/account/tokens", teams: "/account/teams" };
+// Account, settings and team pages live on their own paths; project views stay on / with query parameters.
+const ACCOUNT_PATHS = { profile: "/account", danger: "/account/danger" };
+const SETTINGS_PATHS = { tokens: "/settings", teams: "/settings/teams" };
 const TENON_ACCOUNT_URL = "https://account.tenon.asia/account/";
 // Lifetimes the token form offers, in days.
 const TOKEN_LIFETIMES = [30, 90, 365];
@@ -43,7 +44,7 @@ const state = {
   handoff: null,
   authenticated: false,
   account: null,
-  // "project" shows the tabs; "home", "account", "team" and "invite" render beside the untouched project view.
+  // "project" shows the tabs; "home", "account", "settings", "team" and "invite" render beside the untouched project view.
   page: "project",
   // A visitor reads one public project on a hosted hub, without an account.
   visitor: false,
@@ -90,8 +91,7 @@ const el = {
   accountMode: document.getElementById("account-mode"),
   accountMenuTrigger: document.getElementById("account-menu-trigger"),
   accountActions: document.getElementById("account-actions"),
-  settingsMenuTrigger: document.getElementById("settings-menu-trigger"),
-  settingsMenu: document.getElementById("settings-menu"),
+  settingsLink: document.getElementById("settings-link"),
   authGate: document.getElementById("auth-gate"),
   authError: document.getElementById("auth-error"),
   authDismiss: document.getElementById("auth-dismiss"),
@@ -138,11 +138,50 @@ const ICONS = {
   settings: '<path d="m8 2-.5 2-1.5.9-2-.6-2 3.4 1.5 1.4v1.8L2 12.3l2 3.4 2-.6 1.5.9.5 2h4l.5-2 1.5-.9 2 .6 2-3.4-1.5-1.4V9.1L18 7.7l-2-3.4-2 .6-1.5-.9-.5-2Z"/><circle cx="10" cy="10" r="2.5"/>',
   download: '<path d="M10 3.5v9M6 8.5l4 4 4-4"/><path d="M4 16h12"/>',
   external: '<path d="M8 4H4.5v11.5H16V12"/><path d="M11 4h5v5M16 4l-7 7"/>',
+  sliders: '<path d="M3 6h6M13 6h4M3 14h3M10 14h7"/><circle cx="11" cy="6" r="2"/><circle cx="8" cy="14" r="2"/>',
+  user: '<circle cx="10" cy="6.5" r="3"/><path d="M3.5 17v-1a6.5 6.5 0 0 1 13 0v1"/>',
+  users: '<circle cx="7.5" cy="7" r="2.8"/><path d="M2.5 16.5v-.8a5 5 0 0 1 10 0v.8"/><path d="M13 4.6a2.8 2.8 0 0 1 0 4.8M14.8 11.6a5 5 0 0 1 2.7 4.1v.8"/>',
+  userMinus: '<circle cx="8" cy="6.5" r="3"/><path d="M2.5 17v-1a5.5 5.5 0 0 1 11 0v1"/><path d="M13.5 8h5"/>',
+  login: '<path d="M12 3.5h3.5v13H12"/><path d="M3 10h8.5M8 6.5l3.5 3.5L8 13.5"/>',
+  logout: '<path d="M8 3.5H4.5v13H8"/><path d="M8.5 10H17M13.5 6.5 17 10l-3.5 3.5"/>',
+  refresh: '<path d="M16 10a6 6 0 1 1-1.8-4.3L16 7.5"/><path d="M16 3.5v4h-4"/>',
+  info: '<circle cx="10" cy="10" r="7"/><path d="M10 9v4.5M10 6.3v.1"/>',
+  plus: '<path d="M10 4v12M4 10h12"/>',
+  check: '<path d="m4.5 10.5 3.5 3.5 7.5-8"/>',
+  close: '<path d="m5 5 10 10M15 5 5 15"/>',
+  trash: '<path d="M3.5 5.5h13M8 5.5v-2h4v2M5 5.5l.8 11h8.4l.8-11M8.5 8.5v5M11.5 8.5v5"/>',
+  edit: '<path d="m4 16 .8-3.3L13 4.5a1.7 1.7 0 0 1 2.5 2.5l-8.2 8.2Z"/><path d="m11.5 6 2.5 2.5"/>',
+  globe: '<circle cx="10" cy="10" r="7"/><path d="M3 10h14M10 3c2.2 2 3.2 4.4 3.2 7s-1 5-3.2 7c-2.2-2-3.2-4.4-3.2-7s1-5 3.2-7Z"/>',
+  lock: '<rect x="4.5" y="9" width="11" height="8" rx="2"/><path d="M7 9V6.5a3 3 0 0 1 6 0V9"/>',
+  transfer: '<path d="M3.5 7h12M12 3.5 15.5 7 12 10.5"/><path d="M16.5 13h-12M8 9.5 4.5 13 8 16.5"/>',
+  link: '<path d="M8.5 11.5a3 3 0 0 0 4.3 0l2.2-2.2a3 3 0 0 0-4.3-4.3L9.5 6.2"/><path d="M11.5 8.5a3 3 0 0 0-4.3 0L5 10.7A3 3 0 0 0 9.3 15l1.2-1.2"/>',
+  revoke: '<circle cx="10" cy="10" r="7"/><path d="m5 5 10 10"/>',
+  sun: '<circle cx="10" cy="10" r="3.2"/><path d="M10 2.8v1.8M10 15.4v1.8M2.8 10h1.8M15.4 10h1.8M4.9 4.9l1.3 1.3M13.8 13.8l1.3 1.3M4.9 15.1l1.3-1.3M13.8 6.2l1.3-1.3"/>',
+  moon: '<path d="M16.5 11.7a6.8 6.8 0 0 1-8.2-8.2 6.8 6.8 0 1 0 8.2 8.2Z"/>',
+  monitor: '<rect x="3" y="4" width="14" height="10" rx="1.8"/><path d="M7 17h6M10 14v3"/>',
+  contrast: '<circle cx="10" cy="10" r="7"/><path d="M10 3v14M10 6.5h6M10 10h7M10 13.5h6"/>',
+  sparkle: '<path d="M10 3 11.7 8.3 17 10l-5.3 1.7L10 17l-1.7-5.3L3 10l5.3-1.7Z"/>',
+  repository: '<path d="M4 15.8V5.2C4 4.2 4.8 3.5 5.8 3.5H16v10.8H5.7A1.7 1.7 0 0 0 4 16c0 .9.8 1.5 1.7 1.5H16v-3.2"/>',
+  grid: '<rect x="3.5" y="3.5" width="5.5" height="5.5" rx="1.2"/><rect x="11" y="3.5" width="5.5" height="5.5" rx="1.2"/><rect x="3.5" y="11" width="5.5" height="5.5" rx="1.2"/><rect x="11" y="11" width="5.5" height="5.5" rx="1.2"/>',
+  folder: '<path d="M3 15.5v-11h5l1.6 2H17v9Z"/>',
+  arrowLeft: '<path d="M16 10H4M9 5l-5 5 5 5"/>',
 };
 
 function icon(name) {
   return `<svg viewBox="0 0 20 20" aria-hidden="true">${ICONS[name] || ""}</svg>`;
 }
+
+// Every action reads the same way: its icon, then its label. Only the label changes while it is busy.
+function iconLabel(name, label) {
+  return `${icon(name)}<span class="button-label">${esc(label)}</span>`;
+}
+
+function setButtonLabel(button, label) {
+  (button.querySelector?.(":scope > .button-label") || button).textContent = label;
+}
+
+// The static markup names its icons, so the set stays in one place.
+for (const node of document.querySelectorAll("[data-icon]")) node.insertAdjacentHTML("afterbegin", icon(node.dataset.icon));
 
 /* ---- Helpers ---- */
 
@@ -518,11 +557,12 @@ function readRoute() {
   const requestedTab = p.get("tab") || "overview";
   const q = p.get("q") || "";
   const path = window.location.pathname.replace(/\/+$/, "");
-  const account = path.match(/^\/account(?:\/(tokens|teams))?$/);
+  const account = path.match(/^\/account(?:\/(danger))?$/);
+  const settings = path.match(/^\/settings(?:\/(teams))?$/);
   const team = path.match(/^\/teams\/([^/]+)(?:\/(projects|settings))?$/);
   return {
-    page: account ? "account" : team ? "team" : path === "/invite" ? "invite" : "project",
-    pane: account ? account[1] || "profile" : team ? team[2] || "members" : "",
+    page: account ? "account" : settings ? "settings" : team ? "team" : path === "/invite" ? "invite" : "project",
+    pane: account ? account[1] || "profile" : settings ? settings[1] || "tokens" : team ? team[2] || "members" : "",
     team: team ? team[1] : "",
     token: p.get("token") || "",
     project: p.get("project"),
@@ -546,7 +586,8 @@ function projectPath(projectId, query = {}) {
 }
 
 function routeUrl() {
-  if (state.page === "account") return ACCOUNT_PATHS[state._accountPane] || ACCOUNT_PATHS.profile;
+  if (state.page === "account") return ACCOUNT_PATHS[state._pane] || ACCOUNT_PATHS.profile;
+  if (state.page === "settings") return SETTINGS_PATHS[state._pane] || SETTINGS_PATHS.tokens;
   if (state.page === "team") return teamPath(state._team.slug, state._team.pane);
   if (state.page === "invite") return `/invite${window.location.search}`;
   if (state.page === "home") return "/";
@@ -1094,7 +1135,7 @@ function collapsibleRelation(allItems, visibleCount) {
   const rest = allItems.slice(visibleCount);
   let html = `<div class="relation-list">${visible.join("")}</div>`;
   if (rest.length) {
-    html += `<details class="collapse-toggle"><summary>${esc(t("Show {count} more", {count: rest.length}))}</summary><div class="relation-list">${rest.join("")}</div></details>`;
+    html += `<details class="collapse-toggle"><summary>${icon("chevron")}<span>${esc(t("Show {count} more", {count: rest.length}))}</span></summary><div class="relation-list">${rest.join("")}</div></details>`;
   }
   return html;
 }
@@ -1298,7 +1339,7 @@ function renderProjectSummary() {
         ],
         actions: `
           <span class="health-pill${healthTone}">${icon(healthIcon)}${esc(health.label)}</span>
-          <button class="button button-secondary" type="button" data-copy-brief>${icon("copy")}${esc(t("Copy brief"))}</button>`,
+          <button class="button button-secondary" type="button" data-copy-brief>${iconLabel("copy", t("Copy brief"))}</button>`,
       })}
 
       <section class="section">
@@ -1456,7 +1497,7 @@ function renderIntentsTab() {
           ${intentSubgroup(t("Cancelled"), visibleCancelled, "cancelled")}
           ${intentSubgroup(t("Other"), visibleOther, "history")}
           ${archiveRemaining > 0
-            ? `<button type="button" class="load-more-btn" id="load-more-intent-archive">${esc(t("Load more ({count})", {count: archiveRemaining}))}</button>`
+            ? `<button type="button" class="load-more-btn" id="load-more-intent-archive">${iconLabel("chevronDown", t("Load more ({count})", {count: archiveRemaining}))}</button>`
             : ""}
         </div>
       </details>`
@@ -2394,7 +2435,7 @@ function renderFlowTab() {
     <section class="section flow-standalone">
       ${sectionHeader(t("Not related to other Intents"), layout.standalone.length)}
       <div class="flow-standalone-grid">${cards.map((intent) => flowCard(intent, sourced.get(intent.id) || 0)).join("")}</div>
-      ${layout.standalone.length > cards.length ? `<button type="button" class="load-more-btn" id="load-more-flow-standalone">${esc(t("Load more ({count})", {count: layout.standalone.length - cards.length}))}</button>` : ""}
+      ${layout.standalone.length > cards.length ? `<button type="button" class="load-more-btn" id="load-more-flow-standalone">${iconLabel("chevronDown", t("Load more ({count})", {count: layout.standalone.length - cards.length}))}</button>` : ""}
     </section>` : "";
   el.detailContent.innerHTML = `<div class="flow-page">${header}${flowLegend()}${canvas}${standalone}</div>`;
   fitFlowText();
@@ -2575,7 +2616,7 @@ function renderTimeline(timeline) {
   const groups = groupByDay(timeline.snaps);
   const remaining = Math.max(0, (timeline.total ?? timeline.snaps.length) - timeline.snaps.length);
   const more = timeline.hasMore
-    ? `<button type="button" class="load-more-btn" id="load-more-snaps"${timeline.loading ? ' disabled aria-busy="true"' : ""}>${esc(timeline.loading ? t("Loading…") : t("Load more ({count})", {count: remaining}))}</button>`
+    ? `<button type="button" class="load-more-btn" id="load-more-snaps"${timeline.loading ? ' disabled aria-busy="true"' : ""}>${iconLabel("chevronDown", timeline.loading ? t("Loading…") : t("Load more ({count})", {count: remaining}))}</button>`
     : "";
   return groups
     .map((group) => `
@@ -2615,18 +2656,18 @@ function renderSnapsTab() {
   const filter = `
     <div class="timeline-toolbar">
       <details class="timeline-filter">
-        <summary class="timeline-filter-trigger" title="${esc(t("Filter timeline by Intent"))}"><span>${esc(selected ? truncate(selected.label, 44) : t("All Intents"))}</span>${icon("chevronDown")}</summary>
+        <summary class="timeline-filter-trigger" title="${esc(t("Filter timeline by Intent"))}">${icon("intent")}<span>${esc(selected ? truncate(selected.label, 44) : t("All Intents"))}</span>${icon("chevronDown")}</summary>
         <div class="timeline-filter-menu">${optionHtml("data-timeline-intent", "", timeline.intentId, t("All Intents"), total)}${options.map((option) => optionHtml("data-timeline-intent", option.key, timeline.intentId, option.label, option.count)).join("")}</div>
       </details>
       ${authors.length ? `<details class="timeline-filter author-filter">
-        <summary class="timeline-filter-trigger" title="${esc(t("Filter timeline by author"))}"><span>${esc(author ? truncate(author.name, 28) : t("All authors"))}</span>${icon("chevronDown")}</summary>
+        <summary class="timeline-filter-trigger" title="${esc(t("Filter timeline by author"))}">${icon("user")}<span>${esc(author ? truncate(author.name, 28) : t("All authors"))}</span>${icon("chevronDown")}</summary>
         <div class="timeline-filter-menu">${optionHtml("data-timeline-author", "", timeline.author, t("All authors"), total)}${authors.map((entry) => optionHtml("data-timeline-author", entry.key, timeline.author, entry.name, entry.snaps)).join("")}</div>
       </details>` : ""}
     </div>`;
   const count = timeline.total ?? (selected ? selected.count : author ? author.snaps : total);
   const body = !timeline.loaded
     ? timeline.error
-      ? `<div class="empty-state"><p>${esc(timeline.error)}</p><button type="button" class="secondary-btn" data-retry-timeline>${esc(t("Retry"))}</button></div>`
+      ? `<div class="empty-state"><p>${esc(timeline.error)}</p><button type="button" class="secondary-btn" data-retry-timeline>${iconLabel("refresh", t("Retry"))}</button></div>`
       : viewLoadingHtml()
     : timeline.snaps.length
       ? renderTimeline(timeline)
@@ -2741,11 +2782,11 @@ function renderHistoryTab() {
     </section>`).join("");
   const body = !history.loaded
     ? history.error
-      ? `<div class="empty-state"><p>${esc(history.error)}</p><button type="button" class="secondary-btn" data-retry-history>${esc(t("Retry"))}</button></div>`
+      ? `<div class="empty-state"><p>${esc(history.error)}</p><button type="button" class="secondary-btn" data-retry-history>${iconLabel("refresh", t("Retry"))}</button></div>`
       : viewLoadingHtml()
     : list
       + (history.error ? `<p class="timeline-error" role="alert">${esc(history.error)}</p>` : "")
-      + (history.hasMore ? `<button type="button" class="load-more-btn" id="load-more-history"${history.loading ? ' disabled aria-busy="true"' : ""}>${esc(history.loading ? t("Loading…") : t("Load more ({count})", {count: remaining}))}</button>` : "");
+      + (history.hasMore ? `<button type="button" class="load-more-btn" id="load-more-history"${history.loading ? ' disabled aria-busy="true"' : ""}>${iconLabel("chevronDown", history.loading ? t("Loading…") : t("Load more ({count})", {count: remaining}))}</button>` : "");
   el.detailContent.innerHTML = `${header}<div class="history" aria-busy="${history.loading || !history.loaded && !history.error}">${body}</div>`;
   if (!history.loaded && !history.loading && !history.error) loadHistoryPage();
 }
@@ -2886,7 +2927,7 @@ function renderDecisionsTab() {
 /* ---- Detail sheet ---- */
 
 function detailErrorHtml(error, type, rId) {
-  return `<div class="empty-state"><p>${esc(error.message)}</p><button type="button" class="secondary-btn" data-retry-detail="sheet" data-detail-type="${esc(type)}" data-remote-id="${esc(rId)}">${esc(t("Retry"))}</button></div>`;
+  return `<div class="empty-state"><p>${esc(error.message)}</p><button type="button" class="secondary-btn" data-retry-detail="sheet" data-detail-type="${esc(type)}" data-remote-id="${esc(rId)}">${iconLabel("refresh", t("Retry"))}</button></div>`;
 }
 
 function sheetIsOpen() {
@@ -3311,7 +3352,7 @@ function renderSetupGuide(mode) {
         meta: [esc(t("Sync semantic history from the Intent CLI, then continue from the brief here."))],
         // The tabs stay hidden until there is something to show, and Settings is the one that works before that.
         actions: mode === "unsynced" && canManageProject()
-          ? `<a class="button button-secondary" href="${esc(projectPath(state.currentProjectId, { tab: "settings" }))}" data-route>${esc(t("Project settings"))}</a>`
+          ? `<a class="button button-secondary" href="${esc(projectPath(state.currentProjectId, { tab: "settings" }))}" data-route>${iconLabel("settings", t("Project settings"))}</a>`
           : "",
       })}
       <ol class="setup-steps">
@@ -3321,7 +3362,7 @@ function renderSetupGuide(mode) {
             <p>${esc(step.desc)}</p>
             <div>
               ${commandSnippet(step.cmd)}
-              ${step.token ? `<div class="setup-step-actions"><button class="button button-secondary" type="button" data-create-token>${icon("key")}${esc(t("Create access token"))}</button></div>` : ""}
+              ${step.token ? `<div class="setup-step-actions"><button class="button button-secondary" type="button" data-create-token>${iconLabel("key", t("Create access token"))}</button></div>` : ""}
               ${step.optional ? `<p class="setup-step-note">${esc(step.optional.desc)}</p>${commandSnippet(step.optional.cmd)}` : ""}
             </div>
           </li>`).join("")}
@@ -3342,6 +3383,7 @@ function updateDocumentTitle() {
     project: project?.full_name,
     home: t("Projects"),
     account: t("Account"),
+    settings: t("Settings"),
     team: state._team?.data?.team?.name || state._team?.slug,
     invite: t("Team invite"),
   }[state.page];
@@ -3379,7 +3421,7 @@ function settingsLayout({ title = "", label, items, pane }) {
     <div class="settings-layout">
       ${title ? `<h1 class="page-title settings-title">${esc(title)}</h1>` : ""}
       <nav class="settings-nav" aria-label="${esc(label)}">
-        ${items.map((item) => `<a class="settings-nav-item" href="${esc(item.href)}" data-route${item.current ? ' aria-current="page"' : ""}>${esc(item.label)}</a>`).join("")}
+        ${items.map((item) => `<a class="settings-nav-item" href="${esc(item.href)}" data-route${item.current ? ' aria-current="page"' : ""}>${icon(item.icon)}<span>${esc(item.label)}</span></a>`).join("")}
       </nav>
       <div class="settings-pane">${pane}</div>
     </div>`;
@@ -3418,7 +3460,7 @@ function secretBox(value, copyAttribute, note) {
   return `
     <div class="secret-box">
       <code class="secret-value">${esc(value)}</code>
-      <button class="button button-secondary button-small" type="button" ${copyAttribute}>${icon("copy")}${esc(t("Copy"))}</button>
+      <button class="button button-secondary button-small" type="button" ${copyAttribute}>${iconLabel("copy", t("Copy"))}</button>
       <p class="secret-note">${esc(note)}</p>
     </div>`;
 }
@@ -3437,7 +3479,7 @@ function serverMessage(error) {
 }
 
 function sitePageError(message) {
-  return `<div class="empty-state"><p>${esc(message)}</p><button type="button" class="secondary-btn" data-retry-site>${esc(t("Retry"))}</button></div>`;
+  return `<div class="empty-state"><p>${esc(message)}</p><button type="button" class="secondary-btn" data-retry-site>${iconLabel("refresh", t("Retry"))}</button></div>`;
 }
 
 // Secrets stay for one visit to their pane; moving away drops them.
@@ -3454,6 +3496,8 @@ function setPage(page) {
   el.detailContent.classList.toggle("is-hidden", site);
   el.siteContent.classList.toggle("is-hidden", !site);
   el.skipLink?.setAttribute("href", site ? "#site-content" : "#detail-content");
+  if (page === "settings") el.settingsLink.setAttribute("aria-current", "page");
+  else el.settingsLink.removeAttribute("aria-current");
   if (!site) {
     // Focus inside the page about to be emptied moves to the project view.
     if (el.siteContent.contains?.(document.activeElement)) el.detailContent.focus?.({ preventScroll: true });
@@ -3495,7 +3539,7 @@ function settlePage(root, arriving) {
 
 function renderSitePage() {
   if (state.page === "home") renderHomePage();
-  else if (state.page === "account") renderAccountPage();
+  else if (state.page === "account" || state.page === "settings") renderPanePage();
   else if (state.page === "team") renderTeamPage();
   else if (state.page === "invite") renderInvitePage();
   updateDocumentTitle();
@@ -3503,7 +3547,7 @@ function renderSitePage() {
 
 async function reloadSitePage() {
   if (state.page === "home") await loadHome();
-  else if (state.page === "account") await loadAccountPane();
+  else if (state.page === "account" || state.page === "settings") await loadPane();
   else if (state.page === "team") await loadTeam();
   else if (state.page === "invite") await loadInvite();
 }
@@ -3570,46 +3614,54 @@ function renderHomePage() {
   el.siteContent.innerHTML = `<div class="home-page">${pageHeader({ title: t("Projects") })}${body}</div>`;
 }
 
-/* Account: profile, access tokens and teams, each a pane with its own URL. */
+/* Account and Settings: who you are, and how you use IntHub. Each pane has its own URL. */
 
 function accountNav(pane) {
   return [
-    { label: t("Profile"), href: ACCOUNT_PATHS.profile, current: pane === "profile" },
-    { label: t("Access tokens"), href: ACCOUNT_PATHS.tokens, current: pane === "tokens" },
-    { label: t("Teams"), href: ACCOUNT_PATHS.teams, current: pane === "teams" },
+    { label: t("Profile"), icon: "user", href: ACCOUNT_PATHS.profile, current: pane === "profile" },
+    { label: t("Danger zone"), icon: "blocker", href: ACCOUNT_PATHS.danger, current: pane === "danger" },
   ];
 }
 
-function showAccount(pane = "profile", { history = "push", force = false } = {}) {
+function settingsNav(pane) {
+  return [
+    { label: t("Access tokens"), icon: "key", href: SETTINGS_PATHS.tokens, current: pane === "tokens" },
+    { label: t("Teams"), icon: "users", href: SETTINGS_PATHS.teams, current: pane === "teams" },
+  ];
+}
+
+function showPanePage(page, pane, { history = "push", force = false } = {}) {
   closeOverlays();
-  const arriving = state.page !== "account";
-  const changed = arriving || force || state._accountPane !== pane;
+  const arriving = state.page !== page;
+  const changed = arriving || force || state._pane !== pane;
   if (changed) {
     forgetShownSecrets();
-    setPage("account");
-    state._accountPane = pane;
+    setPage(page);
+    state._pane = pane;
     state._tokenDraft = { name: "itt", days: DEFAULT_TOKEN_DAYS };
     state._teamDraft = { name: "", slug: "", edited: false };
-    renderAccountPage();
-    loadAccountPane();
+    renderPanePage();
+    loadPane();
     settlePage(el.siteContent, arriving);
   }
   writeRoute(history);
 }
 
-async function loadAccountPane() {
-  if (state._accountPane === "tokens") await loadAccountTokens();
-  else if (state._accountPane === "teams") await loadTeams();
+async function loadPane() {
+  if (state._pane === "tokens") await loadAccountTokens();
+  else if (state._pane === "teams") await loadTeams();
 }
 
-function renderAccountPage() {
-  if (state.page !== "account") return;
-  const pane = state._accountPane;
+function renderPanePage() {
+  const pane = state._pane;
+  const account = state.page === "account";
+  if (!account && state.page !== "settings") return;
+  const title = account ? t("Account") : t("Settings");
   el.siteContent.innerHTML = settingsLayout({
-    title: t("Account"),
-    label: t("Account"),
-    items: accountNav(pane),
-    pane: { profile: profilePane, tokens: tokensPane, teams: teamsPane }[pane](),
+    title,
+    label: title,
+    items: account ? accountNav(pane) : settingsNav(pane),
+    pane: { profile: profilePane, danger: accountDangerPane, tokens: tokensPane, teams: teamsPane }[pane](),
   });
 }
 
@@ -3623,12 +3675,15 @@ function profilePane() {
       meta: metaParts([account.email || (account.login && account.login !== name ? `@${account.login}` : "")]),
       control: `<a class="settings-link" href="${TENON_ACCOUNT_URL}">${esc(t("Edit in Tenon"))}${icon("external")}</a>`,
     })))}
-    ${settingsBlock("identity", t("Link your Snaps"), profileIdentityHtml(account))}
-    <div class="settings-block">${settingsList(settingsRow({
-      title: esc(t("Delete account")),
-      meta: esc(t("Removes the account with its personal projects and access tokens. Teams you administer pass to the next member; a team with nobody else is deleted with its projects. You confirm it in Tenon's account center.")),
-      control: `<button id="delete-account-btn" class="button button-danger" type="button" data-delete-account>${esc(t("Delete account"))}</button>`,
-    }))}</div>`;
+    ${settingsBlock("identity", t("Link your Snaps"), profileIdentityHtml(account))}`;
+}
+
+function accountDangerPane() {
+  return settingsBlock("account-danger", t("Danger zone"), settingsList(settingsRow({
+    title: esc(t("Delete account")),
+    meta: esc(t("Removes the account with its personal projects and access tokens. Teams you administer pass to the next member; a team with nobody else is deleted with its projects. You confirm it in Tenon's account center.")),
+    control: `<button id="delete-account-btn" class="button button-danger" type="button" data-delete-account>${iconLabel("trash", t("Delete account"))}</button>`,
+  })));
 }
 
 // The link between Git and this account is the author email, as on GitHub.
@@ -3660,7 +3715,7 @@ function tokenFormHtml() {
           ${TOKEN_LIFETIMES.map((value) => `<option value="${value}"${value === days ? " selected" : ""}>${esc(plural(value, "{count} day", "{count} days"))}</option>`).join("")}
         </select>
       </div>
-      <button class="button button-primary" type="submit">${esc(t("Generate token"))}</button>
+      <button class="button button-primary" type="submit">${iconLabel("key", t("Generate token"))}</button>
       <p class="field-error" id="token-form-error" role="alert" hidden></p>
     </form>`;
 }
@@ -3680,13 +3735,13 @@ function tokenRowHtml(token) {
       token.last_used_at ? t("Last used {time}", { time: relativeDate(token.last_used_at) }) : t("Never used"),
       token.expires_at ? t("Expires {date}", { date: calendarDate(token.expires_at) }) : "",
     ]),
-    control: `<button class="button button-danger button-small" type="button" data-revoke-token="${esc(token.id)}">${esc(t("Revoke"))}</button>`,
+    control: `<button class="button button-danger button-small" type="button" data-revoke-token="${esc(token.id)}">${iconLabel("revoke", t("Revoke"))}</button>`,
   }) + (fresh ? secretBox(fresh.token, "data-copy-new-token", t("Copy it now; it won't be shown again.")) : "");
 }
 
 function tokenListHtml() {
   if (state._tokensError) {
-    return `<div class="inline-empty settings-retry"><p>${esc(state._tokensError)}</p><button type="button" class="secondary-btn" data-retry-tokens>${esc(t("Retry"))}</button></div>`;
+    return `<div class="inline-empty settings-retry"><p>${esc(state._tokensError)}</p><button type="button" class="secondary-btn" data-retry-tokens>${iconLabel("refresh", t("Retry"))}</button></div>`;
   }
   if (!state._tokens) return viewLoadingHtml();
   const tokens = activeTokens();
@@ -3697,7 +3752,7 @@ function tokenListHtml() {
 function renderTokenList() {
   const list = el.siteContent.querySelector?.("#token-list");
   if (list) list.innerHTML = tokenListHtml();
-  else renderAccountPage();
+  else renderPanePage();
 }
 
 async function loadAccountTokens() {
@@ -3705,10 +3760,10 @@ async function loadAccountTokens() {
   state._tokensError = "";
   try {
     const result = await fetchJson(apiUrl("/api/v1/auth/tokens"));
-    if (!ownsViewRequest("site", request) || state.page !== "account") return;
+    if (!ownsViewRequest("site", request) || state.page !== "settings") return;
     state._tokens = result.tokens || [];
   } catch (error) {
-    if (!ownsViewRequest("site", request) || state.page !== "account") return;
+    if (!ownsViewRequest("site", request) || state.page !== "settings") return;
     state._tokensError = error.message;
   }
   renderTokenList();
@@ -3723,7 +3778,7 @@ async function generateAccessToken({ name, days }) {
     headers: JSON_HEADERS,
     body: JSON.stringify({ name: label, ttl_seconds: lifetime * 86400 }),
   });
-  if (state.page !== "account") return issued;
+  if (state.page !== "settings") return issued;
   // The secret lives only here, for this visit to the pane; the list shows it once, under its row.
   state._newToken = { id: issued.id, token: issued.token };
   state._tokens = [
@@ -3760,6 +3815,7 @@ function confirmRevokeToken(id, trigger = null) {
     title: () => t("Revoke {name}?", { name: token.name || "CLI" }),
     body: () => t("Every CLI that uses this token stops being able to push at once. This cannot be undone."),
     action: "Revoke token",
+    icon: "revoke",
     busy: "Revoking…",
     run: () => revokeAccessToken(id),
     returnFocus: trigger,
@@ -3804,7 +3860,7 @@ async function loadTeams() {
     if (!ownsViewRequest("site", request)) return;
     state._teamsError = error.message;
   }
-  if (state.page === "account" && state._accountPane === "teams") renderTeamList();
+  if (state.page === "settings" && state._pane === "teams") renderTeamList();
   else if (state.page === "project" && state.activeTab === "settings") renderTransferControl();
 }
 
@@ -3855,7 +3911,7 @@ function teamFields(idPrefix, name, slug) {
 
 function teamListHtml() {
   const teams = state._teams;
-  if (state._teamsError) return `<div class="inline-empty settings-retry"><p>${esc(state._teamsError)}</p><button type="button" class="secondary-btn" data-retry-site>${esc(t("Retry"))}</button></div>`;
+  if (state._teamsError) return `<div class="inline-empty settings-retry"><p>${esc(state._teamsError)}</p><button type="button" class="secondary-btn" data-retry-site>${iconLabel("refresh", t("Retry"))}</button></div>`;
   if (!teams) return viewLoadingHtml();
   return teams.length ? settingsList(teams.map(teamRow).join("")) : `<p class="inline-empty">${esc(t("You are not in a team yet."))}</p>`;
 }
@@ -3863,7 +3919,7 @@ function teamListHtml() {
 function renderTeamList() {
   const list = el.siteContent.querySelector?.("#team-list");
   if (list) list.innerHTML = teamListHtml();
-  else renderAccountPage();
+  else renderPanePage();
 }
 
 function teamsPane() {
@@ -3873,7 +3929,7 @@ function teamsPane() {
     ${settingsBlock("new-team", t("New team"), `
       <form class="settings-form team-form" data-team-form novalidate>
         ${teamFields("new-team", draft.name, draft.slug)}
-        <button class="button button-primary" type="submit">${esc(t("Create team"))}</button>
+        <button class="button button-primary" type="submit">${iconLabel("plus", t("Create team"))}</button>
         <p class="field-error" id="new-team-error" role="alert" hidden></p>
         <p class="field-note">${esc(t("Lowercase letters, digits and hyphens. Team projects use it in the CLI as team/project."))}</p>
       </form>`)}`;
@@ -3969,9 +4025,9 @@ async function loadTeam() {
 function teamNav(team) {
   const admin = team.data?.role === "admin";
   return [
-    { label: t("Members"), href: teamPath(team.slug), current: team.pane === "members" },
-    { label: t("Projects"), href: teamPath(team.slug, "projects"), current: team.pane === "projects" },
-    ...(admin ? [{ label: t("Settings"), href: teamPath(team.slug, "settings"), current: team.pane === "settings" }] : []),
+    { label: t("Members"), icon: "users", href: teamPath(team.slug), current: team.pane === "members" },
+    { label: t("Projects"), icon: "folder", href: teamPath(team.slug, "projects"), current: team.pane === "projects" },
+    ...(admin ? [{ label: t("Settings"), icon: "settings", href: teamPath(team.slug, "settings"), current: team.pane === "settings" }] : []),
   ];
 }
 
@@ -4002,7 +4058,7 @@ function memberRow(member, admin) {
     meta: metaParts([member.email, t("Joined {date}", { date: calendarDate(member.joined_at) })]),
     control: admin
       ? `<select class="text-field role-select" data-member-role="${esc(member.id)}" aria-label="${esc(t("Role of {name}", { name: member.name }))}">${roleOptions(member.role)}</select>
-         <button class="button button-danger button-small" type="button" data-remove-member="${esc(member.id)}">${esc(t("Remove"))}</button>`
+         <button class="button button-danger button-small" type="button" data-remove-member="${esc(member.id)}">${iconLabel("userMinus", t("Remove"))}</button>`
       : `<span class="settings-role">${esc(roleLabel(member.role))}</span>`,
   });
 }
@@ -4011,7 +4067,7 @@ function inviteRow(invite) {
   return settingsRow({
     title: esc(t("{role} invite", { role: roleLabel(invite.role) })),
     meta: metaParts([invite.invited_by ? t("Created by {name}", { name: invite.invited_by }) : "", t("Expires {date}", { date: calendarDate(invite.expires_at) })]),
-    control: `<button class="button button-danger button-small" type="button" data-revoke-invite="${esc(invite.id)}">${esc(t("Revoke"))}</button>`,
+    control: `<button class="button button-danger button-small" type="button" data-revoke-invite="${esc(invite.id)}">${iconLabel("revoke", t("Revoke"))}</button>`,
   });
 }
 
@@ -4026,7 +4082,7 @@ function teamMembersPane(data) {
           <label class="field-label" for="invite-role">${esc(t("Role"))}</label>
           <select class="text-field" id="invite-role" name="invite-role">${roleOptions(state._inviteRole || "member")}</select>
         </div>
-        <button class="button button-primary" type="submit">${esc(t("Create invite link"))}</button>
+        <button class="button button-primary" type="submit">${iconLabel("link", t("Create invite link"))}</button>
         <p class="field-error" role="alert" hidden></p>
       </form>
       ${fresh ? secretBox(fresh.url, "data-copy-invite", t("Copy it now; it won't be shown again.")) : ""}`,
@@ -4035,7 +4091,7 @@ function teamMembersPane(data) {
     <div class="settings-block">${settingsList(settingsRow({
       title: esc(t("Leave team")),
       meta: esc(t("You lose access to the team's projects until someone invites you again.")),
-      control: `<button class="button button-danger" type="button" data-leave-team>${esc(t("Leave team"))}</button>`,
+      control: `<button class="button button-danger" type="button" data-leave-team>${iconLabel("logout", t("Leave team"))}</button>`,
     }))}</div>`;
 }
 
@@ -4063,14 +4119,14 @@ function teamSettingsPane(data) {
     ${settingsBlock("team", t("General"), `
       <form class="settings-form team-form" data-team-settings-form novalidate>
         ${teamFields("edit-team", edit.name, edit.slug)}
-        <button class="button button-secondary" type="submit">${esc(t("Save"))}</button>
+        <button class="button button-secondary" type="submit">${iconLabel("check", t("Save"))}</button>
         <p class="field-error" id="edit-team-error" role="alert" hidden></p>
         <p class="field-note">${esc(t("Clones follow a new team URL on their next push or pull."))}</p>
       </form>`)}
     ${settingsBlock("team-danger", t("Danger zone"), settingsList(settingsRow({
       title: esc(t("Delete this team")),
       meta: esc(count ? plural(count, "Removes the team and its {count} project.", "Removes the team and its {count} projects.") : t("Removes the team. It has no projects.")),
-      control: `<button class="button button-danger" type="button" data-delete-team>${esc(t("Delete team"))}</button>`,
+      control: `<button class="button button-danger" type="button" data-delete-team>${iconLabel("trash", t("Delete team"))}</button>`,
     })))}`;
 }
 
@@ -4110,6 +4166,7 @@ function confirmDeleteTeam(trigger = null) {
     label: () => tHtml("Type {name} to confirm.", { name: `<strong class="confirm-name">${esc(data.team.slug)}</strong>` }),
     expect: data.team.slug,
     action: "Delete team",
+    icon: "trash",
     busy: "Deleting…",
     run: (typed) => deleteTeam(data.team, typed),
     returnFocus: trigger,
@@ -4119,8 +4176,8 @@ function confirmDeleteTeam(trigger = null) {
 async function leaveTeamPage(message) {
   state._teams = null;
   setStatus(message);
-  window.history.replaceState({ inthub: "page" }, "", ACCOUNT_PATHS.teams);
-  showAccount("teams", { history: "none", force: true });
+  window.history.replaceState({ inthub: "page" }, "", SETTINGS_PATHS.teams);
+  showPanePage("settings", "teams", { history: "none", force: true });
   await refreshProjectList();
 }
 
@@ -4137,6 +4194,7 @@ function confirmLeaveTeam(trigger = null) {
     title: () => t("Leave {name}?", { name: data.team.name }),
     body: () => t("You lose access to the team's projects until someone invites you again."),
     action: "Leave team",
+    icon: "logout",
     busy: "Leaving…",
     run: async () => {
       await removeMember(data.team, me.id);
@@ -4163,6 +4221,7 @@ function confirmRemoveMember(memberId, trigger = null) {
     title: () => t("Remove {name}?", { name: member.name }),
     body: () => t("{name} loses access to the team's projects.", { name: member.name }),
     action: "Remove member",
+    icon: "userMinus",
     busy: "Removing…",
     run: async () => {
       await removeMember(data.team, member.id);
@@ -4270,20 +4329,20 @@ function renderInvitePage() {
   const invite = state._invite;
   if (state.page !== "invite" || !invite) return;
   const preview = invite.preview;
-  const home = `<a class="button button-secondary" href="/" data-route>${esc(t("Not now"))}</a>`;
+  const home = `<a class="button button-secondary" href="/" data-route>${iconLabel("close", t("Not now"))}</a>`;
   const card = invite.error
     ? `<h1>${esc(t("Team invite"))}</h1><p>${esc(invite.error)}</p>
-       <div class="invite-actions">${invite.invalid ? `<a class="button button-secondary" href="/" data-route>${esc(t("Go to IntHub"))}</a>` : `<button type="button" class="button button-secondary" data-retry-site>${esc(t("Retry"))}</button>`}</div>`
+       <div class="invite-actions">${invite.invalid ? `<a class="button button-secondary" href="/" data-route>${iconLabel("arrow", t("Go to IntHub"))}</a>` : `<button type="button" class="button button-secondary" data-retry-site>${iconLabel("refresh", t("Retry"))}</button>`}</div>`
     : !preview
       ? viewLoadingHtml()
       : preview.already_member
         ? `<h1>${esc(preview.team.name)}</h1><p>${esc(t("You are already in this team."))}</p>
-           <div class="invite-actions"><a class="button button-primary" href="${esc(teamPath(preview.team.slug))}" data-route>${esc(t("Open team"))}</a></div>`
+           <div class="invite-actions"><a class="button button-primary" href="${esc(teamPath(preview.team.slug))}" data-route>${iconLabel("arrow", t("Open team"))}</a></div>`
         : `<h1>${esc(preview.team.name)}</h1>
            <p>${esc(preview.invited_by
              ? t("{name} invited you to join {team} as {role}.", { name: preview.invited_by, team: preview.team.name, role: roleLabel(preview.role) })
              : t("You are invited to join {team} as {role}.", { team: preview.team.name, role: roleLabel(preview.role) }))}</p>
-           <div class="invite-actions">${home}<button class="button button-primary" type="button" data-accept-invite>${esc(t("Accept"))}</button></div>
+           <div class="invite-actions">${home}<button class="button button-primary" type="button" data-accept-invite>${iconLabel("check", t("Accept"))}</button></div>
            <p class="field-error" role="alert" hidden></p>`;
   el.siteContent.innerHTML = `<div class="invite-page"><section class="invite-card">${card}</section></div>`;
 }
@@ -4354,9 +4413,9 @@ function renderProjectSettings() {
   el.detailContent.innerHTML = settingsLayout({
     label: t("Project settings"),
     items: [
-      { label: t("General"), href: link("general"), current: section === "general" },
-      ...(isTeamProject() ? [{ label: t("Members"), href: link("members"), current: section === "members" }] : []),
-      { label: t("Danger zone"), href: link("danger"), current: section === "danger" },
+      { label: t("General"), icon: "sliders", href: link("general"), current: section === "general" },
+      ...(isTeamProject() ? [{ label: t("Members"), icon: "users", href: link("members"), current: section === "members" }] : []),
+      { label: t("Danger zone"), icon: "blocker", href: link("danger"), current: section === "danger" },
     ],
     pane: { general: projectGeneralPane, members: projectMembersPane, danger: projectDangerPane }[section](project),
   });
@@ -4373,7 +4432,7 @@ function projectGeneralPane(project) {
         <label class="field-label" for="project-name">${esc(t("Project name"))}</label>
         <div class="field-row">
           <input class="text-field" id="project-name" name="project-name" type="text" value="${esc(rename.value)}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="project-name-error project-name-note"${rename.problem ? ' aria-invalid="true"' : ""}>
-          <button class="button button-secondary" type="submit" data-rename-submit${rename.ready ? "" : " disabled"}>${esc(t("Rename"))}</button>
+          <button class="button button-secondary" type="submit" data-rename-submit${rename.ready ? "" : " disabled"}>${iconLabel("edit", t("Rename"))}</button>
         </div>
         <p class="field-error" id="project-name-error" role="alert"${rename.problem ? "" : " hidden"}>${esc(rename.problem)}</p>
         <p class="field-note" id="project-name-note">${tHtml("Clones on itt 7.3 or later follow the new name on their next push or pull. Older versions report {code} until they upgrade.", { code: "<code>REMOTE_CHANGED</code>" })}</p>
@@ -4383,12 +4442,12 @@ function projectGeneralPane(project) {
       meta: esc(visibility === "public"
         ? t("Anyone on the internet can read this project. Only members can push.")
         : t("Only people with access to this project can read it.")),
-      control: `<button class="button button-secondary" type="button" data-change-visibility="${visibility === "public" ? "private" : "public"}">${esc(visibility === "public" ? t("Make private") : t("Make public"))}</button>`,
+      control: `<button class="button button-secondary" type="button" data-change-visibility="${visibility === "public" ? "private" : "public"}">${visibility === "public" ? iconLabel("lock", t("Make private")) : iconLabel("globe", t("Make public"))}</button>`,
     }))) : ""}
     ${settingsBlock("export", t("Export"), settingsList(settingsRow({
       title: esc(t("Download project data")),
       meta: esc(t("The current semantic snapshot and the revision list as JSON: everything itt pull can restore.")),
-      control: `<button class="button button-secondary" type="button" data-export-project>${icon("download")}<span>${esc(t("Download export"))}</span></button>`,
+      control: `<button class="button button-secondary" type="button" data-export-project>${iconLabel("download", t("Download export"))}</button>`,
     })))}`;
 }
 
@@ -4432,9 +4491,9 @@ function transferTargets() {
 function transferControlHtml() {
   const targets = transferTargets();
   if (!state._teams && !state._teamsError) return `<span class="settings-role">${esc(t("Loading…"))}</span>`;
-  if (!targets.length) return `<a class="settings-link" href="${ACCOUNT_PATHS.teams}" data-route>${esc(t("Create a team"))}</a>`;
+  if (!targets.length) return `<a class="settings-link" href="${SETTINGS_PATHS.teams}" data-route>${icon("plus")}${esc(t("Create a team"))}</a>`;
   return `<select class="text-field transfer-select" id="transfer-target" aria-label="${esc(t("New owner"))}">${targets.map((target) => `<option value="${esc(target.value)}">${esc(target.label)}</option>`).join("")}</select>
-    <button class="button button-danger" type="button" data-transfer-project>${esc(t("Transfer"))}</button>`;
+    <button class="button button-danger" type="button" data-transfer-project>${iconLabel("transfer", t("Transfer"))}</button>`;
 }
 
 function renderTransferControl() {
@@ -4453,7 +4512,7 @@ function projectDangerPane() {
     ${settingsRow({
       title: esc(t("Delete this project")),
       meta: esc(t("Removes the project and its semantic history from this hub. Local .intent data is not touched.")),
-      control: `<button class="button button-danger" type="button" data-delete-project>${esc(t("Delete project"))}</button>`,
+      control: `<button class="button button-danger" type="button" data-delete-project>${iconLabel("trash", t("Delete project"))}</button>`,
     })}`));
 }
 
@@ -4527,6 +4586,7 @@ function confirmVisibility(visibility, trigger = null) {
       expect: project.name,
     } : { tone: "neutral" }),
     action: going ? "Make public" : "Make private",
+    icon: going ? "globe" : "lock",
     busy: "Saving…",
     run: (typed) => changeVisibility(project.id, visibility, typed),
     message: serverMessage,
@@ -4563,6 +4623,7 @@ function confirmTransfer(trigger = null) {
     label: () => tHtml("Type {name} to confirm.", { name: `<strong class="confirm-name">${esc(project.name)}</strong>` }),
     expect: project.name,
     action: "Transfer project",
+    icon: "transfer",
     busy: "Transferring…",
     run: (typed) => transferProject(project.id, target, typed),
     message: transferErrorMessage,
@@ -4627,6 +4688,7 @@ function confirmDeleteProject(trigger = null) {
     label: () => tHtml("Type {name} to confirm.", { name: `<strong class="confirm-name">${esc(project.name)}</strong>` }),
     expect: project.name,
     action: "Delete project",
+    icon: "trash",
     busy: "Deleting…",
     run: (typed) => deleteProject(project.id, typed),
     returnFocus: trigger,
@@ -4676,7 +4738,7 @@ function localizeConfirm() {
   el.confirmTitle.textContent = spec.title();
   el.confirmBody.textContent = spec.body();
   el.confirmLabel.innerHTML = spec.label ? spec.label() : "";
-  el.confirmOk.textContent = t(state._confirmBusy ? spec.busy : spec.action);
+  el.confirmOk.innerHTML = iconLabel(spec.icon, t(state._confirmBusy ? spec.busy : spec.action));
 }
 
 async function runConfirm() {
@@ -4725,7 +4787,7 @@ function renderProjectSelector() {
     : (currentProject() || state.projects[0]).full_name;
   const allProjects = home
     ? `<a role="option" aria-selected="${onHome}" class="project-picker-option project-picker-home${onHome ? " is-selected" : ""}" href="/" data-route>
-        <span class="project-picker-option-name">${esc(t("All projects"))}</span>
+        ${icon("grid")}<span class="project-picker-option-name">${esc(t("All projects"))}</span>
       </a>`
     : "";
   el.projectPickerDropdown.innerHTML = allProjects + state.projects
@@ -4816,7 +4878,7 @@ async function loadProject(projectId, { detail = null, history = "replace" } = {
         iconName: "blocker",
         title: t("Could not load this project."),
         body: error.message,
-        extra: `<button type="button" class="secondary-btn" data-retry-project="${esc(projectId)}">${esc(t("Retry"))}</button>`,
+        extra: `<button type="button" class="secondary-btn" data-retry-project="${esc(projectId)}">${iconLabel("refresh", t("Retry"))}</button>`,
       });
     }
     setViewBusy("detail", false);
@@ -5180,7 +5242,7 @@ async function runSearch(query, button = null) {
     state._searchResults = null;
     container.innerHTML = "";
     setActiveSearchOption(0);
-    setSearchStatus("", { html: `<p>${esc(error.message)}</p><button class="secondary-btn" type="button" data-retry-search>${esc(t("Retry"))}</button>` });
+    setSearchStatus("", { html: `<p>${esc(error.message)}</p><button class="secondary-btn" type="button" data-retry-search>${iconLabel("refresh", t("Retry"))}</button>` });
   } finally {
     if (current()) {
       state._searchBusy = false;
@@ -5199,7 +5261,7 @@ function setButtonBusy(button, busy, loadingCopy = "", idleCopy = "") {
   button.setAttribute("aria-busy", String(busy));
   button.dataset.loadingCopy = loadingCopy;
   button.dataset.idleCopy = idleCopy;
-  if (loadingCopy) button.textContent = t(busy ? loadingCopy : idleCopy);
+  if (loadingCopy) setButtonLabel(button, t(busy ? loadingCopy : idleCopy));
 }
 
 function setProjectPickerBusy(busy) {
@@ -5208,7 +5270,7 @@ function setProjectPickerBusy(busy) {
 }
 
 function headerMenus() {
-  const triggers = [...document.querySelectorAll("[data-settings-trigger]"), ...document.querySelectorAll("[data-resources-trigger]")];
+  const triggers = [...document.querySelectorAll("[data-preferences-trigger]"), ...document.querySelectorAll("[data-resources-trigger]")];
   const menus = triggers.map(trigger => ({
     trigger, panel: document.getElementById(trigger.getAttribute("aria-controls")),
   })).filter(menu => menu.panel);
@@ -5286,7 +5348,7 @@ function localizeWorkspace() {
   const expanded = [...document.querySelectorAll("details[open]")].map(node => node.dataset.archive || node.className);
   state._localizing = true;
   try {
-    for (const button of document.querySelectorAll("[data-idle-copy]")) if (button.dataset.idleCopy) button.textContent = t(button.disabled ? button.dataset.loadingCopy : button.dataset.idleCopy);
+    for (const button of document.querySelectorAll("[data-idle-copy]")) if (button.dataset.idleCopy) setButtonLabel(button, t(button.disabled ? button.dataset.loadingCopy : button.dataset.idleCopy));
     localizeViewLoadingCopy();
     const projectPending = Boolean(state._projectPending && ownsViewRequest("project", state._projectPending));
     el.detailContent.querySelector(".page-skeleton")?.setAttribute("aria-label", t("Loading continuation brief"));
@@ -5326,7 +5388,7 @@ async function applyRoute(route) {
   if (el.shell.inert && !sheetIsOpen()) return;
   if (isSiteRoute(route)) {
     if (state.visitor) showAuthGate();
-    else if (route.page === "account") showAccount(route.pane, { history: "none" });
+    else if (route.page === "account" || route.page === "settings") showPanePage(route.page, route.pane, { history: "none" });
     else if (route.page === "team") await showTeam(route.team, route.pane);
     else await showInvite(route.token);
     return;
@@ -5367,6 +5429,13 @@ async function applyRoute(route) {
 }
 
 function bindEvents() {
+  // styles.css keeps the focus ring for keyboards. Shortcuts and bare modifiers do not count: they move no focus.
+  document.addEventListener("pointerdown", () => { document.documentElement.dataset.input = "pointer"; }, true);
+  document.addEventListener("keydown", (event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey || ["Shift", "Meta", "Control", "Alt"].includes(event.key)) return;
+    document.documentElement.dataset.input = "keyboard";
+  }, true);
+
   el.drawer.inert = true;
   closeHeaderMenus();
   for (const menu of headerMenus()) menu.trigger.addEventListener("click", event => toggleHeaderMenu(menu.trigger, {focus: event.detail === 0 ? "first" : null}));
@@ -5605,7 +5674,7 @@ function bindEvents() {
 
   el.tokenDialog.addEventListener("close", () => {
     el.tokenOutput.value = "";
-    el.tokenCopy.textContent = t("Copy token");
+    setButtonLabel(el.tokenCopy, t("Copy token"));
     const target = state._tokenReturnFocus?.isConnected ? state._tokenReturnFocus : el.accountMenuTrigger;
     state._tokenReturnFocus = null;
     if (target.isConnected) target.focus();
@@ -5966,7 +6035,7 @@ async function init(bind = true) {
       iconName: "blocker",
       title: t("Failed to initialize."),
       body: message,
-      extra: `<button type="button" class="secondary-btn" data-retry-init>${esc(t("Retry"))}</button>`,
+      extra: `<button type="button" class="secondary-btn" data-retry-init>${iconLabel("refresh", t("Retry"))}</button>`,
     });
   }
 }

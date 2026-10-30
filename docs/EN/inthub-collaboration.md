@@ -36,16 +36,21 @@ IntHub reduces GitHub's organization to a **team**: a flat group of members.
 
 ## Settings
 
-The header has two levels:
+The header has three entries:
 
-- **Settings** (gear): appearance, language, refresh, about. It needs no sign-in, so visitors can use it.
-- **Account** (avatar): account things only: profile, access tokens, teams, Tenon account center, sign out.
+- **Preferences** (sliders): appearance, language, refresh, about. It needs no sign-in, so visitors can use it.
+- **Settings** (gear): opens the settings page, with access tokens and teams.
+- **Account** (avatar): the account and nothing else: profile, Tenon account center, sign out.
 
-Account, team and project settings share one layout: navigation on the left, one section at a time on the right.
+Account, settings, team and project pages share one layout: navigation on the left, one section at a time on the right. Every option reads as an icon and a label.
 
 **Account page** (`/account`):
 
-- Profile: the name and sign-in come from Tenon and are shown read-only with a link to edit them; the email that links Snaps to the account; account deletion through Tenon.
+- Profile: the name and sign-in come from Tenon and are shown read-only with a link to edit them; the email that links Snaps to the account.
+- Danger zone: account deletion through Tenon.
+
+**Settings page** (`/settings`):
+
 - Access tokens: a name and a 30-, 90- or 365-day lifetime; the list shows when each was created, last used and expires; any token can be revoked. A new token is shown once, in the list.
 - Teams: the teams you belong to, your role in each, and creating a team.
 

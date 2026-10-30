@@ -61,34 +61,75 @@ def _is_neutral(color):
     return rgb[0:2].lower() == rgb[2:4].lower() == rgb[4:6].lower()
 
 
-def test_header_keeps_settings_and_account_things_in_separate_menus():
+def test_header_keeps_preferences_settings_and_account_apart():
     html = _static("index.html")
     header = html.split('<header class="app-header">', 1)[1].split('</header>', 1)[0]
     markup = _MarkupTags(header)
-    trigger = re.search(r'<button[^>]*id="settings-menu-trigger"[^>]*>', header).group(0)
-    assert 'aria-label="Settings"' in trigger
+    trigger = re.search(r'<button[^>]*id="preferences-menu-trigger"[^>]*>', header).group(0)
+    assert 'aria-label="Preferences"' in trigger
     assert 'id="account-menu-trigger"' in header
     assert 'data-theme-switch' not in header and 'data-language-switch' not in header
-    assert "Preferences" not in html and "Preferences" not in _static("i18n.js")
-    # Visitors keep the gear; the account control gives way to a small Sign in button.
-    assert header.index('id="settings-menu-trigger"') < header.index('id="sign-in-button"') < header.index('id="account-control"')
+    # Preferences have their own icon: the gear means Settings, and it is a page.
+    assert header.count('<circle cx="10" cy="10" r="2.5"/>') == 1
+    assert header.count('<circle cx="11" cy="6" r="2"/>') == 1
+    gear = re.search(r'<a[^>]*id="settings-link"[^>]*>(.*?)</a>', header).group(0)
+    assert 'href="/settings"' in gear and "data-route" in gear and 'aria-label="Settings"' in gear and 'r="2.5"' in gear
+    # Visitors keep Preferences; Settings and the account control give way to a small Sign in button.
+    assert header.index('id="preferences-menu-trigger"') < header.index('id="sign-in-button"') < header.index('id="account-control"')
+    assert header.index('id="account-control"') < header.index('id="settings-link"') < header.index('id="account-menu-trigger"')
     assert 'id="sign-in-button" class="button button-secondary button-small is-hidden"' in header
-    settings = markup.within("settings-menu")
-    assert any("data-theme-setting" in attributes for _, attributes in settings)
-    assert any("data-language-select" in attributes for _, attributes in settings)
-    assert any(attributes.get("id") == "refresh-btn" for _, attributes in settings)
-    assert any("data-about-open" in attributes for _, attributes in settings)
+    preferences = markup.within("preferences-menu")
+    assert any("data-theme-setting" in attributes for _, attributes in preferences)
+    assert any("data-language-select" in attributes for _, attributes in preferences)
+    assert any(attributes.get("id") == "refresh-btn" for _, attributes in preferences)
+    assert any("data-about-open" in attributes for _, attributes in preferences)
     account = markup.within("account-actions")
     ids = {attributes.get("id") for _, attributes in account}
-    # Account things only: who you are, the account pages, Tenon and Sign out.
+    # The account and nothing else: who you are, your profile, Tenon and Sign out.
     assert {"account-label", "account-mode", "logout-btn"}.issubset(ids)
-    assert not {"token-btn", "delete-account-btn", "account-settings-link"} & ids
-    assert [attributes["href"] for tag, attributes in account if tag == "a" and "data-route" in attributes] == ["/account", "/account/tokens", "/account/teams"]
+    assert not {"token-btn", "delete-account-btn", "settings-link"} & ids
+    assert [attributes["href"] for tag, attributes in account if tag == "a" and "data-route" in attributes] == ["/account"]
     assert any(attributes.get("href") == "https://account.tenon.asia/account/" for _, attributes in account)
-    assert "/settings" not in html
     assert not any("data-theme-setting" in attributes or "data-language-select" in attributes for _, attributes in account)
-    assert header.index('id="settings-menu-trigger"') < header.index('id="account-menu-trigger"')
-    assert 'id="auth-settings-menu"' in html
+    assert 'id="auth-preferences-menu"' in html
+
+
+def test_every_option_reads_as_an_icon_and_a_label():
+    html = _static("index.html")
+    javascript = _static("app.js")
+    names = set(re.findall(r"^  (\w+): '", javascript.split("const ICONS = {", 1)[1].split("\n};", 1)[0], re.M))
+    # Static markup names its icons from the one set.
+    for name in re.findall(r'data-icon="(\w+)"', html):
+        assert name in names
+    for match in re.finditer(r'<(?:button|a)\b[^>]*class="(?:[^"]* )?(?:menu-action|tab|button|search-close|auth-dismiss|header-resource-link)[ "][^>]*>', html):
+        # The confirm button takes its icon from what it confirms.
+        assert "data-icon=" in match.group(0) or 'id="confirm-ok"' in match.group(0), match.group(0)
+    for match in re.finditer(r'<button\b[^>]*data-theme-setting[^>]*>', html):
+        assert "data-icon=" in match.group(0), match.group(0)
+    # So do the templates: no button or nav item is text alone.
+    for name in re.findall(r'(?:iconLabel\(|icon\()"(\w+)"', javascript):
+        assert name in names
+    assert not re.search(r'class="(?:button |secondary-btn|load-more-btn)[^`\n]*>\$\{esc\(', javascript)
+    assert "<svg" in html.split('data-login-method="email"', 1)[1].split("</a>", 1)[0]
+    # The label is what changes while busy, so the icon stays.
+    assert "button.textContent = t(" not in javascript and "setButtonLabel(button, t(busy ? loadingCopy : idleCopy))" in javascript
+    # Each confirmation says what it does, with the same icon as the button that opened it.
+    assert javascript.count("openConfirm({") == len(re.findall(r'^    action: .*\n    icon: ', javascript, re.M)) == 7
+    assert 'iconLabel(spec.icon, t(state._confirmBusy ? spec.busy : spec.action))' in javascript
+    for item in re.findall(r'\{ label: t\("[^"]+"\),[^\n}]*\}', javascript):
+        assert "icon:" in item, item
+
+
+def test_focus_rings_are_for_keyboards_and_nav_items_keep_their_distance():
+    css = _static("styles.css")
+    javascript = _static("app.js")
+    assert 'none' in _rule(css, ':root[data-input="pointer"] :focus-visible')
+    assert 'document.addEventListener("pointerdown"' in javascript and 'dataset.input = "keyboard"' in javascript
+    # A screenshot shortcut or a bare modifier is not keyboard navigation.
+    assert '["Shift", "Meta", "Control", "Alt"].includes(event.key)' in javascript
+    desktop, phone = css.split("@media (max-width: 720px)", 1)
+    assert "gap: 6px" in _rule(desktop.split("@media (max-width: 1180px)", 1)[0], ".settings-nav")
+    assert "gap: 6px" in phone.split(".settings-nav {", 1)[1].split("}", 1)[0]
 
 
 def test_header_utilities_have_breathing_room_at_every_breakpoint():
@@ -101,7 +142,7 @@ def test_header_utilities_have_breathing_room_at_every_breakpoint():
         assert int(re.search(r"\bgap:\s*(\d+)px", block).group(1)) >= 8
     actions = next(block for block in re.findall(r"\.header-actions\s*\{([^}]+)", css) if "justify-content: flex-end" in block)
     assert int(re.search(r"\bgap:\s*(\d+)px", actions).group(1)) >= 16
-    hover = re.search(r'\.app-header \.icon-button\[aria-expanded="true"\]\s*\{([^}]+)', css).group(1)
+    hover = re.search(r'\.app-header \.icon-button\[aria-current="page"\]\s*\{([^}]+)', css).group(1)
     assert "border-color: transparent" in hover
     assert "background: var(--surface-selected)" in hover
 
@@ -571,8 +612,9 @@ def test_site_pages_have_their_own_routes_without_project_chrome():
     html = _static("index.html")
     css = _static("styles.css")
     javascript = _static("app.js")
-    assert 'const ACCOUNT_PATHS = { profile: "/account", tokens: "/account/tokens", teams: "/account/teams" };' in javascript
-    assert '"/settings"' not in javascript and "accountContent" not in javascript and "is-account" not in javascript + css
+    assert 'const ACCOUNT_PATHS = { profile: "/account", danger: "/account/danger" };' in javascript
+    assert 'const SETTINGS_PATHS = { tokens: "/settings", teams: "/settings/teams" };' in javascript
+    assert "accountContent" not in javascript and "is-account" not in javascript + css
     assert '<div class="page-content is-hidden" id="site-content" tabindex="-1"></div>' in html
     # Home, account, team and invite pages hide what belongs to a project, search included.
     hidden = _rule(css, ".shell.is-site .tab-bar, .shell.is-site .sync-indicator, .shell.is-site .command-trigger")
@@ -769,7 +811,7 @@ def test_login_page_matches_the_continuity_workspace_and_keeps_one_auth_path():
     assert 'class="auth-introduction"' in auth
     assert '<div class="heading-with-help"><h1 id="auth-title">Sign in to IntHub</h1>' in auth
     assert "Continue with your project context intact." in auth
-    assert 'id="auth-settings-menu-trigger"' in auth
+    assert 'id="auth-preferences-menu-trigger"' in auth
     assert 'data-theme-setting' in auth and 'data-language-select' in auth
     assert 'data-about-open' in auth
     assert 'class="brand brand-on-auth"' in auth
@@ -902,10 +944,10 @@ def test_timeline_pages_from_the_snaps_endpoint_and_search_reports_truncation():
     assert queries.SEARCH_LIMIT == 50
 
 
-def test_static_revision_names_the_teams_release():
+def test_static_revision_names_the_current_interface():
     for name in ("index.html", "auth-redirect.html"):
-        assert "rev=history-1" not in _static(name) and "rev=settings-1" not in _static(name)
-        assert "rev=teams-1" in _static(name)
+        assert "rev=teams-1" not in _static(name) and "rev=history-1" not in _static(name)
+        assert "rev=options-1" in _static(name)
 
 
 

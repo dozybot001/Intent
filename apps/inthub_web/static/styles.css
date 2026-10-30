@@ -236,6 +236,11 @@ kbd {
   outline-offset: 2px;
 }
 
+/* The ring is for keyboards. Pages re-render and move focus by script, which browsers ring after a click too. */
+:root[data-input="pointer"] :focus-visible {
+  outline: none;
+}
+
 [inert] {
   pointer-events: none;
 }
@@ -325,9 +330,15 @@ kbd {
 }
 
 .button-small {
+  gap: 6px;
   min-height: 28px;
   padding: 0 10px;
   font-size: 12.5px;
+}
+
+.button-small svg {
+  width: 14px;
+  height: 14px;
 }
 
 .icon-button {
@@ -348,12 +359,14 @@ kbd {
 }
 
 .icon-button:hover:not(:disabled),
-.icon-button[aria-expanded="true"] {
+.icon-button[aria-expanded="true"],
+.icon-button[aria-current="page"] {
   color: var(--ink);
   background: var(--surface-hover);
 }
 
-.app-header .icon-button[aria-expanded="true"] {
+.app-header .icon-button[aria-expanded="true"],
+.app-header .icon-button[aria-current="page"] {
   border-color: transparent;
   background: var(--surface-selected);
 }
@@ -400,6 +413,12 @@ kbd {
 
 .secondary-btn:hover:not(:disabled) {
   background: var(--surface-hover);
+}
+
+.secondary-btn svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
 }
 
 /* Destructive actions: the only place the danger colour appears outside a status. */
@@ -606,6 +625,10 @@ select.text-field {
   align-items: center;
 }
 
+.account-control {
+  gap: 12px;
+}
+
 /* --- Project picker ------------------------------------------------------ */
 
 .project-picker {
@@ -729,8 +752,17 @@ select.text-field {
 }
 
 .project-picker-home {
+  justify-content: flex-start;
+  gap: 8px;
   color: inherit;
   text-decoration: none;
+}
+
+.project-picker-home svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--muted);
 }
 
 .project-picker-option-name {
@@ -791,7 +823,7 @@ select.text-field {
 .header-resource-link {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   height: 30px;
   padding: 0 8px;
   border-radius: var(--radius-xs);
@@ -809,8 +841,9 @@ select.text-field {
 }
 
 .header-resource-link svg {
-  width: 11px;
-  height: 11px;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
 }
 
 .resources-control {
@@ -861,6 +894,10 @@ select.text-field {
   display: grid;
 }
 
+.preferences-menu {
+  width: 288px;
+}
+
 .menu-section {
   display: grid;
   gap: 6px;
@@ -872,9 +909,18 @@ select.text-field {
 }
 
 .menu-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: var(--muted);
   font-size: 12px;
   font-weight: 500;
+}
+
+.menu-title svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
 }
 
 .menu-actions {
@@ -901,6 +947,13 @@ select.text-field {
   background: var(--surface-hover);
 }
 
+.menu-action svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
 .segmented-control {
   display: grid;
   grid-auto-columns: minmax(0, 1fr);
@@ -912,6 +965,10 @@ select.text-field {
 }
 
 .segmented-control button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   min-height: 28px;
   padding: 0 6px;
   border-radius: var(--radius-xs);
@@ -922,6 +979,12 @@ select.text-field {
 
 .segmented-control button:hover {
   color: var(--ink);
+}
+
+.segmented-control svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
 }
 
 .segmented-control button[aria-pressed="true"] {
@@ -1022,6 +1085,12 @@ select.text-field {
 
 .tab:focus-visible {
   outline-offset: -4px;
+}
+
+.tab svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
 }
 
 .tab-count {
@@ -1739,6 +1808,7 @@ select.text-field {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   width: 100%;
   min-height: 40px;
   margin-top: 12px;
@@ -1753,6 +1823,12 @@ select.text-field {
 .load-more-btn:hover {
   color: var(--ink);
   background: var(--surface-hover);
+}
+
+.load-more-btn svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
 }
 
 /* Decisions */
@@ -3113,15 +3189,18 @@ select.text-field {
   grid-column: 1 / -1;
 }
 
-/* The link text lines up with the page title and the pane's heading; only the fill reaches past them. */
+/* The icons line up with the page title; only the fill reaches past them. */
 .settings-nav {
   display: grid;
-  gap: 2px;
+  gap: 6px;
   margin: -6px 0 0 -10px;
 }
 
 .settings-nav-item {
-  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
   border-radius: var(--radius-sm);
   color: var(--muted);
   font-size: 14px;
@@ -3142,6 +3221,12 @@ select.text-field {
 
 .settings-nav-item:focus-visible {
   outline-offset: -2px;
+}
+
+.settings-nav-item svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
 }
 
 /* Inside a pane everything sits on the same two edges: nothing below adds side padding. */
@@ -3740,6 +3825,9 @@ select.text-field {
 }
 
 .collapse-toggle > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: fit-content;
   padding: 6px 8px;
   border-radius: var(--radius-xs);
@@ -3757,6 +3845,17 @@ select.text-field {
 .collapse-toggle > summary:hover {
   color: var(--ink);
   background: var(--surface-hover);
+}
+
+.collapse-toggle > summary svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  transition: transform 120ms ease;
+}
+
+.collapse-toggle[open] > summary svg {
+  transform: rotate(90deg);
 }
 
 .collapse-toggle .relation-list {
@@ -3871,11 +3970,18 @@ select.text-field {
 
 .search-close {
   display: none;
+  gap: 4px;
   min-height: 32px;
   padding: 0 4px;
   color: var(--ink);
   font-size: 14px;
   font-weight: 500;
+}
+
+.search-close svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
 }
 
 .search-status {
@@ -4059,8 +4165,11 @@ select.text-field {
   padding: 20px 24px 22px;
 }
 
+/* The margin gives back the padding that keeps a field's border and focus shadow inside the scroll area. */
 .dialog-body {
   min-height: 0;
+  margin: -4px;
+  padding: 4px;
   overflow-y: auto;
 }
 
@@ -4450,12 +4559,8 @@ select.text-field {
   fill: currentColor;
 }
 
-.tenon-login-visual:not(:has(svg)) {
-  display: none;
-}
-
-.tenon-login.is-loading .tenon-login-visual {
-  display: grid;
+.tenon-login-visual .tenon-login-line {
+  fill: none;
 }
 
 .last-used {
@@ -4520,9 +4625,18 @@ select.text-field {
 }
 
 .auth-dismiss {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--muted);
   font-size: 13px;
   text-underline-offset: 3px;
+}
+
+.auth-dismiss svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
 }
 
 .auth-dismiss:hover {
@@ -4594,6 +4708,7 @@ select.text-field {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   min-height: 36px;
   padding: 0 14px;
   border: 1px solid var(--border);
@@ -4603,6 +4718,12 @@ select.text-field {
   font-size: 13.5px;
   font-weight: 500;
   text-decoration: none;
+}
+
+.transition-actions svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
 }
 
 .transition-actions button {
@@ -4786,10 +4907,25 @@ select.text-field {
     gap: 4px;
   }
 
+  /* Every menu opens from the screen's right edge, so it stays on the screen. */
   .header-utilities {
+    position: relative;
     gap: 8px;
     padding-left: 0;
     border-left: 0;
+  }
+
+  .header-menu-control,
+  .account-control {
+    position: static;
+  }
+
+  .account-control {
+    gap: 8px;
+  }
+
+  .header-menu {
+    max-width: calc(100vw - 24px);
   }
 
   .sync-indicator {
@@ -4968,7 +5104,7 @@ select.text-field {
   /* Like the tab bar: one row that scrolls, reaching both screen edges. */
   .settings-nav {
     display: flex;
-    gap: 4px;
+    gap: 6px;
     margin: 0 -16px;
     padding: 0 6px;
     overflow-x: auto;
@@ -5037,6 +5173,13 @@ select.text-field {
   .help-trigger {
     min-width: 32px;
     min-height: 32px;
+  }
+}
+
+/* Five header controls and the wordmark do not fit the smallest phones; the mark stays. */
+@media (max-width: 360px) {
+  .brand-wordmark {
+    display: none;
   }
 }
 

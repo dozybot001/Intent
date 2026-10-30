@@ -4,7 +4,7 @@ Claude Code support is an explicit, opt-in host choice. It reuses the closure mo
 
 ## Setup and scope
 
-- New history: `itt init --host claude-code`. Existing history: `itt maintenance on --host claude-code` once. Pass the same `--host claude-code` to `itt maintenance status`; without it, status describes Codex.
+- New history: `itt init --host claude-code`. Existing history: `itt maintenance on --host claude-code` once. `itt maintenance status` follows the host configured in this root; `--host claude-code` names it explicitly.
 - Intent merges two command handlers (`UserPromptSubmit`, `Stop`) into this root's `.claude/settings.local.json`, Claude Code's personal project settings file. The handlers embed this machine's Python and the absolute root, so they do not belong in the shared, usually committed `.claude/settings.json`. Other settings and hooks are preserved, a previous Intent handler is replaced rather than duplicated, and a newly created file is excluded through this clone's `.git/info/exclude`.
 - `itt maintenance off` disables this root and removes only Intent's handlers from that file, deleting the file only when nothing else remains. Codex hook files are not touched.
 - Nothing is written to `~/.claude/settings.json`, managed policy, permissions, another project, or a plugin. Installing the Skill or plugin never enables a project.

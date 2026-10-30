@@ -29,7 +29,7 @@ After configuration, tell the desktop user: **“Open Settings → Hooks, review
 Only enter this branch when the user requests IntHub authentication or cloud synchronization. Local recording works offline without an IntHub account or token.
 
 1. Resolve the requested remote endpoint; the official hosted site is [IntHub](https://inthub.tenon.asia). For a custom/self-hosted endpoint, use its own website and credentials, not the official site's token. Check `itt auth status --api-base-url URL`; reuse working global credentials for that endpoint.
-2. If authentication is missing/expired, direct the user to that website, sign in to their account, and open the account menu's **Access token / 访问令牌** action. The current UI creates a new CLI access token and displays the secret once. The user copies and keeps it privately; do not read the secret through browser inspection, screenshots, clipboard tools, or ask them to paste it into chat.
+2. If authentication is missing/expired, direct the user to that website, sign in to their account, and open **Settings / 设置** (the gear) to reach **Access tokens / 访问令牌**. The current UI creates a new CLI access token and displays the secret once. The user copies and keeps it privately; do not read the secret through browser inspection, screenshots, clipboard tools, or ask them to paste it into chat.
 3. Have the user run this in their own interactive terminal and paste the token at the hidden prompt:
 
 ```text

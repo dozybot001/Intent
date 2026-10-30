@@ -103,7 +103,7 @@ Hooks are written to project-local files (`.codex/hooks.json`, `.claude/settings
 ## Browse and share with IntHub (optional)
 
 - **Locally:** `itt hub start`, then `itt remote add origin http://127.0.0.1:7210 --project NAME` and `itt push`. IntHub Local serves only same-origin requests on loopback.
-- **Hosted:** [inthub.tenon.asia](https://inthub.tenon.asia), operated by 榫卯 Tenon AI. Sign in with a Tenon account, create an access token in the account menu, run `itt auth login`, then `itt push`. Projects are private by default. Share one with a team (`--project TEAM/NAME`) or make it public in its settings. Deleting the account from the same menu removes its cloud data (your local `.intent/` is untouched).
+- **Hosted:** [inthub.tenon.asia](https://inthub.tenon.asia), operated by 榫卯 Tenon AI. Sign in with a Tenon account, create an access token under Settings, run `itt auth login`, then `itt push`. Projects are private by default. Share one with a team (`--project TEAM/NAME`) or make it public in its settings. Deleting the account from the same menu removes its cloud data (your local `.intent/` is untouched).
 - **Restore elsewhere:** `itt init`, `itt remote add origin URL --project NAME`, `itt pull`.
 
 Today a project has one shared history: push and pull fast-forward, and if two copies record in parallel, `itt status` reports `diverged` without changing either side. Git-style branches and merges are the next milestone ([design](docs/EN/semantic-git.md)).
