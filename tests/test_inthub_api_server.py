@@ -135,6 +135,9 @@ def test_api_server_can_serve_web_shell(tmp_path, monkeypatch):
 
         html = urlopen(f"{base}/").read().decode("utf-8")
         assert "IntHub" in html
+        # Every asset URL carries the running release; nobody bumps a revision by hand.
+        assert "__REV__" not in html and "/js/state.js?rev=" in html
+        assert "__REV__" not in urlopen(f"{base}/styles.css").read().decode("utf-8")
         for path in ("/settings/usage", "/settings/teams/", "/account/danger", "/device", "/invite", "/teams/acme/projects"):
             assert 'id="site-content"' in urlopen(f"{base}{path}").read().decode("utf-8"), path
         # A path nobody serves is a real 404, for browsers and crawlers alike.
@@ -146,7 +149,7 @@ def test_api_server_can_serve_web_shell(tmp_path, monkeypatch):
         assert "Allow: /$" in robots and "Disallow: /\n" in robots
         assert "Contact: mailto:support@tenonai.cn" in urlopen(f"{base}/.well-known/security.txt").read().decode("utf-8")
         assert urlopen(f"{base}/favicon.ico").url.endswith("/tenon-mark.svg")
-        js = urlopen(f"{base}/app.js").read().decode("utf-8")
+        js = urlopen(f"{base}/js/setup-guide.js").read().decode("utf-8")
         assert "itt push" in js
     finally:
         server.shutdown()

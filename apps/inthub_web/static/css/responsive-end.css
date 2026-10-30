@@ -1,0 +1,25 @@
+/* Five header controls and the wordmark do not fit the smallest phones; the mark stays. */
+@media (max-width: 360px) {
+  .brand-wordmark {
+    display: none;
+  }
+}
+
+@media (hover: none) {
+  .timeline-entry:hover .timeline-entry-body {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

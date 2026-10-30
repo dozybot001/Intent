@@ -1,0 +1,358 @@
+@media (max-width: 720px) {
+  :root {
+    --header-h: 52px;
+  }
+
+  .app-header {
+    position: relative;
+  }
+
+  .header-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "brand actions" "project project";
+    gap: 0 8px;
+    height: auto;
+    padding: 4px 12px 6px;
+  }
+
+  .header-context {
+    display: contents;
+  }
+
+  .brand {
+    grid-area: brand;
+    min-height: var(--header-h);
+  }
+
+  .header-slash {
+    display: none;
+  }
+
+  .project-picker {
+    grid-area: project;
+  }
+
+  .project-picker-trigger {
+    width: 100%;
+    max-width: none;
+    height: 40px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .project-picker-copy {
+    flex: 1 1 auto;
+  }
+
+  .project-picker-dropdown {
+    right: 0;
+    width: auto;
+    max-width: none;
+  }
+
+  .header-actions {
+    grid-area: actions;
+    gap: 4px;
+  }
+
+  /* Every menu opens from the screen's right edge, so it stays on the screen. */
+  .header-utilities {
+    position: relative;
+    gap: 8px;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .header-menu-control,
+  .account-control {
+    position: static;
+  }
+
+  .account-control {
+    gap: 8px;
+  }
+
+  .header-menu {
+    max-width: calc(100vw - 24px);
+  }
+
+  .sync-indicator {
+    display: none;
+  }
+
+  .tab-bar {
+    padding: 0 6px;
+  }
+
+  .page {
+    min-height: auto;
+  }
+
+  .page-content {
+    padding: 22px 16px 88px;
+  }
+
+  .page-title {
+    font-size: 23px;
+  }
+
+  .page-header {
+    align-items: flex-start;
+    margin-bottom: 22px;
+  }
+
+  .brief-card-head {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px 16px 16px;
+  }
+
+  .brief-card-head .brief-open {
+    justify-self: start;
+    margin-left: -10px;
+  }
+
+  .brief-title {
+    font-size: 17px;
+  }
+
+  .checkpoint-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .checkpoint {
+    padding: 14px 16px 16px;
+  }
+
+  .brief-foot {
+    padding: 10px 10px 10px 16px;
+  }
+
+  .list-row {
+    grid-template-columns: 18px minmax(0, 1fr);
+    padding: 14px 14px;
+  }
+
+  .list-row .row-meta {
+    grid-column: 2;
+    justify-items: start;
+    white-space: normal;
+  }
+
+  .decision-row {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .activity-row {
+    grid-template-columns: 60px minmax(0, 1fr);
+  }
+
+  .timeline-day {
+    margin-left: 0;
+  }
+
+  .timeline-events::before {
+    left: 5px;
+  }
+
+  .timeline-entry {
+    grid-template-columns: 22px minmax(0, 1fr);
+  }
+
+  .timeline-entry time {
+    display: none;
+  }
+
+  .timeline-node {
+    margin: 15px 0 0 0;
+  }
+
+  .timeline-entry-body {
+    padding: 10px 10px 12px;
+  }
+
+  .timeline-entry-time-inline {
+    display: inline;
+  }
+
+  .sheet {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .sheet-body {
+    padding: 20px 16px 48px;
+  }
+
+  .search-dialog {
+    width: 100vw;
+    max-height: 100dvh;
+    height: 100dvh;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .search-panel {
+    height: 100%;
+  }
+
+  .search-footer,
+  .search-esc {
+    display: none;
+  }
+
+  .search-close {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .flow-legend {
+    gap: 6px 14px;
+    font-size: 12px;
+  }
+
+  /* On a phone the frame is a window onto the graph, opened at the card that matters. */
+  .flow-canvas {
+    max-height: 72vh;
+    max-height: 72dvh;
+    overflow: auto;
+    border-radius: var(--radius);
+  }
+
+  .setup-step {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px;
+  }
+
+  /* Pills and wrapped lines: a line never opens with a separator. */
+  .page-meta {
+    gap: 4px 12px;
+  }
+
+  .page-meta > * + *::before {
+    content: none;
+  }
+
+  /* The name lines up with the page below it. */
+  .project-picker.is-static .project-picker-trigger {
+    padding: 0 3px;
+    border-color: transparent;
+    background: none;
+  }
+
+  .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  /* Like the tab bar: one row that scrolls, reaching both screen edges. */
+  .settings-nav {
+    display: flex;
+    gap: 6px;
+    margin: 0 -16px;
+    padding: 0 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .settings-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings-nav-item {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .settings-dialog {
+    width: 100vw;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .settings-dialog-header {
+    padding-left: 16px;
+  }
+
+  .settings-dialog .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .settings-dialog .settings-nav {
+    display: flex;
+    padding: 8px 6px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .settings-dialog .settings-pane {
+    padding: 16px;
+  }
+
+  .token-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .token-name-field {
+    grid-column: 1 / -1;
+  }
+
+  .team-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .team-form .button {
+    justify-self: start;
+  }
+
+  .transfer-control {
+    flex: 1 1 100%;
+  }
+
+  .transfer-select {
+    flex: 1 1 auto;
+    width: auto;
+  }
+
+  .list-row.home-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .list-row.home-row .row-meta {
+    grid-column: 1;
+  }
+
+  .invite-card {
+    padding: 24px 20px;
+  }
+
+  /* The filter menus right below already name what is selected; a long title would only wrap here. */
+  .shell[data-active-tab="snaps"] .page-meta > :not(:first-child) {
+    display: none;
+  }
+
+  .setup-step::before {
+    grid-row: auto;
+  }
+
+  .auth-pitch h2 {
+    font-size: 26px;
+  }
+
+  .auth-content {
+    padding: 28px 20px 24px;
+  }
+
+  .help-trigger {
+    min-width: 32px;
+    min-height: 32px;
+  }
+}

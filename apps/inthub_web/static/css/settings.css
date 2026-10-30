@@ -1,0 +1,331 @@
+/* --- Settings ------------------------------------------------------------ */
+
+/* Account, a team and a project's Settings tab share this layout: links on the left, one pane
+   at a time on the right, and the pair centred so both page margins match. */
+.settings-layout {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 720px);
+  justify-content: center;
+  align-items: start;
+  gap: 24px 40px;
+}
+
+.settings-title {
+  grid-column: 1 / -1;
+}
+
+/* The icons line up with the page title; only the fill reaches past them. */
+.settings-nav {
+  display: grid;
+  gap: 6px;
+  margin: -6px 0 0 -10px;
+}
+
+.settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.settings-nav-item:hover {
+  color: var(--ink);
+  background: var(--surface-hover);
+}
+
+.settings-nav-item[aria-current="page"] {
+  color: var(--ink);
+  background: var(--surface-selected);
+}
+
+.settings-nav-item:focus-visible {
+  outline-offset: -2px;
+}
+
+.settings-nav-item svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+/* Inside a pane everything sits on the same two edges: nothing below adds side padding. */
+.settings-pane {
+  min-width: 0;
+}
+
+.settings-block + .settings-block {
+  margin-top: 36px;
+}
+
+.settings-block-title {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.settings-lead {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.settings-lead a {
+  color: var(--ink);
+  text-underline-offset: 3px;
+}
+
+.settings-lead + .snippet {
+  margin-top: 12px;
+}
+
+.settings-list {
+  border-block: 1px solid var(--border);
+}
+
+.settings-block-title + .settings-list,
+.settings-block-title + .settings-slot > .settings-list {
+  border-top: 0;
+}
+
+.settings-block-title + .settings-slot > .view-loading,
+.settings-block-title + .settings-slot > .inline-empty,
+.settings-lead + .settings-slot {
+  margin-top: 12px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  padding: 14px 0;
+}
+
+.settings-list > .settings-row + .settings-row,
+.settings-list > .secret-box + .settings-row {
+  border-top: 1px solid var(--border);
+}
+
+.settings-row-copy {
+  display: grid;
+  flex: 1 1 220px;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-row-copy strong {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-row-copy .chip {
+  margin-left: 4px;
+}
+
+/* The separator sits in the gap and is clipped at the start of a line, so a wrapped line never opens with one. */
+.settings-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 16px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.settings-meta > span {
+  position: relative;
+  min-width: 0;
+}
+
+.settings-meta > span::before {
+  content: "·";
+  position: absolute;
+  left: -10px;
+  color: var(--faint);
+}
+
+.settings-row-control,
+.transfer-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.settings-row-control > svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--faint);
+}
+
+.settings-row-control .button-small {
+  min-height: 32px;
+}
+
+.settings-role {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.role-select {
+  width: 116px;
+}
+
+.role-select .select-trigger {
+  height: 32px;
+  font-size: 13px;
+}
+
+.transfer-select {
+  width: 180px;
+}
+
+.settings-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink);
+  font-size: 13.5px;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.settings-link svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+
+.settings-row-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.settings-row-link:hover strong {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.settings-form {
+  margin-top: 14px;
+}
+
+.settings-form .button {
+  min-height: 36px;
+}
+
+.settings-field {
+  min-width: 0;
+}
+
+.token-form,
+.team-form,
+.invite-form {
+  display: grid;
+  align-items: end;
+  gap: 12px;
+}
+
+.token-form {
+  grid-template-columns: minmax(0, 1fr) 150px auto;
+}
+
+.team-form {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
+.invite-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.token-form .field-error,
+.team-form .field-error,
+.invite-form .field-error,
+.team-form .field-note {
+  grid-column: 1 / -1;
+  margin-top: 0;
+}
+
+.profile-email {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+
+/* Shown once: a new access token, an invite link. Neutral emphasis, never a colour. */
+.secret-box {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+}
+
+.settings-form + .secret-box {
+  margin: 14px 0 0;
+}
+
+.secret-value {
+  padding: 0;
+  background: none;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.secret-note {
+  grid-column: 1 / -1;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+.settings-retry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.token-form + .settings-slot {
+  margin-top: 16px;
+}
+
+.settings-slot:focus {
+  outline: none;
+}
+
+.monogram {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--ink-2);
+  background: var(--surface-subtle);
+  font-size: 14px;
+  font-weight: 600;
+}

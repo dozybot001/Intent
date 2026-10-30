@@ -1,0 +1,295 @@
+/* --- Sign-in ------------------------------------------------------------- */
+
+.auth-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow-y: auto;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, var(--surface-selected), transparent 70%),
+    var(--canvas);
+}
+
+.auth-gate::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.55;
+  -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, #000 0%, transparent 75%);
+  mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, #000 0%, transparent 75%);
+}
+
+.auth-stage {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 100dvh;
+}
+
+.auth-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 64px;
+  padding: 10px var(--gutter);
+}
+
+.brand-on-auth {
+  color: var(--ink);
+}
+
+.auth-header-actions,
+.transition-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.auth-header .header-resources {
+  display: none;
+}
+
+.auth-header .resources-control {
+  display: flex;
+}
+
+.auth-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 520px) minmax(0, 400px);
+  justify-content: center;
+  align-items: safe center;
+  gap: 40px 72px;
+  padding: 24px var(--gutter) 48px;
+}
+
+.auth-layout:has(> .auth-pitch.is-hidden) {
+  grid-template-columns: minmax(0, 400px);
+}
+
+.auth-pitch {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.auth-pitch h2 {
+  font-size: 36px;
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.auth-pitch > p {
+  color: var(--ink-2);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.auth-points {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.auth-points li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.auth-points svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.auth-points strong {
+  margin-right: 4px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.auth-start {
+  min-width: 0;
+}
+
+.auth-panel {
+  width: min(400px, 100%);
+}
+
+.auth-content {
+  display: grid;
+  justify-items: center;
+  gap: 22px;
+  padding: 36px 32px 32px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  text-align: center;
+}
+
+.auth-mark.brand-mark {
+  width: 44px;
+  height: 44px;
+}
+
+.auth-introduction {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.auth-introduction .heading-with-help {
+  justify-content: center;
+}
+
+.auth-introduction h1 {
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.auth-introduction p {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.tenon-login {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+  color: var(--primary-ink);
+  background: var(--primary-bg);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 120ms ease;
+}
+
+.tenon-login:hover {
+  background: var(--primary-hover);
+}
+
+.tenon-login-methods {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.tenon-login-secondary {
+  border: 1px solid var(--border-strong);
+  color: var(--ink);
+  background: transparent;
+}
+
+.tenon-login-secondary:hover {
+  background: var(--surface-hover);
+}
+
+.tenon-login-visual svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.tenon-login-visual .tenon-login-line {
+  fill: none;
+}
+
+.last-used {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.tenon-login-note {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.tenon-login.is-loading {
+  cursor: progress;
+}
+
+.tenon-login-visual {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+}
+
+.tenon-login-visual img {
+  width: 20px;
+  height: 20px;
+}
+
+.tenon-login-spinner {
+  position: absolute;
+  inset: -3px;
+  display: none;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+}
+
+.tenon-login.is-loading .tenon-login-spinner {
+  display: block;
+  animation: spin 700ms linear infinite;
+}
+
+.tenon-login.is-loading .tenon-login-visual svg {
+  transform: scale(0.72);
+}
+
+.auth-error {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--red-line);
+  border-radius: var(--radius-sm);
+  color: var(--red);
+  background: var(--red-soft);
+  font-size: 13px;
+  text-align: left;
+}
+
+.auth-dismiss {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  text-underline-offset: 3px;
+}
+
+.auth-dismiss svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+.auth-dismiss:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}

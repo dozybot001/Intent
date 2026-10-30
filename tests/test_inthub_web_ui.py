@@ -48,7 +48,15 @@ class _MarkupTags(HTMLParser):
 
 
 def _static(name):
-    return (STATIC_DIR / name).read_text(encoding="utf-8")
+    """One file, or the whole app or stylesheet in load order: nothing here cares which part holds a rule."""
+    text = (STATIC_DIR / name).read_text(encoding="utf-8") if name != "app.js" else ""
+    if name == "app.js":
+        parts = re.findall(r'src="/(js/[\w-]+\.js)\?', _static("index.html"))
+    elif name == "styles.css":
+        parts = re.findall(r'@import url\("/(css/[\w-]+\.css)\?', text)
+    else:
+        return text
+    return "\n".join((STATIC_DIR / part).read_text(encoding="utf-8") for part in parts)
 
 
 def _block(css, selector):
@@ -987,11 +995,6 @@ def test_timeline_pages_from_the_snaps_endpoint_and_search_reports_truncation():
     assert '"Showing {shown} of {total} — refine the search": "显示前 {shown} 条，共 {total} 条，请细化搜索"' in translations
     assert queries.SEARCH_LIMIT == 50
 
-
-def test_static_revision_names_the_current_interface():
-    for name in ("index.html", "auth-redirect.html"):
-        assert "rev=options-1" not in _static(name) and "rev=history-1" not in _static(name)
-        assert "rev=saas-1" in _static(name)
 
 
 

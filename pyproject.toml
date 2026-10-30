@@ -56,7 +56,7 @@ where = ["src", "."]
 include = ["intent_cli*", "apps*"]
 
 [tool.setuptools.package-data]
-"apps.inthub_web" = ["static/*"]
+"apps.inthub_web" = ["static/*", "static/js/*", "static/css/*"]
 
 [tool.setuptools_scm]
 # Source archives (GitHub ZIP, git archive) carry no tags.

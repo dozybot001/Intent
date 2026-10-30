@@ -1,0 +1,202 @@
+/* --- Continuation brief -------------------------------------------------- */
+
+.brief-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.brief-card {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.brief-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+  padding: 20px 24px 20px;
+}
+
+.brief-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.brief-title {
+  margin: 12px 0 6px;
+  overflow-wrap: anywhere;
+  font-size: 19px;
+  font-weight: 620;
+  letter-spacing: -0.018em;
+  line-height: 1.35;
+}
+
+.brief-why {
+  display: -webkit-box;
+  max-width: 82ch;
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.checkpoint-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  border-top: 1px solid var(--border);
+  background: var(--border);
+}
+
+.checkpoint {
+  min-width: 0;
+  padding: 16px 24px 18px;
+  background: var(--surface);
+}
+
+.checkpoint-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.checkpoint-label svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.checkpoint-value {
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.62;
+  white-space: pre-line;
+}
+
+.checkpoint-next .checkpoint-label svg {
+  color: var(--ink);
+}
+
+.checkpoint.is-missing .checkpoint-value {
+  color: var(--muted);
+}
+
+.checkpoint-blocker.is-blocked {
+  background: linear-gradient(var(--amber-soft), var(--amber-soft)), var(--surface);
+}
+
+.checkpoint-blocker.is-blocked .checkpoint-label,
+.checkpoint-blocker.is-blocked .checkpoint-label svg {
+  color: var(--amber);
+}
+
+.checkpoint-blocker.is-clear .checkpoint-label svg {
+  color: var(--green);
+}
+
+.checkpoint-blocker.is-clear .checkpoint-value {
+  color: var(--ink-2);
+}
+
+.checkpoint-note {
+  margin-top: 12px;
+  color: var(--ink-2);
+  font-size: 13.5px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.checkpoint-note strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.brief-constraints {
+  margin: 0;
+  padding: 12px 24px;
+  border-top: 1px solid var(--border);
+}
+
+.brief-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 10px 14px 10px 24px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12.5px;
+  background: var(--surface-subtle);
+}
+
+.brief-foot-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.brief-foot-meta > * + *::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--faint);
+}
+
+.brief-foot-meta > .status-pill::before {
+  content: none;
+}
+
+.brief-open,
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: var(--radius-xs);
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.brief-open svg,
+.link-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.brief-open:hover,
+.link-button:hover {
+  color: var(--ink);
+  background: var(--surface-hover);
+}
+
+.overview-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 36px 24px;
+  margin-top: 36px;
+}
+
+.overview-columns > .section {
+  margin-top: 0;
+}

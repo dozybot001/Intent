@@ -1,0 +1,359 @@
+/* --- Brand --------------------------------------------------------------- */
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  color: var(--ink);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+
+.brand-mark {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.brand-wordmark {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: max(4px, 0.18em);
+  padding: max(7px, 0.29em) max(7px, 0.29em) max(7px, 0.29em) 0;
+  white-space: nowrap;
+  font-family: "Avenir Next", Avenir, "PingFang SC", "Hiragino Sans GB", sans-serif;
+  font-size: 1.06rem;
+  font-weight: 720;
+  letter-spacing: -0.055em;
+}
+
+.product-publisher-mark {
+  width: max(14px, 0.58em);
+  height: max(14px, 0.58em);
+  flex: 0 0 auto;
+  margin-top: -0.04em;
+}
+
+/* --- Header -------------------------------------------------------------- */
+
+/* The footer sits after the content and, on a short page, at the bottom of the window. */
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.shell.is-locked {
+  visibility: hidden;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid var(--border);
+  background: var(--header-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  backdrop-filter: saturate(180%) blur(12px);
+}
+
+.header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: var(--header-h);
+  padding: 0 var(--gutter);
+}
+
+.header-context {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.header-slash {
+  width: 1px;
+  height: 20px;
+  flex: 0 0 auto;
+  margin: 0 8px 0 4px;
+  background: var(--border-strong);
+  transform: rotate(18deg);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.header-utilities {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
+}
+
+.header-menu-control,
+.account-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.account-control {
+  gap: 12px;
+}
+
+/* --- Project picker ------------------------------------------------------ */
+
+.project-picker {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.project-picker-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: min(360px, 100%);
+  height: 34px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  transition: background-color 120ms ease;
+}
+
+.project-picker-trigger:hover:not(:disabled),
+.project-picker-trigger.is-open {
+  background: var(--surface-hover);
+}
+
+.project-picker-trigger:disabled {
+  color: var(--muted);
+}
+
+.project-picker-trigger[aria-busy="true"] {
+  cursor: progress;
+}
+
+/* A visitor reads the one project they were linked to: its name, not a control. */
+.project-picker.is-static .project-picker-trigger {
+  color: var(--ink);
+  cursor: default;
+}
+
+.project-picker.is-static .project-picker-trigger svg {
+  display: none;
+}
+
+.project-picker-trigger svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.project-picker-copy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.project-picker-eyebrow {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.project-picker-label {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-picker-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 60;
+  display: none;
+  width: max-content;
+  min-width: 260px;
+  max-width: min(380px, calc(100vw - 32px));
+  max-height: min(420px, 60dvh);
+  padding: 6px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+}
+
+.project-picker-dropdown.is-open {
+  display: grid;
+  gap: 2px;
+}
+
+.project-picker-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  min-height: 38px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+
+.project-picker-option:hover,
+.project-picker-option:focus-visible {
+  background: var(--surface-hover);
+}
+
+.project-picker-option.is-selected {
+  background: var(--surface-selected);
+}
+
+.project-picker-home {
+  justify-content: flex-start;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.project-picker-home svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.project-picker-option-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-picker-option-repo {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* --- Header controls ------------------------------------------------------ */
+
+.command-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  width: 232px;
+  height: 34px;
+  padding: 0 6px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  background: var(--surface);
+  font-size: 13px;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+
+.command-trigger:hover {
+  border-color: var(--border-strong);
+  color: var(--ink-2);
+}
+
+.command-trigger svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.command-trigger-label {
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+.header-resources {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header-resource-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: var(--radius-xs);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.header-resource-link:hover {
+  color: var(--ink);
+  background: var(--surface-hover);
+}
+
+.header-resource-link svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+.resources-control {
+  display: none;
+}
+
+.sync-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-right: 4px;
+  color: var(--muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.sync-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--green-dot);
+  box-shadow: 0 0 0 3px var(--green-soft);
+}
+
+.sync-indicator.is-unsynced .sync-dot {
+  background: var(--faint);
+  box-shadow: none;
+}

@@ -1,0 +1,135 @@
+/* --- Relations ----------------------------------------------------------- */
+
+.rel-state {
+  height: 20px;
+  padding: 0 7px;
+  font-size: 11.5px;
+}
+
+/* Calm relation states read as a phrase; only states that need someone to act become pills. */
+.rel-state.rel-neutral,
+.rel-state.rel-settled {
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+}
+
+.rel-neutral .status-dot {
+  background: var(--muted);
+}
+
+.rel-settled .status-dot {
+  background: var(--green-dot);
+}
+
+.rel-attention {
+  border-color: var(--amber-line);
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+
+.rel-attention .status-dot {
+  background: var(--amber-dot);
+}
+
+.rel-danger {
+  border-color: var(--red-line);
+  color: var(--red);
+  background: var(--red-soft);
+}
+
+.rel-danger .status-dot {
+  background: var(--red-dot);
+}
+
+.brief-relations {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.brief-relation {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.brief-relation-label {
+  font-weight: 500;
+}
+
+.brief-relation-target {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: 560;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-overflow: ellipsis;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.brief-relation-target:hover {
+  text-decoration-color: currentColor;
+}
+
+.brief-relation-id {
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.row-relations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.row-relation {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.relation-group + .relation-group {
+  margin-top: 14px;
+}
+
+.relation-group-label {
+  margin: 0 0 6px 2px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.relation-meta .rel-state {
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.relation-flow-link {
+  margin: 10px 0 0 -10px;
+}
+
+.decision-source-none {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 12px 14px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 13.5px;
+}

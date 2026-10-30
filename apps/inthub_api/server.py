@@ -13,7 +13,7 @@ import time
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse, urlunparse
+from urllib.parse import quote, parse_qs, parse_qsl, urlencode, urlparse, urlunparse
 from apps.inthub_web import product_version
 
 from apps.inthub_api.access import VISITOR
@@ -327,6 +327,9 @@ def make_handler(
 
         def _send_file(self, path, status=200):
             body = path.read_bytes()
+            # Asset URLs carry the release, so a new one reaches every browser at once.
+            if path.suffix in {".html", ".css"}:
+                body = body.replace(b"__REV__", quote(product_version()).encode("ascii"))
             content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
             if content_type.startswith("text/") or content_type in {
                 "application/javascript",

@@ -1,0 +1,239 @@
+/* --- Header menus -------------------------------------------------------- */
+
+.header-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  display: none;
+  width: 248px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+}
+
+.header-menu.is-open {
+  display: grid;
+}
+
+.preferences-menu {
+  width: 288px;
+}
+
+.menu-section {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+}
+
+.menu-section + .menu-section {
+  border-top: 1px solid var(--border);
+}
+
+.menu-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.menu-title svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.menu-actions {
+  gap: 2px;
+  padding: 4px;
+}
+
+.menu-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: var(--radius-xs);
+  color: var(--ink);
+  font-size: 13.5px;
+  text-align: left;
+  text-decoration: none;
+}
+
+.menu-action:hover:not(:disabled),
+.menu-action:focus-visible {
+  background: var(--surface-hover);
+}
+
+.menu-action svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.segmented-control {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+}
+
+.segmented-control button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.segmented-control button:hover {
+  color: var(--ink);
+}
+
+.segmented-control svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.segmented-control button[aria-pressed="true"] {
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs), 0 0 0 1px var(--border);
+}
+
+.account-identity {
+  gap: 2px;
+}
+
+.account-label {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-mode {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Tabs ---------------------------------------------------------------- */
+
+.tab-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  height: var(--tabs-h);
+  padding: 0 calc(var(--gutter) - 10px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.shell.is-empty .tab-bar {
+  display: none;
+}
+
+.tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 0 10px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: color 120ms ease;
+}
+
+.tab::before {
+  content: "";
+  position: absolute;
+  inset: 7px 2px;
+  z-index: -1;
+  border-radius: var(--radius-xs);
+  transition: background-color 120ms ease;
+}
+
+.tab:hover {
+  color: var(--ink);
+}
+
+.tab:hover::before {
+  background: var(--surface-hover);
+}
+
+.tab::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  bottom: -1px;
+  left: 10px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: transparent;
+}
+
+.tab.is-active {
+  color: var(--ink);
+}
+
+.tab.is-active::after {
+  background: var(--ink);
+}
+
+.tab:focus-visible {
+  outline-offset: -4px;
+}
+
+.tab svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.tab-count {
+  min-width: 20px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface-subtle);
+  font-size: 11.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.tab-count:empty {
+  display: none;
+}
+
+.tab.is-active .tab-count {
+  color: var(--ink-2);
+  background: var(--surface-selected);
+}

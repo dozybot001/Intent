@@ -1,0 +1,50 @@
+/* --- Responsive ---------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  .app-header .header-resources {
+    display: none;
+  }
+
+  .app-header .resources-control {
+    display: flex;
+  }
+}
+
+@media (max-width: 1024px) {
+  .auth-layout {
+    grid-template-columns: minmax(0, 520px);
+  }
+
+  .command-trigger {
+    width: 34px;
+    padding: 0;
+    justify-content: center;
+    border-color: transparent;
+    color: var(--ink-2);
+    background: transparent;
+  }
+
+  .command-trigger:hover {
+    border-color: transparent;
+    color: var(--ink);
+    background: var(--surface-hover);
+  }
+
+  .command-trigger svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .command-trigger-label,
+  .command-trigger kbd {
+    display: none;
+  }
+
+  .header-actions {
+    gap: 8px;
+  }
+
+  .overview-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

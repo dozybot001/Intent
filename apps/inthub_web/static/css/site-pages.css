@@ -1,0 +1,89 @@
+/* --- Site pages ---------------------------------------------------------- */
+
+/* Home, account, team and invite pages belong to no project: its tabs, sync state and search step aside. */
+.shell.is-site .tab-bar,
+.shell.is-site .sync-indicator,
+.shell.is-site .command-trigger {
+  display: none;
+}
+
+.home-page {
+  max-width: 960px;
+  margin-inline: auto;
+}
+
+.list-row.home-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
+.home-row .row-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 0;
+}
+
+.invite-page {
+  display: grid;
+  justify-items: center;
+  padding-top: 8vh;
+}
+
+.invite-card {
+  display: grid;
+  gap: 12px;
+  width: min(440px, 100%);
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+.invite-card h1 {
+  overflow-wrap: anywhere;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.invite-card p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.device-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.device-code {
+  height: 44px;
+  font-family: var(--mono);
+  font-size: 20px;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+.device-form .button {
+  justify-self: center;
+}
+
+.device-form .field-error {
+  margin-top: 0;
+}
+
+.invite-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}

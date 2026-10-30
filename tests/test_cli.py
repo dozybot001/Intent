@@ -511,14 +511,8 @@ class TestHub:
         assert 'id="detail-content"' in html and 'id="search-dialog"' in html
         deep_link = urlopen(f"{inthub_web_server}/projects/demo").read().decode("utf-8")
         assert "IntHub" in deep_link
-        js = urlopen(f"{inthub_web_server}/app.js").read().decode("utf-8")
-        assert "Raw JSON" in js
-        assert "Linked decisions" in js
-        assert "Resolved history" in js
-        assert "itt push" in js
-        css = urlopen(f"{inthub_web_server}/styles.css").read().decode("utf-8")
-        assert ".status-cancelled" in css
-        assert ".list-row" in css
+        assert "itt push" in urlopen(f"{inthub_web_server}/js/setup-guide.js").read().decode("utf-8")
+        assert ".list-row" in urlopen(f"{inthub_web_server}/css/lists.css").read().decode("utf-8")
 
 
 # ---------------------------------------------------------------------------

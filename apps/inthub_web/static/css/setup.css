@@ -1,0 +1,207 @@
+/* --- Empty, loading and setup -------------------------------------------- */
+
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 44px 24px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--muted);
+  font-size: 13.5px;
+  text-align: center;
+}
+
+.empty-state p {
+  max-width: 56ch;
+  line-height: 1.6;
+}
+
+.empty-state h2,
+.empty-state h3 {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.empty-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--ink-2);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.empty-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.empty-state .secondary-btn {
+  margin-top: 8px;
+}
+
+/* The space above goes on the wrapper: the copy button is positioned against it, so the pre starts at its top edge. */
+.empty-state .snippet {
+  margin-top: 16px;
+}
+
+.empty-state.loading {
+  border-style: solid;
+}
+
+.view-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 160px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.page-skeleton {
+  display: grid;
+  gap: 16px;
+}
+
+.page-skeleton i {
+  display: block;
+  height: 120px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(90deg, var(--skeleton) 0%, var(--skeleton-shine) 40%, var(--skeleton) 80%) 0 0 / 300% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.page-skeleton i:first-child {
+  width: min(320px, 70%);
+  height: 56px;
+  border-radius: var(--radius);
+}
+
+.page-skeleton i:nth-child(2) {
+  height: 280px;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+.setup-page {
+  max-width: 820px;
+  margin-inline: auto;
+}
+
+.setup-steps {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: setup;
+}
+
+.setup-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 4px 16px;
+  padding: 20px 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  counter-increment: setup;
+}
+
+.setup-step::before {
+  content: counter(setup);
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  grid-row: span 3;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--ink-2);
+  background: var(--surface-subtle);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.setup-step h3 {
+  padding-top: 3px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.setup-step p {
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.setup-step .setup-step-note {
+  margin-top: 14px;
+}
+
+.setup-resume {
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* A command and its copy button. The wrapper carries any outer spacing and the pre has none,
+   so the wrapper's box is the pre's box and the button can be placed against it. */
+.snippet {
+  --snippet-pad: 11px;
+  --snippet-line: 21px;
+  position: relative;
+  min-width: 0;
+  margin-top: 8px;
+}
+
+.command-snippet {
+  min-width: 0;
+  margin: 0;
+  padding: var(--snippet-pad) 48px var(--snippet-pad) 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  background: var(--code-bg);
+  font-size: 12.5px;
+  line-height: var(--snippet-line);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.command-word {
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* Centred on the first line (1px border + padding + half a line): in the middle of a one-line
+   snippet, and level with the first command of a longer one. */
+.snippet > .copy-button {
+  position: absolute;
+  top: calc(1px + var(--snippet-pad) + (var(--snippet-line) - 30px) / 2);
+  right: 6px;
+  width: 30px;
+  height: 30px;
+}
+
+.snippet > .copy-button svg {
+  width: 15px;
+  height: 15px;
+}

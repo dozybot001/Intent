@@ -1,0 +1,280 @@
+/* --- Flow ---------------------------------------------------------------- */
+
+/* The graph is the page's subject, so the Flow tab may use more of a wide screen. */
+.shell[data-active-tab="flow"] .page-content {
+  max-width: calc(1600px + 2 * var(--gutter));
+}
+
+.flow-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.flow-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.flow-toggle svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.flow-toggle:hover {
+  border-color: var(--border-strong);
+  color: var(--ink);
+}
+
+.flow-toggle[aria-pressed="true"] {
+  border-color: var(--ink-2);
+  color: var(--ink);
+  background: var(--surface-selected);
+}
+
+.flow-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0 0 14px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  list-style: none;
+}
+
+.flow-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.flow-legend-sample {
+  width: 34px;
+  height: 16px;
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.flow-legend-sample.is-mark {
+  width: 14px;
+  height: 14px;
+}
+
+/* The graph keeps its natural size and scrolls inside its own frame, never the page. */
+.flow-canvas {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background-color: var(--canvas);
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 22px 22px;
+  overscroll-behavior-x: contain;
+}
+
+.flow-svg {
+  display: block;
+  max-width: none;
+}
+
+.flow-svg text {
+  stroke: none;
+  font-family: var(--sans);
+}
+
+/* A quiet time axis across the top. */
+.flow-axis-rule {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.flow-axis-tick {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.flow-axis-label {
+  fill: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Project-level Decisions: chips in a band, each at the column of its time. */
+.flow-band-box {
+  fill: var(--surface);
+  fill-opacity: 0.72;
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.flow-band-label {
+  fill: var(--muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.flow-chip-box {
+  fill: var(--surface);
+  stroke: var(--border-strong);
+  stroke-width: 1;
+  transition: stroke 120ms ease;
+}
+
+.flow-chip-text {
+  fill: var(--ink-2);
+  font-size: 12px;
+}
+
+.flow-chip.is-more .flow-chip-text,
+.flow-chip.is-deprecated .flow-chip-text {
+  fill: var(--muted);
+}
+
+.flow-chip:hover .flow-chip-box {
+  stroke: var(--muted);
+}
+
+.flow-chip:focus-visible .flow-chip-box {
+  stroke: var(--focus);
+  stroke-width: 2;
+}
+
+/* Lines: succession is strongest, structure medium and neutral, constraints thin. */
+.flow-stroke {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.flow-hit-line {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 12;
+  pointer-events: stroke;
+}
+
+.flow-arrow {
+  fill: var(--ink-2);
+  stroke: var(--ink-2);
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
+
+.flow-flow .flow-stroke {
+  stroke: var(--ink-2);
+  stroke-width: 3.25;
+}
+
+.flow-branch .flow-stroke {
+  stroke-width: 1.75;
+}
+
+.flow-type-derived_from .flow-stroke {
+  stroke-width: 1.5;
+  stroke-opacity: 0.65;
+}
+
+.flow-terminal {
+  fill: var(--muted);
+  stroke: var(--muted);
+  stroke-width: 1.25;
+}
+
+.flow-type-derived_from .flow-terminal {
+  fill: var(--canvas);
+}
+
+/* Rejoins and the parent lane they meet stay lighter than the branches. */
+.flow-rejoin .flow-stroke,
+.flow-lane-line {
+  fill: none;
+  stroke: var(--faint);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+}
+
+.flow-depends .flow-stroke,
+.flow-conflict .flow-stroke {
+  stroke-width: 1.25;
+}
+
+.flow-conflict .flow-stroke {
+  stroke-dasharray: 5 5;
+}
+
+.flow-vs rect {
+  fill: var(--surface);
+  stroke: var(--ink-2);
+  stroke-width: 1;
+}
+
+.flow-vs text {
+  fill: var(--ink-2);
+  font-size: 10.5px;
+  font-weight: 650;
+}
+
+.tone-attention .flow-stroke,
+.tone-attention .flow-vs rect {
+  stroke: var(--amber);
+}
+
+.tone-attention .flow-arrow {
+  fill: var(--amber);
+  stroke: var(--amber);
+}
+
+.tone-attention .flow-vs text {
+  fill: var(--amber);
+}
+
+.tone-danger .flow-stroke {
+  stroke: var(--red);
+}
+
+.tone-danger .flow-arrow {
+  fill: var(--red);
+  stroke: var(--red);
+}
+
+.tone-settled .flow-stroke {
+  stroke: var(--green);
+}
+
+.tone-settled .flow-arrow {
+  fill: var(--green);
+  stroke: var(--green);
+}
+
+.flow-line.is-settled .flow-stroke,
+.flow-line.is-settled .flow-vs rect {
+  stroke: var(--faint);
+}
+
+.flow-line.is-settled .flow-vs text {
+  fill: var(--muted);
+}

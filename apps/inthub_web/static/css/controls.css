@@ -1,0 +1,318 @@
+/* --- Buttons ------------------------------------------------------------- */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.button svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.button-primary {
+  color: var(--primary-ink);
+  background: var(--primary-bg);
+}
+
+.button-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.button-secondary {
+  border-color: var(--border);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.button-secondary:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+}
+
+.button-small {
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12.5px;
+}
+
+.button-small svg {
+  width: 14px;
+  height: 14px;
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.icon-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.icon-button:hover:not(:disabled),
+.icon-button[aria-expanded="true"],
+.icon-button[aria-current="page"] {
+  color: var(--ink);
+  background: var(--surface-hover);
+}
+
+.app-header .icon-button[aria-expanded="true"],
+.app-header .icon-button[aria-current="page"] {
+  border-color: transparent;
+  background: var(--surface-selected);
+}
+
+.action-busy {
+  cursor: progress;
+  opacity: 0.86;
+}
+
+.action-busy::before,
+.button-spinner,
+.view-loading-spinner {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.secondary-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.secondary-btn svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+/* Destructive actions: the only place the danger colour appears outside a status. */
+.button-danger {
+  border-color: var(--border);
+  color: var(--red);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.button-danger:hover:not(:disabled) {
+  border-color: var(--red-line);
+  background: var(--red-soft);
+}
+
+.button:disabled:not(.action-busy) {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* --- Text fields ---------------------------------------------------------- */
+
+/* Every text input looks the same: a neutral border, and on focus a soft ring instead of
+   the global 2px outline (which flashed white on fields that take focus by themselves). */
+.text-field {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  background: var(--surface);
+  font-size: 14px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.text-field::placeholder {
+  color: var(--faint);
+}
+
+.text-field:focus,
+.text-field:focus-visible {
+  border-color: var(--muted);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--field-ring);
+}
+
+.text-field[aria-invalid="true"] {
+  border-color: var(--red-line);
+}
+
+/* Select: a field that opens a menu of its own, in the top layer so a dialog or a scrolling pane cannot clip it. */
+.select {
+  min-width: 0;
+}
+
+.select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-right: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.select-trigger:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.select-trigger svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--muted);
+  transition: transform 120ms ease;
+}
+
+.select-trigger[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-menu {
+  position: fixed;
+  inset: auto;
+  max-width: calc(100vw - 16px);
+  max-height: min(280px, calc(100dvh - 16px));
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+}
+
+.select-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px 6px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-size: 13.5px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.select-option:hover,
+.select-option:focus-visible {
+  outline: none;
+  color: var(--ink);
+  background: var(--surface-hover);
+}
+
+.select-option[aria-selected="true"] {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.select-option svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  visibility: hidden;
+}
+
+.select-option[aria-selected="true"] svg {
+  visibility: visible;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-row .button {
+  min-height: 36px;
+}
+
+.field-error {
+  margin-top: 8px;
+  color: var(--red);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.field-error[hidden] {
+  display: none;
+}
+
+.field-note {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.field-note code {
+  white-space: nowrap;
+}

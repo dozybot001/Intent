@@ -1,0 +1,258 @@
+/* --- Page ---------------------------------------------------------------- */
+
+.page {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+}
+
+.page-content {
+  width: 100%;
+  max-width: calc(var(--page-max) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 32px var(--gutter) 56px;
+  outline: none;
+  animation: page-in 180ms var(--ease);
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.page-header {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px 24px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+
+.page-heading {
+  min-width: 0;
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.page-title {
+  overflow-wrap: anywhere;
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.page-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.page-meta > * + *::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--faint);
+}
+
+.page-meta > :has(> .visibility-pill)::before,
+.page-meta > :has(> .visibility-pill) + *::before {
+  content: none;
+}
+
+.meta-link {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+
+.page-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.section {
+  margin-top: 36px;
+}
+
+.section:first-child {
+  margin-top: 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 30px;
+  margin-bottom: 10px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.count {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Status -------------------------------------------------------------- */
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--ink-2);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.status-active .status-dot,
+.state-active .status-dot {
+  background: var(--blue-dot);
+}
+
+.status-active {
+  color: var(--ink);
+}
+
+.status-suspend .status-dot {
+  border: 1.5px solid var(--muted);
+  background: transparent;
+}
+
+.status-verified .status-dot {
+  background: var(--green-dot);
+}
+
+.status-done .status-dot {
+  background: var(--muted);
+}
+
+.status-cancelled,
+.status-deprecated {
+  color: var(--muted);
+}
+
+.status-cancelled .status-dot,
+.status-deprecated .status-dot {
+  border: 1.5px solid var(--faint);
+  background: transparent;
+}
+
+.state-ready {
+  border-color: var(--green-line);
+  color: var(--green);
+  background: var(--green-soft);
+}
+
+.state-ready .status-dot {
+  background: var(--green-dot);
+}
+
+.state-blocked,
+.state-incomplete {
+  border-color: var(--amber-line);
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+
+.state-blocked .status-dot,
+.state-incomplete .status-dot {
+  background: var(--amber-dot);
+}
+
+.state-incomplete .status-dot {
+  border: 1.5px solid var(--amber-dot);
+  background: transparent;
+}
+
+.chip {
+  display: inline-block;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 7px;
+  border-radius: var(--radius-xs);
+  color: var(--ink-2);
+  background: var(--surface-subtle);
+  font-size: 12px;
+  line-height: 22px;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.chip-id {
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.health-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 14px 0 12px;
+  border: 1px solid var(--green-line);
+  border-radius: 999px;
+  color: var(--green);
+  background: var(--green-soft);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.health-pill svg {
+  width: 15px;
+  height: 15px;
+}
+
+.health-pill.is-warning {
+  border-color: var(--amber-line);
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+
+.health-pill.is-neutral {
+  border-color: var(--border);
+  color: var(--ink-2);
+  background: var(--surface);
+}

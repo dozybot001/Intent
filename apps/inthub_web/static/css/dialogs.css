@@ -1,0 +1,317 @@
+/* --- Dialogs --------------------------------------------------------------- */
+
+/* Account and Settings: one size for every pane, so switching never moves the frame. */
+.settings-dialog {
+  width: min(920px, calc(100vw - 32px));
+  max-width: none;
+  height: min(640px, calc(100dvh - 32px));
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+}
+
+.settings-dialog[open] {
+  animation: pop-in 160ms var(--ease);
+}
+
+.settings-dialog::backdrop {
+  background: var(--backdrop);
+}
+
+html:has(.settings-dialog[open]) {
+  overflow: hidden;
+}
+
+.settings-dialog-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+}
+
+.settings-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px 10px 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-dialog-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.settings-dialog-body {
+  min-height: 0;
+}
+
+.settings-dialog .settings-layout {
+  grid-template-columns: 200px minmax(0, 1fr);
+  justify-content: stretch;
+  align-items: stretch;
+  gap: 0;
+  height: 100%;
+}
+
+.settings-dialog .settings-nav {
+  align-content: start;
+  margin: 0;
+  padding: 12px;
+  border-right: 1px solid var(--border);
+}
+
+.settings-dialog .settings-pane {
+  padding: 20px 24px 28px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.about-dialog {
+  width: var(--dialog-width);
+  max-width: none;
+  height: var(--dialog-height);
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+}
+
+.about-dialog[open] {
+  animation: pop-in 160ms var(--ease);
+}
+
+.dialog-layout {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 16px;
+  height: 100%;
+  padding: 20px 24px 22px;
+}
+
+/* The margin gives back the padding that keeps a field's border and focus shadow inside the scroll area. */
+.dialog-body {
+  min-height: 0;
+  margin: -4px;
+  padding: 4px;
+  overflow-y: auto;
+}
+
+.about-heading,
+.dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.about-heading h2,
+.dialog-heading h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.about-heading .icon-button {
+  margin-right: -6px;
+}
+
+.about-brand {
+  margin-top: 8px;
+}
+
+.about-brand .brand-mark {
+  width: 32px;
+  height: 32px;
+}
+
+.about-version {
+  margin: 8px 0 20px;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.about-description {
+  color: var(--ink-2);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.about-description p + p {
+  margin-top: 12px;
+}
+
+.about-publisher {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.about-publisher-label {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.about-publisher-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.about-publisher-name img {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+.about-publisher a {
+  color: var(--ink);
+  font-size: 13.5px;
+  text-underline-offset: 4px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+
+.confirm-dialog {
+  width: min(460px, calc(var(--available-width, 100vw) - 32px));
+  max-width: none;
+  height: fit-content;
+  max-height: var(--dialog-height);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+}
+
+.confirm-dialog[open] {
+  animation: pop-in 160ms var(--ease);
+}
+
+.confirm-dialog::backdrop {
+  background: var(--backdrop);
+}
+
+.confirm-dialog .dialog-layout {
+  height: auto;
+  max-height: calc(var(--dialog-height) - 2px);
+}
+
+.confirm-dialog h2 {
+  overflow-wrap: anywhere;
+}
+
+.confirm-body {
+  color: var(--ink-2);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.confirm-field {
+  margin-top: 16px;
+}
+
+.confirm-field[hidden] {
+  display: none;
+}
+
+.confirm-name {
+  font-family: var(--mono);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* --- Help ---------------------------------------------------------------- */
+
+.heading-with-help {
+  display: inline-flex;
+  align-items: center;
+  gap: max(6px, 0.28em);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.help-trigger {
+  display: inline-grid;
+  place-items: center;
+  width: 1em;
+  height: 1em;
+  min-width: 24px;
+  min-height: 24px;
+  flex: 0 0 auto;
+  padding: 0;
+  align-self: center;
+  border-radius: 50%;
+  color: var(--muted);
+  background: transparent;
+}
+
+.help-trigger:hover,
+.help-trigger[aria-expanded="true"] {
+  color: var(--ink);
+}
+
+.help-trigger span {
+  display: grid;
+  place-items: center;
+  width: 1.3em;
+  height: 1.3em;
+  min-width: 14px;
+  min-height: 14px;
+  max-width: 20px;
+  max-height: 20px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-family: var(--sans);
+  font-size: clamp(10px, 0.5em, 13px);
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.help-popover.is-tip {
+  width: max-content;
+  max-width: min(260px, calc(100vw - 32px));
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+
+.help-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--help-shadow);
+  font: 400 13px/1.6 var(--sans);
+  text-align: left;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  z-index: 500;
+}

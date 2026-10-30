@@ -1,0 +1,340 @@
+/* --- Timeline ------------------------------------------------------------ */
+
+.timeline-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.timeline-filter {
+  position: relative;
+}
+
+/* In a page header the menu hangs from the header's right edge, not from the trigger: the trigger can
+   wrap anywhere on a narrow screen, the header always spans the page. */
+.page-header .timeline-filter {
+  position: static;
+}
+
+.timeline-filter-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(360px, 70vw);
+  min-height: 34px;
+  padding: 0 10px 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  list-style: none;
+}
+
+.timeline-filter-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.timeline-filter-trigger span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-filter-trigger svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.timeline-filter-trigger:hover {
+  border-color: var(--border-strong);
+}
+
+.timeline-filter-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  width: min(380px, 100%);
+  max-height: min(420px, 50dvh);
+  padding: 6px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+}
+
+.timeline-filter-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: var(--radius-xs);
+  font-size: 13px;
+  text-align: left;
+}
+
+.timeline-filter-option span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The count or Intent ID stays whole; the title gives way and ends in an ellipsis. */
+.timeline-filter-option small {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.timeline-filter-option:hover,
+.timeline-filter-option:focus-visible {
+  background: var(--surface-hover);
+}
+
+.timeline-filter-option.is-selected {
+  background: var(--surface-selected);
+  font-weight: 560;
+}
+
+.timeline-group + .timeline-group {
+  margin-top: 28px;
+}
+
+.timeline-day {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 6px 76px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.timeline-day span + span {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.timeline-events {
+  position: relative;
+  display: grid;
+  gap: 2px;
+}
+
+.timeline-events::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 63px;
+  width: 1px;
+  background: var(--border-strong);
+}
+
+.timeline-entry {
+  position: relative;
+  display: grid;
+  grid-template-columns: 52px 24px minmax(0, 1fr);
+  align-items: start;
+  width: 100%;
+  text-align: left;
+}
+
+.timeline-entry time {
+  padding-top: 13px;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.timeline-node {
+  position: relative;
+  z-index: 1;
+  width: 11px;
+  height: 11px;
+  margin: 16px 0 0 6px;
+  border: 2px solid var(--canvas);
+  border-radius: 50%;
+  background: var(--muted);
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+
+.timeline-entry.is-ready .timeline-node {
+  background: var(--green-dot);
+  box-shadow: none;
+}
+
+.timeline-entry.is-blocked .timeline-node,
+.timeline-entry.is-incomplete .timeline-node {
+  background: var(--amber-dot);
+  box-shadow: none;
+}
+
+.timeline-entry-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 14px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.timeline-entry:hover .timeline-entry-body {
+  border-color: var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.timeline-entry.is-selected .timeline-entry-body {
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
+.timeline-entry:focus-visible {
+  outline: none;
+}
+
+.timeline-entry:focus-visible .timeline-entry-body {
+  outline: 2px solid var(--focus);
+  outline-offset: 0;
+}
+
+.timeline-entry-topline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
+.timeline-entry-intent {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-entry-title {
+  overflow-wrap: anywhere;
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.006em;
+  line-height: 1.5;
+}
+
+.timeline-entry-summary {
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: 13.5px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.timeline-entry-summary i {
+  margin-right: 6px;
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 560;
+}
+
+.timeline-error {
+  margin-top: 14px;
+  color: var(--red);
+  font-size: 13px;
+}
+
+/* --- History ------------------------------------------------------------- */
+
+.history-group + .history-group {
+  margin-top: 24px;
+}
+
+.history-day {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.history-day span + span {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.list-row.history-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.detail-header + .inline-empty {
+  margin-top: 20px;
+}
+
+.revision-changed + .revision-changed {
+  border-top: 1px solid var(--border);
+}
+
+.revision-changes {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0 14px 12px 44px;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.5;
+  list-style: none;
+}
+
+.revision-reason {
+  display: block;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.revision-target {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+}
+
+.revision-target:hover {
+  text-decoration-color: currentColor;
+}
+
+.detail-section .revision-more {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
