@@ -460,6 +460,18 @@ def test_manifest_verifier_rejects_runtime_image_lock_drift(tmp_path):
         manifest_module.verify_manifest(str(tmp_path))
 
 
+def test_tracked_source_passes_the_release_scan(tmp_path):
+    # Found here, in the first test run, rather than after the suite at release time.
+    tracked = subprocess.run(["git", "ls-files", "-z"], cwd=REPOSITORY_ROOT, check=True, capture_output=True).stdout.decode().split("\0")
+    for name in filter(None, tracked):
+        source = REPOSITORY_ROOT / name
+        if source.is_file() and not source.is_symlink():
+            target = tmp_path / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(source.read_bytes())
+    manifest_module.scan_source(str(tmp_path))
+
+
 def test_source_scan_rejects_high_confidence_credentials(tmp_path):
     (tmp_path / "safe.txt").write_text("ith_pat_test-placeholder", encoding="utf-8")
     manifest_module.scan_source(str(tmp_path))

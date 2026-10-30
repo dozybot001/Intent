@@ -139,7 +139,7 @@ def test_operator_commands_find_people_and_refuse_unknown_ids(hub, capsys):
 
 @pytest.mark.parametrize("text, kind", [
     ("key ghp_" + "a1" * 18, "GitHub token"),
-    ("-----BEGIN OPENSSH PRIVATE KEY-----", "private key"),
+    ("-----BEGIN OPENSSH " + "PRIVATE KEY-----", "private key"),
     ("export KEY=sk-ant-" + "b2" * 12, "API key"),
     ("AKIA" + "ABCDEFGHIJKLMNOP", "AWS access key"),
     ("postgresql://user:hunter2@db.example/app", "password in a URL"),

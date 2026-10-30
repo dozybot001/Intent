@@ -146,8 +146,9 @@ mkdir "${SOURCE_DIRECTORY}/context"
 tar -xzf "${SOURCE_DIRECTORY}/source.tar.gz" \
     --strip-components=1 \
     -C "${SOURCE_DIRECTORY}/context"
-python3 "${SCRIPT_DIR}/release_manifest.py" scan \
-    --source "${SOURCE_DIRECTORY}/context" >/dev/null
+SCAN_RESULT="$(python3 "${SCRIPT_DIR}/release_manifest.py" scan \
+    --source "${SOURCE_DIRECTORY}/context")" \
+    || fail "source scan refused this Commit: ${SCAN_RESULT}"
 
 [[ "$(git rev-parse HEAD)" == "${RELEASE_SHA}" \
     && -z "$(git status --porcelain=v1 --untracked-files=all)" ]] \
