@@ -56,7 +56,7 @@ itt init    # 为你使用的 Agent 配置 hooks（也可以指定 --host codex 
 然后信任一次项目 hooks：Codex 中打开 `/hooks`；Claude Code 中信任该目录并在 `/hooks` 确认两个 hook。之后照常工作。下次继续时告诉 Agent：*「通过 Intent 恢复这个项目。」*
 
 Windows（PowerShell）：`irm https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.ps1 | iex`。
-使用 pipx 或 uv：`pipx install "intent-history @ git+https://github.com/dozybot001/Intent.git@v7.6.3"`（或 `uv tool install …`）。需要 Python 3.9+ 和 Git。
+使用 pipx 或 uv：`pipx install "intent-history @ git+https://github.com/dozybot001/Intent.git@v7.6.4"`（或 `uv tool install …`）。需要 Python 3.9+ 和 Git。
 
 ## 手动体验
 

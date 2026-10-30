@@ -52,7 +52,7 @@ const context = {document, NodeFilter: {SHOW_TEXT: 4}, navigator: {language: 'zh
 };
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(root, 'i18n.js'), 'utf8'), context);
-const appFiles = [...fs.readFileSync(path.join(root, 'index.html'), 'utf8').matchAll(/src="\/(js\/[\w-]+\.js)\?/g)].map((match) => match[1]);
+const appFiles = fs.readFileSync(path.join(root, 'js/order.txt'), 'utf8').split('\n').filter(Boolean).map((name) => `js/${name}`);
 const app = appFiles.map((file) => fs.readFileSync(path.join(root, file), 'utf8')).join('\n');
 vm.runInContext(app.replace(/init\(\);\s*$/, ''), context);
 const zh = context.window.IntHubI18n.zh;

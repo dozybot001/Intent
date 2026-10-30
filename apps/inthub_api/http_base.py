@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.parse import quote, urlparse
 
 from apps.inthub_api.common import APIError
-from apps.inthub_web import product_version
+from apps.inthub_web import BUNDLES, bundle, product_version
 from apps.inthub_api.http_common import WEB_ROUTES
 
 
@@ -124,6 +124,10 @@ class HttpBase:
             )
             return True
 
+        if path in BUNDLES:
+            folder, content_type = BUNDLES[path]
+            self._send_bytes(200, bundle(self.hub.root, folder), content_type, cache_control="public, max-age=3600")
+            return True
         if WEB_ROUTES.fullmatch(path):
             self._serve_index()
             return True

@@ -10,7 +10,7 @@ import pytest
 
 from apps.inthub_api import queries
 from apps.inthub_api.http_common import REVISION_PAGE_MAX
-from apps.inthub_web import product_version
+from apps.inthub_web import BUNDLES, bundle, product_version
 from intent_cli import identity, relations, store
 
 
@@ -48,15 +48,10 @@ class _MarkupTags(HTMLParser):
 
 
 def _static(name):
-    """One file, or the whole app or stylesheet in load order: nothing here cares which part holds a rule."""
-    text = (STATIC_DIR / name).read_text(encoding="utf-8") if name != "app.js" else ""
-    if name == "app.js":
-        parts = re.findall(r'src="/(js/[\w-]+\.js)\?', _static("index.html"))
-    elif name == "styles.css":
-        parts = re.findall(r'@import url\("/(css/[\w-]+\.css)\?', text)
-    else:
-        return text
-    return "\n".join((STATIC_DIR / part).read_text(encoding="utf-8") for part in parts)
+    """One file, or the whole app or stylesheet as it is served: nothing here cares which part holds a rule."""
+    if f"/{name}" in BUNDLES:
+        return bundle(STATIC_DIR, BUNDLES[f"/{name}"][0]).decode("utf-8")
+    return (STATIC_DIR / name).read_text(encoding="utf-8")
 
 
 def _block(css, selector):
@@ -203,6 +198,16 @@ def test_theme_and_local_font_cover_all_entry_pages_without_external_loading():
     assert 'position: absolute' in menu and 'dvh' in menu and 'overflow-y: auto' in menu
     assert 'SIL OPEN FONT LICENSE Version 1.1' in _static('Inter-LICENSE.txt')
     assert "prefers-reduced-motion: reduce" in css
+
+
+def test_the_app_reaches_the_browser_as_one_script_and_one_stylesheet():
+    html = _static("index.html")
+    assert re.findall(r'<script src="(/[\w./-]+)\?', html) == ["/theme.js", "/i18n.js", "/help.js", "/app.js"]
+    assert re.findall(r'<link rel="stylesheet" href="(/[\w./-]+)\?', html) == ["/styles.css"]
+    # A part missing from its order list would simply never load.
+    for folder, suffix in (("js", ".js"), ("css", ".css")):
+        listed = (STATIC_DIR / folder / "order.txt").read_text(encoding="utf-8").split()
+        assert sorted(listed) == sorted(path.name for path in (STATIC_DIR / folder).glob(f"*{suffix}"))
 
 
 def test_static_assets_carry_one_current_cache_revision():

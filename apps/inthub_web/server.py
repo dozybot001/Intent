@@ -5,7 +5,7 @@ import json
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
-from apps.inthub_web import product_version
+from apps.inthub_web import BUNDLES, bundle, product_version
 
 
 STATIC_DIR = Path(__file__).with_name("static")
@@ -50,6 +50,15 @@ def make_handler(api_base_url, default_project_id=None, static_dir=None):
                 return
             if parsed.path == "/config.json":
                 self._send_json(config)
+                return
+            if parsed.path in BUNDLES:
+                folder, content_type = BUNDLES[parsed.path]
+                body = bundle(root, folder)
+                self.send_response(200)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
                 return
 
             if parsed.path == "/" or (not Path(parsed.path).suffix and not parsed.path.startswith("/config")):
