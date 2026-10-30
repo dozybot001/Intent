@@ -42,6 +42,7 @@ itt maintenance close failed --turn TOKEN --reason REASON
 - **Intent：**有独立结果与生命周期的连贯目标。可独立接续的目标拆开；实际继续时复用匹配的 active/suspended 目标。无配额，不按 query、session、文件、命令、提交或实现层拆分。
 - **Snap：**仅一个 Intent 内只追加的已验证里程碑、结论、纠正或检查点。可独立验证/取代的结论拆开，同一结论的证据合并，跨 Intent 分别写 Snap。跳过日常日志，纠正追加后续 Snap。
 - **Decision：**未来处理不同问题的 Intent 仍须遵守的稀缺规则。用户明确的持久规则已确认；推断的实现选择保留在局部或省略。必要澄清整个流程最多一次简短批量询问，不逐候选打断。
+- **关系：**只在 Intent 之间，且只在影响接续时记录。在当前目标里发现、上级缺它不能完成的子目标用 `--part-of`，独立的用 `--derived-from`；接过某个目标目的的用 `--succeeds`，或结束旧目标时用 `--into 新目标`；真实的前置条件用 `--depends-on`，不能同时按现有表述达成的目标用 `--conflicts-with`。不因相似而关联。出自某个 Intent 的 Decision 加 `--from ID`，项目级规则不写来源。
 
 Intent `what` 命名目标，`why` 解释动机；Snap 字段保留已验证变化及推理。变化且仍开放或即将暂停的 Intent，最新 Snap 应通过 `--verified`、`--boundary`、`--next`、`--blocker`（没有 blocker 写 `none`）和 `--constraints` 独立回答 **Verified / Boundary / Next / Blocker / Constraints**，不把标签写进 `what`/`why`；inspect 以条目的 `checkpoint` 返回这些格（旧 Snap 仍写在正文中）。未变化且准确的检查点不重写。
 

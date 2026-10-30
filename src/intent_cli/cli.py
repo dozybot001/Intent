@@ -35,12 +35,23 @@ from intent_cli.commands.core import (
     cmd_intent_cancel,
     cmd_intent_create,
     cmd_intent_done,
+    cmd_intent_relate,
     cmd_intent_suspend,
+    cmd_intent_unrelate,
     cmd_snap_create,
     cmd_version,
 )
 from intent_cli.commands.hub import cmd_hub_start
 from intent_cli.commands.shared import cmd_push, cmd_pull, cmd_status, cmd_remote, cmd_link, cmd_hub_status
+
+
+RELATION_FLAGS = (
+    ("--part-of", "part_of", "this goal is a part of ID: ID is not complete until it is done or dropped"),
+    ("--derived-from", "derived_from", "this goal arose while working on ID, which does not need it"),
+    ("--succeeds", "succeeds", "this goal takes over ID's aim: next stage, new approach or merged duplicate"),
+    ("--depends-on", "depends_on", "this goal cannot proceed until ID is done"),
+    ("--conflicts-with", "conflicts_with", "this goal and ID cannot both be achieved as stated"),
+)
 
 
 def _invoke(command, args):
@@ -271,6 +282,22 @@ def main():
     p.add_argument("what", metavar="WHAT")
     p.add_argument("--why", default="")
     p.add_argument("--origin", default=None, metavar="LABEL")
+    parent = p.add_mutually_exclusive_group()
+    for flag, dest, text in RELATION_FLAGS:
+        if dest in ("part_of", "derived_from"):
+            parent.add_argument(flag, dest=dest, default=None, metavar="ID", help=text)
+        else:
+            p.add_argument(flag, dest=dest, action="append", default=None, metavar="ID", help=f"{text} (repeatable)")
+
+    p = s_intent.add_parser("relate", help="record how this intent relates to another")
+    p.add_argument("id", metavar="INTENT")
+    kinds = p.add_mutually_exclusive_group(required=True)
+    for flag, dest, text in RELATION_FLAGS:
+        kinds.add_argument(flag, dest=dest, default=None, metavar="ID", help=text)
+
+    p = s_intent.add_parser("unrelate", help="withdraw the active relation between two intents")
+    p.add_argument("id", metavar="INTENT")
+    p.add_argument("other", metavar="OTHER")
 
     p = s_intent.add_parser("activate")
     p.add_argument("id", nargs="?")
@@ -278,12 +305,15 @@ def main():
     p = s_intent.add_parser("suspend")
     p.add_argument("id", nargs="?")
 
+    into_help = "the intent that carries this goal on; records that it succeeds this one"
     p = s_intent.add_parser("done")
     p.add_argument("id", nargs="?")
+    p.add_argument("--into", default=None, metavar="ID", help=into_help)
 
     p = s_intent.add_parser("cancel")
     p.add_argument("id", nargs="?")
     p.add_argument("--reason", default="")
+    p.add_argument("--into", default=None, metavar="ID", help=into_help)
 
     # --- snap ---
     p_snap = sub.add_parser("snap", help="record a verified checkpoint")
@@ -305,6 +335,7 @@ def main():
     p.add_argument("what", metavar="WHAT")
     p.add_argument("--why", default="")
     p.add_argument("--origin", default=None, metavar="LABEL")
+    p.add_argument("--from", dest="source", default=None, metavar="ID", help="the intent this decision came from (omit for a project-level decision)")
 
     p = s_decision.add_parser("deprecate")
     p.add_argument("id")
@@ -365,6 +396,8 @@ def main():
         ("intent", "suspend"):         cmd_intent_suspend,
         ("intent", "done"):            cmd_intent_done,
         ("intent", "cancel"):          cmd_intent_cancel,
+        ("intent", "relate"):          cmd_intent_relate,
+        ("intent", "unrelate"):        cmd_intent_unrelate,
         ("snap", "create"):            cmd_snap_create,
         ("decision", "create"):        cmd_decision_create,
         ("decision", "deprecate"):     cmd_decision_deprecate,

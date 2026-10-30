@@ -10,6 +10,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+from intent_cli import relations as relation_rules
+
 INTENT_DIR = ".intent"
 SUBDIRS = {"intent": "intents", "snap": "snaps", "decision": "decisions"}
 HUB_CONFIG = "hub.json"
@@ -234,6 +236,32 @@ def _validate_checkpoint(checkpoint, path):
             )
 
 
+def _validate_relations(entries, path):
+    """Validate the optional Intent relations list (see relations.py)."""
+    if not isinstance(entries, list):
+        raise StoredObjectSchemaError(path, "field 'relations' must be a list", field="relations")
+    for index, entry in enumerate(entries):
+        field = f"relations[{index}]"
+        if not isinstance(entry, dict) or not all(isinstance(entry.get(key), str) for key in ("type", "intent", "created_at")):
+            raise StoredObjectSchemaError(
+                path, f"field '{field}' needs string type, intent and created_at", field=field,
+            )
+        if entry["type"] not in relation_rules.RELATION_TYPES:
+            raise StoredObjectSchemaError(
+                path, f"field '{field}.type' has unknown relation type {entry['type']!r}", field=f"{field}.type",
+            )
+        try:
+            validate_object_id("intent", entry["intent"])
+        except InvalidObjectIdError as exc:
+            raise StoredObjectSchemaError(
+                path, f"field '{field}.intent' is not a valid intent ID", field=f"{field}.intent",
+            ) from exc
+        if "removed_at" in entry and not isinstance(entry["removed_at"], str):
+            raise StoredObjectSchemaError(
+                path, f"field '{field}.removed_at' must be a string", field=f"{field}.removed_at",
+            )
+
+
 def _validate_object_schema(
     obj,
     path,
@@ -304,6 +332,19 @@ def _validate_object_schema(
             ) from exc
         if "checkpoint" in obj:
             _validate_checkpoint(obj["checkpoint"], path)
+
+    if object_type == "intent" and "relations" in obj:
+        _validate_relations(obj["relations"], path)
+
+    if object_type == "decision" and "source_intent_id" in obj:
+        try:
+            validate_object_id("intent", obj["source_intent_id"])
+        except InvalidObjectIdError as exc:
+            raise StoredObjectSchemaError(
+                path,
+                "field 'source_intent_id' is not a valid intent ID",
+                field="source_intent_id",
+            ) from exc
 
     return obj
 
@@ -935,6 +976,27 @@ def validate_graph(graph):
                     decision_id,
                     f"Intent {intent_id} does not link back to this decision.",
                 )
+
+    for intent_id, intent in intents.items():
+        for entry in relation_rules.active_entries(intent):
+            if entry["intent"] not in intents:
+                add_issue(
+                    "MISSING_REFERENCE",
+                    "intent",
+                    intent_id,
+                    f"Relation {entry['type']} points to missing intent {entry['intent']}.",
+                )
+    for intent_id, message in relation_rules.graph_issues(intents):
+        add_issue("INVALID_RELATION", "intent", intent_id, message)
+    for decision_id, decision in decisions.items():
+        source = decision.get("source_intent_id")
+        if source is not None and source not in intents:
+            add_issue(
+                "MISSING_REFERENCE",
+                "decision",
+                decision_id,
+                f"Source intent {source} is missing.",
+            )
 
     return {
         "healthy": not issues,

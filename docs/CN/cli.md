@@ -44,11 +44,27 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 
 | 命令 | 作用 |
 |---|---|
-| `itt intent create WHAT [--why W]` | 创建 intent。自动挂载所有 active decision。 |
+| `itt intent create WHAT [--why W] [关系参数]` | 创建 intent。自动挂载所有 active decision。关系参数见下文。 |
 | `itt intent activate [ID]` | `suspend` → `active`。补挂 active decision。唯一候选时自动推断 ID。 |
 | `itt intent suspend [ID]` | `active` → `suspend`。唯一候选时自动推断 ID。 |
-| `itt intent done [ID]` | `active` → `done`（终态）。唯一候选时自动推断 ID。 |
-| `itt intent cancel [ID] [--reason TEXT]` | `active` / `suspend` → `cancelled`（终态）。只有一个未结束 intent 时自动推断 ID。 |
+| `itt intent done [ID] [--into OTHER]` | `active` → `done`（终态）。唯一候选时自动推断 ID。`--into` 记录由 OTHER 继承这个 intent。 |
+| `itt intent cancel [ID] [--reason TEXT] [--into OTHER]` | `active` / `suspend` → `cancelled`（终态）。只有一个未结束 intent 时自动推断 ID。`--into` 同 `done`；两者之间若有对立关系，会转为继承。 |
+| `itt intent relate ID --part-of/--derived-from/--succeeds/--depends-on/--conflicts-with OTHER` | 记录一条从 ID 指向 OTHER 的关系。 |
+| `itt intent unrelate ID OTHER` | 撤回两个 intent 之间的有效关系，不论由哪一方声明。 |
+
+### 关系
+
+关系只存在于 intent 之间（[设计](intent-flow.md)）。`intent create` 接受 `--part-of ID` 或 `--derived-from ID`（最多一个上级），以及可重复的 `--succeeds`、`--depends-on`、`--conflicts-with`。
+
+| 参数 | 含义 | 推算状态 |
+|---|---|---|
+| `--part-of A` | 组成：这个目标是 A 的一部分，A 要完成，它必须先完成或放弃 | `in_progress`、`done`、`dropped`、`orphaned`（A 先结束） |
+| `--derived-from A` | 衍生：做 A 时产生的目标，A 不依赖它 | 无 |
+| `--succeeds A` | 继承：接过 A 的目的（下一阶段、改换方案、合并重复） | `pending`（A 仍未结束）、`handed_over` |
+| `--depends-on A` | 依赖：要等 A 完成才能推进 | `blocked`、`satisfied`、`broken`（A 被取消） |
+| `--conflicts-with A` | 对立：与 A 不能都按现有表述达成 | `unresolved`、`resolved` |
+
+一对 intent 之间最多一条有效关系；组成、衍生、继承、依赖都不能成环；已结束的 intent 不能新增组成部分。状态由两端状态推算，不单独存储。`inspect` 和 `show` 以 `{type, direction, intent, state}` 返回两个方向的有效关系。
 
 ### Snap
 
@@ -62,7 +78,7 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 
 | 命令 | 作用 |
 |---|---|
-| `itt decision create WHAT [--why W]` | 创建长期约束。自动挂载所有 active intent。 |
+| `itt decision create WHAT [--why W] [--from ID]` | 创建长期约束。自动挂载所有 active intent。`--from` 记录它出自哪个 intent；不写即为项目级决策。 |
 | `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated`（终态）。保留历史，停止未来自动挂载。 |
 
 ### 共享语义历史
@@ -163,9 +179,11 @@ stateDiagram-v2
 | `decision_ids` | ✓ | | | 关联 decision（创建时自动挂载） |
 | `intent_ids` | | | ✓ | 关联 intent（创建时自动挂载） |
 | `reason` | ✓ | | ✓ | intent 取消或 decision 废弃的原因（通过 `--reason` 设置） |
+| `relations` | ✓ | | | 可选，写在声明关系的 intent 上：只追加的 `{type, intent, created_at}` 记录；撤回时追加 `removed_at` |
+| `source_intent_id` | | | ✓ | 可选，decision 出自的 intent（`--from`）；项目级决策没有该字段 |
 
-通过 CLI 创建后，`what`、`why`、`origin`、`checkpoint`、`created_at` 等描述性字段视为写一次。
-后续命令可能推进 `status`，补充 `reason`，以及追加自动维护的关系字段（如 `snap_ids`、`decision_ids`、`intent_ids`）。
+通过 CLI 创建后，`what`、`why`、`origin`、`checkpoint`、`source_intent_id`、`created_at` 等描述性字段视为写一次。
+后续命令可能推进 `status`，补充 `reason`，追加自动维护的关系字段（如 `snap_ids`、`decision_ids`、`intent_ids`），以及追加或撤回 `relations` 记录。
 
 ### Origin 检测
 
@@ -201,7 +219,7 @@ stateDiagram-v2
 
 ### `inspect`
 
-`inspect` 返回接续已记录工作所需的上下文。`active_intents` 和 `suspended` 会包含目标的 `why`、存在时的完整最新 Snap 对象、`snap_count`、`has_more` 和 `checkpoint`：即最新 Snap 的结构化检查点，该 Snap 未记录时为 `null`（旧 Snap 仍可能把这些内容写在 `latest_snap` 正文中）。`active_decisions` 也会包含每项 Decision 的 `why`。在默认视图中，若 `latest_snap` 之前还有更早的 Snap，`has_more` 为 true。
+`inspect` 返回接续已记录工作所需的上下文。`active_intents` 和 `suspended` 会包含目标的 `why`、存在时的完整最新 Snap 对象、`snap_count`、`has_more` 和 `checkpoint`：即最新 Snap 的结构化检查点，该 Snap 未记录时为 `null`（旧 Snap 仍可能把这些内容写在 `latest_snap` 正文中）。每个条目还有 `relations`：两个方向的有效关系，每条为 `{type, direction, intent: {id, what, status}, state}`（没有关系时为空列表）。`active_decisions` 也会包含每项 Decision 的 `why`。在默认视图中，若 `latest_snap` 之前还有更早的 Snap，`has_more` 为 true。
 
 ```json
 {
@@ -323,6 +341,7 @@ stateDiagram-v2
 | `STATE_CONFLICT` | 状态流转非法 |
 | `OBJECT_NOT_FOUND` | 找不到对应对象 ID |
 | `INVALID_INPUT` | 参数非法或缺少必填输入 |
+| `INVALID_RELATION` | 关系会让 intent 关联自己、与同一对 intent 的有效关系重复、出现第二个上级、形成环，或给已结束的 intent 新增组成部分 |
 | `INVALID_OBJECT_ID` | 显式对象 ID 不是与类型匹配的本地 ID，例如 `intent-001` |
 | `UNSAFE_STORAGE` | `.intent/`、对象目录、锁或对象文件通过符号链接重定向，或越出存储边界 |
 | `STORAGE_PARSE_ERROR` | 存储对象不是合法 UTF-8 JSON；`doctor` 会列出扫描到的全部解析失败 |

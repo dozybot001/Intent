@@ -62,10 +62,25 @@ def snapshot_sha256(snapshot):
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def _relations_grow_only(old, new):
+    """Relation entries are only appended; an existing entry may only gain removed_at."""
+    before, after = old.get("relations") or [], new.get("relations") or []
+    if len(after) < len(before):
+        return False
+    for previous, current in zip(before, after):
+        if {k: v for k, v in previous.items() if k != "removed_at"} != {
+            k: v for k, v in current.items() if k != "removed_at"
+        }:
+            return False
+        if "removed_at" in previous and current.get("removed_at") != previous["removed_at"]:
+            return False
+    return True
+
+
 def require_fast_forward(before, after):
     """Reject deleted/replaced history and reverse terminal lifecycle transitions."""
     mutable = {
-        "intents": {"status", "reason", "snap_ids", "decision_ids"},
+        "intents": {"status", "reason", "snap_ids", "decision_ids", "relations"},
         "decisions": {"status", "reason", "intent_ids"},
         "snaps": set(),
     }
@@ -82,7 +97,13 @@ def require_fast_forward(before, after):
             for relation in ("snap_ids", "decision_ids", "intent_ids"):
                 if relation in old and new[relation][:len(old[relation])] != old[relation]:
                     raise SnapshotError(f"Remote history rewrote {old['id']}.{relation}.")
-            if old.get("status") in {"done", "cancelled", "deprecated"} and new != old:
+            if not _relations_grow_only(old, new):
+                raise SnapshotError(f"Remote history rewrote {old['id']}.relations.")
+            # A finished object may still gain relation records (for example a
+            # successor of a duplicate), but nothing it already says may change.
+            if old.get("status") in {"done", "cancelled", "deprecated"} and {
+                k: v for k, v in old.items() if k != "relations"
+            } != {k: v for k, v in new.items() if k != "relations"}:
                 raise SnapshotError(f"Remote history changed terminal object {old['id']}.")
             if "reason" in old and new.get("reason") != old["reason"]:
                 raise SnapshotError(f"Remote history rewrote {old['id']}.reason.")

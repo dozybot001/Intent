@@ -2,7 +2,7 @@
 
 [中文](../CN/intent-flow.md) | English
 
-Status: design (2026-10-30), not implemented yet. Target: Intent 7.2.
+Status: implemented in Intent 7.2.
 
 ## Principles
 
@@ -48,7 +48,7 @@ States that need attention (blocked, broken, unresolved, handover pending) appea
 
 - Between two Intents there is at most one active relation at a time.
 - An Intent has at most one parent: either part of or derived from, pointing at one Intent.
-- part of, succeeds and depends on never form cycles. No Intent relates to itself, and the target must exist.
+- Parent relations (part of and derived from), succeeds and depends on never form cycles. No Intent relates to itself, and the target must exist.
 - An Intent that has ended cannot gain new parts.
 
 ## Commands
@@ -61,7 +61,7 @@ itt intent cancel intent-005 --into intent-008 --reason "duplicate"  # end it; i
 itt decision create "Payments go through PaymentIntents only" --why "…" --from intent-003
 ```
 
-`--into` on `done` or `cancel` ends the Intent and records on the target that it succeeds this one. `itt show ID` lists relations in both directions, with their states.
+`--into` on `done` or `cancel` ends the Intent and records on the target that it succeeds this one. If the two Intents conflicted, that conflict is withdrawn: ending one in favour of the other resolves it. `itt show ID` lists relations in both directions, with their states.
 
 ## Storage
 
@@ -98,5 +98,5 @@ Acceptance: one fixture history per relation type, then real projects. The view 
 
 ## Compatibility
 
-- Older `itt` versions ignore the new fields when reading. If an existing Intent later gains a relation, though, 7.1 and earlier reject the pull in their fast-forward check and need to upgrade to 7.2. 7.2 also lets that check tolerate fields added in the future, so this does not happen again.
+- Older `itt` versions ignore the new fields when reading. If an existing Intent later gains a relation, though, 7.1 and earlier reject the pull in their fast-forward check and need to upgrade to 7.2. Snaps and every other written field stay exactly as strict as before.
 - The 8.0 migration keeps these fields as they are. In a semantic merge, relation records are united and a withdrawal wins. A merge that leaves an Intent with two parents or a cycle becomes a structured conflict for the user to resolve.

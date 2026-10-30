@@ -15,6 +15,20 @@ CHECKPOINT_LABELS = (
     ("constraints", "Constraints"),
 )
 STATUS_WORDS = {"active": "active", "suspend": "suspended", "done": "done", "cancelled": "cancelled", "deprecated": "deprecated"}
+# How a relation reads from the intent being shown: (type, direction) -> label.
+RELATION_LABELS = {
+    ("part_of", "out"): "Part of", ("part_of", "in"): "Part",
+    ("derived_from", "out"): "Derived from", ("derived_from", "in"): "Spawned",
+    ("succeeds", "out"): "Succeeds", ("succeeds", "in"): "Succeeded by",
+    ("depends_on", "out"): "Depends on", ("depends_on", "in"): "Needed by",
+    ("conflicts_with", "out"): "Conflicts", ("conflicts_with", "in"): "Conflicts",
+}
+RELATION_STATES = {
+    "in_progress": "in progress", "done": "done", "dropped": "dropped", "orphaned": "parent has ended",
+    "pending": "handover pending", "handed_over": "handed over", "blocked": "blocked", "satisfied": "satisfied",
+    "broken": "dependency cancelled", "unresolved": "unresolved", "resolved": "resolved",
+}
+ATTENTION_STATES = {"orphaned", "pending", "blocked", "broken", "unresolved"}
 
 
 def _color():
@@ -203,9 +217,22 @@ def _inspect(result):
     return lines
 
 
+def _relation_line(row, indent):
+    label = RELATION_LABELS.get((row["type"], row["direction"]), row["type"])
+    other = row["intent"]
+    text = f"{other['id']}  {_one_line(other.get('what'), _width() - 48)}"
+    if row.get("state"):
+        text += f" · {RELATION_STATES.get(row['state'], row['state'])}"
+    return _labelled(label, text, indent, yellow if row.get("state") in ATTENTION_STATES else dim)
+
+
 def _intent_block(intent):
     lines = [f"  {bold(intent['id'])}  {_one_line(intent['what'], _width() - 16)}"]
     snap = intent.get("latest_snap")
+    # Where the goal sits, and only the relations someone has to act on.
+    for row in intent.get("relations") or []:
+        if (row["type"] in {"part_of", "derived_from"} and row["direction"] == "out") or row.get("state") in ATTENTION_STATES:
+            lines.append(_relation_line(row, "              "))
     lines += _checkpoint_lines(snap, "              ")
     if snap:
         lines.append(dim(f"              {snap['id']} · {_when(snap.get('created_at'))} · {_plural(intent.get('snap_count', 0), 'snap')}"))
@@ -258,7 +285,14 @@ def _show(result):
         lines += ["", dim(f"Decisions ({len(result.get('decisions', []))})")]
         lines += [f"  {decision['id']}  {_one_line(decision.get('what'), _width() - 18)}"
                   for decision in result.get("decisions", [])] or [dim("  none")]
+        relations = result.get("relations") or []
+        if relations:
+            lines += ["", dim(f"Relations ({len(relations)})")]
+            lines += [_relation_line(row, "  ") for row in relations]
     if kind == "decision":
+        source = result.get("source_intent")
+        lines += ["", dim("From"), f"  {source['id']}  {_one_line(source.get('what'), _width() - 16)}" if source
+                  else dim("  project level (no source intent)")]
         lines += ["", dim(f"Applies to ({len(result.get('intents', []))})")]
         lines += [f"  {intent['id']}  {_one_line(intent.get('what'), _width() - 16)}"
                   for intent in result.get("intents", [])] or [dim("  none")]
@@ -351,7 +385,24 @@ def _created(result):
 
 
 def _lifecycle(word):
-    return lambda result: [f"{bold(result['id'])} is now {word}."]
+    def render(result):
+        line = f"{bold(result['id'])} is now {word}."
+        if result.get("successor"):
+            line += f" {bold(result['successor'])} carries it on."
+        return [line]
+    return render
+
+
+def _related(result):
+    relation = result["relation"]
+    label = RELATION_LABELS.get((relation["type"], "out"), relation["type"]).lower()
+    state = RELATION_STATES.get(relation.get("state"), relation.get("state"))
+    return [f"{bold(result['id'])} {label} {bold(relation['intent'])}" + (f" ({state})." if state else ".")]
+
+
+def _unrelated(result):
+    relation = result["relation"]
+    return [f"Withdrew {result['id']} {RELATION_LABELS.get((relation['type'], 'out'), relation['type']).lower()} {relation['intent']}."]
 
 
 def _snap_created(result):
@@ -386,6 +437,8 @@ RENDERERS = {
     "intent.suspend": _lifecycle("suspended"),
     "intent.done": _lifecycle("done"),
     "intent.cancel": _lifecycle("cancelled"),
+    "intent.relate": _related,
+    "intent.unrelate": _unrelated,
     "decision.deprecate": _lifecycle("deprecated"),
     "auth.login": _auth("auth.login"),
     "auth.status": _auth("auth.status"),

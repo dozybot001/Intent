@@ -33,6 +33,15 @@ def _entry(project_id, obj):
     return {**obj, "project_id": project_id, "remote_id": make_remote_object_id(project_id, obj["id"])}
 
 
+OVERVIEW_SNAPS = 20  # the rest of the timeline is paged through project_snaps
+SNAP_PAGE_MAX = 200
+SEARCH_LIMIT = 50
+
+
+def _newest_first(project_id, snaps):
+    return sorted((_entry(project_id, obj) for obj in snaps), key=lambda obj: obj["created_at"], reverse=True)
+
+
 def project_overview(db_path, project_id, account_id=None):
     project, head = _load_project(db_path, project_id, account_id)
     snapshot = _snapshot(head)
@@ -41,8 +50,7 @@ def project_overview(db_path, project_id, account_id=None):
         snap_ids = intent["snap_ids"]
         intents.append({**_entry(project_id, intent), "latest_snap_id": snap_ids[-1] if snap_ids else None})
     decisions = [_entry(project_id, obj) for obj in snapshot["decisions"]]
-    snaps = sorted((_entry(project_id, obj) for obj in snapshot["snaps"]),
-                   key=lambda obj: obj["created_at"], reverse=True)
+    snaps = _newest_first(project_id, snapshot["snaps"])
     return {
         "project": _project_view(project),
         "history": {"project_id": project_id, "revision": head["revision"],
@@ -51,8 +59,20 @@ def project_overview(db_path, project_id, account_id=None):
         "other_intents": [obj for obj in intents if obj["status"] != "active"],
         "active_decisions": [obj for obj in decisions if obj["status"] == "active"],
         "deprecated_decisions": [obj for obj in decisions if obj["status"] == "deprecated"],
-        "recent_snaps": snaps, "total_snaps": len(snaps),
+        "recent_snaps": snaps[:OVERVIEW_SNAPS], "total_snaps": len(snaps),
     }
+
+
+def project_snaps(db_path, project_id, offset=0, limit=50, intent_id=None, account_id=None):
+    """One page of the timeline, newest first, optionally for one Intent."""
+    _, head = _load_project(db_path, project_id, account_id)
+    snaps = _snapshot(head)["snaps"]
+    if intent_id is not None:
+        snaps = [obj for obj in snaps if obj["intent_id"] == intent_id]
+    ordered = _newest_first(project_id, snaps)
+    page = ordered[offset:offset + limit]
+    return {"project_id": project_id, "snaps": page, "total": len(ordered),
+            "offset": offset, "limit": limit, "has_more": offset + len(page) < len(ordered)}
 
 
 def list_projects(db_path, account_id=None):
@@ -130,4 +150,5 @@ def search_project(db_path, project_id, query, account_id=None):
                 checkpoint = obj.get("checkpoint", {}) if collection == "snaps" else {}
                 if q in " ".join((obj["what"], obj["why"], *checkpoint.values())).lower():
                     matches.append({**_entry(project_id, obj), "object_type": collection[:-1]})
-    return {"project_id": project_id, "query": query, "matches": matches}
+    return {"project_id": project_id, "query": query, "matches": matches[:SEARCH_LIMIT],
+            "total": len(matches), "truncated": len(matches) > SEARCH_LIMIT}

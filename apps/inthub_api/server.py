@@ -32,14 +32,17 @@ from apps.inthub_api.db import check_database, describe_database
 from apps.inthub_api.history import link_history, push_history, read_history
 from apps.inthub_api.product_deletion import ProductDeletionClient, subject_for_account
 from apps.inthub_api.queries import (
+    SNAP_PAGE_MAX,
     get_decision_detail,
     get_intent_detail,
     get_snap_detail,
     list_projects,
     project_handoff,
     project_overview,
+    project_snaps,
     search_project,
 )
+from intent_cli.store import StorageSecurityError, validate_object_id
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "inthub_web" / "static"
 DEFAULT_MAX_BODY_BYTES = 16 * 1024 * 1024
@@ -57,6 +60,20 @@ LOGGER = logging.getLogger("inthub.api")
 
 def _json_success(result):
     return {"ok": True, "result": result}
+
+
+def _query_int(query, name, default, minimum, maximum):
+    raw = query.get(name, [None])[0]
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        value = None
+    if value is None or value < minimum or (maximum is not None and value > maximum):
+        bound = f" and {maximum}" if maximum is not None else " or more"
+        raise APIError("INVALID_INPUT", f"Query parameter '{name}' must be an integer of {minimum}{bound}.", status=400)
+    return value
 
 
 def _login_error_return(return_to, code):
@@ -603,6 +620,23 @@ def make_handler(
                     _json_success(
                         project_overview(db_path, project_id, account_id=account_id)
                     ),
+                    compact=True,
+                )
+                return
+
+            if path.startswith("/api/v1/projects/") and path.endswith("/snaps"):
+                project_id = path.split("/")[4]
+                offset = _query_int(query, "offset", 0, 0, None)
+                limit = _query_int(query, "limit", 50, 1, SNAP_PAGE_MAX)
+                intent_id = query.get("intent_id", [None])[0]
+                if intent_id is not None:
+                    try:
+                        validate_object_id("intent", intent_id)
+                    except StorageSecurityError as exc:
+                        raise APIError("INVALID_INPUT", "Invalid intent_id.", status=400) from exc
+                self._send_json(
+                    200,
+                    _json_success(project_snaps(db_path, project_id, offset, limit, intent_id, account_id=account_id)),
                     compact=True,
                 )
                 return

@@ -11,6 +11,7 @@ import subprocess
 import sys
 
 from intent_cli import store
+from intent_cli import relations as relation_rules
 from intent_cli.maintenance import (
     MaintenanceError, begin_turn, find_turn, latest_turn, read_state, receipt_valid, verified_graph, write_state,
 )
@@ -256,6 +257,10 @@ def _context(base, key, entry, graph, limit=MAX_CONTEXT_BYTES):
                         records["context_truncated"] = True
                     item["latest_snap"]["checkpoint"] = {key: value[:800] for key, value in checkpoint.items()}
                 item["snap_count"] = len(ids)
+                links = relation_rules.view(graph["intent"], obj["id"])
+                if links:
+                    item["relations"] = [{"type": row["type"], "direction": row["direction"],
+                                          "intent": row["intent"]["id"], "state": row["state"]} for row in links[:8]]
             collection = "active_decisions" if kind == "decision" else "active_intents" if obj["status"] == "active" else "suspended"
             records[collection].append(item)
             rendered = prefix + json.dumps(records, ensure_ascii=True)

@@ -1,6 +1,7 @@
 """Core object command handlers for the Intent CLI."""
 
 from intent_cli import __version__
+from intent_cli import relations as relation_rules
 from intent_cli.commands.common import now_utc, require_init, workspace_mutation
 from intent_cli.output import emit_json, error, json_mode, success
 from intent_cli.origin import detect_origin
@@ -109,6 +110,7 @@ def cmd_inspect(args):
             "has_more": len(snap_ids) > history_limit,
             "checkpoint": latest_snap.get("checkpoint") if latest_snap else None,
             "latest_snap": latest_snap,
+            "relations": relation_rules.view(graph["intent"], obj["id"]),
         }
         if args.history is not None:
             entry["recent_snaps"] = [
@@ -191,11 +193,14 @@ def cmd_show(args):
     if kind == "intent":
         result["snaps"] = [summary(graph["snap"][sid], "created_at", "what") for sid in obj.get("snap_ids", []) if sid in graph["snap"]]
         result["decisions"] = [summary(graph["decision"][did], "what", "status") for did in obj.get("decision_ids", []) if did in graph["decision"]]
+        result["relations"] = relation_rules.view(graph["intent"], obj["id"])
     elif kind == "snap":
         intent = graph["intent"].get(obj.get("intent_id"))
         result["intent"] = summary(intent, "what", "status") if intent else None
     else:
         result["intents"] = [summary(graph["intent"][iid], "what", "status") for iid in obj.get("intent_ids", []) if iid in graph["intent"]]
+        source = graph["intent"].get(obj.get("source_intent_id"))
+        result["source_intent"] = summary(source, "what", "status") if source else None
     success("show", result)
 
 
@@ -250,6 +255,54 @@ def _require_text(value, name="WHAT"):
         error("INVALID_INPUT", f"{name} must not be empty.")
 
 
+def _relation_entry(kind, target_id):
+    return {"type": kind, "intent": target_id, "created_at": now_utc()}
+
+
+def _require_relation(intents, subject_id, kind, target_id):
+    """Exit before any write if SUBJECT KIND TARGET would break a relation rule."""
+    validate_object_id("intent", target_id)
+    if subject_id not in intents:
+        error("OBJECT_NOT_FOUND", f"Intent {subject_id} not found.")
+    problem = relation_rules.violation(intents, subject_id, kind, target_id)
+    if problem:
+        code, message = problem
+        error(code, message, suggested_fix=f"Inspect current relations with: itt show {subject_id}")
+
+
+def _relation_flags(args):
+    """(type, target) pairs given on the command line, in relation-type order."""
+    pairs = []
+    for kind in relation_rules.RELATION_TYPES:
+        values = getattr(args, kind, None)
+        for value in [values] if isinstance(values, str) else values or []:
+            pairs.append((kind, value))
+    return pairs
+
+
+def _record_successor(base, intent_id, into):
+    """For --into: record, before the status change, that INTO succeeds this intent.
+
+    Ending one of two conflicting intents in favour of the other resolves the
+    conflict, so that conflict record is withdrawn and replaced by succession.
+    """
+    if not into:
+        return None
+    validate_object_id("intent", into)
+    intents = {obj["id"]: obj for obj in list_objects(base, "intent")}
+    changed = set()
+    for owner_id, other_id in ((intent_id, into), (into, intent_id)):
+        for entry in relation_rules.active_entries(intents.get(owner_id, {})):
+            if entry["intent"] == other_id and entry["type"] == "conflicts_with":
+                entry["removed_at"] = now_utc()
+                changed.add(owner_id)
+    _require_relation(intents, into, "succeeds", intent_id)
+    intents[into].setdefault("relations", []).append(_relation_entry("succeeds", intent_id))
+    for owner_id in changed | {into}:
+        update_object(base, "intent", owner_id, intents[owner_id])
+    return into
+
+
 @workspace_mutation
 def cmd_intent_create(args):
     _require_text(args.what)
@@ -263,6 +316,16 @@ def cmd_intent_create(args):
         origin = (args.origin or "").strip()
     else:
         origin = detect_origin()
+
+    relations = []
+    pairs = _relation_flags(args)
+    if pairs:
+        # Only relations need the other intents; plain creation stays a single write.
+        intents = {obj["id"]: obj for obj in list_objects(base, "intent")}
+        intents[obj_id] = {"id": obj_id, "status": "active", "relations": relations}
+        for kind, target_id in pairs:
+            _require_relation(intents, obj_id, kind, target_id)
+            relations.append(_relation_entry(kind, target_id))
 
     warnings = []
     if not decision_ids:
@@ -279,6 +342,8 @@ def cmd_intent_create(args):
         "decision_ids": decision_ids,
         "snap_ids": [],
     }
+    if relations:
+        intent["relations"] = relations
     create_object(base, "intent", obj_id, intent)
 
     for decision in active_decisions:
@@ -385,12 +450,18 @@ def cmd_intent_done(args):
             suggested_fix="Use: itt inspect",
         )
 
+    successor = _record_successor(base, intent_id, getattr(args, "into", None))
+    if successor:
+        obj = read_object(base, "intent", intent_id)  # --into may have withdrawn a conflict stored here
     obj["status"] = "done"
     update_object(base, "intent", intent_id, obj)
     warnings = []
     if inferred:
         warnings.append(f"Inferred intent {intent_id} (only active intent).")
-    success("intent.done", _intent_result_for_json(obj), warnings)
+    result = _intent_result_for_json(obj)
+    if successor:
+        result["successor"] = successor
+    success("intent.done", result, warnings)
 
 
 @workspace_mutation
@@ -434,6 +505,9 @@ def cmd_intent_cancel(args):
             suggested_fix="Use: itt inspect",
         )
 
+    successor = _record_successor(base, intent_id, getattr(args, "into", None))
+    if successor:
+        obj = read_object(base, "intent", intent_id)  # --into may have withdrawn a conflict stored here
     obj["status"] = "cancelled"
     reason = getattr(args, "reason", "") or ""
     if reason:
@@ -442,7 +516,52 @@ def cmd_intent_cancel(args):
     warnings = []
     if inferred:
         warnings.append(f"Inferred intent {intent_id} (only open intent).")
-    success("intent.cancel", _intent_result_for_json(obj), warnings)
+    result = _intent_result_for_json(obj)
+    if successor:
+        result["successor"] = successor
+    success("intent.cancel", result, warnings)
+
+
+@workspace_mutation
+def cmd_intent_relate(args):
+    base = require_init()
+    validate_object_id("intent", args.id)
+    kind, target_id = next(pair for pair in _relation_flags(args))
+    intents = {obj["id"]: obj for obj in list_objects(base, "intent")}
+    _require_relation(intents, args.id, kind, target_id)
+    subject = intents[args.id]
+    entry = _relation_entry(kind, target_id)
+    subject.setdefault("relations", []).append(entry)
+    update_object(base, "intent", args.id, subject)
+    success("intent.relate", {
+        "id": args.id,
+        "relation": {**entry, "state": relation_rules.state(kind, subject, intents[target_id])},
+    })
+
+
+@workspace_mutation
+def cmd_intent_unrelate(args):
+    base = require_init()
+    for value in (args.id, args.other):
+        validate_object_id("intent", value)
+    intents = {obj["id"]: obj for obj in list_objects(base, "intent")}
+    for value in (args.id, args.other):
+        if value not in intents:
+            error("OBJECT_NOT_FOUND", f"Intent {value} not found.")
+    # The relation is stored on whichever intent declared it.
+    for owner_id, other_id in ((args.id, args.other), (args.other, args.id)):
+        owner = intents[owner_id]
+        entry = next((item for item in relation_rules.active_entries(owner) if item["intent"] == other_id), None)
+        if entry is not None:
+            entry["removed_at"] = now_utc()
+            update_object(base, "intent", owner_id, owner)
+            success("intent.unrelate", {"id": owner_id, "relation": entry})
+            return
+    error(
+        "OBJECT_NOT_FOUND",
+        f"No active relation between {args.id} and {args.other}.",
+        suggested_fix=f"Inspect current relations with: itt show {args.id}",
+    )
 
 
 def _checkpoint_from_args(args):
@@ -554,6 +673,12 @@ def cmd_decision_create(args):
     else:
         origin = detect_origin()
 
+    source = getattr(args, "source", None)
+    if source:
+        validate_object_id("intent", source)
+        if read_object(base, "intent", source) is None:
+            error("OBJECT_NOT_FOUND", f"Intent {source} not found.", suggested_fix="Omit --from for a project-level decision.")
+
     warnings = []
     if not intent_ids:
         warnings.append("No active intents to attach.")
@@ -568,6 +693,8 @@ def cmd_decision_create(args):
         "origin": origin,
         "intent_ids": intent_ids,
     }
+    if source:
+        decision["source_intent_id"] = source
     create_object(base, "decision", obj_id, decision)
 
     for intent in active_intents:

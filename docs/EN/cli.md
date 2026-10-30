@@ -44,11 +44,27 @@ The normal loop is read once → preserve important verified milestones → clos
 
 | Command | What it does |
 |---|---|
-| `itt intent create WHAT [--why W]` | Create a new intent. Auto-attaches all active decisions. |
+| `itt intent create WHAT [--why W] [relation flags]` | Create a new intent. Auto-attaches all active decisions. Relation flags are listed below. |
 | `itt intent activate [ID]` | `suspend` → `active`. Catches up active decisions. Infers ID when unique. |
 | `itt intent suspend [ID]` | `active` → `suspend`. Infers ID when unique. |
-| `itt intent done [ID]` | `active` → `done` (terminal). Infers ID when unique. |
-| `itt intent cancel [ID] [--reason TEXT]` | `active` / `suspend` → `cancelled` (terminal). Infers ID when only one open intent exists. |
+| `itt intent done [ID] [--into OTHER]` | `active` → `done` (terminal). Infers ID when unique. `--into` records that OTHER succeeds this intent. |
+| `itt intent cancel [ID] [--reason TEXT] [--into OTHER]` | `active` / `suspend` → `cancelled` (terminal). Infers ID when only one open intent exists. `--into` as for `done`; a conflict between the two is resolved into the succession. |
+| `itt intent relate ID --part-of/--derived-from/--succeeds/--depends-on/--conflicts-with OTHER` | Record one relation from ID to OTHER. |
+| `itt intent unrelate ID OTHER` | Withdraw the active relation between the two intents, whichever side declared it. |
+
+### Relations
+
+Relations exist only between intents ([design](intent-flow.md)). `intent create` accepts `--part-of ID` or `--derived-from ID` (one parent at most) plus repeatable `--succeeds`, `--depends-on` and `--conflicts-with`.
+
+| Flag | Meaning | Derived states |
+|---|---|---|
+| `--part-of A` | this goal is a part of A; A is not complete until it is done or dropped | `in_progress`, `done`, `dropped`, `orphaned` (A ended first) |
+| `--derived-from A` | this goal arose while working on A, which does not need it | none |
+| `--succeeds A` | this goal takes over A's aim (next stage, new approach, merged duplicate) | `pending` (A still open), `handed_over` |
+| `--depends-on A` | this goal cannot proceed until A is done | `blocked`, `satisfied`, `broken` (A cancelled) |
+| `--conflicts-with A` | A and this goal cannot both be achieved as stated | `unresolved`, `resolved` |
+
+A pair of intents has at most one active relation; part of, derived from, succeeds and depends on never form cycles; an ended intent gains no new parts. States are derived from the two statuses and never stored. `inspect` and `show` return active relations in both directions as `{type, direction, intent, state}`.
 
 ### Snap
 
@@ -62,7 +78,7 @@ The checkpoint flags write the Snap's optional `checkpoint` object: `verified` (
 
 | Command | What it does |
 |---|---|
-| `itt decision create WHAT [--why W]` | Create a long-lived constraint. Auto-attaches all active intents. |
+| `itt decision create WHAT [--why W] [--from ID]` | Create a long-lived constraint. Auto-attaches all active intents. `--from` names the intent it came from; without it the decision is project-level. |
 | `itt decision deprecate ID [--reason TEXT]` | `active` → `deprecated` (terminal). Preserves history; stops future auto-attach. |
 
 ### Shared semantic history
@@ -163,9 +179,11 @@ stateDiagram-v2
 | `decision_ids` | ✓ | | | Linked decisions (auto-attached on create) |
 | `intent_ids` | | | ✓ | Linked intents (auto-attached on create) |
 | `reason` | ✓ | | ✓ | Why an intent was cancelled or a decision was deprecated (set via `--reason`) |
+| `relations` | ✓ | | | Optional, on the intent that declared them: `{type, intent, created_at}` entries, append-only; a withdrawn entry gains `removed_at` |
+| `source_intent_id` | | | ✓ | Optional intent the decision came from (`--from`); absent for project-level decisions |
 
-Once created through the CLI, descriptive fields such as `what`, `why`, `origin`, `checkpoint`, and `created_at` are treated as write-once.
-Later commands may advance `status`, add `reason`, and append auto-maintained relationship fields such as `snap_ids`, `decision_ids`, and `intent_ids`.
+Once created through the CLI, descriptive fields such as `what`, `why`, `origin`, `checkpoint`, `source_intent_id`, and `created_at` are treated as write-once.
+Later commands may advance `status`, add `reason`, append auto-maintained relationship fields such as `snap_ids`, `decision_ids`, and `intent_ids`, and append or withdraw `relations` entries.
 
 ### Origin detection
 
@@ -201,7 +219,7 @@ All successful commands except `inspect` and host-only `maintenance hook` use:
 
 ### `inspect`
 
-`inspect` returns the context needed to resume recorded work. `active_intents` and `suspended` include the goal's `why`, its complete latest Snap object when one exists, `snap_count`, `has_more`, and `checkpoint`: the latest Snap's structured checkpoint, or `null` when that Snap was recorded without one (older Snaps may still carry the cells as text in `latest_snap`). `active_decisions` includes each decision's `why`. In the default view, `has_more` is true when older Snaps exist beyond `latest_snap`.
+`inspect` returns the context needed to resume recorded work. `active_intents` and `suspended` include the goal's `why`, its complete latest Snap object when one exists, `snap_count`, `has_more`, and `checkpoint`: the latest Snap's structured checkpoint, or `null` when that Snap was recorded without one (older Snaps may still carry the cells as text in `latest_snap`). Each entry also has `relations`: its active relations in both directions, each as `{type, direction, intent: {id, what, status}, state}` (an empty list when there are none). `active_decisions` includes each decision's `why`. In the default view, `has_more` is true when older Snaps exist beyond `latest_snap`.
 
 ```json
 {
@@ -323,6 +341,7 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 | `STATE_CONFLICT` | Illegal state transition |
 | `OBJECT_NOT_FOUND` | Object ID not found |
 | `INVALID_INPUT` | Invalid arguments or missing required input |
+| `INVALID_RELATION` | A relation would relate an intent to itself, duplicate an active relation for the pair, give an intent a second parent, create a cycle, or add a part to an ended intent |
 | `INVALID_OBJECT_ID` | An explicit object ID is not a type-matching local ID such as `intent-001` |
 | `UNSAFE_STORAGE` | `.intent/`, an object directory, lock, or object file redirects through a symlink or escapes its storage boundary |
 | `STORAGE_PARSE_ERROR` | A stored object is not valid UTF-8 JSON; `doctor` reports every parse failure it can scan |
