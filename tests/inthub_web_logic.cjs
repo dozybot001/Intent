@@ -959,10 +959,10 @@ async function flowAndPagingCases() {
     assert.ok(svg.includes('>Project rule</text>'));
     assert.ok(svg.includes('class="flow-line flow-depends flow-type-depends_on tone-attention"'));
     assert.ok(svg.indexOf('data-remote-id="p__decision-001"') < svg.indexOf('data-remote-id="p__intent-001"'));
-    // Curves rather than corners, a status pill sized after drawing, the accent clipped to the card, a time axis.
+    // Curves rather than corners, a status pill sized after drawing, no accent bar, a time axis.
     assert.ok(/class="flow-stroke" d="M[^"]*C/.test(svg));
     assert.ok(svg.includes('<g class="flow-pill" data-fit="25">'));
-    assert.ok(svg.includes('<clipPath id="flow-card-clip">') && svg.includes('clip-path="url(#flow-card-clip)"'));
+    assert.ok(!svg.includes('accent') && !svg.includes('flow-card-clip'));
     assert.ok(svg.includes('class="flow-axis-label"'));
     assert.ok(svg.includes('<circle class="flow-terminal"'));
 

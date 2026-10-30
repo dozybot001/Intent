@@ -665,7 +665,7 @@ def test_timeline_pages_from_the_snaps_endpoint_and_search_reports_truncation():
 def test_static_revision_names_the_flow_release():
     for name in ("index.html", "auth-redirect.html"):
         assert "rev=continuity-5" not in _static(name) and "rev=flow-6" not in _static(name)
-        assert "rev=flow-7" in _static(name)
+        assert "rev=flow-8" in _static(name)
 
 
 
@@ -690,9 +690,10 @@ def test_flow_draws_curves_cards_pins_and_a_quiet_time_axis():
     rejoin = _block(css, ".flow-rejoin .flow-stroke,\n.flow-lane-line")
     assert "var(--faint)" in rejoin and float(re.search(r"stroke-width:\s*([\d.]+)", rejoin).group(1)) < width(".flow-branch .flow-stroke")
     assert re.search(r"\n\.flow-conflict \.flow-stroke \{[^}]*stroke-dasharray", css)
-    # Cards carry a status accent that only repeats the pill's label; ended cards sit flat.
-    assert "flow-node-accent" in javascript and 'clip-path="url(#flow-card-clip)"' in javascript
-    assert "fill: var(--blue-dot)" in _block(css, ".flow-node.status-active .flow-node-accent,\n.flow-node.status-active .flow-node-dot")
+    # Status shows only in the pill: no coloured accent bars on cards (the owner's rule); ended cards sit flat.
+    assert "accent" not in javascript.split("function flowNodeSvg", 1)[1].split("\n}\n", 1)[0]
+    assert ".flow-card::before" not in css and "flow-node-accent" not in css
+    assert "fill: var(--blue-dot)" in _block(css, ".flow-node.status-active .flow-node-dot")
     assert "filter: none" in _block(css, ".flow-node.status-done .flow-node-box,\n.flow-node.status-cancelled .flow-node-box")
     # Up to two Decision pins under a card, then "+N more"; Project-level ones are chips in the band.
     assert re.search(r"const FLOW_PINS = 2;", javascript) and '"+{count} more": "还有 {count} 条"' in translations

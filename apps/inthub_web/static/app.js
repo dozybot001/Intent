@@ -1937,8 +1937,7 @@ function flowNodeLabel(node, layout) {
   return parts.join(". ");
 }
 
-// A card: status pill and id, a title of up to two lines, then its Snaps and Decisions. The left
-// accent only repeats the status the pill already names.
+// A card: status pill and id, a title of up to two lines, then its Snaps and Decisions.
 function flowNodeSvg(node, layout) {
   const g = layout.geometry;
   const intent = node.intent;
@@ -1952,7 +1951,6 @@ function flowNodeSvg(node, layout) {
     <g class="flow-node-body">
       <rect class="flow-node-ring" x="-4" y="-4" width="${g.nodeW + 8}" height="${g.nodeH + 8}" rx="15"/>
       <rect class="flow-node-box" width="${g.nodeW}" height="${g.nodeH}" rx="12"/>
-      <rect class="flow-node-accent" width="3" height="${g.nodeH}" clip-path="url(#flow-card-clip)"/>
       <g class="flow-pill" data-fit="25"><rect class="flow-pill-box" x="12" y="12" width="${flowNumber(25 + flowTextWidth(label, 11, FLOW_REGULAR))}" height="20" rx="10" data-fit-box/><circle class="flow-node-dot" cx="21" cy="22" r="3"/><text class="flow-node-status" x="29" y="25.5" data-fit-text>${esc(label)}</text></g>
       <text class="flow-node-id" x="${g.nodeW - 12}" y="25.5" text-anchor="end">${esc(intent.id)}</text>
       ${title.map((line, index) => `<text class="flow-node-title" x="14" y="${50 + index * 17}">${esc(line)}</text>`).join("")}
@@ -2020,7 +2018,6 @@ function renderFlowSvg(layout) {
   const g = layout.geometry;
   const n = flowNumber;
   const defs = `<defs>
-    <clipPath id="flow-card-clip"><rect width="${g.nodeW}" height="${g.nodeH}" rx="12"/></clipPath>
     <filter id="flow-card-shadow" x="-10%" y="-15%" width="120%" height="150%"><feDropShadow class="flow-shadow" dx="0" dy="1" stdDeviation="1.4"/></filter>
     <filter id="flow-card-lift" x="-15%" y="-20%" width="130%" height="170%"><feDropShadow class="flow-shadow-lift" dx="0" dy="5" stdDeviation="6"/></filter>
   </defs>`;

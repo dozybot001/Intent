@@ -2343,7 +2343,7 @@ kbd {
   fill: var(--muted);
 }
 
-/* Cards: status pill and id, a two-line title, Snaps and Decisions; a status accent on the left. */
+/* Cards: status pill and id, a two-line title, Snaps and Decisions. Status shows only in the pill. */
 .flow-node,
 .flow-decision {
   cursor: pointer;
@@ -2390,10 +2390,6 @@ kbd {
   stroke: var(--focus);
 }
 
-.flow-node-accent {
-  fill: var(--faint);
-}
-
 .flow-pill-box {
   fill: var(--surface);
   stroke: var(--border);
@@ -2428,17 +2424,12 @@ kbd {
 }
 
 /* Status colour is never alone: the pill always names it. */
-.flow-node.status-active .flow-node-accent,
 .flow-node.status-active .flow-node-dot {
   fill: var(--blue-dot);
 }
 
 .flow-node.status-active .flow-node-status {
   fill: var(--ink);
-}
-
-.flow-node.status-suspend .flow-node-accent {
-  fill: var(--muted);
 }
 
 .flow-node.status-suspend .flow-node-dot {
@@ -2576,22 +2567,6 @@ kbd {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07);
   text-align: left;
   transition: transform 160ms var(--ease), box-shadow 160ms var(--ease), border-color 120ms ease;
-}
-
-.flow-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
-  background: var(--faint);
-}
-
-.flow-card.status-active::before {
-  background: var(--blue-dot);
-}
-
-.flow-card.status-suspend::before {
-  background: var(--muted);
 }
 
 .flow-card.status-done,
