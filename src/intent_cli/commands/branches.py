@@ -12,7 +12,8 @@ def _require_valid(name):
 
 
 def _require_new(base, name):
-    _require_valid(name)
+    if not repo.new_branch_name(name):
+        error("INVALID_INPUT", f"{name!r} is not a valid branch name.")
     if repo.branch_revision(base, name) or name in repo_checkout.branches_in_use(base):
         error("BRANCH_EXISTS", f"Branch {name} already exists.", suggested_fix=f"itt switch {name}")
     blocker = repo.branch_conflict(base, name)
@@ -47,7 +48,10 @@ def cmd_branch(args):
     base = require_init()
     require_repository(base)
     with workspace_write_lock(base, operation="branch"):
-        if args.delete or args.force_delete:
+        if args.remotes:
+            success("branch", {"remote": repo.REMOTE, "branches": [
+                {"name": f"{repo.REMOTE}/{name}", "revision": tip} for name, tip in sorted(repo.remote_branches(base).items())]})
+        elif args.delete or args.force_delete:
             _delete(base, args.delete or args.force_delete, bool(args.force_delete))
         elif args.name:
             _require_new(base, args.name)

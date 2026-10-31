@@ -106,12 +106,14 @@ Git 可选。Intent 独立保存语义历史；代码仓库的 Git origin 不参
 | `itt status [--local]` | empty / up_to_date / ahead / behind / diverged；--local 可离线使用。 |
 | `itt remote [-v]` | 查看独立的 IntHub 地址和项目。 |
 | `itt remote add origin URL --project NAME` | 设置唯一共享远端；项目名默认取语义根目录名。团队项目写 `团队/项目`。 |
-| `itt push [--project NAME] [--api-base-url URL] [--dry-run]` | 必要时关联项目，保存同步版本；相同内容不新增版本，预览不写远端。 |
-| `itt pull [--project NAME] [--api-base-url URL] [--dry-run] [--rebase]` | 本地未变化可快进，本地领先保持不变；双方变化报告分歧并保留双方。 |
+| `itt push [--project NAME] [--api-base-url URL] [--dry-run] [--delete BRANCH]` | 把当前分支推到远端同名分支，只上传远端缺少的内容；预览不写远端。`--delete` 删除远端分支，`main` 不能删。 |
+| `itt fetch [--project NAME] [--api-base-url URL]` | 把远端分支下载到 `origin/*`，不改动当前分支。 |
+| `itt pull [--project NAME] [--api-base-url URL] [--dry-run]` | 先 fetch，再把 `origin/BRANCH` 合并到当前分支。有冲突时和 `itt merge` 一样停下。 |
+| `itt clone PROJECT [--api-base-url URL] [--host HOST]` | 在没有 `.intent/` 的目录里初始化 Intent，并带回项目历史和分支。仅限成员。 |
 | `itt auth login / status / logout` | 全局账户认证：终端显示代码，在浏览器里批准。令牌由 Git credential helper 保存；没有 helper 时存入配置目录下仅本人可读的 `credentials.json`。跨项目复用。 |
 | `itt hub start` | 启动本地浏览器。 |
 
-两个本地目录配置相同 remote/project 后共享同一历史，不创建 workspace。Intent、Snap、Decision 是版本内的内容，Snap 不等于同步版本。无需暂存区、手动 commit、分支或 rebase。
+两个本地目录配置相同 remote/project 后共享同一历史，不创建 workspace。Intent、Snap、Decision 是修订里的内容。无需暂存区、手动 commit 或强制模式。
 
 在 IntHub 上改名或转移的项目会被自动跟随：`status`、`push`、`pull` 按项目 ID 查找并返回 `renamed_from`，`push` 和 `pull` 会把新名字写入本地配置。itt 7.2 及更早版本按名称查找，会报 `REMOTE_CHANGED`，升级后恢复正常；团队项目需要 itt 7.5。在 IntHub 上删除的项目同样报 `REMOTE_CHANGED`，本地历史不受影响。
 
@@ -388,7 +390,6 @@ stateDiagram-v2
 | `BRANCH_EXISTS`、`BRANCH_NOT_FOUND`、`BRANCH_IN_USE`、`BRANCH_NOT_MERGED` | 分支命令无法继续 |
 | `MERGE_CONFLICT` | 合并需要决定；`details.conflicts` 列出每个字段的两边取值 |
 | `MERGE_IN_PROGRESS`、`NO_MERGE_IN_PROGRESS` | 有未完成的合并挡住了操作，或没有可继续的合并 |
-| `NOT_ON_MAIN` | push 和 pull 只在主 worktree 的 `main` 上工作 |
 | `UNSAFE_STORAGE` | `.intent/`、对象目录、锁或对象文件通过符号链接重定向，或越出存储边界 |
 | `STORAGE_PARSE_ERROR` | 存储对象不是合法 UTF-8 JSON；`doctor` 会列出扫描到的全部解析失败 |
 | `STORAGE_SCHEMA_ERROR` | 存储对象缺少必需字段，或字段类型不合法 |
@@ -409,14 +410,13 @@ stateDiagram-v2
 | `PERMISSION_DENIED` | 账号对这个团队项目只有只读权限 |
 | `TEAM_NOT_FOUND` | 团队不存在，或账号不是它的成员 |
 | `REMOTE_CHANGED` | 远端地址或项目身份变化；用 remote add 明确选择后再同步 |
-| `NON_FAST_FORWARD` | 远端已变化，push 未覆盖；先 pull，分叉时用 `itt pull --rebase` |
-| `HISTORY_DIVERGED` | 本地和远端同时变化；双方历史均保留，用 `itt pull --rebase` 把本地工作放到远端之上 |
+| `NON_FAST_FORWARD` | 远端已变化，push 未覆盖。先运行 `itt pull`，再 push |
 | `QUOTA_EXCEEDED` | 账号或团队达到 100 个项目或 1 GB 历史存储的上限 |
 | `HUB_STATE_INVALID` | 本地 remote 或 baseline 状态格式损坏 |
 | `INVALID_LOCAL_SNAPSHOT` | 本地 Intent 历史不是合法完整图；pull 前应运行 `itt doctor` |
-| `INVALID_REMOTE_SNAPSHOT` | 下载快照的身份、版本、schema 或对象图不合法 |
-| `LOCAL_STATE_CHANGED` | 同步期间本地历史或 remote 配置发生变化；未应用覆盖 |
-| `REMOTE_HISTORY_CONFLICT` | 远端历史删除、改写或不一致地改变了已记录数据 |
+| `INVALID_REMOTE_HISTORY` | IntHub 返回内容的身份、协议、摘要、schema 或对象图不合法 |
+| `INCOMPLETE_HISTORY` | ref 指向的修订还没有全部到达。再运行一次 `itt push` |
+| `INVALID_BLOB` | 上传的 blob 与摘要或结构不符 |
 | `PULL_APPLY_FAILED` | 持有 workspace 锁的 journal 可恢复快照安装或恢复失败；`details.committed` 表示安装是否已到达 committed 状态，`details.recovery_required` 表示是否还需再次恢复 |
 | `NETWORK_ERROR` | 无法连接 IntHub |
 | `NETWORK_TIMEOUT` | IntHub 未在有界请求时间内响应；变更是否完成可能未知 |

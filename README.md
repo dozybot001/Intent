@@ -134,9 +134,9 @@ Hooks open each turn with the current state and check at the end that the turn w
 
 - **Locally:** `itt hub start`, then `itt remote add origin http://127.0.0.1:7210 --project NAME` and `itt push`.
 - **Hosted:** [inthub.tenon.asia](https://inthub.tenon.asia), operated by 榫卯 Tenon AI. Run `itt auth login`, approve the code in the browser, then `itt push`. Each account and team can keep 100 projects and 1 GB of history. Projects are private by default, can be shared with a team (`--project TEAM/NAME`), and can be made public in their settings. See [teams and sharing](https://github.com/dozybot001/Intent/blob/main/docs/EN/inthub-collaboration.md) and the [privacy notice](https://inthub.tenon.asia/privacy).
-- **Restore elsewhere:** `itt init`, `itt remote add origin URL --project NAME`, `itt pull`.
+- **Restore elsewhere:** `itt clone NAME` in the project folder. Only members can clone.
 
-Push and pull work on `main` and fast-forward. If two copies record in parallel, `itt status` reports `diverged` and neither side changes until you run `itt pull --rebase`. Pushing branches is the next milestone.
+`itt push` sends the current branch and `itt pull` fetches and merges, as in Git. If two copies record in parallel, `itt status` reports `diverged`, and `itt pull` merges them, stopping only where both set the same field differently.
 
 ## Status
 

@@ -16,8 +16,10 @@ from apps.inthub_api.access import VISITOR
 from apps.inthub_api.common import APIError
 from apps.inthub_api.db import connect
 from apps.inthub_api.history import link_history, push_history, read_history
+from intent_cli import repo
 from intent_cli.hub.versions import revision_id
 from apps.inthub_api.projects import delete_project, export_project, rename_project, set_visibility, transfer_project
+from apps.inthub_api.repository import fetch_blobs, read_refs, update_ref, upload_blobs
 from apps.inthub_api.revisions import project_revisions, revision_detail
 from apps.inthub_api.queries import list_projects, project_home, project_overview
 from apps.inthub_api.teams import accept_invite, create_invite, create_team, delete_team, set_member_role, team_detail
@@ -25,6 +27,7 @@ from apps.inthub_api.tenon import (
     account_for_identity, account_for_session as tenon_account_for_session,
     bind_existing_account, consume_attempt, create_attempt, create_session,
 )
+import json
 import time
 from uuid import uuid4
 from apps.inthub_api.product_deletion import delete_product_account
@@ -119,7 +122,7 @@ def test_postgresql_project_rename_export_and_delete():
                                          "revision": revision_id(None, snapshot), "snapshot": snapshot}, account["id"])
     assert pushed["project_name"] == renamed
     assert read_history(POSTGRES_URL, name, account["id"], project_id=pid)["project_name"] == renamed
-    assert [row["revision"] for row in export_project(POSTGRES_URL, pid, account["id"])["revisions"]] == [pushed["revision"]]
+    assert len(export_project(POSTGRES_URL, pid, account["id"])["revisions"]) == 1
     assert delete_project(POSTGRES_URL, pid, renamed, account["id"]) == {"deleted": True, "id": pid}
     assert [project["id"] for project in list_projects(POSTGRES_URL, account_id=account["id"])["projects"]] == [taken]
 
@@ -255,3 +258,50 @@ def test_postgresql_account_and_session_round_trip():
     )
     recovered_for_cli = account_for_access_token(POSTGRES_URL, access_token["token"])
     assert recovered_for_cli["id"] == account["id"]
+
+
+@pytest.mark.skipif(not POSTGRES_URL, reason="INTHUB_TEST_POSTGRES_URL is not configured")
+def test_postgresql_keeps_the_revision_graph_beside_protocol_2():
+    subject = "graph-" + os.urandom(6).hex()
+    account = account_for_identity(POSTGRES_URL, {"sub": subject, "name": "Ana", "email": f"{subject}@example.com",
+                                                  "platform_role": "user", "expires_at": time.time() + 60})
+    pid = link_history(POSTGRES_URL, subject, account["id"])["project_id"]
+    empty = {"intents": [], "snaps": [], "decisions": []}
+    pushed = push_history(POSTGRES_URL, {"project_name": subject, "project_id": pid, "parent": None,
+                                         "revision": revision_id(None, empty), "snapshot": empty}, account["id"])
+    main = read_refs(POSTGRES_URL, subject, account["id"])["refs"]["main"]
+    assert read_refs(POSTGRES_URL, subject, account["id"])["refs"]["main"] == main
+
+    goal = {"id": "intent-001", "object": "intent", "status": "active", "origin": "test", "what": "Goal", "why": "",
+            "created_at": "2026-10-30T00:00:00+00:00", "snap_ids": [], "decision_ids": []}
+    body = json.dumps(goal)
+    version = repo._digest(body.encode())
+    blobs = [{"kind": "object", "digest": version, "body": body}]
+
+    def keep(kind, data):
+        text = repo._canonical(data).decode()
+        blobs.append({"kind": kind, "digest": repo._digest(text.encode()), "body": text})
+        return blobs[-1]["digest"]
+
+    tree = repo.tree_digest({"intent-001": version}, lambda data: keep("tree", data))
+    tip = keep("revision", {"parents": [main], "tree": tree, "time": "2026-10-30T00:00:00+00:00", "summary": "One",
+                            "changes": [{"id": "intent-001", "action": "added"}]})
+    upload_blobs(POSTGRES_URL, {"project_id": pid, "blobs": blobs}, account["id"])
+    upload_blobs(POSTGRES_URL, {"project_id": pid, "blobs": blobs}, account["id"])
+    payload = {"project_name": subject, "project_id": pid, "ref": "main", "old": main, "new": tip}
+    assert update_ref(POSTGRES_URL, payload, account["id"])["changed"] is True
+    assert update_ref(POSTGRES_URL, {**payload, "old": tip}, account["id"])["changed"] is False
+    assert update_ref(POSTGRES_URL, {**payload, "ref": "side", "old": None}, account["id"])["changed"] is True
+    with pytest.raises(APIError) as refused:
+        update_ref(POSTGRES_URL, {**payload, "old": None}, account["id"])
+    assert refused.value.code == "NON_FAST_FORWARD"
+
+    head = read_history(POSTGRES_URL, subject, account["id"])
+    assert head["parent"] == pushed["revision"] and head["tip"] == tip
+    assert [intent["what"] for intent in head["snapshot"]["intents"]] == ["Goal"]
+    page = project_revisions(POSTGRES_URL, pid, account_id=account["id"])
+    assert [row["revision"] for row in page["revisions"]] == [tip, main]
+    assert revision_detail(POSTGRES_URL, pid, pushed["revision"], account["id"])["revision"] == main
+    fetched = fetch_blobs(POSTGRES_URL, {"project_id": pid, "want": [tip], "have": []}, account["id"])
+    assert {blob["digest"] for blob in fetched["blobs"]} >= {tip, version}
+    assert delete_project(POSTGRES_URL, pid, subject, account["id"]) == {"deleted": True, "id": pid}

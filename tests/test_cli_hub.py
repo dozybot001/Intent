@@ -43,7 +43,7 @@ class TestHub:
         first_link = _run(workspace, "hub", "link", extra_env=auth_env)
         _run(workspace, "intent", "create", "First goal", extra_env=auth_env)
         first_push = _run(workspace, "push", extra_env=auth_env)
-        assert first_push["ok"] is True
+        assert first_push["ok"] is True, first_push
         assert first_push["action"] == "push"
 
         second = workspace / "second-project"
@@ -99,7 +99,7 @@ class TestHub:
         _add_github_remote(workspace, "git@example.com:foo/bar.git")
         r = _run(workspace, "hub", "link", "--api-base-url", inthub_server)
         assert r["ok"] is True
-        assert r["result"]["format_version"] == 2
+        assert r["result"]["format_version"] == 3
 
     def test_link_and_push_support_gitee_without_changing_origin(
         self, workspace, inthub_server,
@@ -111,7 +111,7 @@ class TestHub:
         pushed = _run(workspace, "push", "--dry-run")
 
         assert linked["ok"] is True
-        assert linked["result"]["format_version"] == 2
+        assert linked["result"]["format_version"] == 3
         assert pushed["ok"] is True
         assert pushed["result"]["project_name"] == workspace.name
         configured = subprocess.run(

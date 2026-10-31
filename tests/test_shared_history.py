@@ -20,10 +20,10 @@ from apps.inthub_api.queries import (
     get_intent_detail, list_projects, project_handoff, project_overview, search_project,
 )
 from apps.inthub_api.server import build_server
-from intent_cli.hub.rebase import rebase_snapshot
-from intent_cli.hub.snapshots import SnapshotError, snapshot_sha256, validate_snapshot
+from intent_cli.hub.snapshots import snapshot_sha256, validate_snapshot
 from intent_cli.hub.versions import revision_id
-from intent_cli.commands import shared
+from intent_cli import repo
+from intent_cli.commands import shared, sync
 
 ROOT = Path(__file__).resolve().parents[1]
 CHECKPOINT = {
@@ -45,10 +45,10 @@ LEGACY_SNAPSHOT = {
 }
 
 
-def run(directory, *args):
+def run(directory, *args, **extra):
     env = dict(os.environ, PYTHONPATH=f"{ROOT / 'src'}{os.pathsep}{ROOT}",
                INTENT_CONFIG_HOME=str(directory.parent / "config"),
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1", **extra)
     env.pop("INTHUB_TOKEN", None)
     result = subprocess.run([sys.executable, "-m", "intent_cli", *args], cwd=directory,
                             env=env, text=True, capture_output=True)
@@ -86,6 +86,13 @@ def seed(source):
     return pushed["result"]
 
 
+def hashed(directory, *args):
+    """A write as outside the tests, where copies cannot collide on an ID."""
+    result = run(directory, *args, ITT_COUNTER_IDS="")
+    assert result["ok"], result
+    return result["result"]["id"]
+
+
 def bytes_of(directory):
     return {str(path.relative_to(directory)): path.read_bytes()
             for path in (directory / ".intent").rglob("*.json")}
@@ -95,15 +102,17 @@ def checkpoint_flags(checkpoint):
     return [argument for key, value in checkpoint.items() for argument in (f"--{key}", value)]
 
 
-def push_snapshot(db, pushed, snapshot):
-    return push_history(db, {"project_name": "demo", "project_id": pushed["project_id"],
-                             "parent": pushed["revision"], "snapshot": snapshot,
-                             "revision": revision_id(pushed["revision"], snapshot)})
+def push_snapshot(db, snapshot):
+    head = read_history(db, "demo")
+    return push_history(db, {"project_name": "demo", "project_id": head["project_id"],
+                             "parent": head["revision"], "snapshot": snapshot,
+                             "revision": revision_id(head["revision"], snapshot)})
 
 
 def test_two_clients_share_project_without_git_or_workspaces(clients):
     source, target, db, _ = clients
     first = seed(source)
+    assert repo.read_revision(source / ".intent", first["revision"])
     assert run(source, "status")["result"]["state"] == "up_to_date"
     assert run(target, "status")["result"]["state"] == "behind"
     assert run(target, "pull")["result"]["changed"]
@@ -154,47 +163,43 @@ def test_legacy_snapshot_without_checkpoint_keeps_its_identity():
 
 def test_server_keeps_checkpoints_write_once_and_well_formed(clients):
     source, _, db, _ = clients
-    first = seed(source)
+    seed(source)
     remote = read_history(db, "demo")["snapshot"]
 
     migrated = copy.deepcopy(remote)
     migrated["snaps"][0]["checkpoint"] = {"next": "proceed"}
     with pytest.raises(APIError) as failure:
-        push_snapshot(db, first, migrated)
+        push_snapshot(db, migrated)
     assert failure.value.code == "HISTORY_CONFLICT"
 
     malformed = copy.deepcopy(remote)
     malformed["snaps"].append({**remote["snaps"][0], "id": "snap-002", "checkpoint": {"Next": "case variant"}})
     malformed["intents"][0]["snap_ids"].append("snap-002")
     with pytest.raises(APIError) as failure:
-        push_snapshot(db, first, malformed)
+        push_snapshot(db, malformed)
     assert failure.value.code == "INVALID_SNAPSHOT"
 
     accepted = copy.deepcopy(malformed)
     accepted["snaps"][1]["checkpoint"] = dict(CHECKPOINT)
-    second = push_snapshot(db, first, accepted)
+    second = push_snapshot(db, accepted)
     rewritten = copy.deepcopy(accepted)
     rewritten["snaps"][1]["checkpoint"]["blocker"] = "waiting for access"
     with pytest.raises(APIError) as failure:
-        push_snapshot(db, second, rewritten)
+        push_snapshot(db, rewritten)
     assert failure.value.code == "HISTORY_CONFLICT"
     assert read_history(db, "demo")["revision"] == second["revision"]
 
 
-def test_client_rejects_remote_snapshot_with_malformed_checkpoint(clients, monkeypatch, capsys):
-    source, _, db, url = clients
+def test_client_rejects_a_remote_tip_with_a_malformed_checkpoint(clients, monkeypatch, capsys):
+    source, _, _, _ = clients
     seed(source)
-    before = bytes_of(source)
-    remote = copy.deepcopy(read_history(db, "demo"))
-    remote["snapshot"]["snaps"][0]["checkpoint"] = {"next": ""}
-    remote["snapshot_sha256"] = snapshot_sha256(remote["snapshot"])
-    remote["revision"] = revision_id(remote["parent"], remote["snapshot"])
-    monkeypatch.chdir(source)
-    monkeypatch.setattr(shared, "http_json", lambda *a, **k: remote)
+    base = source / ".intent"
+    path = base / "snaps" / "snap-001.json"
+    path.write_text(json.dumps({**json.loads(path.read_text()), "checkpoint": {"next": ""}}))
+    tip = repo.commit_worktree(base, "tamper")
     with pytest.raises(SystemExit):
-        shared.cmd_pull(SimpleNamespace(project=None, api_base_url=url, token=None, dry_run=False))
-    assert json.loads(capsys.readouterr().out)["error"]["code"] == "INVALID_REMOTE_SNAPSHOT"
-    assert bytes_of(source) == before
+        sync._require_valid(base, tip)
+    assert json.loads(capsys.readouterr().out)["error"]["code"] == "INVALID_REMOTE_HISTORY"
 
 
 def test_noop_preview_empty_and_offline_do_not_create_remote_history(clients):
@@ -229,124 +234,69 @@ def test_removed_workspace_options_are_structured_input_errors(clients, option):
     assert result["error"]["code"] == "INVALID_INPUT"
 
 
-def test_divergence_preserves_both_snapshots_and_does_not_duplicate_versions(clients):
+def test_pull_merges_parallel_work_and_both_copies_converge(clients):
     source, target, db, _ = clients
     seed(source)
     assert run(target, "pull")["ok"]
-    assert run(target, "snap", "create", "local result", "--intent", "intent-001")["ok"]
-    before = bytes_of(target)
+    hashed(target, "snap", "create", "desktop result", "--intent", "intent-001")
+    goal = hashed(target, "intent", "create", "Desktop goal")
+    hashed(target, "snap", "create", "desktop detail", "--intent", goal)
     assert run(target, "pull")["result"]["changed"] is False
-    assert bytes_of(target) == before
-    assert run(source, "snap", "create", "other result", "--intent", "intent-001")["ok"]
+    hashed(source, "snap", "create", "laptop result", "--intent", "intent-001")
     assert run(source, "push")["ok"]
     assert run(target, "status")["result"]["state"] == "diverged"
-    assert run(target, "push")["error"]["code"] == "NON_FAST_FORWARD"
-    assert run(target, "pull")["error"]["code"] == "HISTORY_DIVERGED"
-    assert bytes_of(target) == before
-    remote = read_history(db, "demo")
-    assert remote["snapshot"]["snaps"][-1]["what"] == "other result"
+    refused = run(target, "push")["error"]
+    assert refused["code"] == "NON_FAST_FORWARD" and "itt pull" in refused["suggested_fix"]
+    assert read_history(db, "demo")["snapshot"]["snaps"][-1]["what"] == "laptop result"
 
-
-def diverge(source, target):
-    seed(source)
-    assert run(target, "pull")["ok"]
-    assert run(target, "snap", "create", "desktop result", "--intent", "intent-001")["ok"]
-    assert run(target, "intent", "create", "Desktop goal")["ok"]
-    assert run(target, "snap", "create", "desktop detail", "--intent", "intent-002")["ok"]
-    assert run(target, "decision", "create", "Use the desktop rule", "--from", "intent-002")["ok"]
-    assert run(source, "snap", "create", "laptop result", "--intent", "intent-001")["ok"]
-    assert run(source, "push")["ok"]
-
-
-def test_rebase_puts_local_work_on_top_and_both_copies_converge(clients):
-    source, target, db, _ = clients
-    diverge(source, target)
-    assert "itt pull --rebase" in run(target, "pull")["error"]["suggested_fix"]
-    assert "itt pull --rebase" in run(target, "push")["error"]["suggested_fix"]
-
-    before = bytes_of(target)
-    preview = run(target, "pull", "--rebase", "--dry-run")["result"]
+    preview = run(target, "pull", "--dry-run")["result"]
     assert preview["dry_run"] is True and preview["state"] == "diverged"
-    assert preview["renumbered"] == {"intent-002": "intent-002", "snap-002": "snap-003", "snap-003": "snap-004", "decision-001": "decision-001"}
-    assert bytes_of(target) == before
-
-    result = run(target, "pull", "--rebase")["result"]
-    assert result["state"] == "rebased" and result["changed"] is True and result["conflicts"] == []
-    # The remote's objects keep their IDs; what only this copy had follows them, with its references.
-    assert run(target, "show", "snap-002")["result"]["object"]["what"] == "laptop result"
-    assert run(target, "show", "snap-003")["result"]["object"]["what"] == "desktop result"
-    assert run(target, "show", "intent-001")["result"]["object"]["snap_ids"] == ["snap-001", "snap-002", "snap-003"]
-    assert run(target, "show", "snap-004")["result"]["object"]["intent_id"] == "intent-002"
+    assert run(target, "pull")["result"]["state"] == "merged"
     assert run(target, "doctor")["result"]["healthy"] is True
     assert run(target, "status")["result"]["state"] == "ahead"
     assert run(target, "push")["result"]["changed"] is True
 
-    assert run(source, "pull")["result"]["changed"] is True
+    assert run(source, "pull")["result"]["state"] == "fast_forward"
     assert run(source, "status")["result"]["state"] == "up_to_date"
     assert run(target, "status")["result"]["state"] == "up_to_date"
     remote = read_history(db, "demo")["snapshot"]
-    assert [len(remote[kind]) for kind in ("intents", "snaps", "decisions")] == [2, 4, 1]
+    assert [len(remote[kind]) for kind in ("intents", "snaps", "decisions")] == [2, 4, 0]
 
 
-def test_rebase_keeps_a_local_close_on_an_object_both_copies_share(clients):
+def test_pull_keeps_a_local_close_on_an_object_both_copies_share(clients):
     source, target, _, _ = clients
     seed(source)
     assert run(target, "pull")["ok"]
     assert run(source, "intent", "create", "Second goal")["ok"]
     assert run(source, "push")["ok"]
     assert run(target, "intent", "done", "intent-001")["ok"]
-    result = run(target, "pull", "--rebase")["result"]
-    assert result["state"] == "rebased" and result["conflicts"] == [] and result["renumbered"] == {}
+    assert run(target, "pull", "--rebase")["warnings"]
     assert run(target, "show", "intent-001")["result"]["object"]["status"] == "done"
     assert run(target, "show", "intent-002")["result"]["object"]["what"] == "Second goal"
     assert run(target, "push")["ok"]
 
 
-def test_rebase_keeps_a_snap_recorded_before_the_other_copy_closed_the_intent(clients):
+def test_pull_keeps_a_snap_recorded_before_the_other_copy_closed_the_intent(clients):
     source, target, _, _ = clients
     seed(source)
     assert run(target, "pull")["ok"]
-    assert run(target, "snap", "create", "last local step", "--intent", "intent-001")["ok"]
+    local = hashed(target, "snap", "create", "last local step", "--intent", "intent-001")
     assert run(source, "intent", "done", "intent-001")["ok"]
     assert run(source, "push")["ok"]
-    result = run(target, "pull", "--rebase")["result"]
-    assert result["state"] == "rebased" and result["renumbered"] == {"snap-002": "snap-002"}
+    assert run(target, "pull")["result"]["state"] == "merged"
     assert run(target, "show", "intent-001")["result"]["object"]["status"] == "done"
-    assert run(target, "show", "intent-001")["result"]["object"]["snap_ids"] == ["snap-001", "snap-002"]
+    assert run(target, "show", "intent-001")["result"]["object"]["snap_ids"] == ["snap-001", local]
     assert run(target, "push")["ok"], "the hub accepts it too"
     assert run(source, "pull")["result"]["changed"] is True
-
-
-def _snapshot(**intent):
-    created = "2026-10-01T00:00:00+00:00"
-    return {
-        "intents": [{"id": "intent-001", "object": "intent", "created_at": created, "what": "Goal", "why": "", "origin": "pytest",
-                     "status": "active", "decision_ids": [], "snap_ids": ["snap-001"], **intent}],
-        "snaps": [{"id": "snap-001", "object": "snap", "created_at": created, "what": "Step", "why": "", "origin": "pytest", "intent_id": "intent-001"}],
-        "decisions": [],
-    }
-
-
-def test_rebase_reports_a_status_it_could_not_keep():
-    merged, renumbered, conflicts = rebase_snapshot(_snapshot(status="suspend"), _snapshot(status="done"))
-    assert merged["intents"][0]["status"] == "done" and renumbered == {}
-    assert conflicts == [{"id": "intent-001", "kept": "done", "local": "suspend"}]
-
-
-def test_rebase_refuses_what_it_cannot_combine():
-    # The Snap is shared while its Intent is not, so nothing can say where it belongs now.
-    with pytest.raises(SnapshotError, match="cannot be combined"):
-        rebase_snapshot(_snapshot(created_at="2020-01-01T00:00:00+00:00"), _snapshot())
 
 
 def test_lost_push_response_converges_without_second_version(clients):
     source, _, db, _ = clients
     seed(source)
-    config_path = source / ".intent/hub.json"
-    baseline = config_path.read_bytes()
     assert run(source, "snap", "create", "accepted but response lost", "--intent", "intent-001")["ok"]
     assert run(source, "push")["ok"]
-    config_path.write_bytes(baseline)  # Simulate losing only the final client acknowledgement.
+    # Simulate losing only the final client acknowledgement.
+    repo.set_remote_revision(source / ".intent", "main", repo.read_revision(source / ".intent", repo.head_revision(source / ".intent"))["parents"][0])
     assert run(source, "push")["result"]["changed"] is False
     assert run(source, "status")["result"]["state"] == "up_to_date"
     with connect(db) as conn:
@@ -355,7 +305,7 @@ def test_lost_push_response_converges_without_second_version(clients):
 
 def test_parallel_push_has_one_winner_and_retries_are_idempotent(clients):
     source, _, db, _ = clients
-    first = seed(source)
+    seed(source)
     remote = read_history(db, "demo")
     barrier = threading.Barrier(2)
     def push(label):
@@ -364,9 +314,9 @@ def test_parallel_push_has_one_winner_and_retries_are_idempotent(clients):
         snap.update(id="snap-002", what=label)
         snapshot["snaps"].append(snap)
         snapshot["intents"][0]["snap_ids"].append("snap-002")
-        payload = {"project_name": "demo", "project_id": first["project_id"],
-                   "parent": first["revision"], "snapshot": snapshot,
-                   "revision": revision_id(first["revision"], snapshot)}
+        payload = {"project_name": "demo", "project_id": remote["project_id"],
+                   "parent": remote["revision"], "snapshot": snapshot,
+                   "revision": revision_id(remote["revision"], snapshot)}
         barrier.wait()
         try:
             return push_history(db, payload)
@@ -406,21 +356,22 @@ def test_project_names_are_safe_url_independent_identities(clients):
 
 def test_server_preserves_history_when_object_is_rewritten(clients):
     source, _, db, _ = clients
-    first = seed(source)
-    snapshot = copy.deepcopy(read_history(db, "demo")["snapshot"])
+    seed(source)
+    remote = read_history(db, "demo")
+    snapshot = copy.deepcopy(remote["snapshot"])
     snapshot["snaps"][0]["what"] = "rewrite"
     with pytest.raises(APIError) as failure:
-        push_history(db, {"project_name": "demo", "project_id": first["project_id"],
-                          "parent": first["revision"], "revision": revision_id(first["revision"], snapshot),
-                          "snapshot": snapshot})
+        push_snapshot(db, snapshot)
     assert failure.value.code == "HISTORY_CONFLICT"
-    assert read_history(db, "demo")["revision"] == first["revision"]
+    assert read_history(db, "demo")["revision"] == remote["revision"]
 
 
 @pytest.mark.parametrize("result", [
-    {"format_version": 2, "project_name": "demo"},
-    {"format_version": 2, "project_name": "demo", "project_id": "bad/id", "revision": None,
-     "parent": None, "snapshot": None, "snapshot_sha256": None},
+    {"format_version": 3, "project_name": "demo"},
+    {"format_version": 2, "project_name": "demo", "project_id": None, "refs": {}},
+    {"format_version": 3, "project_name": "demo", "project_id": "bad/id", "refs": {}},
+    {"format_version": 3, "project_name": "demo", "project_id": "proj_a", "refs": {"../evil": "a" * 64}},
+    {"format_version": 3, "project_name": "demo", "project_id": "proj_a", "refs": {"main": "../evil"}},
 ])
 def test_malformed_remote_never_escapes_json_contract(clients, monkeypatch, capsys, result):
     source, _, _, url = clients
@@ -428,20 +379,20 @@ def test_malformed_remote_never_escapes_json_contract(clients, monkeypatch, caps
     monkeypatch.setattr(shared, "http_json", lambda *a, **k: result)
     with pytest.raises(SystemExit):
         shared.cmd_status(SimpleNamespace(local=False, project=None, api_base_url=url, token=None))
-    assert json.loads(capsys.readouterr().out)["error"]["code"] == "INVALID_REMOTE_SNAPSHOT"
+    assert json.loads(capsys.readouterr().out)["error"]["code"] == "INVALID_REMOTE_HISTORY"
 
 
-def test_pull_rechecks_local_state_after_download(clients, monkeypatch, capsys):
-    source, target, db, url = clients
+def test_pull_merges_a_write_made_during_the_download(clients, monkeypatch, capsys):
+    source, target, _, url = clients
     seed(source)
     monkeypatch.chdir(target)
-    remote = read_history(db, "demo")
-    def download(*args, **kwargs):
-        assert run(target, "intent", "create", "local concurrent goal")["ok"]
-        return remote
-    monkeypatch.setattr(shared, "http_json", download)
-    with pytest.raises(SystemExit):
-        shared.cmd_pull(SimpleNamespace(project=None, api_base_url=url, token=None, dry_run=False,
-                                        ))
-    assert json.loads(capsys.readouterr().out)["error"]["code"] == "LOCAL_STATE_CHANGED"
-    assert json.loads((target / ".intent/intents/intent-001.json").read_text())["what"] == "local concurrent goal"
+    download = sync._download
+
+    def slow(*args):
+        hashed(target, "intent", "create", "local concurrent goal")
+        download(*args)
+
+    monkeypatch.setattr(sync, "_download", slow)
+    sync.cmd_pull(SimpleNamespace(project=None, api_base_url=url, token=None, dry_run=False, rebase=False))
+    assert json.loads(capsys.readouterr().out)["result"]["state"] == "merged"
+    assert run(target, "doctor")["result"]["healthy"] is True

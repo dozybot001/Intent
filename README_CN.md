@@ -135,9 +135,9 @@ Hooks 在每一轮开始时注入当前状态，并在结束时检查这一轮�
 
 - **本地：** `itt hub start`，然后 `itt remote add origin http://127.0.0.1:7210 --project NAME` 和 `itt push`。
 - **托管：** [inthub.tenon.asia](https://inthub.tenon.asia)，由榫卯 Tenon AI 运营。运行 `itt auth login`，在浏览器里批准代码，再 `itt push`。每个账号和团队可以保存 100 个项目和 1 GB 历史。项目默认私有，可以共享给团队（`--project 团队/项目`），也可以在项目设置里公开。详见[团队与共享](docs/CN/inthub-collaboration.md)和[隐私说明](https://inthub.tenon.asia/privacy#zh)。
-- **在另一处恢复：** `itt init`、`itt remote add origin URL --project NAME`、`itt pull`。
+- **在另一处恢复：** 在项目目录运行 `itt clone NAME`，仅限成员。
 
-push 和 pull 在 `main` 上工作，只做快进。如果两份副本同时记录，`itt status` 会报告 `diverged`，双方都不会被改动，直到你运行 `itt pull --rebase`。推送分支是下一个里程碑。
+`itt push` 推送当前分支，`itt pull` 先 fetch 再合并，和 Git 一样。如果两份副本同时记录，`itt status` 会报告 `diverged`，`itt pull` 会合并它们，只有双方把同一字段改成不同值时才停下。
 
 ## 状态
 

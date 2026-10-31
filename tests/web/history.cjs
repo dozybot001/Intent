@@ -35,7 +35,7 @@ async function historyCases() {
     assert.equal(pushedBy({pushed_by: null, pusher: {email: 'ana@example.com'}}), 'ana@example.com');
     assert.equal(pushedBy({pushed_by: null, pusher: null}), '');
 
-    // The list: grouped by day, First push on the first revision, paged with Load more.
+    // The list: grouped by day, First revision on the first one, paged with Load more.
     state.overview = {history: {project_id: 'p', revision: hash('a'), last_synced_at: '2026-10-20T10:00:00Z'}, project: {id: 'p', name: 'checkout'}, authors: [], active_intents: [], other_intents: []};
     state.activeTab = 'history';
     state._history = null;
@@ -54,12 +54,12 @@ async function historyCases() {
     assert.ok(page.includes('data-detail-type="revision" data-remote-id="p__' + hash('c') + '"'));
     assert.ok(page.includes('<span class="row-id">' + hash('c').slice(0, 8) + '</span>'));
     assert.ok(page.includes('id="load-more-history"') && page.includes('加载更多（1）'));
-    assert.ok(!page.includes('首次推送'));
+    assert.ok(!page.includes('首条修订'));
     await loadHistoryPage();
     page = el.detailContent.innerHTML;
     assert.equal(calls.at(-1), '/api/v1/projects/p/revisions?offset=2&limit=30');
     assert.equal(page.split('class="history-group"').length - 1, 2);
-    assert.ok(page.includes('首次推送') && page.includes('Ana Lee') && page.includes('3 次推送'));
+    assert.ok(page.includes('首条修订') && page.includes('Ana Lee') && page.includes('3 条修订'));
     assert.ok(!page.includes('load-more-history'));
 
     // Nothing pushed: the empty state says how; a failed page offers a retry.
@@ -96,7 +96,7 @@ async function historyCases() {
     assert.ok(el.drawerTitle.innerHTML.includes('修订') && el.drawerTitle.innerHTML.includes(hash('c').slice(0, 8)) && !el.drawerTitle.innerHTML.includes(hash('c')));
     assert.ok(routeUrl().includes('detail=p__' + hash('c')) && routeUrl().includes('detailType=revision'));
     let sheet = el.drawerContent.innerHTML;
-    assert.ok(sheet.includes('由 Bo Chen 推送'));
+    assert.ok(sheet.includes('来自 Bo Chen'));
     assert.ok(sheet.includes('新增 1 个意图、203 个 Snap，变更 2 个意图、1 个决策'));
     assert.ok(sheet.indexOf('新增的意图') < sheet.indexOf('新增的 Snap') && sheet.indexOf('新增的 Snap') < sheet.indexOf('>变更<'));
     assert.ok(!sheet.includes('新增的决策'), 'a list with nothing in it has no section');
@@ -108,9 +108,11 @@ async function historyCases() {
     assert.ok(sheet.includes('data-detail-type="intent" data-remote-id="p__intent-004"'));
     assert.ok(sheet.includes('另有 3 个未显示'), 'the summary stays exact when a list is cut');
     closeDrawer({history: 'none'});
-    assert.ok(buildRevisionDetailHtml({...detail, parent: null}).includes('首次推送'));
+    assert.ok(buildRevisionDetailHtml({...detail, parent: null}).includes('首条修订'));
+    const merged = buildRevisionDetailHtml({...detail, merge: true, title: 'Merged origin/main into main'});
+    assert.ok(merged.includes('Merged origin/main into main') && merged.includes('合并'));
     const empty = buildRevisionDetailHtml({...detail, summary: {}, changes: {}});
-    assert.ok(empty.includes('这次推送没有新增或变更任何内容。') && empty.includes('没有语义变化'));
+    assert.ok(empty.includes('这条修订没有新增或变更任何内容。') && empty.includes('没有语义变化'));
 
     // Authors and agents: the name, then the email; no author keeps the agent alone.
     assert.equal(byline({author: ana, origin: 'claude-code'}), 'Ana Lee · Claude Code');

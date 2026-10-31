@@ -5,7 +5,6 @@ from functools import wraps
 
 from intent_cli import repo, repo_checkout
 from intent_cli.output import error, hold_reports
-from intent_cli.store_paths import is_linked
 from intent_cli.store import (
     SUBDIRS,
     VALID_STATUSES,
@@ -66,23 +65,10 @@ def require_no_merge(base):
         )
 
 
-def require_main(base):
-    """Remote sync follows main, from the main worktree, until the next protocol carries branches. Call it holding the lock."""
+def require_settled(base):
+    """Sync needs a repository with no merge open. Call it holding the lock."""
     require_repository(base)
     require_no_merge(base)
-    branch = repo.current_branch(base)
-    if is_linked(base):
-        error(
-            "NOT_ON_MAIN",
-            f"Push and pull work from the main worktree; this is a linked worktree on {branch}.",
-            suggested_fix=f"Merge {branch} into {repo.DEFAULT_BRANCH} from the main worktree, then push from there.",
-        )
-    if branch != repo.DEFAULT_BRANCH:
-        error(
-            "NOT_ON_MAIN",
-            f"Push and pull work on {repo.DEFAULT_BRANCH}; this copy is on {branch}.",
-            suggested_fix=f"Merge {branch} into {repo.DEFAULT_BRANCH}, then push from there.",
-        )
 
 
 def workspace_mutation(command):

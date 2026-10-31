@@ -113,7 +113,7 @@ itt push
 每个项目只有一份共享历史，推送只做快进：
 
 - 如果别人先推送了，运行 `itt pull`，再 `itt push`。
-- 如果双方都记录了内容，`itt status` 会报告 `diverged`，两边都不会被改动。运行 `itt pull --rebase` 把本地内容放到远端之上，再 `itt push`。只有本地才有的对象会换用下一个空闲 ID。
+- 如果双方都记录了内容，`itt status` 会报告 `diverged`。运行 `itt pull` 合并远端，处理冲突后再 `itt push`。
 
 并行工作的合并计划在 Intent 8 实现，见[语义版 Git](semantic-git.md)。
 

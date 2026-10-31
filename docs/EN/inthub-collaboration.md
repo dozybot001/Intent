@@ -113,7 +113,7 @@ The table above shows who can do what. Pulling takes membership, even on a publi
 Each project has one shared history, and pushes only fast-forward:
 
 - If someone pushed before you, run `itt pull`, then `itt push`.
-- If you both recorded work, `itt status` reports `diverged` and neither copy changes. Run `itt pull --rebase` to put your local work on top of the remote, then `itt push`. Objects that exist only locally take the next free IDs.
+- If you both recorded work, `itt status` reports `diverged`. Run `itt pull` to merge the remote, settle any conflict, then `itt push`.
 
 Merging parallel work is planned for Intent 8. See [Semantic Git](semantic-git.md).
 

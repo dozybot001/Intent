@@ -31,6 +31,13 @@ def _merge_relations(ours, theirs):
     return list(merged.values())
 
 
+def choose_relations(current, chosen, when):
+    """Settle a relation conflict for one side. Records only grow, so the other side's are withdrawn, not erased."""
+    kept = {_relation_key(entry) for entry in chosen if "removed_at" not in entry}
+    return [dict(entry) if _relation_key(entry) in kept or "removed_at" in entry else {**entry, "removed_at": when}
+            for entry in current]
+
+
 def _keep_reason_with_status(merged, ours, theirs, conflicts):
     """A status conflict decides its reason too: resolve takes both from one side."""
     status = next((item for item in conflicts if item["field"] == "status"), None)

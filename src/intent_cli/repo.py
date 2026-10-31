@@ -9,8 +9,6 @@ files and revisions share every part of the tree that did not change. Everything
 back is checked: content must match the digest that named it.
 """
 
-import hashlib
-import heapq
 import json
 import re
 from datetime import datetime, timezone
@@ -18,9 +16,14 @@ from datetime import datetime, timezone
 from intent_cli import identity
 from intent_cli.hub.changes import COLLECTIONS
 from intent_cli.origin import detect_origin
+from intent_cli.repo_format import (  # noqa: F401
+    TREE_DEPTH, _canonical, _digest, _is_object_id, _timestamp, _tree_changes, canonical_tree, strict_json, topological, tree_digest,
+    valid_revision, valid_tree_node,
+)
 from intent_cli.repo_refs import (  # noqa: F401
-    DEFAULT_BRANCH, DIGEST, HEAD_FILE, REFS, branch_conflict, branch_revision, contained, current_branch,
-    delete_branch, head_revision, list_branches, replace_file, set_branch, set_head, storage_root, valid_branch_name,
+    BRANCH_MAX_BYTES, DEFAULT_BRANCH, DIGEST, HEAD_FILE, REFS, REMOTE, branch_conflict, branch_revision, conflicting_ref, contained, current_branch,
+    delete_branch, delete_remote_branch, head_revision, list_branches, remote_branches, remote_revision, replace_file,
+    new_branch_name, set_branch, set_head, set_remote_revision, storage_root, valid_branch_name,
 )
 from intent_cli.store_errors import StoredObjectIntegrityError
 from intent_cli.store_paths import _safe_object_dir, shared_root
@@ -29,7 +32,7 @@ from intent_cli.store_schema import OBJECT_ID_PATTERNS, SUBDIRS
 OBJECTS = "objects"
 TREES = "trees"
 REVISIONS = "revisions"
-TREE_DEPTH = 2
+BLOB_FOLDERS = {"revision": REVISIONS, "tree": TREES, "object": OBJECTS}
 SUMMARY_MAX_CHARS = 160
 ABBREVIATION = re.compile(r"[0-9a-f]{4,64}\Z")
 REVISION_NAME = re.compile(r"(.+?)((?:~[0-9]*|\^)*)\Z")
@@ -37,14 +40,6 @@ REVISION_NAME = re.compile(r"(.+?)((?:~[0-9]*|\^)*)\Z")
 
 class UnknownRevisionError(ValueError):
     """A revision name that matches nothing, or more than one revision."""
-
-
-def _digest(raw):
-    return hashlib.sha256(raw).hexdigest()
-
-
-def _canonical(data):
-    return json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
 def _content_path(base, directory, digest):
@@ -79,6 +74,21 @@ def _store(base, directory, data):
     return digest
 
 
+def read_blob(base, kind, digest):
+    return _read_content(base, BLOB_FOLDERS[kind], digest)
+
+
+def install_blob(base, kind, digest, raw):
+    """Keep a blob from a remote, once its content proves its name."""
+    if kind not in BLOB_FOLDERS or _digest(raw) != digest:
+        raise StoredObjectIntegrityError(storage_root(base), f"blob {digest!r} does not match its digest")
+    _install(_content_path(base, BLOB_FOLDERS[kind], digest), raw)
+
+
+def read_tree_node(base, digest, depth):
+    return _tree_node(base, digest, depth)
+
+
 def is_repository(base):
     return (shared_root(base) / HEAD_FILE).is_file()
 
@@ -91,11 +101,6 @@ def create_repository(base):
     set_head(base, DEFAULT_BRANCH)
 
 
-def _is_object_id(obj_id):
-    pattern = OBJECT_ID_PATTERNS.get(obj_id.split("-", 1)[0]) if isinstance(obj_id, str) else None
-    return pattern is not None and pattern.fullmatch(obj_id) is not None
-
-
 def _json(raw, path):
     try:
         return json.loads(raw)
@@ -105,29 +110,19 @@ def _json(raw, path):
 
 def read_revision(base, revision):
     data = _json(_read_content(base, REVISIONS, revision), _content_path(base, REVISIONS, revision))
-    parents = data.get("parents") if isinstance(data, dict) else None
-    tree = data.get("tree") if isinstance(data, dict) else None
-    if (not isinstance(parents, list) or not isinstance(tree, str) or DIGEST.fullmatch(tree) is None
-            or not all(isinstance(item, str) and DIGEST.fullmatch(item) for item in parents)):
+    if not valid_revision(data):
         raise StoredObjectIntegrityError(_content_path(base, REVISIONS, revision), "revision has an invalid shape")
     return data
 
 
-def _write_tree(base, entries, depth=0):
-    """Store {id: version digest} as TREE_DEPTH levels of buckets. One changed object rewrites only its path."""
-    if depth == TREE_DEPTH:
-        return _store(base, TREES, entries)
-    buckets = {}
-    for obj_id, version in entries.items():
-        buckets.setdefault(_digest(obj_id.encode("utf-8"))[depth], {})[obj_id] = version
-    return _store(base, TREES, {key: _write_tree(base, bucket, depth + 1) for key, bucket in buckets.items()})
+def _write_tree(base, entries):
+    return tree_digest(entries, lambda data: _store(base, TREES, data))
 
 
 def _tree_node(base, digest, depth):
     path = _content_path(base, TREES, digest)
     node = _json(_read_content(base, TREES, digest), path)
-    if (not isinstance(node, dict) or not all(isinstance(item, str) and DIGEST.fullmatch(item) for item in node.values())
-            or (depth == TREE_DEPTH and not all(_is_object_id(obj_id) for obj_id in node))):
+    if not valid_tree_node(node, depth):
         raise StoredObjectIntegrityError(path, "tree has an invalid shape")
     return node
 
@@ -166,7 +161,7 @@ def _parsed(files):
     objects = {}
     for obj_id, raw in files.items():
         try:
-            obj = json.loads(raw)
+            obj = strict_json(raw)
         except ValueError:
             continue
         if isinstance(obj, dict) and obj.get("id") == obj_id:
@@ -176,14 +171,6 @@ def _parsed(files):
 
 def working_objects(base):
     return _parsed(working_copy(base))
-
-
-def _tree_changes(before, after):
-    changes = [{"id": obj_id, "action": "added"} for obj_id in sorted(after.keys() - before.keys())]
-    changes += [{"id": obj_id, "action": "changed"} for obj_id in sorted(after.keys() & before.keys())
-                if after[obj_id] != before[obj_id]]
-    changes += [{"id": obj_id, "action": "removed"} for obj_id in sorted(before.keys() - after.keys())]
-    return changes
 
 
 def _summary(operation, changes, files):
@@ -256,6 +243,9 @@ def _named_revision(base, name):
         raise UnknownRevisionError(f"Unknown revision {name!r}.")
     if valid_branch_name(name) and branch_revision(base, name):
         return branch_revision(base, name)
+    prefix = f"{REMOTE}/"
+    if name.startswith(prefix) and valid_branch_name(name[len(prefix):]) and remote_revision(base, name[len(prefix):]):
+        return remote_revision(base, name[len(prefix):])
     if ABBREVIATION.fullmatch(name):
         matches = [digest for digest in _all_revisions(base) if digest.startswith(name)]
         if len(matches) == 1:
@@ -280,13 +270,6 @@ def resolve_revision(base, spec):
     return revision
 
 
-def _timestamp(revision):
-    try:
-        return datetime.fromisoformat(revision["time"]).timestamp()
-    except (KeyError, TypeError, ValueError):
-        return 0.0
-
-
 def _reachable(base, start):
     revisions, pending = {}, [start] if start else []
     while pending:
@@ -299,27 +282,16 @@ def _reachable(base, start):
 
 def walk(base, start=None):
     """Revisions reachable from start as (digest, revision): children first, then newest first."""
-    revisions = _reachable(base, start or head_revision(base))
-    waiting = dict.fromkeys(revisions, 0)
-    for revision in revisions.values():
-        for parent in set(revision["parents"]):
-            waiting[parent] += 1
-    entry = lambda digest: (-_timestamp(revisions[digest]), digest)
-    ready = [entry(digest) for digest, count in waiting.items() if count == 0]
-    heapq.heapify(ready)
-    ordered = []
-    while ready:
-        _when, digest = heapq.heappop(ready)
-        ordered.append((digest, revisions[digest]))
-        for parent in set(revisions[digest]["parents"]):
-            waiting[parent] -= 1
-            if waiting[parent] == 0:
-                heapq.heappush(ready, entry(parent))
-    return ordered
+    return topological(_reachable(base, start or head_revision(base)))
 
 
 def is_ancestor(base, older, newer):
     return older in _reachable(base, newer)
+
+
+def reachable_from(base, tips):
+    """{digest: revision} of everything behind tips."""
+    return {digest: revision for tip in tips for digest, revision in _reachable(base, tip).items()}
 
 
 def merge_base(base, one, other):

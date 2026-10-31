@@ -39,7 +39,7 @@ Git 要求人先暂存再提交。Intent 的写入者大多是正在做其他事
 | `git status` | 当前分支、上游、领先/落后数量 |
 | 远端、`fetch`、`pull`、`push`、`clone` | `itt remote`、`itt fetch` 到 `refs/remotes/origin/*`、`itt pull` = fetch + merge、`itt push`（落后时被拒绝，与 Git 相同）、`itt clone URL --project NAME` |
 | 三方合并 | **语义三方合并**，以合并基准为准（见下文） |
-| worktree | 通过 `git rev-parse --git-common-dir` 定位仓库，所有 worktree 共享一个语义仓库，各自有自己的 `HEAD`，push 和 pull 在主 worktree 执行。bare 仓库和 `--separate-git-dir` 找不到主 worktree，这时各 worktree 各用自己的 `.intent/` |
+| worktree | 通过 `git rev-parse --git-common-dir` 定位仓库，所有 worktree 共享一个语义仓库，各自有自己的 `HEAD`，并推送自己的分支。bare 仓库和 `--separate-git-dir` 找不到主 worktree，这时各 worktree 各用自己的 `.intent/` |
 | tag | `itt tag` 标记里程碑（后续） |
 
 ## 存储（仓库格式 2）
@@ -88,7 +88,9 @@ Git 本身也有这个缺口。提交图展示的是并行工作，团队靠「�
 
 ## 远端协议 3 与 IntHub
 
-push 与 fetch 像 Git 协商 pack 一样协商缺失的修订和对象版本。IntHub 保存修订 DAG 与去重后的对象，同时消除了目前每次推送都存一份完整快照的问题。分支 ref 按项目保存。IntHub 展示 `main` 及其合并历史。迁移期间 IntHub 继续接受 7.x 协议。
+`itt push` 先上传远端缺少的内容，再移动一个 ref。和 Git 远端一样，ref 只从推送者看到的位置出发、只向前移动，并且只在它能到达的内容全部到齐后才移动。`itt fetch` 分页下载本地缺少的内容。IntHub 用内容寻址的 blob 保存修订图，每个项目有自己的分支 ref，历史页展示 `main` 及其合并。`main` 同时按推送保留快照，供网页和协议 2 读取。
+
+项目的协议 2 推送在首次使用修订图时转换成修订，并在 `legacy` 中保留旧 ID，所以修订图出现之前的副本能用最后看到的那次推送找到合并基点。迁移窗口内，旧客户端仍可读取和推送 `main`，它们的推送会并入修订图。
 
 ## 从 7.x 迁移
 
@@ -96,7 +98,7 @@ push 与 fetch 像 Git 协商 pack 一样协商缺失的修订和对象版本。
 
 ## 分阶段实施
 
-第 1 到 3 阶段已随 Intent 8.0 发布；第 4 阶段未开始，在此之前 push 和 pull 只在 `main` 上工作。
+阶段 1 到 3 已在 Intent 8.0 发布，阶段 4 在 8.1 发布。
 
 1. 仓库格式 2：对象、修订、refs、自动修订、新对象哈希 ID，`itt log`、`show`、`diff` 与 `itt migrate`。
 2. 分支与 worktree：`itt branch`、`itt switch` 与 Git worktree 识别。

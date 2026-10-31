@@ -9,6 +9,8 @@ from apps.inthub_api.common import APIError, now_utc
 from apps.inthub_api.db import connect
 from apps.inthub_api.history import _head, _project, _project_by_id, _team_project, project_name
 from apps.inthub_api.limits import require_project_slot
+from apps.inthub_api.repository import main_history
+from apps.inthub_api.revisions import _text
 from apps.inthub_api.secret_scan import REPORT_MAX, find_secrets
 
 EXPORT_FORMAT_VERSION = 1
@@ -91,7 +93,7 @@ def transfer_project(db_path, project_id, team_id, confirm, account_id):
 
 def remove_project(conn, project_id):
     # Same tables as account deletion, for one project. Local .intent directories are untouched.
-    for table in ("public_profile_projects", "semantic_heads", "semantic_versions", "sync_batches", "workspaces"):
+    for table in ("public_profile_projects", "repo_blobs", "repo_refs", "semantic_heads", "semantic_versions", "sync_batches", "workspaces"):
         conn.execute(f"DELETE FROM {table} WHERE project_id = ?", (project_id,))
     conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
 
@@ -108,22 +110,18 @@ def delete_project(db_path, project_id, confirm, account_id=None):
 def export_project(db_path, project_id, account_id=None):
     with connect(db_path) as conn:
         project = _member(conn, project_id, account_id)
+        history, _revisions = main_history(conn, project_id)
         head = _head(conn, project_id)
-        parents = {row["revision"]: row for row in conn.execute(
-            "SELECT revision, parent, created_at FROM semantic_versions WHERE project_id = ?", (project_id,)).fetchall()}
         view = _view(conn, project)
-    # Pushes only fast-forward, so the revisions form one chain from the head.
-    revisions, revision = [], head["revision"]
-    while revision in parents:
-        row = parents.pop(revision)
-        revisions.append({"revision": row["revision"], "parent": row["parent"], "created_at": row["created_at"]})
-        revision = row["parent"]
+    revisions = [{"revision": digest, "parent": revision["parents"][0] if revision["parents"] else None,
+                  "parents": revision["parents"], "created_at": _text(revision.get("time"))} for digest, revision in history]
     return {
         "format": "inthub-export",
         "format_version": EXPORT_FORMAT_VERSION,
         "exported_at": now_utc(),
         "project": view,
-        "head": {"revision": head["revision"], "parent": head["parent"], "accepted_at": head["accepted_at"]},
+        "head": {"revision": head["tip"] or head["revision"], "parent": revisions[0]["parent"] if revisions else None,
+                 "accepted_at": head["accepted_at"]},
         "snapshot": head["snapshot"] or {"intents": [], "snaps": [], "decisions": []},
         "revisions": revisions,
     }

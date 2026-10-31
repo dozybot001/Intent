@@ -38,7 +38,8 @@ from intent_cli.commands.intents import (
 )
 from intent_cli.commands.records import cmd_decision_create, cmd_decision_deprecate, cmd_snap_create
 from intent_cli.commands.hub import cmd_hub_start
-from intent_cli.commands.shared import cmd_push, cmd_pull, cmd_status, cmd_remote, cmd_link, cmd_hub_status
+from intent_cli.commands.shared import cmd_hub_status, cmd_link, cmd_remote, cmd_status
+from intent_cli.commands.sync import cmd_clone, cmd_fetch, cmd_pull, cmd_push
 
 
 RELATION_FLAGS = (
@@ -202,6 +203,7 @@ def main():
     p.add_argument("name", nargs="?", default=None)
     p.add_argument("start", nargs="?", default=None, metavar="REV")
     p.add_argument("-d", dest="delete", default=None, metavar="NAME", help="delete a merged branch")
+    p.add_argument("-r", dest="remotes", action="store_true", help="list the remote's branches as last fetched")
     p.add_argument("-D", dest="force_delete", default=None, metavar="NAME", help="delete a branch, merged or not")
     p = sub.add_parser("merge", help="merge a branch into this one")
     p.add_argument("branch", nargs="?", default=None, metavar="BRANCH")
@@ -266,12 +268,25 @@ def main():
     p.add_argument("--token", default=None)
     p.add_argument("--dry-run", action="store_true")
 
-    p = sub.add_parser("pull", help="update local history from the remote")
+    p.add_argument("--delete", default=None, metavar="BRANCH", help="delete a branch on the remote")
+
+    p = sub.add_parser("fetch", help="download the remote's branches without touching this one")
+    p.add_argument("--project", default=None)
+    p.add_argument("--api-base-url", default=None)
+    p.add_argument("--token", default=None)
+
+    p = sub.add_parser("clone", help="start this folder's history from a project on IntHub")
+    p.add_argument("project", metavar="PROJECT")
+    p.add_argument("--api-base-url", default=None)
+    p.add_argument("--token", default=None)
+    p.add_argument("--host", choices=HOSTS, default=None)
+
+    p = sub.add_parser("pull", help="fetch the remote and merge it into this branch")
     p.add_argument("--project", default=None)
     p.add_argument("--api-base-url", default=None)
     p.add_argument("--token", default=None)
     p.add_argument("--dry-run", action="store_true")
-    p.add_argument("--rebase", action="store_true", help="after parallel work, put local objects on top of the remote")
+    p.add_argument("--rebase", action="store_true", help="no longer needed: pull merges")
 
     # --- hub ---
     p_hub = sub.add_parser("hub", help="run IntHub locally (hub start)")
@@ -392,6 +407,8 @@ def main():
         "doctor": cmd_doctor,
         "push": cmd_push,
         "pull": cmd_pull,
+        "fetch": cmd_fetch,
+        "clone": cmd_clone,
         "status": cmd_status,
         "remote": cmd_remote,
     }

@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from apps.inthub_api.db_connection import DatabaseConnection
 from apps.inthub_api.db_schema import _create_postgresql_public_profiles_schema, _create_postgresql_schema, _create_sqlite_public_profiles_schema, _create_sqlite_schema, _create_tenon_schema
-from apps.inthub_api.db_schema import LATEST_SCHEMA_VERSION, _DELETION_SCHEMA_CHECKSUM, _DELETION_SCHEMA_NAME, _EXPECTED_SCHEMA_COLUMNS, _EXPECTED_SCHEMA_COLUMNS_V1, _EXPECTED_SCHEMA_COLUMNS_V2, _EXPECTED_SCHEMA_COLUMNS_V3, _HISTORY_SCHEMA_CHECKSUM, _HISTORY_SCHEMA_NAME, _HOSTED_SCHEMA_CHECKSUM, _HOSTED_SCHEMA_NAME, _IDENTITY_COLUMNS, _IDENTITY_SCHEMA_CHECKSUM, _IDENTITY_SCHEMA_NAME, _INITIAL_SCHEMA_CHECKSUM, _INITIAL_SCHEMA_NAME, _PUBLIC_PROFILES_SCHEMA_CHECKSUM, _PUBLIC_PROFILES_SCHEMA_NAME, _TEAMS_SCHEMA_CHECKSUM, _TEAMS_SCHEMA_NAME, _TENON_SCHEMA_CHECKSUM, _TENON_SCHEMA_NAME
+from apps.inthub_api.db_schema import LATEST_SCHEMA_VERSION, _REPOSITORY_SCHEMA_CHECKSUM, _REPOSITORY_SCHEMA_NAME, _DELETION_SCHEMA_CHECKSUM, _DELETION_SCHEMA_NAME, _EXPECTED_SCHEMA_COLUMNS, _EXPECTED_SCHEMA_COLUMNS_V1, _EXPECTED_SCHEMA_COLUMNS_V2, _EXPECTED_SCHEMA_COLUMNS_V3, _HISTORY_SCHEMA_CHECKSUM, _HISTORY_SCHEMA_NAME, _HOSTED_SCHEMA_CHECKSUM, _HOSTED_SCHEMA_NAME, _IDENTITY_COLUMNS, _IDENTITY_SCHEMA_CHECKSUM, _IDENTITY_SCHEMA_NAME, _INITIAL_SCHEMA_CHECKSUM, _INITIAL_SCHEMA_NAME, _PUBLIC_PROFILES_SCHEMA_CHECKSUM, _PUBLIC_PROFILES_SCHEMA_NAME, _TEAMS_SCHEMA_CHECKSUM, _TEAMS_SCHEMA_NAME, _TENON_SCHEMA_CHECKSUM, _TENON_SCHEMA_NAME
 
 
 def _ensure_migration_ledger(conn):
@@ -111,6 +111,8 @@ def _validate_migration_ledger(rows):
         7: {"name": _TEAMS_SCHEMA_NAME, "checksum": _TEAMS_SCHEMA_CHECKSUM,
             "backward_compatible": 1},
         8: {"name": _HOSTED_SCHEMA_NAME, "checksum": _HOSTED_SCHEMA_CHECKSUM,
+            "backward_compatible": 1},
+        9: {"name": _REPOSITORY_SCHEMA_NAME, "checksum": _REPOSITORY_SCHEMA_CHECKSUM,
             "backward_compatible": 1},
     }
     observed_versions = set()
@@ -299,6 +301,24 @@ def migrate_db(conn, *, require_backward_compatible=True):
             (version, name, checksum, backward_compatible, applied_at)
             VALUES (?, ?, ?, ?, ?)""",
             (8, _HOSTED_SCHEMA_NAME, _HOSTED_SCHEMA_CHECKSUM, 1,
+             datetime.now(timezone.utc).isoformat()))
+
+    if 9 not in applied_versions:
+        # Additive: after a rollback protocol 2 keeps working, and rows it adds carry no
+        # tip, so they join the graph the next time it is used.
+        conn.execute("""CREATE TABLE IF NOT EXISTS repo_blobs (
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            kind TEXT NOT NULL CHECK (kind IN ('revision', 'tree', 'object')), digest TEXT NOT NULL,
+            body TEXT NOT NULL, is_binary INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (project_id, kind, digest))""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS repo_refs (
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            name TEXT NOT NULL, revision TEXT NOT NULL, PRIMARY KEY (project_id, name))""")
+        if "tip" not in _observed_schema_columns(conn)["semantic_versions"]:
+            conn.execute("ALTER TABLE semantic_versions ADD COLUMN tip TEXT")
+        conn.execute("""INSERT INTO schema_migrations
+            (version, name, checksum, backward_compatible, applied_at)
+            VALUES (?, ?, ?, ?, ?)""",
+            (9, _REPOSITORY_SCHEMA_NAME, _REPOSITORY_SCHEMA_CHECKSUM, 1,
              datetime.now(timezone.utc).isoformat()))
 
     rows = _migration_rows(conn)

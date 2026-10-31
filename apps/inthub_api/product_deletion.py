@@ -73,7 +73,7 @@ def delete_product_account(db_target, proof):
             # Foreign keys are deliberately not cascaded for immutable history.
             # Delete only this account's cloud copies, never another account or
             # a local CLI .intent directory.
-            for table in ("public_profile_projects", "semantic_heads", "semantic_versions", "sync_batches", "workspaces"):
+            for table in ("public_profile_projects", "repo_blobs", "repo_refs", "semantic_heads", "semantic_versions", "sync_batches", "workspaces"):
                 conn.execute(f"DELETE FROM {table} WHERE project_id IN ({owned})", (account_id,))
             conn.execute("DELETE FROM projects WHERE account_id = ?", (account_id,))
             conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))

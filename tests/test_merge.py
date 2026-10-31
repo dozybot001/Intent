@@ -147,7 +147,9 @@ def test_a_merge_that_would_give_two_parents_is_a_conflict(project):
     assert "more than one parent" in conflict["message"]
     assert _run(root, "resolve", conflict["id"], "--ours")["ok"]
     assert _run(root, "merge", "--continue")["result"]["state"] == "merged"
-    assert [entry["intent"] for entry in _intent(root, intent)["relations"]] == [one]
+    relations = _intent(root, intent)["relations"]
+    assert [entry["intent"] for entry in relations if "removed_at" not in entry] == [one]
+    assert {entry["intent"] for entry in relations} == {one, two}, "the other side is withdrawn, not erased"
     assert _run(root, "doctor")["result"]["healthy"] is True
 
 

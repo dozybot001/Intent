@@ -113,10 +113,10 @@ def _head(conn, pid):
     row = conn.execute("""SELECT v.* FROM semantic_heads h JOIN semantic_versions v
         ON v.project_id = h.project_id AND v.revision = h.revision WHERE h.project_id = ?""", (pid,)).fetchone()
     if row is None:
-        return {"revision": None, "parent": None, "snapshot": None, "snapshot_sha256": None, "accepted_at": None}
+        return {"revision": None, "parent": None, "snapshot": None, "snapshot_sha256": None, "accepted_at": None, "tip": None}
     snapshot = json.loads(row["snapshot_json"])
     return {"revision": row["revision"], "parent": row["parent"], "snapshot": snapshot,
-            "snapshot_sha256": snapshot_sha256(snapshot), "accepted_at": row["created_at"]}
+            "snapshot_sha256": snapshot_sha256(snapshot), "accepted_at": row["created_at"], "tip": row["tip"]}
 
 
 def read_history(db_path, ref, account_id=None, project_id=None):
@@ -126,7 +126,7 @@ def read_history(db_path, ref, account_id=None, project_id=None):
         project = (_project_by_id(conn, project_id, account_id) if project_id else None) or _named(conn, ref, account_id)
         head = _head(conn, project["id"]) if project else {
             "revision": None, "parent": None, "snapshot": None,
-            "snapshot_sha256": None, "accepted_at": None}
+            "snapshot_sha256": None, "accepted_at": None, "tip": None}
         return {"format_version": 2, "project_id": project["id"] if project else None,
                 "project_name": project_handle(conn, project) if project else ref, **head}
 
@@ -155,6 +155,41 @@ def _record_verified(conn, project_id, revision, changes, account_id):
             tuple(value for object_id in batch for value in (project_id, object_id, revision)))
 
 
+def _writable(conn, payload, account_id):
+    """The project a push names, when the pusher may write to it."""
+    project = _project_by_id(conn, payload.get("project_id"), account_id) if payload.get("project_id") else None
+    if project is None:
+        ref = payload.get("project_name")
+        if isinstance(ref, str) and _named(conn, project_ref(ref), account_id) is not None:
+            raise APIError("REMOTE_CHANGED", "Remote project identity changed; check status before relinking.", 409)
+        raise APIError("NOT_LINKED", "Configure the remote project before pushing.", 404)
+    if permission(conn, project, account_id) == "read":
+        raise APIError("PERMISSION_DENIED", "Read-only members cannot push to this project.", 403)
+    return project
+
+
+def _accept(conn, project, head, snapshot, revision, payload, account_id, tip=None):
+    """Record what main now holds. tip names its revision in the graph when it came over protocol 3."""
+    pid = project["id"]
+    accepted = now_utc()
+    changes = semantic_changes(head["snapshot"], snapshot)
+    stored = json.dumps(snapshot, ensure_ascii=False)
+    size = len(stored.encode("utf-8"))
+    require_storage(conn, project, size)
+    conn.execute("""INSERT INTO semantic_versions
+        (project_id, revision, parent, snapshot_json, created_at, pushed_by, pusher_json, changes_json, tip)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (pid, revision, head["revision"], stored, accepted,
+         account_id, _declared_pusher(payload.get("pusher")), json.dumps(summarize(changes)), tip))
+    conn.execute("UPDATE projects SET stored_bytes = stored_bytes + ? WHERE id = ?", (size, pid))
+    conn.execute("UPDATE semantic_heads SET revision = ? WHERE project_id = ?", (revision, pid))
+    _record_verified(conn, pid, revision, changes, account_id)
+    repository = payload.get("repository")
+    if isinstance(repository, str) and REPOSITORY.fullmatch(repository):
+        conn.execute("UPDATE projects SET repository_url = ? WHERE id = ?", (repository, pid))
+    return accepted
+
+
 def push_history(db_path, payload, account_id=None):
     ref = project_ref(payload.get("project_name"))
     snapshot = payload.get("snapshot")
@@ -168,13 +203,7 @@ def push_history(db_path, payload, account_id=None):
     with connect(db_path) as conn:
         if conn.backend == "sqlite":
             conn.execute("BEGIN IMMEDIATE")
-        project = _project_by_id(conn, payload.get("project_id"), account_id) if payload.get("project_id") else None
-        if project is None:
-            if _named(conn, ref, account_id) is not None:
-                raise APIError("REMOTE_CHANGED", "Remote project identity changed; check status before relinking.", 409)
-            raise APIError("NOT_LINKED", "Configure the remote project before pushing.", 404)
-        if permission(conn, project, account_id) == "read":
-            raise APIError("PERMISSION_DENIED", "Read-only members cannot push to this project.", 403)
+        project = _writable(conn, payload, account_id)
         pid, name = project["id"], project_handle(conn, project)
         if conn.backend == "postgresql":
             conn.execute("SELECT project_id FROM semantic_heads WHERE project_id = ? FOR UPDATE", (pid,))
@@ -191,22 +220,7 @@ def push_history(db_path, payload, account_id=None):
                 require_fast_forward(head["snapshot"], snapshot)
             except SnapshotError as exc:
                 raise APIError("HISTORY_CONFLICT", str(exc), 409) from exc
-        accepted = now_utc()
-        changes = semantic_changes(head["snapshot"], snapshot)
-        stored = json.dumps(snapshot, ensure_ascii=False)
-        size = len(stored.encode("utf-8"))
-        require_storage(conn, project, size)
-        conn.execute("""INSERT INTO semantic_versions
-            (project_id, revision, parent, snapshot_json, created_at, pushed_by, pusher_json, changes_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (pid, expected_revision, head["revision"], stored, accepted,
-             account_id, _declared_pusher(payload.get("pusher")), json.dumps(summarize(changes))))
-        conn.execute("UPDATE projects SET stored_bytes = stored_bytes + ? WHERE id = ?", (size, pid))
-        conn.execute("UPDATE semantic_heads SET revision = ? WHERE project_id = ?", (expected_revision, pid))
-        _record_verified(conn, pid, expected_revision, changes, account_id)
-        repository = payload.get("repository")
-        if isinstance(repository, str) and REPOSITORY.fullmatch(repository):
-            conn.execute("UPDATE projects SET repository_url = ? WHERE id = ?", (repository, pid))
+        accepted = _accept(conn, project, head, snapshot, expected_revision, payload, account_id)
         return {"format_version": 2, "project_id": pid, "project_name": name,
                 "revision": expected_revision, "parent": head["revision"],
                 "snapshot_sha256": digest, "accepted_at": accepted, "changed": True}

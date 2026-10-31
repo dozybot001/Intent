@@ -25,7 +25,8 @@ def cmd_version(_args):
     success("version", {"version": __version__})
 
 
-def cmd_init(args):
+def initialize(host):
+    """Create .intent/ here and turn on maintenance. Returns (path, result, warnings)."""
     path, err = init_workspace()
     if err == "ALREADY_EXISTS":
         error(
@@ -41,7 +42,7 @@ def cmd_init(args):
     from intent_cli.commands.maintenance import choose_host, configure, setup_warning
     from intent_cli.maintenance import MaintenanceError, set_enabled
 
-    host = choose_host(args.host)
+    host = choose_host(host)
     try:
         maintenance = configure(path, True, host)
         if json_mode():  # people get readable next steps from the renderer instead
@@ -53,7 +54,12 @@ def cmd_init(args):
     author = identity.author()
     if not author:
         warnings.append(identity.MISSING)
-    success("init", {"path": str(path), "author": author, "maintenance": maintenance}, warnings)
+    return path, {"path": str(path), "author": author, "maintenance": maintenance}, warnings
+
+
+def cmd_init(args):
+    path, result, warnings = initialize(args.host)
+    success("init", result, warnings)
 
 
 def cmd_inspect(args):

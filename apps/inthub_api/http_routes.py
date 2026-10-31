@@ -6,6 +6,7 @@ from intent_cli.store import StorageSecurityError, validate_object_id
 from apps.inthub_api.common import APIError
 from apps.inthub_api.history import link_history, push_history, read_history
 from apps.inthub_api.limits import account_usage
+from apps.inthub_api.repository import fetch_blobs, read_refs, update_ref, upload_blobs
 from apps.inthub_api.projects import delete_project, export_project, rename_project, set_visibility, transfer_project
 from apps.inthub_api.queries import SNAP_PAGE_MAX, get_decision_detail, get_intent_detail, get_snap_detail, list_projects, project_handoff, project_home, project_overview, project_snaps, search_project
 from apps.inthub_api.revisions import project_revisions, revision_detail
@@ -52,9 +53,24 @@ class HttpRoutes:
         if path == "/api/v2/history":
             self._send_json(200, _json_success(push_history(self.hub.db_path, self._read_json_body(), account_id)))
             return
+        if path == "/api/v3/upload":
+            self._send_json(200, _json_success(upload_blobs(self.hub.db_path, self._read_json_body(), account_id)))
+            return
+        if path == "/api/v3/fetch":
+            self._send_json(200, _json_success(fetch_blobs(self.hub.db_path, self._read_json_body(), account_id)), compact=True)
+            return
+        if path == "/api/v3/refs":
+            payload = self._read_json_body(limit=AUTH_BODY_LIMIT)
+            self._send_json(200, _json_success(update_ref(self.hub.db_path, payload, account_id)))
+            return
         raise APIError("OBJECT_NOT_FOUND", f"Endpoint {path} not found.", status=404)
 
     def _route_get(self, path, query, account_id=None):
+        if path == "/api/v3/refs":
+            self._send_json(200, _json_success(read_refs(
+                self.hub.db_path, query.get("project", [None])[0], account_id, project_id=query.get("project_id", [None])[0],
+                last_seen=query.get("last_seen", [None])[0])))
+            return
         if path == "/api/v2/history":
             self._send_json(200, _json_success(read_history(
                 self.hub.db_path, query.get("project", [None])[0], account_id, project_id=query.get("project_id", [None])[0])), compact=True)

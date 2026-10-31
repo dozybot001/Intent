@@ -10,7 +10,6 @@ import sys
 import pytest
 
 from intent_cli import repo
-from intent_cli.hub.rebase import rebase_snapshot
 from intent_cli.store import AmbiguousObjectIdError, list_objects, resolve_object_id, validate_object_id
 from tests.cli_support import SOURCE_PATHS, _init_git_repo, _run, inthub_server  # noqa: F401
 
@@ -186,18 +185,6 @@ def test_migrate_refuses_a_damaged_history_and_changes_nothing(project):
     assert not (project / ".intent" / "HEAD").exists()
 
 
-def test_rebase_keeps_hash_ids_and_still_renumbers_counters():
-    def intent(obj_id):
-        return {"id": obj_id, "object": "intent", "created_at": "2026-10-01T00:00:00+00:00", "what": obj_id, "why": "w",
-                "origin": "t", "status": "active", "decision_ids": [], "snap_ids": []}
-
-    remote = {"intents": [intent("intent-001")], "snaps": [], "decisions": []}
-    local = {"intents": [intent("intent-001"), intent("intent-abcdef123456")], "snaps": [], "decisions": []}
-    merged, renumbered, conflicts = rebase_snapshot(local, remote)
-    assert [obj["id"] for obj in merged["intents"]] == ["intent-001", "intent-abcdef123456"]
-    assert renumbered == {} and conflicts == []
-
-
 def test_status_says_where_this_copy_stands(project):
     _record(project)
     status = _run(project, "status", "--local")["result"]
@@ -214,13 +201,13 @@ def test_hash_ids_travel_through_a_hub_and_a_pull_is_one_revision(project, tmp_p
     assert _run(other, "init", "--host", "codex")["ok"]
     assert _run(other, "remote", "add", "origin", inthub_server, "--project", "shared")["ok"]
     pulled = _run(other, "pull")
-    assert pulled["ok"] and pulled["result"]["state"] == "behind"
+    assert pulled["ok"] and pulled["result"]["state"] == "fast_forward"
     history = _revisions(other)
-    assert [entry["summary"] for entry in history] == ["Pulled from shared"]
-    assert {"id": intent, "action": "added"} in history[0]["changes"] and {"id": snap, "action": "added"} in history[0]["changes"]
+    assert history == _revisions(project), "a pull brings the revisions themselves"
     assert _run(other, "doctor")["result"]["healthy"] is True
+    assert _run(other, "show", snap)["result"]["object"]["intent_id"] == intent
     assert _run(other, "snap", "create", "Next step", "--intent", intent[:11], extra_env=HASHED)["ok"]
-    assert len(_revisions(other)) == 2
+    assert len(_revisions(other)) == len(history) + 1
 
 
 def test_branches_keep_their_own_history_and_the_working_copy_follows(project):
@@ -257,13 +244,6 @@ def test_switching_refuses_to_lose_unrecorded_changes(project):
     assert _run(project, "switch", "other")["error"]["code"] == "UNCOMMITTED_CHANGES"
     assert _run(project, "switch", "other", "--force")["ok"]
     assert "Users asked" in path.read_text()
-
-
-def test_push_and_pull_stay_on_main_for_now(project):
-    _record(project)
-    _run(project, "switch", "-c", "feature")
-    assert _run(project, "push")["error"]["code"] == "NOT_ON_MAIN"
-    assert _run(project, "pull")["error"]["code"] == "NOT_ON_MAIN"
 
 
 def _git(cwd, *args):

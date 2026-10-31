@@ -105,7 +105,7 @@ def project_overview(db_path, project_id, account_id=None):
     snaps = _newest_first(project_id, snapshot["snaps"])
     return {
         "project": _project_view(project),
-        "history": {"project_id": project_id, "revision": head["revision"],
+        "history": {"project_id": project_id, "revision": head["tip"] or head["revision"],
                     "parent": head["parent"], "last_synced_at": head["accepted_at"]},
         "active_intents": [obj for obj in intents if obj["status"] == "active"],
         "other_intents": [obj for obj in intents if obj["status"] != "active"],

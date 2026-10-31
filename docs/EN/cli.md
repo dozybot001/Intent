@@ -106,12 +106,14 @@ Git is optional. Intent owns semantic history independently of the source reposi
 | `itt status [--local]` | Report empty / up_to_date / ahead / behind / diverged; --local works offline. |
 | `itt remote [-v]` | Show IntHub endpoint and project. |
 | `itt remote add origin URL --project NAME` | Configure the shared project; default name is the semantic root directory name. Use `TEAM/NAME` for a team's project. |
-| `itt push [--project NAME] [--api-base-url URL] [--dry-run]` | Link when needed, then save a revision. Identical content creates no version; preview has no remote writes. |
-| `itt pull [--project NAME] [--api-base-url URL] [--dry-run] [--rebase]` | Advance unchanged local history, preserve local-only changes, reject divergence without overwriting either side. |
+| `itt push [--project NAME] [--api-base-url URL] [--dry-run] [--delete BRANCH]` | Send this branch to the same branch on the remote, uploading only what it lacks; preview has no remote writes. `--delete` removes a branch there; `main` stays. |
+| `itt fetch [--project NAME] [--api-base-url URL]` | Download the remote's branches into `origin/*` without touching this branch. |
+| `itt pull [--project NAME] [--api-base-url URL] [--dry-run]` | Fetch, then merge `origin/BRANCH` into this branch. A conflict stops as `itt merge` does. |
+| `itt clone PROJECT [--api-base-url URL] [--host HOST]` | In a folder with no `.intent/`: set Intent up and bring the project's history and branches. Members only. |
 | `itt auth login / status / logout` | Account sign-in: the terminal shows a code to approve in the browser. The token goes to the Git credential helper, or to a private `credentials.json` beside the Intent config when there is none, and is shared across projects. |
 | `itt hub start` | Browse IntHub Local. |
 
-Configure copies with the same remote/project: they share one history instead of separate workspaces. Intent/Snap/Decision remain objects within versions. No staging, manual commit, branch, rebase, force mode, or automatic merge is needed.
+Configure copies with the same remote/project: they share one history instead of separate workspaces. Intent/Snap/Decision remain objects within revisions. No staging, manual commit or force mode is needed.
 
 A project renamed or transferred on IntHub is followed automatically: `status`, `push` and `pull` look the project up by its ID and report `renamed_from`, and `push` and `pull` store the new name. itt 7.2 and earlier look it up by name and report `REMOTE_CHANGED` until upgraded; team projects need itt 7.5. A project deleted on IntHub also reports `REMOTE_CHANGED`; local history is untouched.
 
@@ -388,7 +390,6 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 | `BRANCH_EXISTS`, `BRANCH_NOT_FOUND`, `BRANCH_IN_USE`, `BRANCH_NOT_MERGED` | A branch command cannot go ahead |
 | `MERGE_CONFLICT` | A merge needs a decision; `details.conflicts` lists each field with both values |
 | `MERGE_IN_PROGRESS`, `NO_MERGE_IN_PROGRESS` | A merge is open and blocks this, or there is none to continue |
-| `NOT_ON_MAIN` | Push and pull work on `main`, from the main worktree |
 | `UNSAFE_STORAGE` | `.intent/`, an object directory, lock, or object file redirects through a symlink or escapes its storage boundary |
 | `STORAGE_PARSE_ERROR` | A stored object is not valid UTF-8 JSON; `doctor` reports every parse failure it can scan |
 | `STORAGE_SCHEMA_ERROR` | A stored object is missing a required field or has an invalid field type |
@@ -409,14 +410,13 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 | `PERMISSION_DENIED` | The account has read-only access to this team project |
 | `TEAM_NOT_FOUND` | The team does not exist or the account is not a member |
 | `REMOTE_CHANGED` | Endpoint or project identity changed; select explicitly with remote add |
-| `NON_FAST_FORWARD` | Remote changed; push preserved it. Pull first, with `itt pull --rebase` if the histories diverged |
-| `HISTORY_DIVERGED` | Both local and remote changed; neither history was overwritten. `itt pull --rebase` puts local work on top of the remote |
+| `NON_FAST_FORWARD` | Remote changed; push preserved it. Run `itt pull`, then push |
 | `QUOTA_EXCEEDED` | The account or team reached its limit of 100 projects or 1 GB of history storage |
 | `HUB_STATE_INVALID` | Local remote or baseline state is malformed |
 | `INVALID_LOCAL_SNAPSHOT` | Local Intent history is not a valid complete graph; run `itt doctor` before pulling |
-| `INVALID_REMOTE_SNAPSHOT` | The downloaded snapshot identity, version, schema, or graph is invalid |
-| `LOCAL_STATE_CHANGED` | Local history or remote configuration changed during synchronization; no overwrite was applied |
-| `REMOTE_HISTORY_CONFLICT` | Remote history rewrote, removed, or inconsistently changed recorded data |
+| `INVALID_REMOTE_HISTORY` | What IntHub returned has an invalid identity, protocol, digest, schema or graph |
+| `INCOMPLETE_HISTORY` | A ref named revisions that have not all arrived. Run `itt push` again |
+| `INVALID_BLOB` | An uploaded blob does not match its digest or shape |
 | `PULL_APPLY_FAILED` | Workspace-lock-held, journaled snapshot installation or recovery failed; `details.committed` reports whether installation reached committed state, and `details.recovery_required` reports whether another recovery pass is required |
 | `NETWORK_ERROR` | IntHub could not be reached |
 | `NETWORK_TIMEOUT` | IntHub did not answer within the bounded request timeout; mutation completion may be unknown |

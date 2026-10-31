@@ -39,7 +39,7 @@ Git asks people to stage and commit. Intent's writers are mostly agents in the m
 | `git status` | branch, upstream, ahead/behind counts |
 | remotes, `fetch`, `pull`, `push`, `clone` | `itt remote`, `itt fetch` into `refs/remotes/origin/*`, `itt pull` = fetch + merge, `itt push` (rejected when behind, as in Git), `itt clone URL --project NAME` |
 | three-way merge | **semantic three-way merge** against the merge base (below) |
-| worktrees | the repository is found through `git rev-parse --git-common-dir`, so all worktrees share one semantic repository; each worktree has its own `HEAD`, and push and pull run from the main worktree. A bare repository or `--separate-git-dir` names no main worktree, so there each worktree keeps its own `.intent/` |
+| worktrees | the repository is found through `git rev-parse --git-common-dir`, so all worktrees share one semantic repository; each worktree has its own `HEAD` and pushes its own branch. A bare repository or `--separate-git-dir` names no main worktree, so there each worktree keeps its own `.intent/` |
 | tags | `itt tag` for milestones (later) |
 
 ## Storage (repository format 2)
@@ -88,7 +88,9 @@ So intent flow is recorded as relations between Intents (see [Intent flow](inten
 
 ## Remote protocol 3 and IntHub
 
-Push and fetch negotiate missing revisions and object versions, the way Git negotiates packs. IntHub stores the revision DAG and deduplicated objects, which also removes today's full snapshot per push. Branch refs are per project. IntHub shows `main` and its merge history. IntHub accepts the 7.x protocol during a migration window.
+`itt push` uploads what the remote lacks, then moves one ref. As on a Git remote, the ref moves only from where the pusher saw it, only forward, and only once everything it reaches has arrived. `itt fetch` downloads what the local tips lack, in pages. IntHub stores the revision DAG as content-addressed blobs with branch refs per project, and its history page shows `main` with its merges. `main` is also kept as a snapshot per push, which the web views and protocol 2 read.
+
+A project's protocol 2 pushes become revisions the first time the graph is used, each keeping its old ID in `legacy`, so a copy from before the graph can find a merge base from the last push it saw. Older clients can keep reading and pushing `main` during the migration window, and their pushes join the graph.
 
 ## Migration from 7.x
 
@@ -96,7 +98,7 @@ Push and fetch negotiate missing revisions and object versions, the way Git nego
 
 ## Phases
 
-Phases 1 to 3 shipped in Intent 8.0. Phase 4 has not started, and until then push and pull work on `main`.
+Phases 1 to 3 shipped in Intent 8.0, and phase 4 in 8.1.
 
 1. Repository format 2: objects, revisions, refs, automatic revisions, hash IDs for new objects, `itt log`, `show`, `diff` and `itt migrate`.
 2. Branches and worktrees: `itt branch`, `itt switch` and Git-worktree discovery.

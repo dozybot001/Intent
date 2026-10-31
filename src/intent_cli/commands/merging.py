@@ -1,10 +1,11 @@
 """Merging branches, like `git merge`, with structured conflicts instead of text markers."""
 
 from intent_cli import repo, repo_checkout
-from intent_cli.commands.common import expand_ids, require_init, require_repository
-from intent_cli.merge import graph_conflicts, merge_objects, possible_duplicates
+from intent_cli.commands.common import expand_ids, now_utc, require_init, require_repository
+from intent_cli.merge import choose_relations, graph_conflicts, merge_objects, possible_duplicates
 from intent_cli.output import error, success
-from intent_cli.store import VALID_STATUSES, workspace_write_lock
+from intent_cli.relations import graph_issues
+from intent_cli.store import VALID_STATUSES, read_hub_config, workspace_write_lock
 
 
 def _resolve_revision(base, name):
@@ -21,25 +22,30 @@ def _finish(base, state, objects):
     repo_checkout.clear_merge_state(base)
     repo_checkout.end_write(base)
     duplicates = possible_duplicates(objects)
-    success("merge", {"state": "merged", "branch": state["branch"], "head": revision, "parents": [head, state["theirs"]],
-                      "possible_duplicates": duplicates},
+    return ({"state": "merged", "branch": state["branch"], "head": revision, "parents": [head, state["theirs"]],
+             "possible_duplicates": duplicates},
             [f"These open goals read the same: {', '.join(ids)}. Close the extra with itt intent done ID --into OTHER."
              for ids in duplicates])
 
 
-def _start(base, name):
+def _base_from_before_the_graph(base, theirs):
+    """A copy from before the graph shares no revision with the remote, but IntHub told it where it last stood."""
+    tip = (read_hub_config(base) or {}).get("last_seen_tip")
+    return tip if tip and tip in repo.reachable_from(base, [theirs]) else None
+
+
+def merge_into(base, name):
+    """Merge a branch into this one. Returns (result, warnings); a conflict stops here with MERGE_CONFLICT."""
     if repo.uncommitted(base):
         error("UNCOMMITTED_CHANGES", "The working copy has changes no revision holds.",
               suggested_fix="Run a write to record them first.")
     head, theirs = repo.head_revision(base), _resolve_revision(base, name)
     if head is not None and repo.is_ancestor(base, theirs, head):
-        success("merge", {"state": "up_to_date", "branch": name, "head": head})
-        return
+        return {"state": "up_to_date", "branch": name, "head": head}, []
     if head is None or repo.is_ancestor(base, head, theirs):
         repo_checkout.fast_forward(base, theirs)
-        success("merge", {"state": "fast_forward", "branch": name, "head": theirs})
-        return
-    ancestor = repo.merge_base(base, head, theirs)
+        return {"state": "fast_forward", "branch": name, "head": theirs}, []
+    ancestor = repo.merge_base(base, head, theirs) or _base_from_before_the_graph(base, theirs)
     ours_objects = repo.objects_at(base, head)
     merged, conflicts = merge_objects(repo.objects_at(base, ancestor), ours_objects, repo.objects_at(base, theirs))
     # Until the merge is recorded or stopped for a decision, an interruption goes back to HEAD,
@@ -48,8 +54,7 @@ def _start(base, name):
     repo_checkout.begin_write(base)
     repo_checkout.write_objects(base, {obj_id: obj for obj_id, obj in merged.items() if ours_objects.get(obj_id) != obj})
     if not conflicts:
-        _finish(base, state, merged)
-        return
+        return _finish(base, state, merged)
     repo_checkout.write_merge_state(base, state)
     repo_checkout.end_write(base)
     error("MERGE_CONFLICT", f"Merging {name} needs a decision on {len(conflicts)} field(s). Nothing is recorded yet.",
@@ -79,14 +84,14 @@ def cmd_merge(args):
                 error("MERGE_CONFLICT", f"{len(state['conflicts'])} field(s) still need a decision.",
                       details={"branch": state["branch"], "conflicts": state["conflicts"]},
                       suggested_fix="itt resolve ID --ours|--theirs|--status S")
-            _finish(base, state, objects)
+            success("merge", *_finish(base, state, objects))
             return
         if state is not None:
             error("MERGE_IN_PROGRESS", f"A merge of {state['branch']} is in progress.",
                   suggested_fix="itt merge --continue or itt merge --abort")
         if not args.branch:
             error("INVALID_INPUT", "Name the branch to merge.", suggested_fix="itt merge BRANCH")
-        _start(base, args.branch)
+        success("merge", *merge_into(base, args.branch))
 
 
 def _resolved_side(args, conflict, obj):
@@ -106,6 +111,9 @@ def _resolved_side(args, conflict, obj):
 
 def _settle(args, conflict, obj):
     side, value = _resolved_side(args, conflict, obj)
+    if conflict["field"] == "relations":
+        obj["relations"] = choose_relations(obj.get("relations") or [], value, now_utc())
+        return
     obj[conflict["field"]] = value
     if "reasons" in conflict:
         reason = conflict["reasons"].get(side) if side else None
@@ -125,11 +133,17 @@ def cmd_resolve(args):
         settled = [conflict for conflict in state["conflicts"] if conflict["id"] == args.id]
         if not settled:
             error("OBJECT_NOT_FOUND", f"{args.id} has no conflict in this merge.")
-        obj = repo.working_objects(base).get(args.id)
+        objects = repo.working_objects(base)
+        obj = objects.get(args.id)
         if obj is None:
             error("OBJECT_NOT_FOUND", f"{args.id} cannot be read from the working copy.", suggested_fix="itt merge --abort")
         for conflict in settled:
             _settle(args, conflict, obj)
+        if any(conflict["field"] == "relations" for conflict in settled):
+            intents = {obj_id: item for obj_id, item in objects.items() if obj_id.startswith("intent-")}
+            remaining = next((message for obj_id, message in graph_issues(intents) if obj_id == args.id), None)
+            if remaining:
+                error("MERGE_CONFLICT", f"That side keeps the conflict: {remaining}", suggested_fix="Pick the other side.")
         repo_checkout.write_objects(base, {args.id: obj})
         state["conflicts"] = [conflict for conflict in state["conflicts"] if conflict["id"] != args.id]
         repo_checkout.write_merge_state(base, state)

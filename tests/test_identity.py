@@ -195,22 +195,23 @@ def test_a_push_records_the_declared_pusher_and_the_history_page_reads_it(repo, 
 
     assert project_overview(db, project_id)["project"]["repository_url"] == "https://github.com/acme/app"
     page = project_revisions(db, project_id, limit=1)
-    assert page["total"] == 2 and page["has_more"] is True
+    assert page["total"] == 3 and page["has_more"] is True
     newest = page["revisions"][0]
     assert newest["revision"] == second["revision"] and newest["parent"] == first["revision"]
     assert newest["pusher"] == ANA and newest["pushed_by"] is None
     assert newest["summary"]["intents_changed"] == 1 and newest["summary"]["snaps_added"] == 0
 
-    detail = revision_detail(db, project_id, first["revision"])
+    oldest = project_revisions(db, project_id)["revisions"][-1]
+    detail = revision_detail(db, project_id, oldest["revision"])
     assert [obj["what"] for obj in detail["changes"]["intents"]["added"]] == ["Goal"]
-    snap = detail["changes"]["snaps"]["added"][0]
+    snap = revision_detail(db, project_id, first["revision"])["changes"]["snaps"]["added"][0]
     assert snap["author"] == ANA and snap["intent_id"] == "intent-001" and len(snap["git"]["commit"]) == 40
     changed = revision_detail(db, project_id, second["revision"])["changes"]["intents"]["changed"][0]
     assert changed["object"]["id"] == "intent-001"
     assert changed["changes"] == [{"field": "status", "from": "active", "to": "done"}]
 
     with urlopen(f"{url}/api/v1/projects/{project_id}/revisions") as response:
-        assert json.load(response)["result"]["total"] == 2
+        assert json.load(response)["result"]["total"] == 3
     with pytest.raises(HTTPError) as missing:
         urlopen(f"{url}/api/v1/projects/{project_id}/revisions/nope")
     assert missing.value.code == 404
@@ -230,19 +231,6 @@ def test_the_timeline_lists_and_filters_by_author(repo, hub):
     with urlopen(f"{url}/api/v1/projects/{project_id}/snaps?author=bo%40example.com") as response:
         page = json.load(response)["result"]
     assert [snap["what"] for snap in page["snaps"]] == ["Theirs"] and page["total"] == 1
-
-
-def test_revisions_from_before_this_release_get_their_summary_once(repo, hub):
-    db, url = hub
-    assert itt(repo, "intent", "create", "Goal", "--why", "test")["ok"]
-    assert itt(repo, "remote", "add", "origin", url, "--project", "app")["ok"]
-    project_id = itt(repo, "push")["result"]["project_id"]
-    with connect(db) as conn:
-        conn.execute("UPDATE semantic_versions SET pusher_json = NULL, changes_json = NULL")
-    view = project_revisions(db, project_id)["revisions"][0]
-    assert view["summary"]["intents_added"] == 1 and view["pusher"] is None
-    with connect(db) as conn:
-        assert json.loads(conn.execute("SELECT changes_json FROM semantic_versions").fetchone()["changes_json"])["intents_added"] == 1
 
 
 def test_a_long_revision_is_cut_but_its_counts_stay_exact(hub):
@@ -291,9 +279,10 @@ def test_an_object_pushed_by_its_authors_account_is_verified(repo, tmp_path):
         verified = {intent["what"]: intent.get("verified") for intent in overview["active_intents"]}
         assert verified == {"Mine": True, "Theirs": None}
 
-        revision = project_revisions(db, pushed["project_id"], account_id=account["id"])["revisions"][0]
-        assert revision["pushed_by"]["name"] == "Ana"
-        added = revision_detail(db, pushed["project_id"], pushed["revision"], account["id"])["changes"]["intents"]["added"]
+        revisions = project_revisions(db, pushed["project_id"], account_id=account["id"])["revisions"]
+        assert revisions[0]["pushed_by"]["name"] == "Ana"
+        added = [intent for revision in revisions for intent in revision_detail(
+            db, pushed["project_id"], revision["revision"], account["id"])["changes"]["intents"]["added"]]
         assert {intent["what"]: intent.get("verified") for intent in added} == {"Mine": True, "Theirs": None}
 
         from apps.inthub_api.projects import delete_project

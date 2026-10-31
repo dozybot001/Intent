@@ -1,56 +1,71 @@
-"""The project's history: one revision per accepted push, like git log and git show."""
-
-import json
+"""The project's history: main and what was merged into it, like git log and git show."""
 
 from apps.inthub_api.common import APIError
 from apps.inthub_api.db import connect
 from apps.inthub_api.queries import _project_row, without_email
+from apps.inthub_api.repository import main_history, snapshot_at, tip_of_push
 from intent_cli.hub.changes import COLLECTIONS, semantic_changes, summarize
+from intent_cli.identity import FIELD_MAX_CHARS
+from intent_cli.store_schema import SUBDIRS
 
 LIST_LIMIT = 200  # objects shown per list of one revision; the counts stay exact
 _OBJECT_FIELDS = ("id", "what", "status", "intent_id", "author", "origin", "git")
 
 
-def _snapshot(conn, project_id, revision):
-    if revision is None:
-        return None
-    row = conn.execute("SELECT snapshot_json FROM semantic_versions WHERE project_id = ? AND revision = ?",
-                       (project_id, revision)).fetchone()
-    return json.loads(row["snapshot_json"])
+def _counts(revision):
+    """Counts for the list, from what the revision recorded.
+
+    Adding a Snap also changes its Intent's links, which is not news, so a change
+    counts only when the revision added nothing. The detail view works out the rest.
+    """
+    counts = {f"{collection}_{kind}": 0 for collection in COLLECTIONS for kind in ("added", "changed")}
+    changes = revision.get("changes")
+    for change in changes if isinstance(changes, list) else []:
+        obj_id, action = (change.get("id"), change.get("action")) if isinstance(change, dict) else (None, None)
+        collection = SUBDIRS.get(obj_id.split("-", 1)[0]) if isinstance(obj_id, str) else None
+        if collection and action in ("added", "changed"):
+            counts[f"{collection}_{action}"] += 1
+    if any(counts[f"{collection}_added"] for collection in COLLECTIONS):
+        counts.update({f"{collection}_changed": 0 for collection in COLLECTIONS})
+    return counts
 
 
-def _view(conn, project_id, row, public=False):
-    summary = row["changes_json"]
-    if summary is None:
-        # Revisions from before 7.4: worked out once, then kept like newer ones.
-        summary = json.dumps(summarize(semantic_changes(
-            _snapshot(conn, project_id, row["parent"]), _snapshot(conn, project_id, row["revision"]))))
-        conn.execute("UPDATE semantic_versions SET changes_json = ? WHERE project_id = ? AND revision = ?",
-                     (summary, project_id, row["revision"]))
-    account = {"login": row["login"], "name": row["display_name"]} if row["login"] else None
-    pusher = json.loads(row["pusher_json"]) if row["pusher_json"] else None
+def _pushers(conn, project_id):
+    """The signed-in account behind each push, by the revision it left main on."""
+    rows = conn.execute("""SELECT v.tip, a.login, a.display_name FROM semantic_versions v
+        JOIN accounts a ON a.id = v.pushed_by WHERE v.project_id = ? AND v.tip IS NOT NULL""", (project_id,)).fetchall()
+    return {row["tip"]: row for row in rows}
+
+
+def _text(value):
+    """A field a client wrote into its revision, which can hold anything."""
+    return value[:FIELD_MAX_CHARS] if isinstance(value, str) else None
+
+
+def _view(digest, revision, pushers, public=False):
+    author = revision.get("author") if isinstance(revision.get("author"), dict) else {}
+    pusher = {key: _text(author[key]) for key in ("name", "email") if _text(author.get(key))} or None
+    row = pushers.get(digest)
+    account = {"login": row["login"], "name": row["display_name"]} if row and row["login"] else None
     if public:
         # A visitor sees names only: a login can be an opaque Tenon subject.
-        account = {"name": row["display_name"]} if row["display_name"] else None
+        account = {"name": row["display_name"]} if row and row["display_name"] else None
         pusher = {key: value for key, value in pusher.items() if key != "email"} if pusher else None
-    return {"revision": row["revision"], "parent": row["parent"], "created_at": row["created_at"],
-            "pushed_by": account, "pusher": pusher, "summary": json.loads(summary)}
-
-
-_SELECT = """SELECT v.revision, v.parent, v.created_at, v.pusher_json, v.changes_json, a.login, a.display_name
-    FROM semantic_versions v LEFT JOIN accounts a ON a.id = v.pushed_by WHERE v.project_id = ?"""
+    parents = revision["parents"]
+    return {"revision": digest, "parent": parents[0] if parents else None, "parents": parents, "merge": len(parents) > 1,
+            "created_at": _text(revision.get("time")), "pushed_by": account, "pusher": pusher,
+            "title": _text(revision.get("summary")), "summary": _counts(revision)}
 
 
 def project_revisions(db_path, project_id, offset=0, limit=30, account_id=None):
-    """One page of revisions, newest first."""
+    """One page of main's revisions, newest first."""
     with connect(db_path) as conn:
         public = _project_row(conn, project_id, account_id)["permission"] == "public"
-        total = conn.execute("SELECT count(*) AS n FROM semantic_versions WHERE project_id = ?", (project_id,)).fetchone()["n"]
-        rows = conn.execute(f"{_SELECT} ORDER BY v.created_at DESC, v.revision LIMIT ? OFFSET ?",
-                            (project_id, limit, offset)).fetchall()
-        revisions = [_view(conn, project_id, row, public) for row in rows]
-    return {"project_id": project_id, "revisions": revisions, "total": total,
-            "offset": offset, "limit": limit, "has_more": offset + len(revisions) < total}
+        history, _revisions = main_history(conn, project_id)
+        pushers = _pushers(conn, project_id)
+    page = history[offset:offset + limit]
+    return {"project_id": project_id, "revisions": [_view(digest, revision, pushers, public) for digest, revision in page],
+            "total": len(history), "offset": offset, "limit": limit, "has_more": offset + len(page) < len(history)}
 
 
 def _brief(obj, verified, public):
@@ -61,16 +76,21 @@ def _brief(obj, verified, public):
 
 
 def revision_detail(db_path, project_id, revision, account_id=None):
-    """What one revision changed. Long lists are cut to LIST_LIMIT; their totals stay exact."""
+    """What one revision changed from its first parent. Long lists are cut to LIST_LIMIT; their totals stay exact."""
     with connect(db_path) as conn:
         public = _project_row(conn, project_id, account_id)["permission"] == "public"
-        row = conn.execute(f"{_SELECT} AND v.revision = ?", (project_id, revision)).fetchone()
-        if row is None:
+        history, revisions = main_history(conn, project_id)
+        # Links made before the graph existed name the push's old revision ID.
+        wanted = tip_of_push(conn, project_id, revision) or revision
+        found = next((item for item in history if item[0] == wanted), None)
+        if found is None:
             raise APIError("OBJECT_NOT_FOUND", f"Revision {revision} not found.", 404)
-        view = _view(conn, project_id, row, public)
-        changes = semantic_changes(_snapshot(conn, project_id, row["parent"]), _snapshot(conn, project_id, revision))
-        verified = {found["object_id"] for found in conn.execute(
+        digest, data = found
+        parent = data["parents"][0] if data["parents"] else None
+        changes = semantic_changes(snapshot_at(conn, project_id, revisions, parent), snapshot_at(conn, project_id, revisions, digest))
+        verified = {row["object_id"] for row in conn.execute(
             "SELECT object_id FROM verified_objects WHERE project_id = ?", (project_id,)).fetchall()}
+        pushers = _pushers(conn, project_id)
     listed = {}
     for collection in COLLECTIONS:
         added, changed = changes[collection]["added"], changes[collection]["changed"]
@@ -79,4 +99,4 @@ def revision_detail(db_path, project_id, revision, account_id=None):
             "changed": [{"object": _brief(item["object"], verified, public), "changes": item["changes"]} for item in changed[:LIST_LIMIT]],
             "truncated": len(added) > LIST_LIMIT or len(changed) > LIST_LIMIT,
         }
-    return {"project_id": project_id, **view, "changes": listed}
+    return {"project_id": project_id, **_view(digest, data, pushers, public), "summary": summarize(changes), "changes": listed}

@@ -164,7 +164,7 @@ def _remote_status(result):
         "up_to_date": green("Up to date with origin."),
         "ahead": "Ahead of origin. Run `itt push` to publish your history.",
         "behind": "Origin has newer history. Run `itt pull` to update.",
-        "diverged": yellow("Local history and origin have diverged; neither was changed. Run `itt pull --rebase`, then `itt push`."),
+        "diverged": yellow("Local history and origin have diverged; neither was changed. Run `itt pull`, then `itt push`."),
         "empty": "Local history and origin are both empty.",
     }
     return [f"Project {bold(result['project_name'])} on {result['api_base_url']} · {_counts(result.get('counts'))}",
@@ -184,30 +184,32 @@ def _push(result):
     if result.get("dry_run"):
         return [f"Dry run: {DRY_RUN_STATES[result['state']]}; "
                 + ("a push would publish new history." if result.get("changed") else "nothing to push.")]
+    if result.get("deleted"):
+        return [f"Deleted {result['deleted']} on origin."]
     if not result.get("changed"):
         return [*_renamed(result), "Everything up to date."]
-    return [*_renamed(result), f"Pushed {result['project_name']} → revision {result['revision'][:8]}"]
-
-
-def _rebased(result):
-    renumbered = result.get("renumbered") or {}
-    lines = [f"  {old} → {new}" for old, new in renumbered.items()]
-    lines += [f"  {item['id']} stays {item['kept']} (this copy said {item['local']})" for item in result.get("conflicts") or []]
-    return lines
+    return [*_renamed(result), f"Pushed {result['branch']} to {result['project_name']} → {result['revision'][:8]}"]
 
 
 def _pull(result):
     if result.get("dry_run"):
-        if "renumbered" in result:
-            return ["Dry run: a rebase would put local work on top of origin:", *_rebased(result)]
         return [f"Dry run: {DRY_RUN_STATES[result['state']]}; "
                 + ("a pull would update local history." if result.get("changed") else "nothing to pull.")]
-    if result.get("state") == "rebased":
-        return [*_renamed(result), f"Rebased local work on revision {result['revision'][:8]} · {_counts(result.get('counts'))}",
-                *_rebased(result), dim("  Run: itt push")]
     if not result.get("changed"):
         return [*_renamed(result), "Already up to date."]
-    return [*_renamed(result), f"Pulled {result['project_name']} revision {result['revision'][:8]} · {_counts(result.get('counts'))}"]
+    if result["state"] == "merged":
+        return [*_renamed(result), f"Merged origin/{result['branch']} → {result['revision'][:8]}", dim("  Run: itt push")]
+    return [*_renamed(result), f"Pulled {result['project_name']} → {result['revision'][:8]}"]
+
+
+def _fetch(result):
+    updated = result.get("updated") or []
+    return [*_renamed(result), f"Fetched {', '.join(f'origin/{name}' for name in updated)}." if updated else "Already up to date."]
+
+
+def _clone(result):
+    return [f"Cloned {bold(result['project_name'])} on {result['branch']} → {(result.get('head') or '')[:8]}",
+            dim("  Run: itt inspect")]
 
 
 def _remote(result):
@@ -340,6 +342,8 @@ RENDERERS = {
     "status": _status,
     "push": _push,
     "pull": _pull,
+    "fetch": _fetch,
+    "clone": _clone,
     "remote": _remote,
     "remote.add": lambda result: [f"origin → {result['api_base_url']}  {dim('project ' + result['project_name'])}"],
     "init": _init,

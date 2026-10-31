@@ -1,6 +1,6 @@
 /* History */
 
-// Who pushed: the signed-in account when there is one, else what the CLI declared.
+// Who it came from: the signed-in account behind a push when there is one, else the revision's author.
 function pushedBy(revision) {
   return revision?.pushed_by?.name || revision?.pushed_by?.login || revision?.pusher?.name || revision?.pusher?.email || "";
 }
@@ -55,16 +55,22 @@ async function loadHistoryPage() {
   if (state._history === history && state.activeTab === "history" && state.overview && state.currentProjectId === history.projectId) renderView();
 }
 
+// A merge reads by what it joined; its first parent's line already says what each side did.
+function revisionTitle(revision) {
+  return revision.merge && revision.title ? revision.title : revisionSummary(revision.summary);
+}
+
 function revisionRow(revision, projectId) {
   const who = pushedBy(revision);
   return `
     <button type="button" class="list-row history-row" data-detail-type="revision" data-remote-id="${esc(remoteId(projectId, revision.revision))}">
       <span class="row-main">
-        <strong class="row-title">${esc(revisionSummary(revision.summary))}</strong>
+        <strong class="row-title">${esc(revisionTitle(revision))}</strong>
         <span class="row-byline">
           ${who ? `<span>${esc(who)}</span>` : ""}
           <span data-tip="${esc(fmtDate(revision.created_at))}">${esc(relativeDate(revision.created_at))}</span>
-          ${revision.parent ? "" : `<span class="chip">${esc(t("First push"))}</span>`}
+          ${revision.parent ? "" : `<span class="chip">${esc(t("First revision"))}</span>`}
+          ${revision.merge ? `<span class="chip">${esc(t("Merge"))}</span>` : ""}
         </span>
       </span>
       <span class="row-id">${esc(shortRevision(revision.revision))}</span>
@@ -77,13 +83,13 @@ function renderHistoryTab() {
   const header = pageHeader({
     title: t("History"),
     help: "history",
-    meta: history.total ? [esc(plural(history.total, "{count} push", "{count} pushes"))] : [],
+    meta: history.total ? [esc(plural(history.total, "{count} revision", "{count} revisions"))] : [],
   });
   if (history.loaded && !history.revisions.length) {
     el.detailContent.innerHTML = header + emptyState({
       iconName: "history",
       title: t("No pushes yet."),
-      body: t("Each push is one revision: what changed, who pushed it and when."),
+      body: t("A push brings its revisions here: what changed, who made it and when."),
       extra: commandSnippet(["itt push"]),
     });
     return;
@@ -126,7 +132,7 @@ function revisionChangedRow(type, item, projectId) {
   </div>`;
 }
 
-// Each list stops at 200 entries while the summary stays exact, so a long push says what it left out.
+// Each list stops at 200 entries while the summary stays exact, so a long revision says what it left out.
 function revisionList(rows, total) {
   const hidden = total - rows.length;
   return collapsibleRelation(rows, 8) + (hidden > 0 ? `<p class="revision-more">${esc(t("{count} more not shown", {count: hidden}))}</p>` : "");
@@ -153,13 +159,14 @@ function buildRevisionDetailHtml(payload) {
   return `
     <div class="detail-header">
       ${detailMeta([
-        payload.parent ? "" : `<span class="chip">${esc(t("First push"))}</span>`,
+        payload.parent ? "" : `<span class="chip">${esc(t("First revision"))}</span>`,
+        payload.merge ? `<span class="chip">${esc(t("Merge"))}</span>` : "",
         idChip(shortRevision(payload.revision)),
-        who ? `<span>${esc(t("Pushed by {name}", {name: who}))}</span>` : "",
+        who ? `<span>${esc(t("By {name}", {name: who}))}</span>` : "",
         `<span>${esc(fmtDate(payload.created_at))}</span>`,
       ])}
-      <h2 class="detail-title" tabindex="-1">${esc(revisionSummary(summary))}</h2>
+      <h2 class="detail-title" tabindex="-1">${esc(revisionTitle(payload))}</h2>
     </div>
-    ${sections.join("") || `<div class="inline-empty">${esc(t("This push added and changed nothing."))}</div>`}
+    ${sections.join("") || `<div class="inline-empty">${esc(t("This revision added and changed nothing."))}</div>`}
     ${rawToggle(payload)}`;
 }

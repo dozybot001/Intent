@@ -190,15 +190,6 @@ def test_a_damaged_branch_refuses_the_switch_and_stops_nothing_else(project, goa
     assert _snap(project, goal, "Still working")
 
 
-def test_push_checks_the_branch_only_after_recovery(project, goal):
-    _run(project, "branch", "side")
-    base = project / ".intent"
-    repo_checkout.begin_write(base)
-    repo.set_head(base, "side")
-    assert _run(project, "push")["error"]["code"] == "NOT_ON_MAIN"
-    assert _run(project, "pull")["error"]["code"] == "NOT_ON_MAIN"
-
-
 def test_a_merge_recorded_before_its_cleanup_counts_as_finished(project, goal):
     _diverged(project, goal)
     assert _run(project, "merge", "side")["ok"]

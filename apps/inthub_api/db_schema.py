@@ -1,7 +1,9 @@
 """The database's tables: what each migration creates, and the columns a current schema must have."""
 import hashlib
 
-LATEST_SCHEMA_VERSION = 8
+LATEST_SCHEMA_VERSION = 9
+_REPOSITORY_SCHEMA_NAME = "revision-graph"
+_REPOSITORY_SCHEMA_CHECKSUM = hashlib.sha256(b"0009:repo-blobs:repo-refs:version-tip").hexdigest()
 _HOSTED_SCHEMA_NAME = "device-logins-limits-suspension"
 _HOSTED_SCHEMA_CHECKSUM = hashlib.sha256(b"0008:device-logins:project-stored-bytes:account-project-suspension").hexdigest()
 _TEAMS_SCHEMA_NAME = "teams-and-visibility"
@@ -125,6 +127,9 @@ _IDENTITY_COLUMNS = {
 for _table, _columns in _IDENTITY_COLUMNS.items():
     _EXPECTED_SCHEMA_COLUMNS[_table] = _EXPECTED_SCHEMA_COLUMNS[_table] | _columns
 _EXPECTED_SCHEMA_COLUMNS["verified_objects"] = {"project_id", "object_id", "revision"}
+_EXPECTED_SCHEMA_COLUMNS["semantic_versions"] = _EXPECTED_SCHEMA_COLUMNS["semantic_versions"] | {"tip"}
+_EXPECTED_SCHEMA_COLUMNS["repo_blobs"] = {"project_id", "kind", "digest", "body", "is_binary"}
+_EXPECTED_SCHEMA_COLUMNS["repo_refs"] = {"project_id", "name", "revision"}
 _EXPECTED_SCHEMA_COLUMNS["projects"] = _EXPECTED_SCHEMA_COLUMNS["projects"] | {"team_id", "visibility", "stored_bytes", "suspended_at"}
 _EXPECTED_SCHEMA_COLUMNS["accounts"] = _EXPECTED_SCHEMA_COLUMNS["accounts"] | {"suspended_at"}
 _EXPECTED_SCHEMA_COLUMNS.update({

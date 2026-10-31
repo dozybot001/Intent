@@ -276,10 +276,8 @@ def test_a_project_inside_a_worktrees_folder_works(tmp_path):
     assert _run(root, "status", "--local")["result"]["branch"] == "main"
 
 
-def test_a_linked_worktree_cannot_sync_and_names_the_project_after_main(project, goal, tmp_path_factory):
+def test_a_linked_worktree_names_the_project_after_main(project, goal, tmp_path_factory):
     linked = _linked(project, tmp_path_factory.mktemp("linked"))
-    assert _run(linked, "push")["error"]["code"] == "NOT_ON_MAIN"
-    assert _run(linked, "pull")["error"]["code"] == "NOT_ON_MAIN"
     assert _run(linked, "status", "--local")["result"]["project_name"] == project.name
 
 

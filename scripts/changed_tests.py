@@ -14,7 +14,7 @@ WEB = ["tests/test_inthub_web_ui.py"]
 SERVER = ["tests/test_inthub_api_server.py", "tests/test_inthub_auth.py", "tests/test_inthub_db.py", "tests/test_inthub_device_login.py",
           "tests/test_inthub_hosted_limits.py", "tests/test_inthub_product_deletion.py", "tests/test_inthub_projects.py",
           "tests/test_inthub_queries.py", "tests/test_inthub_teams.py", "tests/test_inthub_tenon.py"]
-SYNC = ["tests/test_hub_client.py", "tests/test_hub_credentials.py", "tests/test_hub_runtime.py", "tests/test_shared_history.py",
+SYNC = ["tests/test_protocol3.py", "tests/test_protocol3_safety.py", "tests/test_hub_client.py", "tests/test_hub_credentials.py", "tests/test_hub_runtime.py", "tests/test_shared_history.py",
         "tests/test_snapshot_restore.py"]
 CLI = ["tests/test_cli_global.py", "tests/test_cli_hub.py", "tests/test_cli_inspect.py", "tests/test_cli_objects.py", "tests/test_cli_storage.py",
        "tests/test_identity.py", "tests/test_maintenance.py", "tests/test_origin.py", "tests/test_output.py",
