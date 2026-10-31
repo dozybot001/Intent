@@ -17,6 +17,10 @@ Local writes use `itt intent create WHAT [--why WHY] [--part-of ID | --derived-f
 
 Each checkpoint flag is one argv item holding only that cell's text, without a `Next:`-style label: non-blank, at most 2,000 characters, stored write-once in the Snap's `checkpoint`. Omit a flag whose cell is unknown; use `--blocker none` when nothing blocks. Inspect returns the latest Snap's cells as each entry's `checkpoint` (`null` for older Snaps, whose cells may remain in `latest_snap` text).
 
+Every write is a revision, so there is no commit step. New objects take hash IDs such as `snap-3f9a2c1d5e6b`; any unique prefix of at least four hex digits works as an argument, and JSON always gives the full ID. `itt log` lists revisions, `itt log --snaps` lists checkpoints, `itt show REV` and `itt diff [A..B]` read them.
+
+A linked Git worktree shares the main project's history on a branch of its own, named after its Git branch: keep recording there as usual. When that work lands, run `itt merge BRANCH` from the main worktree. `MERGE_CONFLICT` lists each field with both values: settle what the task already decides with `itt resolve ID --ours|--theirs|--status S`, ask the user about the rest, then `itt merge --continue`, or `itt merge --abort` to change nothing.
+
 Never automatically log in/out, start a hub, expose tokens, alter remotes, push, or pull. Network writes require the separate sync workflow; downloads require the separate pull workflow. Intent failure neither authorizes unrelated repair nor blocks otherwise authorized main work.
 
 Typical mutation response:

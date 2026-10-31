@@ -24,8 +24,24 @@ The CLI is intentionally small:
 | `itt init [--host codex\|claude-code]` | Initialize `.intent/`, enable project-local continuous maintenance, and install local hooks for the host. Without `--host` it uses the agent running the command, else the only agent installed (`~/.codex` or `~/.claude`), else asks at a terminal, else Codex. Git is optional; the hook file is kept out of Git in this clone. |
 | `itt inspect [--intent ID] [--history N]` | Recovery view with each goal's rationale, latest snap, optional bounded history, active decisions, and full graph warnings |
 | `itt doctor` | Return the same full object-graph diagnosis with an explicit `healthy` result |
-| `itt log [--intent ID] [-n N \| --all]` | List Snaps newest first, like `git log` (default 20) |
-| `itt show ID` | Show one Intent, Snap or Decision with its relations, like `git show` |
+| `itt log [--graph] [-n N \| --all]` | List revisions newest first, like `git log`; `--graph` draws branches and merges (default 20) |
+| `itt log --snaps [--intent ID] [-n N \| --all]` | List checkpoints newest first |
+| `itt show ID\|REV` | Show one Intent, Snap or Decision with its relations, or one revision, like `git show` |
+| `itt diff [A..B]` | Compare two revisions in semantic terms; with no range, what the last revision changed |
+| `itt migrate [--force]` | Turn an Intent 7 project into a repository, keeping every ID and backing up first; `--force` carries a damaged history over as it is and lists the problems as warnings |
+
+### Branches and merging
+
+| Command | What it does |
+|---|---|
+| `itt branch [NAME [REV]]` | List branches, or create one |
+| `itt branch -d NAME` / `-D NAME` | Delete a merged branch, or any branch |
+| `itt switch [-c] BRANCH [--force]` | Move to a branch; the working copy follows |
+| `itt merge BRANCH` | Merge a branch into this one, fast-forwarding when possible |
+| `itt resolve ID --ours\|--theirs\|--status S` | Settle one object's conflicts during a merge |
+| `itt merge --continue` / `--abort` | Finish a merge, or give it up and restore this branch |
+
+A `REV` is `HEAD`, `HEAD~2`, `HEAD^`, a branch name, or a unique digest prefix. A linked Git worktree shares this history on its own branch.
 
 ### Project-local continuous maintenance
 
@@ -170,7 +186,7 @@ stateDiagram-v2
 
 | Field | Intent | Snap | Decision | Notes |
 | --- | :---: | :---: | :---: | --- |
-| `id` | ✓ | ✓ | ✓ | Auto-incremented, zero-padded (`intent-001`, `snap-001`, `decision-001`) |
+| `id` | ✓ | ✓ | ✓ | A 12-digit hash such as `intent-3f9a2c1d5e6b`. Counter IDs from Intent 7 (`intent-001`) stay valid |
 | `object` | ✓ | ✓ | ✓ | `"intent"`, `"snap"`, or `"decision"` |
 | `created_at` | ✓ | ✓ | ✓ | ISO 8601 UTC timestamp |
 | `what` | ✓ | ✓ | ✓ | Intent/Decision: short theme. Snap: what was done (concise action). |
@@ -364,7 +380,15 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 | `AUTH_REQUIRED` | IntHub rejected the request: no access token was sent or it was not accepted; sign in with `itt auth login` |
 | `AUTH_DENIED` / `AUTH_EXPIRED` / `AUTH_CANCELLED` | The `itt auth login` code was refused, expired, or cancelled with Ctrl-C; run it again |
 | `INVALID_RELATION` | A relation would relate an intent to itself, duplicate an active relation for the pair, give an intent a second parent, create a cycle, or add a part to an ended intent |
-| `INVALID_OBJECT_ID` | An explicit object ID is not a type-matching local ID such as `intent-001` |
+| `INVALID_OBJECT_ID` | An explicit object ID is not a type-matching local ID, or a short ID matches more than one object |
+| `REPOSITORY_NOT_MIGRATED` | The project still uses the Intent 7 format; run `itt migrate` |
+| `MIGRATION_BLOCKED` | The history has problems to fix first; nothing was changed |
+| `UNKNOWN_REVISION` | A revision name matches nothing, or more than one revision |
+| `UNCOMMITTED_CHANGES` | The working copy differs from HEAD |
+| `BRANCH_EXISTS`, `BRANCH_NOT_FOUND`, `BRANCH_IN_USE`, `BRANCH_NOT_MERGED` | A branch command cannot go ahead |
+| `MERGE_CONFLICT` | A merge needs a decision; `details.conflicts` lists each field with both values |
+| `MERGE_IN_PROGRESS`, `NO_MERGE_IN_PROGRESS` | A merge is open and blocks this, or there is none to continue |
+| `NOT_ON_MAIN` | Push and pull work on `main`, from the main worktree |
 | `UNSAFE_STORAGE` | `.intent/`, an object directory, lock, or object file redirects through a symlink or escapes its storage boundary |
 | `STORAGE_PARSE_ERROR` | A stored object is not valid UTF-8 JSON; `doctor` reports every parse failure it can scan |
 | `STORAGE_SCHEMA_ERROR` | A stored object is missing a required field or has an invalid field type |
@@ -411,4 +435,4 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 - IntHub requests use a 15-second per-attempt timeout and at most two attempts; the bundled argv adapter has a 60-second process safety timeout and always emits one JSON document
 - Object IDs are validated before path I/O, object paths must remain under their type directory, and `.intent/` object storage refuses symlink redirection
 - Descriptive fields are write-once; status and auto-maintained relationship fields evolve through later commands
-- IDs are zero-padded and monotonic per object type: `intent-001`, `snap-001`, `decision-001`
+- New IDs are random hashes, so copies recording in parallel cannot collide. Text output shows seven digits, and any unique prefix of at least four works as an argument

@@ -18,6 +18,6 @@ itt status [--local]
 itt push [--project NAME] [--api-base-url URL] [--dry-run]
 ```
 
-`status` reports `empty`, `up_to_date`, `ahead`, `behind`, or `diverged`; `--local` needs no network. `push --dry-run` previews without remote writes. `itt hub sync` is a compatibility alias.
+Push and pull work on `main`; merge a branch into it first. `status` reports `empty`, `up_to_date`, `ahead`, `behind`, or `diverged`; `--local` needs no network. `push --dry-run` previews without remote writes. `itt hub sync` is a compatibility alias.
 
 Credentials use the Git credential helper when one is configured, otherwise a private file beside the Intent config; semantic history does not use Git. Never include tokens in repository files, output, or logs.

@@ -24,8 +24,24 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 | `itt init [--host codex\|claude-code]` | 初始化 `.intent/`，默认开启项目级持续维护并为宿主安装本地 hooks。不指定 `--host` 时，依次使用：正在运行命令的 Agent、本机唯一安装的 Agent（`~/.codex` 或 `~/.claude`）、在终端中询问、默认 Codex。Git 可选；hooks 文件会从当前克隆的 Git 中排除。 |
 | `itt inspect [--intent ID] [--history N]` | 恢复视图，返回目标原因、最新 Snap、可选的受限历史、有效 Decision 和完整图诊断 |
 | `itt doctor` | 返回同一套完整对象图诊断，并显式给出 `healthy` 结果 |
-| `itt log [--intent ID] [-n N \| --all]` | 按时间倒序列出 Snap，类似 `git log`（默认 20 条） |
-| `itt show ID` | 显示一个 Intent、Snap 或 Decision 及其关联，类似 `git show` |
+| `itt log [--graph] [-n N \| --all]` | 按时间倒序列出修订，类似 `git log`；`--graph` 画出分支与合并（默认 20 条） |
+| `itt log --snaps [--intent ID] [-n N \| --all]` | 按时间倒序列出检查点 |
+| `itt show ID\|REV` | 显示一个 Intent、Snap、Decision 及其关联，或一个修订，类似 `git show` |
+| `itt diff [A..B]` | 用语义比较两个修订；不带范围时显示最后一个修订的改动 |
+| `itt migrate [--force]` | 把 Intent 7 项目转成仓库，保留所有 ID，并先做备份；`--force` 把有损的历史原样带过来，问题列为警告 |
+
+### 分支与合并
+
+| 命令 | 作用 |
+|---|---|
+| `itt branch [NAME [REV]]` | 列出分支，或创建分支 |
+| `itt branch -d NAME` / `-D NAME` | 删除已合并的分支，或删除任意分支 |
+| `itt switch [-c] BRANCH [--force]` | 切换分支，工作副本随之变化 |
+| `itt merge BRANCH` | 把分支合并到当前分支，能快进时快进 |
+| `itt resolve ID --ours\|--theirs\|--status S` | 合并时解决一个对象的冲突 |
+| `itt merge --continue` / `--abort` | 完成合并，或放弃合并并恢复当前分支 |
+
+`REV` 可以是 `HEAD`、`HEAD~2`、`HEAD^`、分支名或唯一的摘要前缀。Git worktree 共享这份历史，并有自己的分支。
 
 ### 项目级持续维护
 
@@ -170,7 +186,7 @@ stateDiagram-v2
 
 | 字段 | Intent | Snap | Decision | 说明 |
 | --- | :---: | :---: | :---: | --- |
-| `id` | ✓ | ✓ | ✓ | 自增零填充（`intent-001`、`snap-001`、`decision-001`） |
+| `id` | ✓ | ✓ | ✓ | 12 位哈希，例如 `intent-3f9a2c1d5e6b`。Intent 7 的计数 ID（`intent-001`）继续有效 |
 | `object` | ✓ | ✓ | ✓ | `"intent"`、`"snap"` 或 `"decision"` |
 | `created_at` | ✓ | ✓ | ✓ | ISO 8601 UTC 时间戳 |
 | `what` | ✓ | ✓ | ✓ | Intent/Decision: 简短主题。Snap: 做了什么（简洁行为描述）。 |
@@ -364,7 +380,15 @@ stateDiagram-v2
 | `AUTH_REQUIRED` | IntHub 拒绝了请求：没有发送访问令牌或令牌无效；用 `itt auth login` 登录 |
 | `AUTH_DENIED` / `AUTH_EXPIRED` / `AUTH_CANCELLED` | `itt auth login` 的代码被拒绝、过期或被 Ctrl-C 取消；重新运行即可 |
 | `INVALID_RELATION` | 关系会让 intent 关联自己、与同一对 intent 的有效关系重复、出现第二个上级、形成环，或给已结束的 intent 新增组成部分 |
-| `INVALID_OBJECT_ID` | 显式对象 ID 不是与类型匹配的本地 ID，例如 `intent-001` |
+| `INVALID_OBJECT_ID` | 显式对象 ID 不是与类型匹配的本地 ID，或短 ID 匹配到多个对象 |
+| `REPOSITORY_NOT_MIGRATED` | 项目还是 Intent 7 格式，请运行 `itt migrate` |
+| `MIGRATION_BLOCKED` | 历史有问题需要先修复，没有做任何改动 |
+| `UNKNOWN_REVISION` | 修订名称没有匹配，或匹配到多个修订 |
+| `UNCOMMITTED_CHANGES` | 工作副本与 HEAD 不一致 |
+| `BRANCH_EXISTS`、`BRANCH_NOT_FOUND`、`BRANCH_IN_USE`、`BRANCH_NOT_MERGED` | 分支命令无法继续 |
+| `MERGE_CONFLICT` | 合并需要决定；`details.conflicts` 列出每个字段的两边取值 |
+| `MERGE_IN_PROGRESS`、`NO_MERGE_IN_PROGRESS` | 有未完成的合并挡住了操作，或没有可继续的合并 |
+| `NOT_ON_MAIN` | push 和 pull 只在主 worktree 的 `main` 上工作 |
 | `UNSAFE_STORAGE` | `.intent/`、对象目录、锁或对象文件通过符号链接重定向，或越出存储边界 |
 | `STORAGE_PARSE_ERROR` | 存储对象不是合法 UTF-8 JSON；`doctor` 会列出扫描到的全部解析失败 |
 | `STORAGE_SCHEMA_ERROR` | 存储对象缺少必需字段，或字段类型不合法 |
@@ -411,4 +435,4 @@ stateDiagram-v2
 - IntHub 请求每次尝试最多等待 15 秒、最多尝试两次；随附 argv 适配器具有 60 秒进程安全超时，并始终输出一个 JSON 文档
 - 对象 ID 在路径 I/O 前校验，对象路径必须留在对应类型目录内，`.intent/` 对象存储拒绝符号链接重定向
 - 描述性字段写一次；状态与自动维护的关系字段会随着后续命令推进
-- ID 按对象类型单调递增并零填充，例如 `intent-001`、`snap-001`、`decision-001`
+- 新 ID 是随机哈希，所以多份副本并行记录也不会冲突。文本输出显示 7 位，参数接受至少 4 位的唯一前缀

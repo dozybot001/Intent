@@ -64,17 +64,17 @@ itt inspect
 
 ```text
 Active
-  intent-001  Add Apple Pay to the web checkout
-              Next         Handle shipping-method changes server-side
-              Blocker      none
-              Verified     Payment sheet confirms PaymentIntents in test mode
-              snap-001 · 2026-10-30 00:25 · 1 snap
+  intent-3f9a2c1  Add Apple Pay to the web checkout
+                  Next         Handle shipping-method changes server-side
+                  Blocker      none
+                  Verified     Payment sheet confirms PaymentIntents in test mode
+                  snap-8e41d07 · 2026-10-30 00:25 · 1 snap
 
 Decisions
-  decision-001  Payments go through the PaymentIntent API only
+  decision-c27b5fa  Payments go through the PaymentIntent API only
 ```
 
-新会话读到的就是这些。`itt log` 像 `git log` 一样列出检查点，`itt show ID` 显示单个对象及其关联。在终端中 `itt` 输出文本，Agent 和脚本得到 JSON。
+新会话读到的就是这些。在终端中 `itt` 输出文本，Agent 和脚本得到 JSON。
 
 ## 为什么不只用 AGENTS.md 或 Agent 记忆？
 
@@ -96,6 +96,19 @@ Decisions
 | **Decision** | 约束后续目标的长期规则，例如「支付只走 PaymentIntent」 |
 
 Intent 之间可以建立关系：组成、衍生、继承、依赖、对立。IntHub 的「流转」页会画出目标如何分出、接续与汇合（[意图流转](docs/CN/intent-flow.md)）。
+
+## 像 Git 一样的历史
+
+会用 Git，就知道 Intent 怎么工作。每次写入都是一个修订，不需要提交。
+
+```bash
+itt log --graph               # 修订、分支与合并
+itt diff HEAD~3               # 改了什么，按目标和检查点而不是按行
+itt switch -c experiment      # 像 Git 一样给历史开分支
+itt merge experiment          # 合并回来，只有真正的分歧才会停下
+```
+
+不同 Git worktree 里的 Agent 共享一份历史，各有自己的分支，新 ID 也不会冲突。合并会自动汇总检查点，只有两边把同一字段改成不同的值才会停下，例如一边把目标标记完成，另一边取消了它。详见[设计](docs/CN/semantic-git.md)。
 
 ## 支持的 Agent
 
@@ -124,11 +137,11 @@ Hooks 在每一轮开始时注入当前状态，并在结束时检查这一轮�
 - **托管：** [inthub.tenon.asia](https://inthub.tenon.asia)，由榫卯 Tenon AI 运营。运行 `itt auth login`，在浏览器里批准代码，再 `itt push`。每个账号和团队可以保存 100 个项目和 1 GB 历史。项目默认私有，可以共享给团队（`--project 团队/项目`），也可以在项目设置里公开。详见[团队与共享](docs/CN/inthub-collaboration.md)和[隐私说明](https://inthub.tenon.asia/privacy#zh)。
 - **在另一处恢复：** `itt init`、`itt remote add origin URL --project NAME`、`itt pull`。
 
-目前每个项目只有一份共享历史，push 和 pull 只做快进。如果两份副本同时记录，`itt status` 会报告 `diverged`，双方都不会被改动，直到你运行 `itt pull --rebase`。Git 式的分支与合并是下一个里程碑（[设计](docs/CN/semantic-git.md)）。
+push 和 pull 在 `main` 上工作，只做快进。如果两份副本同时记录，`itt status` 会报告 `diverged`，双方都不会被改动，直到你运行 `itt pull --rebase`。推送分支是下一个里程碑。
 
 ## 状态
 
-Intent 处于 **Beta**（7.x）。同一主版本内，`.intent/` 格式与 JSON 输出保持兼容；不兼容的变化只会随新的主版本和迁移一起发布。记录与接续流程在 Python 3.9 至 3.14 上有测试覆盖。Intent 能否在真实工作中明显减少重复解释，仍在用自然接续案例验证。
+Intent 处于 **Beta**（8.x）。从 Intent 7 升级时，在每个项目运行一次 `itt migrate`：它保留所有 ID，并先做备份。同一主版本内，`.intent/` 格式与 JSON 输出保持兼容；不兼容的变化只会随新的主版本和迁移一起发布。记录与接续流程在 Python 3.9 至 3.14 上有测试覆盖。Intent 能否在真实工作中明显减少重复解释，仍在用自然接续案例验证。
 
 ## 常见问题
 
@@ -149,6 +162,6 @@ Intent 处于 **Beta**（7.x）。同一主版本内，`.intent/` 格式与 JSON
 - [CLI 参考](docs/CN/cli.md)：命令、对象与 JSON 约定
 - [意图流转](docs/CN/intent-flow.md)：Intent 之间的关系与「流转」页
 - [团队与共享](docs/CN/inthub-collaboration.md)：IntHub 的账号、可见性和角色
-- [语义版 Git](docs/CN/semantic-git.md)：Intent 8 的分支与合并设计
+- [语义版 Git](docs/CN/semantic-git.md)：修订、分支与合并如何工作
 
 [贡献指南](.github/CONTRIBUTING.md) · [行为准则](.github/CODE_OF_CONDUCT.md) · [安全策略](.github/SECURITY.md) · MIT 许可

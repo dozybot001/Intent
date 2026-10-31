@@ -63,17 +63,17 @@ itt inspect
 
 ```text
 Active
-  intent-001  Add Apple Pay to the web checkout
-              Next         Handle shipping-method changes server-side
-              Blocker      none
-              Verified     Payment sheet confirms PaymentIntents in test mode
-              snap-001 · 2026-10-30 00:25 · 1 snap
+  intent-3f9a2c1  Add Apple Pay to the web checkout
+                  Next         Handle shipping-method changes server-side
+                  Blocker      none
+                  Verified     Payment sheet confirms PaymentIntents in test mode
+                  snap-8e41d07 · 2026-10-30 00:25 · 1 snap
 
 Decisions
-  decision-001  Payments go through the PaymentIntent API only
+  decision-c27b5fa  Payments go through the PaymentIntent API only
 ```
 
-This is what a new session reads. `itt log` lists checkpoints like `git log`, and `itt show ID` shows one object with its relations. In a terminal `itt` prints text; agents and scripts get JSON.
+This is what a new session reads. In a terminal `itt` prints text; agents and scripts get JSON.
 
 ## Why not just AGENTS.md or agent memory?
 
@@ -95,6 +95,19 @@ Three kinds of objects, all append-only:
 | **Decision** | A durable rule that binds future goals, such as "payments go through PaymentIntents only" |
 
 Intents can be related: part of, derived from, succeeds, depends on, conflicts with. IntHub's Flow page draws how goals branch, continue and converge ([Intent flow](https://github.com/dozybot001/Intent/blob/main/docs/EN/intent-flow.md)).
+
+## History that works like Git
+
+If you know Git, you already know how Intent behaves. Every write is a revision, so there is nothing to commit.
+
+```bash
+itt log --graph               # revisions, branches and merges
+itt diff HEAD~3               # what changed, in goals and checkpoints rather than lines
+itt switch -c experiment      # branch the history, as you would in Git
+itt merge experiment          # merge back; only a real disagreement stops it
+```
+
+Agents in separate Git worktrees share one history, each on its own branch, and new IDs cannot collide. A merge combines their checkpoints by itself and stops only when two sides set the same field differently, for example one marked a goal done and the other cancelled it. See the [design](https://github.com/dozybot001/Intent/blob/main/docs/EN/semantic-git.md).
 
 ## Works with
 
@@ -123,11 +136,11 @@ Hooks open each turn with the current state and check at the end that the turn w
 - **Hosted:** [inthub.tenon.asia](https://inthub.tenon.asia), operated by 榫卯 Tenon AI. Run `itt auth login`, approve the code in the browser, then `itt push`. Each account and team can keep 100 projects and 1 GB of history. Projects are private by default, can be shared with a team (`--project TEAM/NAME`), and can be made public in their settings. See [teams and sharing](https://github.com/dozybot001/Intent/blob/main/docs/EN/inthub-collaboration.md) and the [privacy notice](https://inthub.tenon.asia/privacy).
 - **Restore elsewhere:** `itt init`, `itt remote add origin URL --project NAME`, `itt pull`.
 
-Today a project has one shared history, and push and pull fast-forward. If two copies record in parallel, `itt status` reports `diverged` and neither side changes until you run `itt pull --rebase`. Git-style branches and merges are the next milestone ([design](https://github.com/dozybot001/Intent/blob/main/docs/EN/semantic-git.md)).
+Push and pull work on `main` and fast-forward. If two copies record in parallel, `itt status` reports `diverged` and neither side changes until you run `itt pull --rebase`. Pushing branches is the next milestone.
 
 ## Status
 
-Intent is **beta** (7.x). Within a major version the `.intent/` format and the JSON output stay compatible; breaking changes come with a new major version and a migration. Recording and continuation flows are covered by tests on Python 3.9 to 3.14. Whether Intent measurably reduces re-explaining in real work is still being tested with natural continuation cases.
+Intent is **beta** (8.x). Coming from Intent 7? Run `itt migrate` once in each project: it keeps every ID and backs up first. Within a major version the `.intent/` format and the JSON output stay compatible; breaking changes come with a new major version and a migration. Recording and continuation flows are covered by tests on Python 3.9 to 3.14. Whether Intent measurably reduces re-explaining in real work is still being tested with natural continuation cases.
 
 ## FAQ
 
@@ -148,6 +161,6 @@ Intent is **beta** (7.x). Within a major version the `.intent/` format and the J
 - [CLI reference](https://github.com/dozybot001/Intent/blob/main/docs/EN/cli.md): commands, objects and the JSON contract
 - [Intent flow](https://github.com/dozybot001/Intent/blob/main/docs/EN/intent-flow.md): relations between Intents and the Flow page
 - [Teams and sharing](https://github.com/dozybot001/Intent/blob/main/docs/EN/inthub-collaboration.md): accounts, visibility and roles on IntHub
-- [Semantic Git](https://github.com/dozybot001/Intent/blob/main/docs/EN/semantic-git.md): the Intent 8 design for branches and merges
+- [Semantic Git](https://github.com/dozybot001/Intent/blob/main/docs/EN/semantic-git.md): how revisions, branches and merges work
 
 [Contributing](https://github.com/dozybot001/Intent/blob/main/.github/CONTRIBUTING.md) · [Code of conduct](https://github.com/dozybot001/Intent/blob/main/.github/CODE_OF_CONDUCT.md) · [Security](https://github.com/dozybot001/Intent/blob/main/.github/SECURITY.md) · MIT License
