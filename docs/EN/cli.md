@@ -36,6 +36,7 @@ The CLI is intentionally small:
 |---|---|
 | `itt branch [NAME [REV]]` | List branches, or create one |
 | `itt branch -d NAME` / `-D NAME` | Delete a merged branch, or any branch |
+| `itt branch -r` | List the remote's branches as last fetched |
 | `itt switch [-c] BRANCH [--force]` | Move to a branch; the working copy follows |
 | `itt merge BRANCH` | Merge a branch into this one, fast-forwarding when possible |
 | `itt resolve ID --ours\|--theirs\|--status S` | Settle one object's conflicts during a merge |

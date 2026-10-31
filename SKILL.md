@@ -4,7 +4,8 @@ description: >-
   Continuously maintain verified Intent semantic history in projects with local
   maintenance enabled; itt init enables it by default. Read context at turn start,
   preserve meaningful changes, and close hooked turns as recorded, no-op, or failed.
-  Also handle requested project setup, Intent recording/recovery, and IntHub push/pull.
+  Also handle requested project setup, Intent recording/recovery, branches, and IntHub
+  push, pull, fetch and clone.
   Disabled or legacy projects are not automatically enabled. Network sync needs
   a separate explicit request.
 ---
@@ -22,11 +23,11 @@ Preserve enough verified meaning for another agent to continue, not a conversati
 - IntHub is optional. When requested and authentication is missing, have the user run `itt auth login` in their own terminal and approve the code in the browser; never request a token in chat. Read [onboarding.md](references/onboarding.md) for the full path.
 - A project from Intent 7 answers writes with `REPOSITORY_NOT_MIGRATED`. Run `itt migrate` once when the work needs a write: it keeps every ID and backs up first. Reads work without it.
 - Disabled/uninitialized projects do not get automatic semantic writes. Explicit one-off recording remains available; initialize only when requested setup, recording, or restoration needs it. Recovery starts read-only.
-- User read-only, skip-this-turn, and disable instructions take precedence. Never automatically sync, log in, publish, or change Git remotes. Explicit push/pull requests use [sync.md](references/sync.md) / [pull.md](references/pull.md). Follow the requested sequence; planned later uploads are not current authorization.
+- User read-only, skip-this-turn, and disable instructions take precedence. Never automatically sync, log in, publish, or change Git remotes. Explicit push requests use [sync.md](references/sync.md); pull, fetch and clone requests use [pull.md](references/pull.md). Follow the requested sequence; planned later uploads are not current authorization.
 
 ## Quiet work loop
 
-1. **Read once.** Reuse current-turn hook context; otherwise inspect the enabled root. For missing facts, inspect only the selected Intent with `--history 3`. Treat truncated context as incomplete. Code rediscovery and user explanations are not Intent recovery evidence.
+1. **Read once.** Reuse current-turn hook context; otherwise run `itt inspect` in the enabled root. For missing facts, run `itt inspect --intent ID --history 3` on the selected Intent only. Treat truncated context as incomplete. Code rediscovery and user explanations are not Intent recovery evidence.
 2. **Preserve meaningful progress.** Reuse the matching goal; record verified milestones while fresh, particularly before long/risky phases. Only the coordinating agent writes. Do not record each tool call, intermediate edit, or plan as a completed fact.
 3. **Close before responding.** Changed open goals need accurate continuation checkpoints. With a hook token, submit one receipt below; without a token, assess closure without inventing one or claiming enforcement.
 

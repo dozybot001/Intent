@@ -18,6 +18,8 @@ itt status [--local]
 itt push [--project NAME] [--api-base-url URL] [--dry-run] [--delete BRANCH]
 ```
 
-`status` reports `empty`, `up_to_date`, `ahead`, `behind`, or `diverged`; `--local` needs no network. `push --dry-run` previews without remote writes. `itt hub sync` is a compatibility alias.
+`itt push --delete BRANCH` removes a branch on the remote when the user asks; `main` cannot be deleted. `status` reports `empty`, `up_to_date`, `ahead`, `behind`, or `diverged`; `--local` needs no network. `push --dry-run` previews without remote writes. `itt hub sync` is a compatibility alias.
+
+`itt hub status` shows the linked project and whether a credential is available. `itt hub link` links without pushing. `itt hub start [--port PORT]` runs IntHub on this machine, only when the user asks; it keeps running until stopped.
 
 Credentials use the Git credential helper when one is configured, otherwise a private file beside the Intent config; semantic history does not use Git. Never include tokens in repository files, output, or logs.

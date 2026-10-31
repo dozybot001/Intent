@@ -36,6 +36,7 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 |---|---|
 | `itt branch [NAME [REV]]` | 列出分支，或创建分支 |
 | `itt branch -d NAME` / `-D NAME` | 删除已合并的分支，或删除任意分支 |
+| `itt branch -r` | 列出上次抓取时远端的分支 |
 | `itt switch [-c] BRANCH [--force]` | 切换分支，工作副本随之变化 |
 | `itt merge BRANCH` | 把分支合并到当前分支，能快进时快进 |
 | `itt resolve ID --ours\|--theirs\|--status S` | 合并时解决一个对象的冲突 |

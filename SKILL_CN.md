@@ -3,7 +3,7 @@ name: intent-cli
 description: >-
   在已启用项目级维护的项目内持续维护已验证的 Intent 语义历史；itt init 默认启用。
   每轮开头读取、过程中保存关键变化、结束前以 recorded/no-op/failed 回执闭环。
-  也处理明确的项目启用、Intent 一次性记录、接续和 IntHub 推送/拉取请求。
+  也处理明确的项目启用、Intent 一次性记录、接续、分支，以及 IntHub 的推送、拉取、抓取和克隆请求。
   已关闭或旧版项目不自动启用；网络同步需要独立明确请求。
 ---
 
@@ -20,11 +20,11 @@ description: >-
 - IntHub 可选。用户明确需要且认证缺失时，请用户在自己的终端运行 `itt auth login`，并在浏览器里批准显示的代码；不要求把 token 粘贴到聊天。完整路径见 [onboarding.md](references/onboarding.md)。
 - Intent 7 的项目写入时会返回 `REPOSITORY_NOT_MIGRATED`。需要写入时运行一次 `itt migrate`：它保留所有 ID，并先做备份。读取不受影响。
 - 已关闭或未初始化的项目不自动写语义。仍可明确要求一次性记录；仅请求的设置、记录或恢复确实需要时初始化。接续先只读。
-- 用户要求只读、本轮跳过或关闭维护时优先遵守。不自动同步、登录、公开发布或改 Git remote。明确推送/拉取时分别读 [sync.md](references/sync.md) / [pull.md](references/pull.md)。遵守请求顺序；未来上传计划不是当前授权。
+- 用户要求只读、本轮跳过或关闭维护时优先遵守。不自动同步、登录、公开发布或改 Git remote。明确要求推送时读 [sync.md](references/sync.md)，要求拉取、抓取或克隆时读 [pull.md](references/pull.md)。遵守请求顺序；未来上传计划不是当前授权。
 
 ## 静默工作闭环
 
-1. **读一次。**复用本轮 hook 上下文，否则 inspect 已启用的根目录。缺少事实时只读目标 Intent 的 `--history 3`；被截断的上下文不是完整历史。代码重发现和用户解释不算 Intent 恢复证据。
+1. **读一次。**复用本轮 hook 上下文，否则在已启用的根目录运行 `itt inspect`。缺少事实时只对目标 Intent 运行 `itt inspect --intent ID --history 3`；被截断的上下文不是完整历史。代码重发现和用户解释不算 Intent 恢复证据。
 2. **保存关键进展。**复用匹配目标，趁上下文新鲜保存已验证里程碑，尤其在漫长或高风险阶段之前。只有协调 Agent 写入。不记录每条工具调用、中间编辑，不把计划写成完成事实。
 3. **回复前收尾。**变化且未结束的目标需要准确接续检查点。有 hook token 时提交以下回执；没有 token 时判定闭环，不虚构 token 或声称硬性保障。
 
