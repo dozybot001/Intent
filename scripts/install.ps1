@@ -8,7 +8,7 @@ function Install-IntentCli {
     # would turn harmless stderr output into errors on Windows PowerShell 5.1.
     $ErrorActionPreference = "Continue"
     $Repo = if ($env:INTENT_REPO) { $env:INTENT_REPO } else { "https://github.com/dozybot001/Intent.git" }
-    $ReleaseTag = if ($env:INTENT_VERSION) { $env:INTENT_VERSION } else { "v8.0.0" }
+    $ReleaseTag = if ($env:INTENT_VERSION) { $env:INTENT_VERSION } else { "v8.1.0" }
     # Releases before 7.1.0 were published under the distribution name intent-cli.
     $Dist = if ($ReleaseTag -match '^v([0-6]\.|7\.0\.)') { "intent-cli" } else { "intent-history" }
     $Spec = "$Dist @ git+$Repo@$ReleaseTag"
