@@ -134,7 +134,7 @@ def latest_turn(state, root, session_id, host):
 
 
 def begin_turn(base, state, session_id, turn_id, prompt, context_factory, host="codex"):
-    root = base.parent.resolve()
+    root = store.project_root(base).resolve()
     key, entry = find_turn(state, root, session_id, turn_id)
     if entry is not None:
         return key, entry
@@ -178,7 +178,7 @@ def close_turn(base, key, outcome, reason, objects):
     with store.workspace_write_lock(base, operation="maintenance.close"):
         state = read_state(base)
         entry = state["turns"].get(key)
-        if (not state["enabled"] or entry is None or entry["root"] != str(base.parent.resolve())
+        if (not state["enabled"] or entry is None or entry["root"] != str(store.project_root(base).resolve())
                 or entry["generation"] != state["generation"]):
             raise MaintenanceError("TURN_NOT_ACTIVE", "This project has no active matching turn.")
         verified, hashes = False, {}

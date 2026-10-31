@@ -4,7 +4,7 @@ import re
 from urllib.parse import urlencode
 
 from intent_cli import identity, repo
-from intent_cli.commands.common import require_init, require_repository
+from intent_cli.commands.common import require_init, require_main
 from intent_cli.hub.client import http_json
 from intent_cli.hub.credentials import normalize_api_base_url, GlobalHubConfigError
 from intent_cli.hub.rebase import rebase_snapshot
@@ -209,6 +209,7 @@ def cmd_hub_status(args):
 
 def cmd_push(args):
     base = require_init()
+    require_main(base)
     with workspace_write_lock(base, operation="push.preflight"):
         config, name, snapshot, digest = _state(base, args)
     api, remote = _remote(base, args, config, name)
@@ -254,7 +255,7 @@ def cmd_push(args):
 
 def cmd_pull(args):
     base = require_init()
-    require_repository(base)
+    require_main(base)
     with workspace_write_lock(base, operation="pull.preflight"):
         config, name, snapshot, digest = _state(base, args)
     api, remote = _remote(base, args, config, name)

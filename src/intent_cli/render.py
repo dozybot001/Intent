@@ -345,6 +345,8 @@ RENDERERS = {
     "init": _init,
     "doctor": _doctor,
     "diff": render_history.diff,
+    "branch": render_history.branch,
+    "switch": lambda result: [f"On branch {bold(result['branch'])}"],
     "migrate": render_history.migrate,
     "intent.create": _created,
     "decision.create": _created,

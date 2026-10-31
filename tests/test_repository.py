@@ -221,3 +221,78 @@ def test_hash_ids_travel_through_a_hub_and_a_pull_is_one_revision(project, tmp_p
     assert _run(other, "doctor")["result"]["healthy"] is True
     assert _run(other, "snap", "create", "Next step", "--intent", intent[:11], extra_env=HASHED)["ok"]
     assert len(_revisions(other)) == 2
+
+
+def test_branches_keep_their_own_history_and_the_working_copy_follows(project):
+    intent, _snap, _decision = _record(project)
+    base_revision = _revisions(project)[0]["revision"]
+    assert _run(project, "switch", "-c", "feature")["result"]["branch"] == "feature"
+    extra = _run(project, "snap", "create", "On the branch", "--intent", intent)["result"]["id"]
+    assert (project / ".intent" / "snaps" / f"{extra}.json").exists()
+    listing = _run(project, "branch")["result"]
+    assert listing["current"] == "feature" and [b["name"] for b in listing["branches"]] == ["feature", "main"]
+    assert _run(project, "switch", "main")["result"]["head"] == base_revision
+    assert not (project / ".intent" / "snaps" / f"{extra}.json").exists()
+    assert extra not in [snap["id"] for snap in _run(project, "log", "--snaps")["result"]["snaps"]]
+    assert _run(project, "branch", "-d", "feature")["error"]["code"] == "BRANCH_NOT_MERGED"
+    assert _run(project, "branch", "-D", "feature")["result"]["deleted"] == "feature"
+    assert _run(project, "switch", "feature")["error"]["code"] == "BRANCH_NOT_FOUND"
+
+
+def test_branch_names_and_starts_are_checked(project):
+    _record(project)
+    assert _run(project, "branch", "../evil")["error"]["code"] == "INVALID_INPUT"
+    assert _run(project, "branch", "older", "HEAD~1")["result"]["created"] == "older"
+    assert _run(project, "branch", "older")["error"]["code"] == "BRANCH_EXISTS"
+    assert _run(project, "show", "older")["result"]["summary"].startswith("snap.create")
+    assert _run(project, "branch", "a/b")["ok"] and _run(project, "show", "a/b")["ok"]
+    assert _run(project, "branch", "-d", "main")["error"]["code"] == "BRANCH_IN_USE"
+
+
+def test_switching_refuses_to_lose_unrecorded_changes(project):
+    intent, _snap, _decision = _record(project)
+    _run(project, "branch", "other")
+    path = project / ".intent" / "intents" / f"{intent}.json"
+    path.write_text(path.read_text().replace("Users asked", "Edited"))
+    assert _run(project, "switch", "other")["error"]["code"] == "UNCOMMITTED_CHANGES"
+    assert _run(project, "switch", "other", "--force")["ok"]
+    assert "Users asked" in path.read_text()
+
+
+def test_push_and_pull_stay_on_main_for_now(project):
+    _record(project)
+    _run(project, "switch", "-c", "feature")
+    assert _run(project, "push")["error"]["code"] == "NOT_ON_MAIN"
+    assert _run(project, "pull")["error"]["code"] == "NOT_ON_MAIN"
+
+
+def _git(cwd, *args):
+    subprocess.run(["git", *args], cwd=cwd, capture_output=True, check=True)
+
+
+def test_a_git_worktree_shares_the_history_with_its_own_branch_and_copy(project, tmp_path_factory):
+    intent, snap, _decision = _record(project)
+    (project / "file.txt").write_text("x")
+    _git(project, "add", "file.txt")
+    _git(project, "commit", "-m", "first")
+    linked = tmp_path_factory.mktemp("linked") / "wt"
+    _git(project, "worktree", "add", "-b", "agent/fix", str(linked))
+
+    assert not (linked / ".intent").exists()
+    assert _run(linked, "inspect")["active_intents"][0]["id"] == intent
+    assert _run(linked, "status", "--local")["result"]["branch"] == "agent/fix"
+    extra = _run(linked, "snap", "create", "From the worktree", "--intent", intent)["result"]["id"]
+
+    main_view = _run(project, "log", "--snaps")["result"]["snaps"]
+    assert extra not in [item["id"] for item in main_view] and snap in [item["id"] for item in main_view]
+    assert _run(project, "status", "--local")["result"]["branch"] == "main"
+    listing = {b["name"]: b for b in _run(project, "branch")["result"]["branches"]}
+    assert listing["agent/fix"]["open_in"] == "wt" and listing["agent/fix"]["revision"]
+    assert _run(project, "switch", "agent/fix")["error"]["code"] == "BRANCH_IN_USE"
+    assert _run(linked, "switch", "main")["error"]["code"] == "BRANCH_IN_USE"
+    assert _run(linked, "init")["error"]["code"] == "ALREADY_EXISTS"
+    assert _run(linked, "doctor")["result"]["healthy"] is True
+
+    _git(project, "worktree", "remove", "--force", str(linked))
+    assert _run(project, "switch", "agent/fix")["ok"], "a removed worktree no longer holds its branch"
+    assert extra in [item["id"] for item in _run(project, "log", "--snaps")["result"]["snaps"]]

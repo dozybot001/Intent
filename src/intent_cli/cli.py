@@ -24,6 +24,7 @@ from intent_cli.maintenance import MaintenanceError
 from intent_cli.maintenance_hooks import HOSTS
 from intent_cli.hub.restore import PullApplyError
 from intent_cli.commands.core import cmd_doctor, cmd_init, cmd_inspect, cmd_version
+from intent_cli.commands.branches import cmd_branch, cmd_switch
 from intent_cli.commands.history import cmd_diff, cmd_log, cmd_migrate, cmd_show
 from intent_cli.commands.intents import (
     cmd_intent_activate,
@@ -194,6 +195,15 @@ def main():
     p = sub.add_parser("diff", help="compare two revisions in semantic terms")
     p.add_argument("range", nargs="?", default=None, metavar="A..B")
     sub.add_parser("migrate", help="turn an Intent 7 project into a repository")
+    p = sub.add_parser("branch", help="list, create or delete branches")
+    p.add_argument("name", nargs="?", default=None)
+    p.add_argument("start", nargs="?", default=None, metavar="REV")
+    p.add_argument("-d", dest="delete", default=None, metavar="NAME", help="delete a merged branch")
+    p.add_argument("-D", dest="force_delete", default=None, metavar="NAME", help="delete a branch, merged or not")
+    p = sub.add_parser("switch", help="move to another branch")
+    p.add_argument("branch", metavar="BRANCH")
+    p.add_argument("-c", dest="create", action="store_true", help="create the branch first")
+    p.add_argument("--force", action="store_true", help="discard changes no revision holds")
     sub.add_parser("doctor", help="check the history for integrity problems")
     p = sub.add_parser("status", help="compare local history with its remote")
     p.add_argument("--local", action="store_true")
@@ -360,6 +370,8 @@ def main():
         "show": cmd_show,
         "diff": cmd_diff,
         "migrate": cmd_migrate,
+        "branch": cmd_branch,
+        "switch": cmd_switch,
         "doctor": cmd_doctor,
         "push": cmd_push,
         "pull": cmd_pull,

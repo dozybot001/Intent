@@ -73,7 +73,7 @@ def setup_warning(host, field="hooks.setup"):
 def configure(base, enabled, host="codex"):
     # Validate/merge hooks before enabling. A failed configuration must not
     # silently claim it installed a gate. Existing semantic objects are untouched.
-    root = base.parent.resolve()
+    root = store.project_root(base).resolve()
     with store.workspace_write_lock(base, operation="maintenance.hooks"):
         if enabled:
             hooks = install_host_hooks(root, host)
@@ -105,20 +105,20 @@ def cmd_maintenance(args):
         return
     if args.sub == "status":
         base = store.intent_dir()
-        args.host = _reported_host(args.host, base.parent.resolve())
+        args.host = _reported_host(args.host, store.project_root(base).resolve())
         if not base.exists():
-            success("maintenance.status", {"root": str(base.parent.resolve()), "initialized": False, "enabled": False})
+            success("maintenance.status", {"root": str(store.project_root(base).resolve()), "initialized": False, "enabled": False})
             return
         with store.workspace_write_lock(base, operation="maintenance.status"):
             state = read_state(base)
         warnings = []
         try:
-            hooks = host_status(base.parent.resolve(), args.host)
+            hooks = host_status(store.project_root(base).resolve(), args.host)
         except (MaintenanceError, store.StorageSecurityError, OSError):
             hooks = {"host": args.host, "configured": None, "enforcement": "not_attested", "configuration_unavailable": True}
             warnings.append("Project hook configuration is unavailable; the local flag does not guarantee host enforcement.")
         turns = [entry for entry in state["turns"].values() if entry.get("host", "codex") == args.host]
-        success("maintenance.status", {"root": str(base.parent.resolve()), "initialized": True,
+        success("maintenance.status", {"root": str(store.project_root(base).resolve()), "initialized": True,
                 "enabled": state["enabled"], "mode": "continuous", "hooks": hooks,
                 "observations": {
                     "entry_seen": bool(turns),
@@ -128,7 +128,7 @@ def cmd_maintenance(args):
         return
     if args.sub == "off" and getattr(args, "remove_hooks", False):
         # Also for a project whose .intent/ is already gone: what is left of it is these files.
-        root = store.intent_dir().parent.resolve()
+        root = store.project_root(store.intent_dir()).resolve()
         remove_claude_hooks(root)
         remove_codex_hooks(root)
         if not store.intent_dir().exists():
@@ -136,7 +136,7 @@ def cmd_maintenance(args):
             return
     base = require_init()
     if args.sub in {"on", "off"}:
-        host = choose_host(args.host, base.parent.resolve())
+        host = choose_host(args.host, store.project_root(base).resolve())
         result = configure(base, args.sub == "on", host)
         # People get readable next steps from the renderer; agents keep the warning.
         warnings = [setup_warning(host)] if args.sub == "on" and json_mode() else []

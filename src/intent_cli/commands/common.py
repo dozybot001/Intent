@@ -53,6 +53,18 @@ def require_repository(base):
         )
 
 
+def require_main(base):
+    """Remote sync follows main until the next protocol carries branches."""
+    require_repository(base)
+    branch = repo.current_branch(base)
+    if branch != repo.DEFAULT_BRANCH:
+        error(
+            "NOT_ON_MAIN",
+            f"Push and pull work on {repo.DEFAULT_BRANCH}; this copy is on {branch}.",
+            suggested_fix=f"Merge {branch} into {repo.DEFAULT_BRANCH}, then push from there.",
+        )
+
+
 def workspace_mutation(command):
     """Run a mutating command under the workspace's lock, ending in one revision."""
     @wraps(command)

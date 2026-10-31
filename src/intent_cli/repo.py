@@ -18,7 +18,7 @@ from intent_cli import identity
 from intent_cli.hub.changes import COLLECTIONS
 from intent_cli.origin import detect_origin
 from intent_cli.store_errors import StoredObjectIntegrityError, UnsafeStoragePathError
-from intent_cli.store_paths import _safe_object_dir, _safe_storage_root
+from intent_cli.store_paths import WORKTREES, _safe_object_dir, _safe_storage_root, shared_root
 from intent_cli.store_schema import OBJECT_ID_PATTERNS, SUBDIRS
 
 DEFAULT_BRANCH = "main"
@@ -30,7 +30,8 @@ BACKUPS = "backups"
 SUMMARY_MAX_CHARS = 160
 DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 ABBREVIATION = re.compile(r"[0-9a-f]{4,64}\Z")
-HEAD_RELATIVE = re.compile(r"(HEAD|[\w.-]+)((?:~[0-9]*|\^)*)\Z")
+BRANCH = re.compile(r"[\w-][\w.-]*(?:/[\w-][\w.-]*)*\Z")
+HEAD_RELATIVE = re.compile(r"(HEAD|[\w./-]+?)((?:~[0-9]*|\^)*)\Z")
 
 
 class UnknownRevisionError(ValueError):
@@ -46,11 +47,12 @@ def _canonical(data):
 
 
 def _content_path(base, directory, digest):
-    return Path(base) / directory / digest[:2] / f"{digest[2:]}.json"
+    return shared_root(base) / directory / digest[:2] / f"{digest[2:]}.json"
 
 
 def _safe_directory(base, name):
-    base, _resolved = _safe_storage_root(base)
+    """A shared part of the repository. HEAD is the one piece each worktree keeps for itself."""
+    base, _resolved = _safe_storage_root(base if name == HEAD_FILE else shared_root(base))
     path = base / name
     if path.is_symlink():
         raise UnsafeStoragePathError(path, f"{name} must not be a symlink")
@@ -84,8 +86,7 @@ def create_repository(base):
     """Lay out an empty repository: HEAD names a branch that has no revision yet, as in Git."""
     for name in (OBJECTS, REVISIONS, f"{REFS}/heads"):
         (Path(base) / name).mkdir(parents=True, exist_ok=True)
-    _safe_directory(base, HEAD_FILE)
-    _replace(Path(base) / HEAD_FILE, f"ref: {REFS}/heads/{DEFAULT_BRANCH}\n".encode("ascii"))
+    _set_head(base, DEFAULT_BRANCH)
 
 
 def current_branch(base):
@@ -94,14 +95,57 @@ def current_branch(base):
     return text.removeprefix(f"ref: {REFS}/heads/")
 
 
+def _set_head(base, branch):
+    _replace(_safe_directory(base, HEAD_FILE), f"ref: {REFS}/heads/{branch}\n".encode("ascii"))
+
+
+def valid_branch_name(name):
+    return bool(BRANCH.fullmatch(name or "")) and ".." not in name and name != "HEAD" and not name.endswith(".lock")
+
+
 def _branch_path(base, branch):
     return _safe_directory(base, REFS) / "heads" / branch
 
 
+def branch_revision(base, branch):
+    path = _branch_path(base, branch)
+    return path.read_text(encoding="ascii").strip() if path.is_file() else None
+
+
+def _set_branch(base, branch, revision):
+    ref = _branch_path(base, branch)
+    ref.parent.mkdir(parents=True, exist_ok=True)
+    _replace(ref, f"{revision}\n".encode("ascii"))
+
+
+def list_branches(base):
+    heads = _safe_directory(base, REFS) / "heads"
+    return sorted(path.relative_to(heads).as_posix() for path in heads.rglob("*") if path.is_file())
+
+
+def delete_branch(base, branch):
+    _branch_path(base, branch).unlink()
+
+
+def _worktree_heads(base):
+    """Each linked worktree's private directory, leaving out worktrees Git has since removed."""
+    root = shared_root(base) / WORKTREES
+    known = shared_root(base).parent / ".git" / WORKTREES
+    if not root.is_dir():
+        return []
+    return [path for path in sorted(root.iterdir()) if (known / path.name).exists() and (path / HEAD_FILE).is_file()]
+
+
+def branches_in_use(base):
+    """Branch by the place that has it open. Like Git, one branch sits in one place at a time."""
+    used = {current_branch(shared_root(base)): "main worktree"}
+    used.update({current_branch(path): path.name for path in _worktree_heads(base)})
+    return used
+
+
 def head_revision(base):
     """The revision HEAD points at, or None on a branch with no revision yet."""
-    path = _branch_path(base, current_branch(base))
-    return path.read_text(encoding="ascii").strip() if path.is_file() else None
+    return branch_revision(base, current_branch(base))
 
 
 def read_revision(base, revision):
@@ -153,9 +197,7 @@ def _commit(base, branch, parents, tree, summary, changes):
     digest = _digest(raw)
     _safe_directory(base, REVISIONS)
     _install(_content_path(base, REVISIONS, digest), raw)
-    ref = _branch_path(base, branch)
-    ref.parent.mkdir(parents=True, exist_ok=True)
-    _replace(ref, f"{digest}\n".encode("ascii"))
+    _set_branch(base, branch, digest)
     return digest
 
 
@@ -183,6 +225,40 @@ def uncommitted(base):
     return _tree_changes(before, {obj_id: _digest(raw) for obj_id, raw in _working_copy(base).items()})
 
 
+def checkout(base, revision):
+    """Make the working copy match a revision: rewrite what differs, remove what it lacks."""
+    tree = read_revision(base, revision)["tree"] if revision else {}
+    present = _working_copy(base)
+    for obj_id in present.keys() - tree.keys():
+        (_safe_object_dir(base, obj_id.split("-", 1)[0])[0] / f"{obj_id}.json").unlink()
+    for obj_id, digest in tree.items():
+        if obj_id not in present or _digest(present[obj_id]) != digest:
+            path = _safe_object_dir(base, obj_id.split("-", 1)[0])[0] / f"{obj_id}.json"
+            _replace(path, _content_path(base, OBJECTS, digest).read_bytes())
+
+
+def switch(base, branch):
+    """Move this worktree to a branch, working copy first so an interruption shows as uncommitted."""
+    checkout(base, branch_revision(base, branch))
+    _set_head(base, branch)
+
+
+def attach_worktree(main, name, git_branch):
+    """A linked Git worktree's private HEAD and working copy, made the first time it is used."""
+    private = Path(main) / WORKTREES / name
+    if (private / HEAD_FILE).is_file():
+        return private
+    for sub in SUBDIRS.values():
+        (private / sub).mkdir(parents=True, exist_ok=True)
+    used = branches_in_use(main)
+    wanted = git_branch if valid_branch_name(git_branch) else name
+    branch = wanted if wanted not in used else f"{wanted}-{name}"
+    if branch_revision(main, branch) is None and head_revision(main):
+        _set_branch(main, branch, head_revision(main))
+    switch(private, branch)
+    return private
+
+
 def _all_revisions(base):
     root = _safe_directory(base, REVISIONS)
     return sorted(f"{folder.name}{entry.stem}" for folder in root.iterdir() if folder.is_dir()
@@ -195,9 +271,8 @@ def _named_revision(base, name):
         if revision is None:
             raise UnknownRevisionError("This repository has no revisions yet.")
         return revision
-    path = _branch_path(base, name)
-    if re.fullmatch(r"[\w.-]+", name) and path.is_file():
-        return path.read_text(encoding="ascii").strip()
+    if valid_branch_name(name) and branch_revision(base, name):
+        return branch_revision(base, name)
     if ABBREVIATION.fullmatch(name):
         matches = [digest for digest in _all_revisions(base) if digest.startswith(name)]
         if len(matches) == 1:

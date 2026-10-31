@@ -10,7 +10,7 @@ from pathlib import Path
 
 from intent_cli.store_errors import AmbiguousObjectIdError, InvalidObjectIdError, StorageSecurityError, StoredObjectIntegrityError, StoredObjectParseError, StoredObjectSchemaError, StoredObjectWriteConflictError, UnsafeStoragePathError, WorkspaceBusyError  # noqa: F401
 from intent_cli.store_schema import CHECKPOINT_FIELDS, CHECKPOINT_FIELD_MAX_CHARS, HASH_ID_LENGTH, INTENT_DIR, OBJECT_ID_PATTERNS, RELATION_FIELDS, REQUIRED_STRING_FIELDS, SUBDIRS, VALID_STATUSES, _validate_author, _validate_checkpoint, _validate_git, _validate_object_schema, _validate_relations, _validate_stored_object_id, id_number, validate_object_id  # noqa: F401
-from intent_cli.store_paths import _safe_object_dir, _safe_object_path, _safe_storage_root  # noqa: F401
+from intent_cli.store_paths import WORKTREES, _safe_object_dir, _safe_object_path, _safe_storage_root, shared_root  # noqa: F401
 from intent_cli.store_lock import _read_lock_owner, _write_lock_owner, workspace_write_lock  # noqa: F401
 from intent_cli.store_graph import validate_graph  # noqa: F401
 from intent_cli import repo
@@ -47,6 +47,29 @@ def git_root():
         return None
 
 
+def _linked_worktree():
+    """(main .intent/, worktree name, Git branch) inside a linked Git worktree, else None."""
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"],
+            capture_output=True, text=True, check=True,
+        ).stdout.split("\n")
+        branch = subprocess.run(
+            ["git", "branch", "--show-current"], capture_output=True, text=True, check=True,
+        ).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+    git_dir, common = Path(out[0]), Path(out[1])
+    if git_dir == common:
+        return None
+    return common.parent / INTENT_DIR, git_dir.name, branch
+
+
+def project_root(base):
+    """The folder a project's .intent/ serves: for a linked worktree, that worktree."""
+    return git_root() if Path(base).parent.name == WORKTREES else Path(base).parent
+
+
 def intent_dir():
     """Find semantic storage independently; Git only supplies a default root."""
     current = Path.cwd()
@@ -56,6 +79,10 @@ def intent_dir():
             return candidate
         if (parent / ".git").exists():
             break
+    linked = _linked_worktree()
+    if linked is not None:
+        main, name, branch = linked
+        return repo.attach_worktree(main, name, branch) if repo.is_repository(main) else main
     return (git_root() or current) / INTENT_DIR
 
 
@@ -78,8 +105,8 @@ def ensure_init():
 
 def init_workspace():
     """Create .intent/ structure. Returns (path, error_code)."""
-    root = git_root() or Path.cwd()
-    d = root / INTENT_DIR
+    linked = _linked_worktree()
+    d = linked[0] if linked else (git_root() or Path.cwd()) / INTENT_DIR
     if d.is_symlink():
         raise UnsafeStoragePathError(d, ".intent storage must not be a symlink")
     if d.is_dir():
@@ -439,7 +466,7 @@ def load_graph_once(base, *, tolerant=False):
 def read_hub_config(base):
     """Read hub.json if present. Returns dict or None."""
     base, _resolved_base = _safe_storage_root(base)
-    path = base / HUB_CONFIG
+    path = shared_root(base) / HUB_CONFIG
     if path.is_symlink():
         raise UnsafeStoragePathError(path, "Hub config must not be a symlink")
     if not path.exists():
@@ -458,7 +485,7 @@ def read_hub_config(base):
 def write_hub_config(base, data):
     """Atomically write hub.json."""
     base, _resolved_base = _safe_storage_root(base)
-    path = base / HUB_CONFIG
+    path = shared_root(base) / HUB_CONFIG
     if path.is_symlink():
         raise UnsafeStoragePathError(path, "Hub config must not be a symlink")
     if not isinstance(data, dict):

@@ -6,7 +6,7 @@ import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from intent_cli.store_errors import UnsafeStoragePathError, WorkspaceBusyError
-from intent_cli.store_paths import _safe_storage_root
+from intent_cli.store_paths import _safe_storage_root, shared_root
 
 
 def _read_lock_owner(lock_file):
@@ -44,7 +44,8 @@ def _write_lock_owner(lock_file, operation):
 def workspace_write_lock(base, timeout=10.0, operation=None):
     """Serialize writers for one workspace without leaving a stale lock state."""
     base, _resolved_base = _safe_storage_root(base)
-    lock_path = base / ".write.lock"
+    # Worktrees share refs and revisions, so they share one writer too.
+    lock_path = shared_root(base) / ".write.lock"
     if lock_path.is_symlink():
         raise UnsafeStoragePathError(lock_path, "Workspace lock must not be a symlink")
     lock_file = lock_path.open("a+b")

@@ -62,3 +62,17 @@ def migrate(result):
     total = sum(counts.values())
     return [green(f"Migrated {_plural(total, 'object')} to branch {result['branch']}."),
             dim(f"Backup: {result['backup']}")]
+
+
+def branch(result):
+    if "created" in result:
+        return [f"Created branch {bold(result['created'])} at {result['revision'][:SHORT]}"]
+    if "deleted" in result:
+        return [f"Deleted branch {bold(result['deleted'])}"]
+    lines = []
+    for entry in result["branches"]:
+        revision = (entry["revision"] or "no revisions")[:SHORT]
+        marker = "* " if entry["current"] else "  "
+        place = f"  {dim('open in ' + entry['open_in'])}" if entry.get("open_in") else ""
+        lines.append(f"{marker}{bold(entry['name']) if entry['current'] else entry['name']}  {dim(revision)}{place}")
+    return lines

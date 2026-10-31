@@ -232,7 +232,7 @@ def _remove_hooks(path, posix):
 
 def _context(base, key, entry, graph, limit=MAX_CONTEXT_BYTES):
     prefix = (
-        f"Intent continuous local maintenance is enabled only for {base.parent.resolve()}. "
+        f"Intent continuous local maintenance is enabled only for {store.project_root(base).resolve()}. "
         "Use the intent-cli Skill. This entry is the current turn's inspect; do not repeat it if sufficient. "
         "Preserve verified milestones, split independent goals, and write no garbage Snap for a quiet turn. "
         "Before finishing, run: itt maintenance close recorded|no-op|failed "
@@ -301,7 +301,7 @@ def handle_event(event, expected_root=None, host="codex"):
     base = store.intent_dir()
     if not base.exists():
         return {}
-    root = base.parent.resolve()
+    root = store.project_root(base).resolve()
     if expected_root is not None and root != Path(expected_root).resolve():
         # A nested project is not this hook's; a project that moved still needs to hear about it.
         if event["hook_event_name"] == "UserPromptSubmit" and not Path(expected_root).exists():

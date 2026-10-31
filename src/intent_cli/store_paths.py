@@ -5,6 +5,15 @@ from intent_cli.store_errors import InvalidObjectIdError, UnsafeStoragePathError
 from intent_cli.store_schema import SUBDIRS, validate_object_id
 
 
+WORKTREES = "worktrees"
+
+
+def shared_root(base):
+    """The .intent/ a linked Git worktree's private directory belongs to; otherwise base itself."""
+    base = Path(base)
+    return base.parent.parent if base.parent.name == WORKTREES else base
+
+
 def _safe_storage_root(base):
     """Return a real .intent directory that is not itself a symlink."""
     base = Path(base)
