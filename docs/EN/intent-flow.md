@@ -71,7 +71,7 @@ States that need attention (parent ended, handover pending, blocked, broken, unr
 
 ## The Flow page
 
-Flow is a tab in every IntHub project. It draws the pushed history, so a new relation appears after your next `itt push`.
+Flow is a tab in every IntHub project. It draws `main` on IntHub, so a new relation appears once it reaches `main` there.
 
 - Related Intents sit in groups. Groups with open work come first, and they fill the page rightwards, then down. Each Intent is a card with its creation date in the corner.
 - Parts and derived Intents sit one column right of their parent and share one trunk. A successor continues the same row. An Intent that depends on or conflicts with another, and has no parent or predecessor, sits to its right.

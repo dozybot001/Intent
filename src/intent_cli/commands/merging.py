@@ -12,7 +12,17 @@ def _resolve_revision(base, name):
     try:
         return repo.resolve_revision(base, name)
     except repo.UnknownRevisionError as exc:
-        error("UNKNOWN_REVISION", str(exc), suggested_fix="itt branch")
+        tracked = repo.valid_branch_name(name) and repo.remote_revision(base, name)
+        error("UNKNOWN_REVISION", str(exc), suggested_fix=f"itt merge {repo.REMOTE}/{name}" if tracked else "itt branch")
+
+
+def _conflict_text(conflicts):
+    return "; ".join(f"{item['id']} {item['field']}" + (f" (ours {item['ours']}, theirs {item['theirs']})" if item["field"] == "status" else "")
+                     for item in conflicts)
+
+
+def _resolve_hint(conflicts):
+    return f"itt resolve {conflicts[0]['id']} --ours|--theirs for each, then itt merge --continue, or itt merge --abort."
 
 
 def _finish(base, state, objects):
@@ -23,7 +33,7 @@ def _finish(base, state, objects):
     repo_checkout.end_write(base)
     duplicates = possible_duplicates(objects)
     return ({"state": "merged", "branch": state["branch"], "head": revision, "parents": [head, state["theirs"]],
-             "possible_duplicates": duplicates},
+             "possible_duplicates": duplicates, "has_remote": bool((read_hub_config(base) or {}).get("api_base_url"))},
             [f"These open goals read the same: {', '.join(ids)}. Close the extra with itt intent done ID --into OTHER."
              for ids in duplicates])
 
@@ -57,9 +67,8 @@ def merge_into(base, name):
         return _finish(base, state, merged)
     repo_checkout.write_merge_state(base, state)
     repo_checkout.end_write(base)
-    error("MERGE_CONFLICT", f"Merging {name} needs a decision on {len(conflicts)} field(s). Nothing is recorded yet.",
-          details={"branch": name, "conflicts": conflicts},
-          suggested_fix="itt resolve ID --ours|--theirs|--status S for each, then itt merge --continue, or itt merge --abort.")
+    error("MERGE_CONFLICT", f"Merging {name} needs a decision: {_conflict_text(conflicts)}. Nothing is recorded yet.",
+          details={"branch": name, "conflicts": conflicts}, suggested_fix=_resolve_hint(conflicts))
 
 
 def cmd_merge(args):
@@ -81,9 +90,9 @@ def cmd_merge(args):
             state["conflicts"] = state["conflicts"] or graph_conflicts(objects, ours, theirs)
             if state["conflicts"]:
                 repo_checkout.write_merge_state(base, state)
-                error("MERGE_CONFLICT", f"{len(state['conflicts'])} field(s) still need a decision.",
+                error("MERGE_CONFLICT", f"Still needs a decision: {_conflict_text(state['conflicts'])}.",
                       details={"branch": state["branch"], "conflicts": state["conflicts"]},
-                      suggested_fix="itt resolve ID --ours|--theirs|--status S")
+                      suggested_fix=_resolve_hint(state["conflicts"]))
             success("merge", *_finish(base, state, objects))
             return
         if state is not None:
@@ -102,7 +111,7 @@ def _resolved_side(args, conflict, obj):
         if conflict["field"] != "status":
             error("INVALID_INPUT", f"--status does not apply to {conflict['field']}.", suggested_fix="Use --ours or --theirs.")
         if args.status not in VALID_STATUSES[obj["object"]]:
-            error("INVALID_INPUT", f"{args.status!r} is not a status of a {obj['object']}.")
+            error("INVALID_INPUT", f"{args.status!r} is not a status here. Use one of: {', '.join(sorted(VALID_STATUSES[obj['object']]))}.")
         side = next((name for name in ("ours", "theirs") if conflict[name] == args.status), None)
         return side, args.status
     side = "ours" if args.ours else "theirs"

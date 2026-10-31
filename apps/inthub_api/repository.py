@@ -146,6 +146,15 @@ def main_history(conn, pid):
     return repo.topological(reachable([tip] if tip else [], revisions.__getitem__)), revisions
 
 
+def other_branches(conn, pid, revisions):
+    """Branches beside main, with how far each has gone past it."""
+    refs = _refs(conn, pid)
+    tip = refs.get(repo.DEFAULT_BRANCH)
+    behind = reachable([tip] if tip else [], revisions.__getitem__)
+    return [{"name": name, "revision": revision, "ahead": len(reachable([revision], revisions.__getitem__, stop=behind))}
+            for name, revision in refs.items() if name != repo.DEFAULT_BRANCH]
+
+
 def snapshot_at(conn, pid, revisions, digest):
     return _snapshot(conn, pid, revisions[digest]["tree"])[0] if digest else None
 

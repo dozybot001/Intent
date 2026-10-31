@@ -124,6 +124,7 @@ def _upload(base, api, remote, name, head, token):
         size += cost
     if batch:
         send(batch)
+    return sum(kind == "revision" for kind, _digest in items)
 
 
 def _delete_remote(base, args, config, api, remote, name, followed):
@@ -172,7 +173,7 @@ def cmd_push(args):
     token = hub_auth_token(base, args, api)
     if remote.get("project_id") is None:
         remote["project_id"] = _linked(http_json("POST", f"{api}/api/v2/link", {"project_name": name}, token), name)["project_id"]
-    _upload(base, api, remote, name, head, token)
+    sent = _upload(base, api, remote, name, head, token)
     result = http_json("POST", f"{api}/api/v3/refs", {
         "project_name": name, "project_id": remote["project_id"], "ref": branch, "old": tip, "new": head,
         "pusher": identity.author(), "repository": identity.repository()}, token)
@@ -181,7 +182,7 @@ def cmd_push(args):
     with workspace_write_lock(base, operation="push"):
         repo.set_remote_revision(base, branch, head)
         write_hub_config(base, _config(config, api, name, remote["project_id"]))
-    success("push", {**result, **followed, "branch": branch}, warnings)
+    success("push", {**result, **followed, "branch": branch, "revisions_sent": sent}, warnings)
 
 
 def cmd_pull(args):
@@ -201,7 +202,7 @@ def cmd_pull(args):
         state = _relation(base, branch, head, tip)
         success("pull", {"dry_run": True, "changed": state in {"behind", "diverged"}, "state": state, "branch": branch})
         return
-    _fetch(base, api, remote, hub_auth_token(base, args, api))
+    moved = _fetch(base, api, remote, hub_auth_token(base, args, api))
     _require_valid(base, tip)
     with workspace_write_lock(base, operation="pull.apply"):
         require_settled(base)
@@ -212,7 +213,7 @@ def cmd_pull(args):
     counts = {collection: len(objects) for collection, objects in repo.snapshot_at(base, result["head"]).items()}
     success("pull", {"project_name": name, **followed, "project_id": remote["project_id"], "branch": branch,
                      "revision": result["head"], "changed": result["state"] != "up_to_date", "state": result["state"],
-                     "counts": counts}, warnings)
+                     "counts": counts, "fetched": [f"{repo.REMOTE}/{name}" for name in moved if name != branch]}, warnings)
 
 
 def cmd_clone(args):

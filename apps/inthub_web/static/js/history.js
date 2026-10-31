@@ -44,6 +44,7 @@ async function loadHistoryPage() {
     const seen = new Set(history.revisions.map((entry) => entry.revision));
     history.revisions.push(...(page?.revisions || []).filter((entry) => !seen.has(entry.revision)));
     history.total = Number.isFinite(page?.total) ? page.total : history.revisions.length;
+    history.branches = page?.branches || [];
     history.hasMore = Boolean(page?.has_more) && Boolean((page?.revisions || []).length);
     history.loaded = true;
   } catch (error) {
@@ -77,6 +78,13 @@ function revisionRow(revision, projectId) {
     </button>`;
 }
 
+// Branches pushed beside main. Their revisions join this list when they are merged.
+function otherBranches(branches = []) {
+  if (!branches.length) return "";
+  return `<div class="history-branches" aria-label="${esc(t("Other branches"))}">${branches.map((branch) => `
+    <span class="chip" data-tip="${esc(t("{count} ahead of main", {count: branch.ahead}))}">${esc(branch.name)}</span>`).join("")}</div>`;
+}
+
 function renderHistoryTab() {
   let history = state._history;
   if (!history || history.projectId !== state.currentProjectId) history = resetHistory();
@@ -88,7 +96,7 @@ function renderHistoryTab() {
   if (history.loaded && !history.revisions.length) {
     el.detailContent.innerHTML = header + emptyState({
       iconName: "history",
-      title: t("No pushes yet."),
+      title: t("No revisions yet."),
       body: t("A push brings its revisions here: what changed, who made it and when."),
       extra: commandSnippet(["itt push"]),
     });
@@ -104,7 +112,7 @@ function renderHistoryTab() {
     ? history.error
       ? `<div class="empty-state"><p>${esc(history.error)}</p><button type="button" class="secondary-btn" data-retry-history>${iconLabel("refresh", t("Retry"))}</button></div>`
       : viewLoadingHtml()
-    : list
+    : otherBranches(history.branches) + list
       + (history.error ? `<p class="timeline-error" role="alert">${esc(history.error)}</p>` : "")
       + (history.hasMore ? `<button type="button" class="load-more-btn" id="load-more-history"${history.loading ? ' disabled aria-busy="true"' : ""}>${iconLabel("chevronDown", history.loading ? t("Loading…") : t("Load more ({count})", {count: remaining}))}</button>` : "");
   el.detailContent.innerHTML = `${header}<div class="history" aria-busy="${history.loading || !history.loaded && !history.error}">${body}</div>`;

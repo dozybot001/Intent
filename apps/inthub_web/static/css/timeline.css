@@ -270,6 +270,8 @@
 
 /* --- History ------------------------------------------------------------- */
 
+.history-branches { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+
 .history-group + .history-group {
   margin-top: 24px;
 }

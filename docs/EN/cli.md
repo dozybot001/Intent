@@ -37,19 +37,19 @@ The CLI is intentionally small:
 | `itt branch [NAME [REV]]` | List branches, or create one |
 | `itt branch -d NAME` / `-D NAME` | Delete a merged branch, or any branch |
 | `itt branch -r` | List the remote's branches as last fetched |
-| `itt switch [-c] BRANCH [--force]` | Move to a branch; the working copy follows |
+| `itt switch [-c] BRANCH [REV] [--force]` | Move to a branch; the working copy follows. A branch only the remote has starts from `origin/BRANCH` |
 | `itt merge BRANCH` | Merge a branch into this one, fast-forwarding when possible |
 | `itt resolve ID --ours\|--theirs\|--status S` | Settle one object's conflicts during a merge |
 | `itt merge --continue` / `--abort` | Finish a merge, or give it up and restore this branch |
 
-A `REV` is `HEAD`, `HEAD~2`, `HEAD^`, a branch name, or a unique digest prefix. A linked Git worktree shares this history on its own branch.
+A `REV` is `HEAD`, `HEAD~2`, `HEAD^`, a branch name, `origin/BRANCH`, or a unique digest prefix. A linked Git worktree shares this history on its own branch.
 
 ### Project-local continuous maintenance
 
 | Command | Behavior |
 |---|---|
 | `itt maintenance status [--host H]` | Read this project's flag and the host's hook configuration without initializing; without `--host`, the host this project is configured for. Configuration does not attest execution. |
-| `itt maintenance on / off [--host H]` | Enable/disable only this project. Legacy histories need on once; new init defaults on. `on` installs the chosen host's hooks; `off` also removes Intent's Claude Code entries. No global setting changes. |
+| `itt maintenance on / off [--host H] [--remove-hooks]` | Enable/disable only this project. Legacy histories need on once; new init defaults on. `on` installs the chosen host's hooks; `off` also removes Intent's Claude Code entries. No global setting changes. |
 | `itt maintenance close recorded --turn TOKEN [--objects ID ...]` | Agent acknowledges verified changed objects; IDs may be derived from the entry baseline. |
 | `itt maintenance close no-op / failed --turn TOKEN --reason TEXT` | Acknowledge zero writes or failure without manufacturing a Snap. |
 
@@ -120,11 +120,11 @@ A project renamed or transferred on IntHub is followed automatically: `status`, 
 
 On a team's project, admins and members can push and viewers can pull. Public projects are read on the web: `pull` is for members, because a pull carries author emails.
 
-Revision IDs hash parent and canonical snapshot checksum. Transactional project-head locking rejects competing changes. Lost push responses converge by content without duplicate revisions. Existing append-only and lifecycle constraints still apply.
+A revision's ID is the hash of its contents: parents, tree, author and time. IntHub moves a branch only from where the pusher saw it and only forward, so competing pushes cannot overwrite each other, and a lost push response converges by content. Existing append-only and lifecycle constraints still apply on `main`. Commands that reach IntHub also take `--token TOKEN`.
 
-Workspace sync/export/import protocols have been removed. Copies share the same remote/project independently of Git origin. Hub aliases delegate to the same shared-history implementation.
+Workspace sync/export/import protocols have been removed. Copies share the same remote/project independently of Git origin. `itt hub sync`, `hub link` and `hub status` use the same implementation.
 
-Implementation: [CLI](../../src/intent_cli/commands/shared.py), [server](../../apps/inthub_api/history.py), [two-client tests](../../tests/test_shared_history.py).
+Implementation: [CLI](../../src/intent_cli/commands/sync.py), [server](../../apps/inthub_api/repository.py), [two-client tests](../../tests/test_protocol3.py).
 
 ## Object Model
 
@@ -376,7 +376,7 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 | `TURN_NOT_ACTIVE` | Token is not a valid turn in this enabled project |
 | `HISTORY_UNHEALTHY` | Closure found graph issues; diagnose with doctor |
 | `RECORDING_UNVERIFIED` | recorded did not reference verifiable objects changed this turn |
-| `ALREADY_EXISTS` | `.intent/` already exists when running `init` |
+| `ALREADY_EXISTS` | `.intent/` already exists when running `init` or `clone` |
 | `STATE_CONFLICT` | Illegal state transition |
 | `OBJECT_NOT_FOUND` | Object ID not found |
 | `INVALID_INPUT` | Invalid arguments or missing required input |
@@ -418,7 +418,13 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 | `INVALID_REMOTE_HISTORY` | What IntHub returned has an invalid identity, protocol, digest, schema or graph |
 | `INCOMPLETE_HISTORY` | A ref named revisions that have not all arrived. Run `itt push` again |
 | `INVALID_BLOB` | An uploaded blob does not match its digest or shape |
-| `PULL_APPLY_FAILED` | Workspace-lock-held, journaled snapshot installation or recovery failed; `details.committed` reports whether installation reached committed state, and `details.recovery_required` reports whether another recovery pass is required |
+| `INVALID_HISTORY` | A pushed tree is not the one its objects make |
+| `INVALID_SNAPSHOT` | A pushed revision's objects are invalid or cannot be read |
+| `HISTORY_CONFLICT` | A push would remove something from `main` or reopen a finished object. Finish it the way `main` has it, then push |
+| `SNAPSHOT_NOT_FOUND` | The remote has no history for this project or branch |
+| `TOKEN_ENDPOINT_MISMATCH` | `--token` or `INTHUB_TOKEN` would go to an endpoint you did not name |
+| `RATE_LIMITED` | Too many requests. Wait a minute |
+| `PULL_APPLY_FAILED` | Recovering a pull interrupted before 8.1 failed; `details.committed` reports whether it reached the committed state, and `details.recovery_required` whether recovery must run again |
 | `NETWORK_ERROR` | IntHub could not be reached |
 | `NETWORK_TIMEOUT` | IntHub did not answer within the bounded request timeout; mutation completion may be unknown |
 | `SERVER_ERROR` | IntHub returned an error or invalid JSON |
@@ -426,10 +432,10 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 ## Operational Notes
 
 - Git is optional. Inside Git repositories, init excludes `.intent/` via clone-local `.git/info/exclude` without editing the shared `.gitignore`; failure returns a warning
-- Authentication is global: the default endpoint is user-level, the token uses a credential helper, and project-local hub.json stores only endpoint, shared identity and synchronization baseline
+- Authentication is global: the default endpoint is user-level, the token uses a credential helper, and project-local hub.json stores only the endpoint and project identity
 - Intent remote is independent of Git origin. Copies share history by using the same endpoint/project. Workspace-specific protocols have been removed
 - Explicit `--token` and `INTHUB_TOKEN` override the stored credential and are never persisted to `hub.json`
-- Pull validates and atomically restores shared history, rejecting divergent overwrites; automatic maintenance does not imply pull authorization
+- Pull fetches, validates the remote's tip, then merges it; automatic maintenance does not imply pull authorization
 - IntHub Local binds to `127.0.0.1` by default, but its current API does not enforce bearer-token authentication and uses permissive CORS; do not expose it to a LAN or the public internet
 - The IntHub production profile uses Tenon sign-in and bounded read-only HttpOnly Web sessions; CLI writes use an access token issued by the current account (sent as HTTP `Bearer`), project reads and writes follow the account's ownership and team roles, and production uses PostgreSQL
 - Object and Hub-config replacements are atomic, and mutating object commands use a workspace-level cross-process lock with bounded owner diagnostics; this serializes Intent CLI writers but does not turn `.intent/` into a multi-user database

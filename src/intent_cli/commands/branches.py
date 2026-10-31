@@ -32,6 +32,8 @@ def _delete(base, name, force):
     _require_valid(name)
     if repo.branch_revision(base, name) is None:
         error("BRANCH_NOT_FOUND", f"Branch {name} does not exist.")
+    if name == repo.current_branch(base):
+        error("BRANCH_IN_USE", f"You are on {name}.", suggested_fix="Switch to another branch first.")
     used = repo_checkout.branches_in_use(base)
     if name in used:
         error("BRANCH_IN_USE", f"Branch {name} is open in {used[name]}.")
@@ -73,17 +75,25 @@ def cmd_switch(args):
     with workspace_write_lock(base, operation="switch"):
         require_no_merge(base)
         _require_valid(args.branch)
+        start = None
+        if args.start and not args.create:
+            error("INVALID_INPUT", "A starting revision needs -c.", suggested_fix=f"itt switch -c {args.branch} {args.start}")
         if args.create:
             _require_new(base, args.branch)
+            start = _start_point(base, args.start) if args.start or repo.head_revision(base) else None
         elif repo.branch_revision(base, args.branch) is None and args.branch != repo.current_branch(base):
-            error("BRANCH_NOT_FOUND", f"Branch {args.branch} does not exist.", suggested_fix=f"itt switch -c {args.branch}")
+            # As in Git, a branch only the remote has starts from the remote's copy.
+            start = repo.remote_revision(base, args.branch)
+            if start is None:
+                error("BRANCH_NOT_FOUND", f"Branch {args.branch} does not exist.", suggested_fix=f"itt switch -c {args.branch}")
+            _require_new(base, args.branch)
         used = repo_checkout.branches_in_use(base)
         if args.branch != repo.current_branch(base) and args.branch in used:
             error("BRANCH_IN_USE", f"Branch {args.branch} is open in {used[args.branch]}.")
         if repo.uncommitted(base) and not args.force:
             error("UNCOMMITTED_CHANGES", "The working copy has changes no revision holds.",
                   suggested_fix="Run a write to record them, or pass --force to discard them.")
-        if args.create and repo.head_revision(base):
-            repo.set_branch(base, args.branch, repo.head_revision(base))
+        if start:
+            repo.set_branch(base, args.branch, start)
         repo_checkout.switch(base, args.branch)
         success("switch", {"branch": args.branch, "head": repo.head_revision(base)})

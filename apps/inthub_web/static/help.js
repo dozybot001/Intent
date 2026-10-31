@@ -4,7 +4,7 @@
     search: "Search matches goals, checkpoints and decisions within the selected project. Cmd/Ctrl+K opens search.",
     decisions: "Rules that remain binding across linked objectives.",
     setup: "Run these commands where your .intent/ data lives.",
-    history: "Each push to IntHub is one revision, like a Git commit: what it added or changed, who pushed it and when. Open one to see the objects.",
+    history: "Every revision on main, like git log: what it added or changed, who made it and when. Open one to see the objects.",
     verified: "Pushed by the account that owns this email.",
     flow: "Part of branches off its parent, and ended parts come back together at one point. Derived from branches off without coming back. Succeeds is a thick arrow into the next goal on the row. Depends on is a thin arrow from the prerequisite: amber while blocked, green once satisfied, red if it was cancelled. Conflicts with is a dashed line marked vs until one side ends. Diamonds are Decisions; hollow ones are deprecated.",
   };

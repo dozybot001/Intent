@@ -2,7 +2,7 @@
 
 中文 | [English](../EN/semantic-git.md)
 
-状态：第 1 到 3 阶段已随 Intent 8.0 发布，第 4 阶段未开始。
+状态：已发布。第 1 到 3 阶段随 Intent 8.0 发布，第 4 阶段随 8.1 发布。
 
 ## 目标
 
@@ -37,7 +37,7 @@ Git 要求人先暂存再提交。Intent 的写入者大多是正在做其他事
 | `HEAD`、分支、refs | `.intent/HEAD`、`refs/heads/*`；`itt branch`、`itt switch` |
 | `git log` / `show` / `diff` | `itt log`（修订；`--graph` 画出分支）、`itt show ID|REV`、`itt diff A..B`（语义差异：新增 Snap、状态变化、新增或废弃的 Decision） |
 | `git status` | 当前分支、上游、领先/落后数量 |
-| 远端、`fetch`、`pull`、`push`、`clone` | `itt remote`、`itt fetch` 到 `refs/remotes/origin/*`、`itt pull` = fetch + merge、`itt push`（落后时被拒绝，与 Git 相同）、`itt clone URL --project NAME` |
+| 远端、`fetch`、`pull`、`push`、`clone` | `itt remote`、`itt fetch` 到 `refs/remotes/origin/*`、`itt pull` = fetch + merge、`itt push`（落后时被拒绝，与 Git 相同）、`itt clone PROJECT` |
 | 三方合并 | **语义三方合并**，以合并基准为准（见下文） |
 | worktree | 通过 `git rev-parse --git-common-dir` 定位仓库，所有 worktree 共享一个语义仓库，各自有自己的 `HEAD`，并推送自己的分支。bare 仓库和 `--separate-git-dir` 找不到主 worktree，这时各 worktree 各用自己的 `.intent/` |
 | tag | `itt tag` 标记里程碑（后续） |
@@ -52,7 +52,8 @@ Git 要求人先暂存再提交。Intent 的写入者大多是正在做其他事
   refs/heads/main
   refs/remotes/origin/main
   HEAD                         "ref: refs/heads/main"
-  config.json                  远端、上游、维护开关
+  hub.json                     远端和项目 ID
+  maintenance.json             本项目的维护开关
 ```
 
 `intents/`、`snaps/`、`decisions/` 继续作为可读的工作副本，就像 Git 的工作区：每次写入先改工作副本，再把它记录成一个修订，所以中断时最多留下一次尚未记录的改动，下一次写入会补上。命令被拒绝或中途被杀时都会撤销（被杀时由下一条命令完成），所以修订不会只记录半条命令。

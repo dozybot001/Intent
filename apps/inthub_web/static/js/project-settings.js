@@ -1,5 +1,11 @@
 /* Project settings: the Settings tab. */
 
+// A hosted hub is the CLI's default; a local one has to be named.
+function cloneCommand(project) {
+  const name = /\s/.test(project.full_name) ? `"${project.full_name}"` : project.full_name;
+  return `itt clone ${name}${state.config?.authRequired ? "" : ` --api-base-url ${window.location.origin}`}`;
+}
+
 function projectNameProblem(name) {
   if (!name) return t("Enter a project name.");
   if ([...name].length > PROJECT_NAME_MAX) return t("Use {count} characters or fewer.", { count: PROJECT_NAME_MAX });
@@ -69,9 +75,11 @@ function projectGeneralPane(project) {
         : t("Only people with access to this project can read it.")),
       control: `<button class="button button-secondary" type="button" data-change-visibility="${visibility === "public" ? "private" : "public"}">${visibility === "public" ? iconLabel("lock", t("Make private")) : iconLabel("globe", t("Make public"))}</button>`,
     }))) : ""}
+    ${settingsBlock("clone", t("Clone"), commandSnippet([cloneCommand(project)]),
+      esc(t("Brings this project's history and branches to another machine. Run it in a folder with no .intent/, such as a fresh checkout.")))}
     ${settingsBlock("export", t("Export"), settingsList(settingsRow({
       title: esc(t("Download project data")),
-      meta: esc(t("The current semantic snapshot and the revision list as JSON: everything itt pull can restore.")),
+      meta: esc(t("The current semantic snapshot and the revision list as JSON.")),
       control: `<button class="button button-secondary" type="button" data-export-project>${iconLabel("download", t("Download export"))}</button>`,
     })))}`;
 }

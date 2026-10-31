@@ -10,7 +10,7 @@ import shlex
 import subprocess
 import sys
 
-from intent_cli import store
+from intent_cli import repo, repo_checkout, store
 from intent_cli import relations as relation_rules
 from intent_cli.maintenance import (
     MaintenanceError, begin_turn, find_turn, latest_turn, read_state, receipt_valid, verified_graph, write_state,
@@ -230,6 +230,19 @@ def _remove_hooks(path, posix):
         raise MaintenanceError("HOOK_CONFIG_WRITE_FAILED", "Could not remove project hooks; review local file permissions.") from exc
 
 
+def _place(base):
+    """The branch when it is not main, and any open merge: an agent cannot write until that one is settled."""
+    if not repo.is_repository(base):
+        return {}
+    try:
+        branch, state = repo.current_branch(base), repo_checkout.read_merge_state(base)
+    except store.StorageSecurityError:
+        return {}
+    merging = {"merging": {"branch": state["branch"], "conflicts": len(state["conflicts"]),
+                           "next": "itt resolve ID --ours|--theirs, then itt merge --continue, or itt merge --abort"}} if state else {}
+    return {**({"branch": branch} if branch != repo.DEFAULT_BRANCH else {}), **merging}
+
+
 def _context(base, key, entry, graph, limit=MAX_CONTEXT_BYTES):
     prefix = (
         f"Intent continuous local maintenance is enabled only for {store.project_root(base).resolve()}. "
@@ -243,7 +256,7 @@ def _context(base, key, entry, graph, limit=MAX_CONTEXT_BYTES):
     )
     if entry["entry_error"]:
         return prefix + "History was unavailable at entry. Diagnose safely; report failed if it remains unverified."
-    records = {"active_intents": [], "suspended": [], "active_decisions": [], "context_truncated": False}
+    records = {**_place(base), "active_intents": [], "suspended": [], "active_decisions": [], "context_truncated": False}
     for kind, objects in (("decision", graph["decision"]), ("intent", graph["intent"])):
         for obj in objects.values():
             if obj.get("status") not in {"active", "suspend"}:

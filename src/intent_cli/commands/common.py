@@ -65,6 +65,15 @@ def require_no_merge(base):
         )
 
 
+def place(base):
+    """Where this copy stands in its own history: nothing to say for an unmigrated project."""
+    if not repo.is_repository(base):
+        return {}
+    state = repo_checkout.read_merge_state(base)
+    merging = {"merging": {"branch": state["branch"], "conflicts": state["conflicts"]}} if state else {}
+    return {"branch": repo.current_branch(base), "head": repo.head_revision(base), **merging}
+
+
 def require_settled(base):
     """Sync needs a repository with no merge open. Call it holding the lock."""
     require_repository(base)

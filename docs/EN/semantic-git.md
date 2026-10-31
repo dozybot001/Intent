@@ -2,18 +2,18 @@
 
 [中文](../CN/semantic-git.md) | English
 
-Status: phases 1 to 3 shipped in Intent 8.0; phase 4 has not started.
+Status: shipped. Phases 1 to 3 in Intent 8.0, phase 4 in 8.1.
 
 ## Goal
 
 `itt` should behave like Git for semantic history. A developer who knows Git should be able to predict how Intent handles parallel work, several machines, worktrees and divergence, because Intent handles them the way Git does.
 
-Today (7.x) this is not true:
+Before Intent 8 this was not true:
 
-- Object IDs are per-copy counters (`snap-003`), so two copies that record in parallel mint the same IDs.
-- A project has one linear history. Push and pull only fast-forward; when two copies diverge, `itt status` reports `diverged` and there is no way to merge.
-- Every pushed revision stores a full snapshot, and the local repository keeps no revision history at all. Status changes carry no timestamp.
-- In a Git worktree, Intent does not find the main checkout's `.intent/`.
+- Object IDs were per-copy counters (`snap-003`), so two copies that recorded in parallel minted the same IDs.
+- A project had one linear history. Push and pull only fast-forwarded; when two copies diverged, there was no way to merge.
+- Every pushed revision stored a full snapshot, and the local repository kept no revision history at all. Status changes carried no timestamp.
+- In a Git worktree, Intent did not find the main checkout's `.intent/`.
 
 ## Decisions (2026-10-30)
 
@@ -37,7 +37,7 @@ Git asks people to stage and commit. Intent's writers are mostly agents in the m
 | `HEAD`, branches, refs | `.intent/HEAD`, `refs/heads/*`; `itt branch`, `itt switch` |
 | `git log` / `show` / `diff` | `itt log` (revisions; `--graph` draws branches), `itt show ID|REV`, `itt diff A..B` (semantic: added Snaps, status changes, new or retired Decisions) |
 | `git status` | branch, upstream, ahead/behind counts |
-| remotes, `fetch`, `pull`, `push`, `clone` | `itt remote`, `itt fetch` into `refs/remotes/origin/*`, `itt pull` = fetch + merge, `itt push` (rejected when behind, as in Git), `itt clone URL --project NAME` |
+| remotes, `fetch`, `pull`, `push`, `clone` | `itt remote`, `itt fetch` into `refs/remotes/origin/*`, `itt pull` = fetch + merge, `itt push` (rejected when behind, as in Git), `itt clone PROJECT` |
 | three-way merge | **semantic three-way merge** against the merge base (below) |
 | worktrees | the repository is found through `git rev-parse --git-common-dir`, so all worktrees share one semantic repository; each worktree has its own `HEAD` and pushes its own branch. A bare repository or `--separate-git-dir` names no main worktree, so there each worktree keeps its own `.intent/` |
 | tags | `itt tag` for milestones (later) |
@@ -52,7 +52,8 @@ Git asks people to stage and commit. Intent's writers are mostly agents in the m
   refs/heads/main
   refs/remotes/origin/main
   HEAD                         "ref: refs/heads/main"
-  config.json                  remotes, upstreams, maintenance flags
+  hub.json                     the remote and its project ID
+  maintenance.json             this project's maintenance flag
 ```
 
 `intents/`, `snaps/` and `decisions/` stay as the readable working copy, like Git's working tree. Each write changes the working copy and then records it as a revision, so an interruption leaves at most one unrecorded change, which the next write picks up. A command refused or killed part way is undone, by itself or by the next one, so a revision never holds half a command.

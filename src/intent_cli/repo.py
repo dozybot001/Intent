@@ -175,12 +175,14 @@ def working_objects(base):
 
 def _summary(operation, changes, files):
     """One generated line, like a commit subject: what ran, and on what."""
-    subject = next((change for change in changes if change["action"] == "added"), changes[0])
+    # A new Snap also changes its Intent's links, which is not news.
+    named = [change for change in changes if change["action"] == "added"] or changes
+    subject = named[0]
     try:
         what = json.loads(files[subject["id"]]).get("what", "")
     except (KeyError, ValueError, AttributeError):
         what = ""
-    extra = f" and {len(changes) - 1} more" if len(changes) > 1 else ""
+    extra = f" and {len(named) - 1} more" if len(named) > 1 else ""
     text = f"{operation} {subject['id']}{extra}" + (f": {what}" if what else "")
     return text[:SUMMARY_MAX_CHARS]
 

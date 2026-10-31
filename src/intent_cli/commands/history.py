@@ -40,6 +40,17 @@ def _log_snaps(base, args):
     success("log", {"snaps": entries, "total": len(snaps), "has_more": len(shown) < len(snaps)})
 
 
+def _refs_by_revision(base, branch, head):
+    """What points at each revision, as `git log --decorate` shows it."""
+    refs = {head: [f"HEAD -> {branch}"]} if head else {}
+    for name in repo.list_branches(base):
+        if name != branch:
+            refs.setdefault(repo.branch_revision(base, name), []).append(name)
+    for name, tip in repo.remote_branches(base).items():
+        refs.setdefault(tip, []).append(f"{repo.REMOTE}/{name}")
+    return refs
+
+
 def cmd_log(args):
     """List revisions newest first, like `git log`; --snaps or --intent lists checkpoints."""
     base = require_init()
@@ -52,8 +63,10 @@ def cmd_log(args):
     with workspace_write_lock(base, operation="log"):
         history = repo.walk(base)
         branch, head = repo.current_branch(base), repo.head_revision(base)
+        refs = _refs_by_revision(base, branch, head)
     shown = history if args.all else history[:args.max_count]
     success("log", {"branch": branch, "head": head, "revisions": [_revision_entry(*item) for item in shown],
+                    "refs": {digest: names for digest, names in refs.items() if digest in {item[0] for item in shown}},
                     "total": len(history), "has_more": len(shown) < len(history), "graph": args.graph})
 
 

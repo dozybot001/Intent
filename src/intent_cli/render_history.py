@@ -16,16 +16,21 @@ def _heading(entry, marker=""):
     return f"{yellow(entry['revision'][:SHORT])}{marker}  {dim(' · '.join(part for part in meta if part))}"
 
 
-def _graph(entries):
+def _refs(result, digest):
+    names = (result.get("refs") or {}).get(digest)
+    return f" ({', '.join(names)})" if names else ""
+
+
+def _graph(result):
     """One line per revision with a lane per open line of history, like `git log --graph`."""
-    lanes, lines = [], []
+    entries, lanes, lines = result["revisions"], [], []
     for entry in entries:
         digest = entry["revision"]
         if digest not in lanes:
             lanes.append(digest)
         column = lanes.index(digest)
         row = " ".join("*" if index == column else "|" for index in range(len(lanes)))
-        lines.append(f"{row}  {yellow(digest[:SHORT])}  {_one_line(entry.get('summary') or '', 72)}")
+        lines.append(f"{row}  {yellow(digest[:SHORT])}{_refs(result, digest)}  {_one_line(entry.get('summary') or '', 72)}")
         parents = [parent for parent in entry["parents"] if parent not in lanes]
         lanes[column:column + 1] = parents
     return lines
@@ -33,15 +38,14 @@ def _graph(entries):
 
 def revisions(result):
     if result.get("graph") and result["revisions"]:
-        return _graph(result["revisions"])
+        return _graph(result)
     lines = []
     for entry in result["revisions"]:
-        marker = f" ({result['branch']})" if entry["revision"] == result.get("head") else ""
-        lines += [_heading(entry, marker), f"    {_one_line(entry.get('summary') or '', 100)}", ""]
+        lines += [_heading(entry, _refs(result, entry["revision"])), f"    {_one_line(entry.get('summary') or '', 100)}", ""]
     if not result["revisions"]:
         lines.append(dim("No revisions yet."))
     elif result.get("has_more"):
-        lines.append(dim(f"… {result['total'] - len(result['revisions'])} older revisions (use -n or --all)"))
+        lines.append(dim(f"… {_plural(result['total'] - len(result['revisions']), 'older revision')} (use -n or --all)"))
     return lines
 
 
@@ -86,6 +90,9 @@ def branch(result):
         return [f"Created branch {bold(result['created'])} at {result['revision'][:SHORT]}"]
     if "deleted" in result:
         return [f"Deleted branch {bold(result['deleted'])}"]
+    if "remote" in result:
+        return [f"  {entry['name']}  {dim(entry['revision'][:SHORT])}" for entry in result["branches"]] or [
+            dim("No remote branches yet. Run: itt fetch")]
     lines = []
     for entry in result["branches"]:
         revision = (entry["revision"] or "no revisions")[:SHORT]
@@ -114,4 +121,5 @@ def merge(result):
         return [f"Fast-forwarded to {result['branch']} at {result['head'][:SHORT]}."]
     if state == "aborted":
         return [f"Gave up merging {result['branch']}."]
-    return [green(f"Merged {result['branch']} at {result['head'][:SHORT]}.")]
+    next_step = [dim("  Run: itt push")] if result.get("has_remote") else []
+    return [green(f"Merged {result['branch']} at {result['head'][:SHORT]}."), *next_step]

@@ -102,7 +102,7 @@ def cmd_snap_create(args):
     update_object(base, "intent", intent_id, intent)
 
     warnings = []
-    if inferred:
+    if inferred and json_mode():
         warnings.append(f"Inferred intent {intent_id} (only active intent).")
     success("snap.create", snap, warnings)
 

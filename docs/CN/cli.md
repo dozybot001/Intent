@@ -37,12 +37,12 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 | `itt branch [NAME [REV]]` | 列出分支，或创建分支 |
 | `itt branch -d NAME` / `-D NAME` | 删除已合并的分支，或删除任意分支 |
 | `itt branch -r` | 列出上次抓取时远端的分支 |
-| `itt switch [-c] BRANCH [--force]` | 切换分支，工作副本随之变化 |
+| `itt switch [-c] BRANCH [REV] [--force]` | 切换分支，工作副本随之变化。只有远端才有的分支从 `origin/BRANCH` 开始 |
 | `itt merge BRANCH` | 把分支合并到当前分支，能快进时快进 |
 | `itt resolve ID --ours\|--theirs\|--status S` | 合并时解决一个对象的冲突 |
 | `itt merge --continue` / `--abort` | 完成合并，或放弃合并并恢复当前分支 |
 
-`REV` 可以是 `HEAD`、`HEAD~2`、`HEAD^`、分支名或唯一的摘要前缀。Git worktree 共享这份历史，并有自己的分支。
+`REV` 可以是 `HEAD`、`HEAD~2`、`HEAD^`、分支名、`origin/BRANCH` 或唯一的摘要前缀。Git worktree 共享这份历史，并有自己的分支。
 
 ### 项目级持续维护
 
@@ -120,11 +120,11 @@ Git 可选。Intent 独立保存语义历史；代码仓库的 Git origin 不参
 
 团队项目的管理员和成员可以推送，只读成员可以拉取。公开项目在网页上阅读：`pull` 只对成员开放，因为拉取内容带作者邮箱。
 
-版本 ID 由父版本与规范快照校验值计算。服务端事务锁定项目头，拒绝非快进覆盖。推送响应丢失时可按内容收敛，不新增重复版本。对象仍遵守追加和生命周期约束；没有强制覆盖或自动合并。
+修订 ID 是修订内容的哈希，包括父修订、tree、作者和时间。IntHub 只从推送者看到的位置向前移动分支，所以并发推送不会互相覆盖，推送响应丢失时也能按内容收敛。`main` 上的对象仍遵守追加和生命周期约束，没有强制覆盖。访问 IntHub 的命令也接受 `--token TOKEN`。
 
 旧 workspace 同步、导出和恢复协议已移除。Git origin 不影响同步；不同副本只需选择相同 remote/project。`hub sync`、`hub link/status` 仅委托同一共享主链，没有独立协议。
 
-实现：[共享 CLI](../../src/intent_cli/commands/shared.py)、[版本服务](../../apps/inthub_api/history.py)、[双客户端测试](../../tests/test_shared_history.py)。
+实现：[CLI](../../src/intent_cli/commands/sync.py)、[服务端](../../apps/inthub_api/repository.py)、[双客户端测试](../../tests/test_protocol3.py)。
 
 ## 对象模型
 
@@ -376,7 +376,7 @@ stateDiagram-v2
 | `TURN_NOT_ACTIVE` | token 不属于当前已开启项目的有效轮次 |
 | `HISTORY_UNHEALTHY` | 闭环校验发现对象图问题，需 doctor 诊断 |
 | `RECORDING_UNVERIFIED` | recorded 未引用本轮可验证的变化对象 |
-| `ALREADY_EXISTS` | 运行 `init` 时 `.intent/` 已存在 |
+| `ALREADY_EXISTS` | 运行 `init` 或 `clone` 时 `.intent/` 已存在 |
 | `STATE_CONFLICT` | 状态流转非法 |
 | `OBJECT_NOT_FOUND` | 找不到对应对象 ID |
 | `INVALID_INPUT` | 参数非法或缺少必填输入 |
@@ -418,7 +418,13 @@ stateDiagram-v2
 | `INVALID_REMOTE_HISTORY` | IntHub 返回内容的身份、协议、摘要、schema 或对象图不合法 |
 | `INCOMPLETE_HISTORY` | ref 指向的修订还没有全部到达。再运行一次 `itt push` |
 | `INVALID_BLOB` | 上传的 blob 与摘要或结构不符 |
-| `PULL_APPLY_FAILED` | 持有 workspace 锁的 journal 可恢复快照安装或恢复失败；`details.committed` 表示安装是否已到达 committed 状态，`details.recovery_required` 表示是否还需再次恢复 |
+| `INVALID_HISTORY` | 推送的 tree 与其对象不一致 |
+| `INVALID_SNAPSHOT` | 推送的修订里有无效或读不出的对象 |
+| `HISTORY_CONFLICT` | 推送会从 `main` 删除内容或重开已结束的对象。按 `main` 的状态结束它，再推送 |
+| `SNAPSHOT_NOT_FOUND` | 远端没有这个项目或分支的历史 |
+| `TOKEN_ENDPOINT_MISMATCH` | `--token` 或 `INTHUB_TOKEN` 会发到你没有指定的地址 |
+| `RATE_LIMITED` | 请求过多，请等一分钟 |
+| `PULL_APPLY_FAILED` | 恢复 8.1 之前被中断的 pull 失败；`details.committed` 表示是否已到达 committed 状态，`details.recovery_required` 表示是否还需再次恢复 |
 | `NETWORK_ERROR` | 无法连接 IntHub |
 | `NETWORK_TIMEOUT` | IntHub 未在有界请求时间内响应；变更是否完成可能未知 |
 | `SERVER_ERROR` | IntHub 返回错误或非法 JSON |
@@ -426,10 +432,10 @@ stateDiagram-v2
 ## 运行约束
 
 - Git 可选；在 Git 仓库内 `itt init` 会将 `.intent/` 加入当前克隆的 `.git/info/exclude`，不修改团队共享的 `.gitignore`；写入失败会返回 warning
-- 账户鉴权是全局的：默认服务地址属于用户级配置，token 交给 credential helper，项目级 `hub.json` 只保存地址、共享项目身份和同步 baseline
+- 账户鉴权是全局的：默认服务地址属于用户级配置，token 交给 credential helper，项目级 `hub.json` 只保存地址和项目身份
 - `itt remote` 独立于 Git origin；不同本地副本通过相同地址和项目名共享历史；旧 workspace 入口已移除
 - 显式 `--token` 和 `INTHUB_TOKEN` 会覆盖已保存凭据，且绝不会持久化到 `hub.json`
-- Pull 校验版本内容并原子恢复完整共享历史，拒绝分叉覆盖；自动维护不会隐含 pull 授权
+- Pull 先抓取，校验远端最新修订，再合并；自动维护不会隐含 pull 授权
 - IntHub Local 默认绑定 `127.0.0.1`，但当前 API 不强制校验 Bearer Token，且使用宽松 CORS；不要将它暴露到局域网或公网
 - IntHub 生产配置使用 Tenon 统一登录和有时限的只读 HttpOnly Web 会话；CLI 写入使用当前账户签发的 access token（HTTP `Bearer`），项目读写按账号归属和团队角色授权，生产数据库使用 PostgreSQL
 - 对象和 Hub 配置通过原子替换写入，变更命令使用带有界 owner 诊断的工作区级跨进程写锁；这会串行化 Intent CLI 写入，但不会把 `.intent/` 变成多用户数据库

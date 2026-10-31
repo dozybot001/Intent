@@ -60,7 +60,7 @@ Intent turns these answers into objects you can reference: an Intent for each go
 
 Intent is local and open. It keeps plain JSON in `.intent/` beside your code, validates it, and gives agents a way to recover context.
 
-IntHub is optional, and its relation to Intent resembles GitHub's to Git. People and teams use it to browse and share this history, hosted or run locally with `itt hub start`. Projects are private by default. A team can share them by role or publish them read-only. Merging parallel work is not built yet. Intent stays useful without IntHub, and recording never depends on it.
+IntHub is optional, and its relation to Intent resembles GitHub's to Git. People and teams use it to browse and share this history, hosted or run locally with `itt hub start`. Projects are private by default. A team can share them by role or publish them read-only. Copies that record in parallel merge, as in Git. Intent stays useful without IntHub, and recording never depends on it.
 
 ## Project boundaries
 

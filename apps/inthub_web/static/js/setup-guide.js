@@ -55,7 +55,7 @@ function renderSetupGuide(mode) {
       title: t("Link and push"),
       desc: mode === "unlinked"
         ? t("Choose a shared project name, then push its semantic history.")
-        : t("Ensure CLI points here, then push the next snapshot."),
+        : t("Ensure CLI points here, then push."),
       cmd: [linkCmd, "itt push"],
     });
   }

@@ -1,6 +1,8 @@
 """Intent CLI — parser and command dispatch."""
 
 import argparse
+import difflib
+import re
 import os
 import sys
 
@@ -9,6 +11,7 @@ from intent_cli.output import error, json_mode, set_format
 from intent_cli.store import (
     CHECKPOINT_FIELDS,
     InvalidObjectIdError,
+    UnknownShortIdError,
     StorageSecurityError,
     StoredObjectIntegrityError,
     StoredObjectParseError,
@@ -64,7 +67,7 @@ def _invoke(command, args):
         )
     except InvalidObjectIdError as exc:
         error(
-            "INVALID_OBJECT_ID",
+            "OBJECT_NOT_FOUND" if isinstance(exc, UnknownShortIdError) else "INVALID_OBJECT_ID",
             str(exc),
             details={"object_type": exc.object_type, "id": exc.obj_id},
         )
@@ -153,15 +156,27 @@ def _ensure_utf8_stdio():
             ))
 
 
+CHECKPOINT_HELP = {
+    "verified": "what was checked, and how",
+    "boundary": "what this covers and what it leaves out",
+    "next": "the next step",
+    "blocker": "what stops the work, or none",
+    "constraints": "what must stay true",
+}
+
+
 class JsonArgumentParser(argparse.ArgumentParser):
     """Argument parser that preserves the CLI's stdout JSON error contract."""
 
     def error(self, message):
-        error(
-            "INVALID_INPUT",
-            message,
-            details={"usage": self.format_usage().strip()},
-        )
+        details = {"usage": self.format_usage().strip()}
+        typed = re.search(r"invalid choice: '([^']*)'", message)
+        if typed:
+            choices = next(action.choices for action in self._actions if action.choices)
+            guess = difflib.get_close_matches(typed.group(1), list(choices), n=1)
+            error("INVALID_INPUT", f"Unknown command {typed.group(1)!r}.", details=details,
+                  suggested_fix=f"Did you mean `{self.prog} {guess[0]}`?" if guess else f"Run `{self.prog} --help`.")
+        error("INVALID_INPUT", message, details=details)
 
 
 def main():
@@ -216,21 +231,22 @@ def main():
     p.add_argument("--status", default=None, metavar="STATUS")
     p = sub.add_parser("switch", help="move to another branch")
     p.add_argument("branch", metavar="BRANCH")
+    p.add_argument("start", nargs="?", default=None, metavar="REV", help="with -c: where the branch starts")
     p.add_argument("-c", dest="create", action="store_true", help="create the branch first")
     p.add_argument("--force", action="store_true", help="discard changes no revision holds")
     sub.add_parser("doctor", help="check the history for integrity problems")
     p = sub.add_parser("status", help="compare local history with its remote")
     p.add_argument("--local", action="store_true")
-    p.add_argument("--project", default=None)
-    p.add_argument("--api-base-url", default=None)
-    p.add_argument("--token", default=None)
+    p.add_argument("--project", default=None, help="project name on IntHub (default: this folder's name)")
+    p.add_argument("--api-base-url", default=None, help="IntHub address")
+    p.add_argument("--token", default=None, help="access token, for this command only")
     p_remote = sub.add_parser("remote", help="show or set the IntHub remote")
     s_remote = p_remote.add_subparsers(dest="sub")
     p_remote.add_argument("-v", action="store_true")
     p = s_remote.add_parser("add")
     p.add_argument("name")
     p.add_argument("url")
-    p.add_argument("--project", default=None)
+    p.add_argument("--project", default=None, help="project name on IntHub (default: this folder's name)")
 
     p_maintenance = sub.add_parser("maintenance", help="turn per-turn agent recording on or off")
     s_maintenance = p_maintenance.add_subparsers(dest="sub")
@@ -252,41 +268,41 @@ def main():
     s_auth = p_auth.add_subparsers(dest="sub")
 
     p = s_auth.add_parser("login")
-    p.add_argument("--api-base-url", default=None)
-    p.add_argument("--token", default=None)
+    p.add_argument("--api-base-url", default=None, help="IntHub address")
+    p.add_argument("--token", default=None, help="access token, for this command only")
 
     p = s_auth.add_parser("status")
-    p.add_argument("--api-base-url", default=None)
-    p.add_argument("--token", default=None)
+    p.add_argument("--api-base-url", default=None, help="IntHub address")
+    p.add_argument("--token", default=None, help="access token, for this command only")
 
     p = s_auth.add_parser("logout")
-    p.add_argument("--api-base-url", default=None)
+    p.add_argument("--api-base-url", default=None, help="IntHub address")
 
-    p = sub.add_parser("push", help="publish local history to the remote")
-    p.add_argument("--project", default=None)
-    p.add_argument("--api-base-url", default=None)
-    p.add_argument("--token", default=None)
-    p.add_argument("--dry-run", action="store_true")
+    p = sub.add_parser("push", help="send this branch to the remote")
+    p.add_argument("--project", default=None, help="project name on IntHub (default: this folder's name)")
+    p.add_argument("--api-base-url", default=None, help="IntHub address")
+    p.add_argument("--token", default=None, help="access token, for this command only")
+    p.add_argument("--dry-run", action="store_true", help="say what would happen, and change nothing")
 
     p.add_argument("--delete", default=None, metavar="BRANCH", help="delete a branch on the remote")
 
     p = sub.add_parser("fetch", help="download the remote's branches without touching this one")
-    p.add_argument("--project", default=None)
-    p.add_argument("--api-base-url", default=None)
-    p.add_argument("--token", default=None)
+    p.add_argument("--project", default=None, help="project name on IntHub (default: this folder's name)")
+    p.add_argument("--api-base-url", default=None, help="IntHub address")
+    p.add_argument("--token", default=None, help="access token, for this command only")
 
     p = sub.add_parser("clone", help="start this folder's history from a project on IntHub")
     p.add_argument("project", metavar="PROJECT")
-    p.add_argument("--api-base-url", default=None)
-    p.add_argument("--token", default=None)
+    p.add_argument("--api-base-url", default=None, help="IntHub address")
+    p.add_argument("--token", default=None, help="access token, for this command only")
     p.add_argument("--host", choices=HOSTS, default=None)
 
     p = sub.add_parser("pull", help="fetch the remote and merge it into this branch")
-    p.add_argument("--project", default=None)
-    p.add_argument("--api-base-url", default=None)
-    p.add_argument("--token", default=None)
-    p.add_argument("--dry-run", action="store_true")
-    p.add_argument("--rebase", action="store_true", help="no longer needed: pull merges")
+    p.add_argument("--project", default=None, help="project name on IntHub (default: this folder's name)")
+    p.add_argument("--api-base-url", default=None, help="IntHub address")
+    p.add_argument("--token", default=None, help="access token, for this command only")
+    p.add_argument("--dry-run", action="store_true", help="say what would happen, and change nothing")
+    p.add_argument("--rebase", action="store_true", help=argparse.SUPPRESS)
 
     # --- hub ---
     p_hub = sub.add_parser("hub", help="run IntHub locally (hub start)")
@@ -297,17 +313,17 @@ def main():
     p.add_argument("--no-open", action="store_true")
 
     p = s_hub.add_parser("status")
-    p.add_argument("--api-base-url", default=None)
+    p.add_argument("--api-base-url", default=None, help="IntHub address")
 
     p = s_hub.add_parser("link")
     p.add_argument("--project-name", default=None)
-    p.add_argument("--api-base-url", default=None)
-    p.add_argument("--token", default=None)
+    p.add_argument("--api-base-url", default=None, help="IntHub address")
+    p.add_argument("--token", default=None, help="access token, for this command only")
 
     p = s_hub.add_parser("sync")
-    p.add_argument("--api-base-url", default=None)
-    p.add_argument("--token", default=None)
-    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--api-base-url", default=None, help="IntHub address")
+    p.add_argument("--token", default=None, help="access token, for this command only")
+    p.add_argument("--dry-run", action="store_true", help="say what would happen, and change nothing")
 
     # --- intent ---
     p_intent = sub.add_parser("intent", help="create goals and change their status")
@@ -360,7 +376,7 @@ def main():
     p.add_argument("--why", default="")
     p.add_argument("--origin", default=None, metavar="LABEL")
     for name in CHECKPOINT_FIELDS:
-        p.add_argument(f"--{name}", default=None, metavar="TEXT")
+        p.add_argument(f"--{name}", default=None, metavar="TEXT", help=CHECKPOINT_HELP[name])
 
     # --- decision ---
     p_decision = sub.add_parser("decision", help="record or retire a durable decision")

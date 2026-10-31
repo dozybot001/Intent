@@ -4,8 +4,7 @@ import re
 from urllib.parse import urlencode
 
 from intent_cli import identity, repo
-from intent_cli import repo_checkout
-from intent_cli.commands.common import require_init, require_repository
+from intent_cli.commands.common import place, require_init, require_repository
 from intent_cli.hub.client import http_json
 from intent_cli.hub.credentials import normalize_api_base_url, GlobalHubConfigError
 from intent_cli.hub.runtime import hub_api_base, hub_auth_token, hub_auth_configured, load_hub
@@ -127,40 +126,43 @@ def _relation(base, branch, head, tip):
     return "behind" if seen == head else "diverged"
 
 
-def _place(base):
-    """Where this copy stands in its own history: nothing to say for an unmigrated project."""
-    if not repo.is_repository(base):
+def _distance(base, head, tip, seen):
+    """Revisions on each side, as `git status` counts them. Behind is known only for a tip fetched here."""
+    if not head or not tip:
         return {}
-    state = repo_checkout.read_merge_state(base)
-    merging = {"merging": {"branch": state["branch"], "conflicts": state["conflicts"]}} if state else {}
-    return {"branch": repo.current_branch(base), "head": repo.head_revision(base), **merging}
+    ours = repo.reachable_from(base, [head])
+    theirs = repo.reachable_from(base, [tip]) if seen == tip else None
+    known = theirs if theirs is not None else repo.reachable_from(base, [seen] if seen else [])
+    return {"ahead": len(ours.keys() - known.keys()), **({"behind": len(theirs.keys() - ours.keys())} if theirs is not None else {})}
 
 
 def cmd_status(args):
     base = require_init()
     with workspace_write_lock(base, operation="status"):
-        place = _place(base)
-        if "merging" in place:  # a half-merged working copy need not form a valid snapshot
-            success("status", {"project_name": shared_root(base).parent.name, **place,
-                               "remote_checked": False, "remote_configured": False, "counts": None})
+        where = place(base)
+        if "merging" in where:  # a half-merged working copy need not form a valid snapshot
+            config, kinds = load_hub(base), [obj_id.split("-", 1)[0] for obj_id in repo.working_objects(base)]
+            success("status", {"project_name": config.get("project_name") or shared_root(base).parent.name, **where,
+                               "remote_checked": False, "remote_configured": bool(config.get("api_base_url")), "local_changes": True,
+                               "counts": {collection: kinds.count(kind) for kind, collection in SUBDIRS.items()}})
             return
         config, name, snapshot = _state(base, args)
-        seen = repo.remote_revision(base, place["branch"]) if place else None
+        seen = repo.remote_revision(base, where["branch"]) if where else None
     # Never contact a service the user has not chosen: without a configured
     # remote (or an explicit --api-base-url), status stays local.
     counts = {k: len(v) for k, v in snapshot.items()}
     remote_configured = bool(config.get("api_base_url") or getattr(args, "api_base_url", None))
     if getattr(args, "local", False) or not remote_configured:
-        success("status", {"project_name": name, **place, "remote_checked": False, "remote_configured": remote_configured,
-            "local_changes": bool(place) and place["head"] != seen, "revision": seen, "counts": counts}, _identity_warning())
+        success("status", {"project_name": name, **where, "remote_checked": False, "remote_configured": remote_configured,
+            "local_changes": bool(where) and where["head"] != seen, "revision": seen, "counts": counts}, _identity_warning())
         return
     require_repository(base)
     api, remote = _remote(base, args, config, name)
     name, followed = _followed(name, remote)
-    tip = remote["refs"].get(place["branch"])
-    success("status", {"project_name": name, **place, **followed, "api_base_url": api, "remote_checked": True,
-        "state": _relation(base, place["branch"], place["head"], tip), "revision": seen,
-        "remote_revision": tip, "branches": remote["refs"], "counts": counts}, _identity_warning())
+    tip = remote["refs"].get(where["branch"])
+    success("status", {"project_name": name, **where, **followed, "api_base_url": api, "remote_checked": True,
+        "state": _relation(base, where["branch"], where["head"], tip), "revision": seen,
+        **_distance(base, where["head"], tip, seen), "remote_revision": tip, "branches": remote["refs"], "counts": counts}, _identity_warning())
 
 
 def cmd_remote(args):

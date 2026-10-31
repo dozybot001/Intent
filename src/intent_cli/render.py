@@ -24,7 +24,8 @@ ATTENTION_STATES = {"orphaned", "pending", "blocked", "broken", "unresolved"}
 # ---- Views ----
 
 def _inspect(result):
-    lines = []
+    # On main with nothing open, the branch is not news.
+    lines = render_history.place(result) + [""] if result.get("merging") or result.get("branch", "main") != "main" else []
     active, suspended, decisions = result["active_intents"], result["suspended"], result["active_decisions"]
     if not active:
         lines += [dim("No active intent."), dim('  Start one with: itt intent create "Goal" --why "Reason"')]
@@ -150,6 +151,10 @@ def _status(result):
     return render_history.place(result) + _remote_status(result)
 
 
+def _by(count):
+    return f" by {_plural(count, 'revision')}" if count else ""
+
+
 def _remote_status(result):
     if not result.get("remote_checked"):
         lines = [f"Project {bold(result['project_name'])} · {_counts(result.get('counts'))}"]
@@ -162,8 +167,8 @@ def _remote_status(result):
         return lines
     messages = {
         "up_to_date": green("Up to date with origin."),
-        "ahead": "Ahead of origin. Run `itt push` to publish your history.",
-        "behind": "Origin has newer history. Run `itt pull` to update.",
+        "ahead": f"Ahead of origin{_by(result.get('ahead'))}. Run `itt push` to publish your history.",
+        "behind": f"Origin has newer history{_by(result.get('behind'))}. Run `itt pull` to update.",
         "diverged": yellow("Local history and origin have diverged; neither was changed. Run `itt pull`, then `itt push`."),
         "empty": "Local history and origin are both empty.",
     }
@@ -188,18 +193,20 @@ def _push(result):
         return [f"Deleted {result['deleted']} on origin."]
     if not result.get("changed"):
         return [*_renamed(result), "Everything up to date."]
-    return [*_renamed(result), f"Pushed {result['branch']} to {result['project_name']} → {result['revision'][:8]}"]
+    sent = f" ({_plural(result['revisions_sent'], 'revision')})" if result.get("revisions_sent") else ""
+    return [*_renamed(result), f"Pushed {result['branch']} to {result['project_name']} → {result['revision'][:8]}{sent}"]
 
 
 def _pull(result):
     if result.get("dry_run"):
         return [f"Dry run: {DRY_RUN_STATES[result['state']]}; "
                 + ("a pull would update local history." if result.get("changed") else "nothing to pull.")]
+    fetched = [dim(f"  New on origin: {name}") for name in result.get("fetched") or []]
     if not result.get("changed"):
-        return [*_renamed(result), "Already up to date."]
+        return [*_renamed(result), "Already up to date.", *fetched]
     if result["state"] == "merged":
-        return [*_renamed(result), f"Merged origin/{result['branch']} → {result['revision'][:8]}", dim("  Run: itt push")]
-    return [*_renamed(result), f"Pulled {result['project_name']} → {result['revision'][:8]}"]
+        return [*_renamed(result), f"Merged origin/{result['branch']} → {result['revision'][:8]}", *fetched, dim("  Run: itt push")]
+    return [*_renamed(result), f"Pulled {result['project_name']} → {result['revision'][:8]}", *fetched]
 
 
 def _fetch(result):
@@ -334,6 +341,18 @@ def _doctor(result):
     ]
 
 
+def _resolved(result):
+    if result["remaining"]:
+        return [f"Settled {result['id']}; {_plural(result['remaining'], 'conflict')} left."]
+    return [f"Settled {result['id']}; no conflicts left.", dim("  Run: itt merge --continue")]
+
+
+def _hub_status(result):
+    where = f"{bold(result['project_name'])} on {result['api_base_url']}"
+    return [f"Linked to {where}." if result["linked"] else f"Not linked yet; itt push would create {where}.",
+            "Signed in." if result["credential_available"] else dim("  Not signed in. Run: itt auth login")]
+
+
 RENDERERS = {
     "version": lambda result: [f"itt {result['version']}"],
     "inspect": _inspect,
@@ -351,7 +370,9 @@ RENDERERS = {
     "diff": render_history.diff,
     "branch": render_history.branch,
     "merge": render_history.merge,
-    "resolve": lambda result: [f"Settled {result['id']}; {_plural(result['remaining'], 'conflict')} left."],
+    "resolve": _resolved,
+    "hub.status": _hub_status,
+    "hub.link": lambda result: [f"Linked {bold(result['project_name'])} on {result['api_base_url']}.", dim("  Run: itt push")],
     "switch": lambda result: [f"On branch {bold(result['branch'])}"],
     "migrate": render_history.migrate,
     "intent.create": _created,

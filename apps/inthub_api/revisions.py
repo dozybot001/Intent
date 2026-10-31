@@ -3,7 +3,7 @@
 from apps.inthub_api.common import APIError
 from apps.inthub_api.db import connect
 from apps.inthub_api.queries import _project_row, without_email
-from apps.inthub_api.repository import main_history, snapshot_at, tip_of_push
+from apps.inthub_api.repository import main_history, other_branches, snapshot_at, tip_of_push
 from intent_cli.hub.changes import COLLECTIONS, semantic_changes, summarize
 from intent_cli.identity import FIELD_MAX_CHARS
 from intent_cli.store_schema import SUBDIRS
@@ -61,11 +61,13 @@ def project_revisions(db_path, project_id, offset=0, limit=30, account_id=None):
     """One page of main's revisions, newest first."""
     with connect(db_path) as conn:
         public = _project_row(conn, project_id, account_id)["permission"] == "public"
-        history, _revisions = main_history(conn, project_id)
+        history, revisions = main_history(conn, project_id)
         pushers = _pushers(conn, project_id)
+        branches = other_branches(conn, project_id, revisions)
     page = history[offset:offset + limit]
     return {"project_id": project_id, "revisions": [_view(digest, revision, pushers, public) for digest, revision in page],
-            "total": len(history), "offset": offset, "limit": limit, "has_more": offset + len(page) < len(history)}
+            "branches": branches, "total": len(history), "offset": offset, "limit": limit,
+            "has_more": offset + len(page) < len(history)}
 
 
 def _brief(obj, verified, public):

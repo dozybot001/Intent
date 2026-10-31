@@ -39,7 +39,7 @@ itt auth login --api-base-url https://inthub.tenon.asia
 
 For another endpoint replace only the URL. Do not use `--token SECRET` in shell argv/history. The Skill argv adapter has no interactive stdin, so it cannot run this; hand the step to the user. Unattended machines set `INTHUB_TOKEN` to a token created in Settings.
 
-4. Verify `itt auth status` against the same endpoint reports `authenticated: true`. The CLI validates before saving to the configured secure Git credential helper. Website login alone is not CLI authentication. Credentials are global per endpoint, reusable across projects; project remotes/history remain project-local. If no secure helper is configured, report the credential-store error and use a supported OS-backed helper with appropriate authorization, not a plaintext file fallback.
+4. Verify `itt auth status` against the same endpoint reports `authenticated: true`. The CLI validates before saving to the configured secure Git credential helper. Website login alone is not CLI authentication. Credentials are global per endpoint, reusable across projects; project remotes/history remain project-local. With no helper configured, `itt` keeps the token in a private `credentials.json` beside the Intent config.
 5. Authentication does not authorize upload/download. Follow [sync.md](sync.md) or [pull.md](pull.md) only for the user's separately requested action. Do not initialize empty history merely to log in or test a push.
 
 Never store tokens in `.intent/`, source files, logs, receipts, or Snap/Decision text. A disclosed token needs revocation/replacement through the user's website account, not repetition in diagnostics.

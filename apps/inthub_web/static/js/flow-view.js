@@ -134,7 +134,7 @@ function renderFlowTab() {
     el.detailContent.innerHTML = pageHeader({ title: t("Flow"), help: "flow" }) + `<div class="flow-empty">${emptyState({
       iconName: "flow",
       title: t("No relations between Intents yet."),
-      body: t("Relations record where a goal comes from and what constrains it. Add them from the CLI; the flow appears here after the next push."),
+      body: t("Relations record where a goal comes from and what constrains it. Add them from the CLI; the flow appears here once they reach main."),
       extra: commandSnippet([
         'itt intent create "Goal" --why "Reason" --part-of ID',
         "itt intent relate ID --depends-on OTHER",

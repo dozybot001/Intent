@@ -62,7 +62,7 @@ A project's link is `/?project=ID`, which keeps working after a rename or transf
 
 Admins rename a project in its **Settings** tab, and transfer it under **Danger zone** to a team they administer or back to their own account. A transfer needs the project name typed. The new owner needs a free project slot and no project with that name. Who can read, push and manage then follows the new owner.
 
-Clones follow a rename, a transfer or a new team URL on their next push or pull, because they find the project by ID. A very old `itt` reports `REMOTE_CHANGED` until you upgrade it. Do not use `itt remote add` to follow a rename: it clears the sync baseline, so unpushed local work reads as diverged.
+Clones follow a rename, a transfer or a new team URL on their next push or pull, because they find the project by ID. A very old `itt` reports `REMOTE_CHANGED` until you upgrade it. Do not use `itt remote add` to follow a rename: it forgets the project ID, so the copy stops following the project.
 
 ## Teams and roles
 
@@ -99,7 +99,7 @@ Visitors cannot:
 
 - See author or pusher emails. Emails come from Git config and can be private.
 - See the Settings tab or the member list.
-- Run `itt pull` or export. Both carry the complete snapshot with author emails, and removing them would change the revision checksum.
+- Run `itt pull`, `itt clone` or export. They carry author emails, and removing them would change the revision digests.
 - Push.
 
 To anyone outside it, a private project looks the same as one that does not exist.
@@ -115,7 +115,7 @@ Each project has one shared history, and pushes only fast-forward:
 - If someone pushed before you, run `itt pull`, then `itt push`.
 - If you both recorded work, `itt status` reports `diverged`. Run `itt pull` to merge the remote, settle any conflict, then `itt push`.
 
-Merging parallel work is planned for Intent 8. See [Semantic Git](semantic-git.md).
+[Semantic Git](semantic-git.md) explains how merging works.
 
 ## Access tokens
 
@@ -136,7 +136,7 @@ Each push stores a whole snapshot, so storage grows with every push. At a limit,
 
 ## Export and deletion
 
-**Export a project.** In the project's **Settings** tab, **Download export** saves a JSON file with the current snapshot and the revision list. It holds everything `itt pull` can restore.
+**Export a project.** In the project's **Settings** tab, **Download export** saves a JSON file with the current snapshot and the revision list. To bring the whole history to another machine, use `itt clone`.
 
 **Delete a project.** Under **Danger zone** in the project's **Settings** tab, type the project name. This removes the project and its history from IntHub and cannot be undone. Your local `.intent/` is not touched. To publish it again, run `itt hub link`, then `itt push`.
 

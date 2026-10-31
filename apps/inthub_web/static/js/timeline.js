@@ -174,7 +174,7 @@ function renderSnapsTab() {
     el.detailContent.innerHTML = pageHeader({ title: t("Timeline") }) + emptyState({
       iconName: "timeline",
       title: t("No snaps synced yet."),
-      body: t("Snaps are verified checkpoints. They appear here after the next push."),
+      body: t("Snaps are verified checkpoints. They appear here once they reach main."),
     });
     return;
   }

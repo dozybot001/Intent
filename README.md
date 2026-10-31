@@ -123,7 +123,7 @@ Hooks open each turn with the current state and check at the end that the turn w
 
 - `.intent/` holds plain JSON. `itt init` excludes it from Git in this clone only, because it may contain internal reasoning. Commit it deliberately if your team wants it in Git.
 - Each hooked turn adds a compact opening context with a hard size cap, and one `itt maintenance close` call.
-- `itt` touches the network only when you run `push`, `pull` or `auth`.
+- `itt` touches the network only when you run `push`, `pull`, `fetch`, `clone` or `auth`, or `status` with a remote set.
 
 ## Share with IntHub (optional)
 
@@ -132,7 +132,7 @@ Hooks open each turn with the current state and check at the end that the turn w
   <img alt="IntHub's Flow page: goals as cards, with their parts, derivations and decisions" src="https://raw.githubusercontent.com/dozybot001/Intent/main/docs/assets/inthub-flow-light.png">
 </picture>
 
-- **Locally:** `itt hub start`, then `itt remote add origin http://127.0.0.1:7210 --project NAME` and `itt push`.
+- **Locally:** `itt hub start`, then `itt remote add origin http://127.0.0.1:7210 --project NAME` and `itt push`. Another folder joins with `itt clone NAME --api-base-url http://127.0.0.1:7210`.
 - **Hosted:** [inthub.tenon.asia](https://inthub.tenon.asia), operated by 榫卯 Tenon AI. Run `itt auth login`, approve the code in the browser, then `itt push`. Each account and team can keep 100 projects and 1 GB of history. Projects are private by default, can be shared with a team (`--project TEAM/NAME`), and can be made public in their settings. See [teams and sharing](https://github.com/dozybot001/Intent/blob/main/docs/EN/inthub-collaboration.md) and the [privacy notice](https://inthub.tenon.asia/privacy).
 - **Restore elsewhere:** `itt clone NAME` in the project folder. Only members can clone.
 

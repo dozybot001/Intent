@@ -2,7 +2,7 @@
 
 from intent_cli import __version__
 from intent_cli import relations as relation_rules
-from intent_cli.commands.common import expand_ids, require_init
+from intent_cli.commands.common import expand_ids, place, require_init
 from intent_cli.output import emit_json, error, json_mode, print_text, success
 from intent_cli import identity, repo
 from intent_cli.store import (
@@ -84,6 +84,7 @@ def cmd_inspect(args):
 
     with workspace_write_lock(base, operation="inspect"):
         graph = load_graph_once(base)
+        where = place(base)
 
     snap_by_id = graph["snap"]
     intents = list(graph["intent"].values())
@@ -143,6 +144,7 @@ def cmd_inspect(args):
 
     payload = {
         "ok": True,
+        **where,
         "active_intents": active_intents,
         "active_decisions": active_decisions,
         "suspended": suspended,

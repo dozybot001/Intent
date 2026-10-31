@@ -19,6 +19,14 @@ class InvalidObjectIdError(StorageSecurityError):
         )
 
 
+class UnknownShortIdError(InvalidObjectIdError):
+    """Raised when a short ID is well formed and matches nothing."""
+
+    def __init__(self, object_type, obj_id):
+        super().__init__(object_type, obj_id)
+        self.args = (f"{obj_id} not found.",)
+
+
 class AmbiguousObjectIdError(InvalidObjectIdError):
     """Raised when a short ID matches more than one object."""
 

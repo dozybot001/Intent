@@ -7,7 +7,7 @@ Claude Code uses the same closure model through an explicit host choice; see [cl
 - A new `itt init` enables continuous maintenance and installs two project-local command hooks. An existing history uses `itt maintenance on` once; absence of the flag means disabled, not inferred authorization.
 - `itt maintenance off` revokes only this semantic root, including an in-flight turn. `itt maintenance status` reports local state without initializing anything. Independently initialized nested roots do not inherit their parent's flag.
 - No global Codex configuration or trust state is edited. Existing unrelated hooks are preserved. A newly generated machine-specific `.codex/hooks.json` is locally Git-excluded; pre-existing configurations remain user-owned.
-- `.intent/maintenance.json` holds the project flag and bounded local receipts/context. It is separate from semantic objects and excluded from IntHub snapshots. Pull preserves destination metadata. No raw prompts, transcripts, or source diffs are stored.
+- `.intent/maintenance.json` holds the project flag and bounded local receipts/context. It is separate from semantic objects and never synced to IntHub. Pull preserves destination metadata. No raw prompts, transcripts, or source diffs are stored.
 
 Codex requires human review/trust of non-managed definitions through `/hooks`; exact-definition changes need renewed review. Configuration does not attest actual execution. Project/user/plugin hooks merge, so do not install a duplicate global handler. See the [official hooks documentation](https://learn.chatgpt.com/docs/hooks).
 

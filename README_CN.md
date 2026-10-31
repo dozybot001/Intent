@@ -124,7 +124,7 @@ Hooks 在每一轮开始时注入当前状态，并在结束时检查这一轮�
 
 - `.intent/` 保存普通 JSON。由于可能包含内部推理，`itt init` 只在当前克隆中把它排除出 Git；如果团队希望放进 Git，请有意识地提交。
 - 每个启用 hook 的轮次会注入一段有硬上限的开局上下文，并调用一次 `itt maintenance close`。
-- `itt` 只有在你运行 `push`、`pull` 或 `auth` 时才访问网络。
+- `itt` 只有在你运行 `push`、`pull`、`fetch`、`clone`、`auth`，或在配置了远端时运行 `status`，才访问网络。
 
 ## 用 IntHub 共享（可选）
 
@@ -133,7 +133,7 @@ Hooks 在每一轮开始时注入当前状态，并在结束时检查这一轮�
   <img alt="IntHub 的流转页：目标是一张张卡片，并画出它们的组成、衍生和决策" src="docs/assets/inthub-flow-zh-light.png">
 </picture>
 
-- **本地：** `itt hub start`，然后 `itt remote add origin http://127.0.0.1:7210 --project NAME` 和 `itt push`。
+- **本地：** `itt hub start`，然后 `itt remote add origin http://127.0.0.1:7210 --project NAME` 和 `itt push`。其他目录用 `itt clone NAME --api-base-url http://127.0.0.1:7210` 加入。
 - **托管：** [inthub.tenon.asia](https://inthub.tenon.asia)，由榫卯 Tenon AI 运营。运行 `itt auth login`，在浏览器里批准代码，再 `itt push`。每个账号和团队可以保存 100 个项目和 1 GB 历史。项目默认私有，可以共享给团队（`--project 团队/项目`），也可以在项目设置里公开。详见[团队与共享](docs/CN/inthub-collaboration.md)和[隐私说明](https://inthub.tenon.asia/privacy#zh)。
 - **在另一处恢复：** 在项目目录运行 `itt clone NAME`，仅限成员。
 

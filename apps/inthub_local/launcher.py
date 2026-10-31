@@ -72,6 +72,7 @@ def run_local(
             "Publish a project to it from that project's folder:\n"
             f"  itt remote add origin {url} --project NAME\n"
             "  itt push\n"
+            f"Bring it to another folder with: itt clone NAME --api-base-url {url}\n"
             "Press Ctrl+C to stop.",
             flush=True,
         )

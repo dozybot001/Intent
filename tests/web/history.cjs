@@ -67,7 +67,7 @@ async function historyCases() {
     state._history = null;
     renderView();
     await flush();
-    assert.ok(el.detailContent.innerHTML.includes('还没有推送。') && el.detailContent.innerHTML.includes('<pre class="command-snippet">itt push</pre>'));
+    assert.ok(el.detailContent.innerHTML.includes('还没有修订。') && el.detailContent.innerHTML.includes('<pre class="command-snippet">itt push</pre>'));
     reply = () => { throw new ApiRequestError('无法加载', 500, 'BROKEN'); };
     state._history = null;
     renderView();

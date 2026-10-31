@@ -16,7 +16,11 @@ DEFAULT_ATTEMPTS = 2
 MAX_RESPONSE_BYTES = 16 * 1024 * 1024 + 64 * 1024
 RETRYABLE_HTTP_STATUSES = {408, 425, 429, 500, 502, 503, 504}
 # Refusals an Agent has to act on, not retry, keep the server's code.
-ACCESS_ERRORS = {"PERMISSION_DENIED", "TEAM_NOT_FOUND", "QUOTA_EXCEEDED", "RATE_LIMITED"}
+ACCESS_ERRORS = {"PERMISSION_DENIED", "TEAM_NOT_FOUND", "QUOTA_EXCEEDED", "RATE_LIMITED", "BRANCH_EXISTS",
+                 "HISTORY_CONFLICT", "INCOMPLETE_HISTORY", "INVALID_BLOB", "INVALID_HISTORY", "INVALID_SNAPSHOT",
+                 "NON_FAST_FORWARD", "NOT_LINKED", "REMOTE_CHANGED"}
+NEXT_STEPS = {"NON_FAST_FORWARD": "Run `itt pull`, then push.", "INCOMPLETE_HISTORY": "Run `itt push` again.",
+              "NOT_LINKED": "Run `itt hub link`, then push."}
 
 
 class _NoAPIRedirects(urllib.request.HTTPRedirectHandler):
@@ -202,6 +206,7 @@ def http_json(
                     "attempts": attempt,
                     "response": response,
                 },
+                suggested_fix=NEXT_STEPS.get(code),
             )
         except urllib.error.URLError as exc:
             if attempt < attempts:
