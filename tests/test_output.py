@@ -60,7 +60,7 @@ def test_readable_views_and_errors_for_people(project):
     assert inspect.returncode == 0 and not inspect.stdout.lstrip().startswith("{")
     assert "intent-001" in inspect.stdout and "Next" in inspect.stdout and "roll out to 100%" in inspect.stdout
     assert "decision-001" in inspect.stdout
-    log = _itt(project, "log", env=text).stdout
+    log = _itt(project, "log", "--snaps", env=text).stdout
     assert log.index("snap-002") < log.index("snap-001")
     assert "Next: Run the A/B test" in log
     show = _itt(project, "show", "intent-001", env=text).stdout
@@ -75,7 +75,7 @@ def test_readable_views_and_errors_for_people(project):
 
 
 def test_log_and_show_json_results(project):
-    log = json.loads(_itt(project, "log", "-n", "1").stdout)["result"]
+    log = json.loads(_itt(project, "log", "--snaps", "-n", "1").stdout)["result"]
     assert [snap["id"] for snap in log["snaps"]] == ["snap-002"]
     assert log["total"] == 2 and log["has_more"] is True
     assert log["snaps"][0]["intent"] == {"id": "intent-001", "what": "Ship guest checkout", "status": "active"}
@@ -86,7 +86,7 @@ def test_log_and_show_json_results(project):
     assert snap["intent"]["id"] == "intent-001"
     decision = json.loads(_itt(project, "show", "decision-001").stdout)["result"]
     assert [intent["id"] for intent in decision["intents"]] == ["intent-001"]
-    assert json.loads(_itt(project, "show", "nonsense").stdout)["error"]["code"] == "INVALID_INPUT"
+    assert json.loads(_itt(project, "show", "nonsense").stdout)["error"]["code"] == "UNKNOWN_REVISION"
     assert json.loads(_itt(project, "log", "--intent", "intent-009").stdout)["error"]["code"] == "OBJECT_NOT_FOUND"
 
 

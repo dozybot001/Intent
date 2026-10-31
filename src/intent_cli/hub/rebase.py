@@ -6,9 +6,10 @@ takes the next free IDs, and references follow it.
 """
 
 from copy import deepcopy
+from math import isfinite
 
 from intent_cli.hub.snapshots import SnapshotError, require_fast_forward, validate_snapshot
-from intent_cli.store import RELATION_FIELDS, SUBDIRS
+from intent_cli.store import RELATION_FIELDS, SUBDIRS, id_number
 
 # What may differ between two copies of one object (see require_fast_forward).
 MUTABLE = {"intent": {"status", "reason", "snap_ids", "decision_ids", "relations"},
@@ -18,10 +19,6 @@ TERMINAL = {"done", "cancelled", "deprecated"}
 
 def _identity(kind, obj):
     return {key: value for key, value in obj.items() if key not in MUTABLE[kind]}
-
-
-def _number(obj_id):
-    return int(obj_id.split("-", 1)[1])
 
 
 def _relation_key(entry):
@@ -78,19 +75,22 @@ def rebase_snapshot(local, remote):
                 shared[kind][obj["id"]] = obj
             else:
                 fresh.append(obj)
-        last = max(map(_number, theirs), default=0)
-        fresh.sort(key=lambda obj: (obj["created_at"], _number(obj["id"])))
-        renumbered.update({obj["id"]: f"{kind}-{number:03d}" for number, obj in enumerate(fresh, last + 1)})
+        # Hash IDs cannot collide, so only counters take the next free number.
+        counters = sorted((obj for obj in fresh if isfinite(id_number(obj["id"]))),
+                          key=lambda obj: (obj["created_at"], id_number(obj["id"])))
+        last = max(filter(isfinite, map(id_number, theirs)), default=0)
+        renumbered.update({obj["id"]: obj["id"] for obj in fresh})
+        renumbered.update({obj["id"]: f"{kind}-{number:03d}" for number, obj in enumerate(counters, last + 1)})
     conflicts = []
     merged = {}
     for kind, collection in SUBDIRS.items():
         kept = [_merge(obj, shared[kind][obj["id"]], kind, renumbered, conflicts) if obj["id"] in shared[kind] else deepcopy(obj)
                 for obj in remote[collection]]
         added = [_rewrite(obj, kind, renumbered) for obj in local[collection] if obj["id"] in renumbered]
-        merged[collection] = kept + sorted(added, key=lambda obj: _number(obj["id"]))
+        merged[collection] = kept + sorted(added, key=lambda obj: (id_number(obj["id"]), obj["created_at"]))
     try:
         validate_snapshot(merged)
         require_fast_forward(remote, merged)
     except SnapshotError as exc:
         raise SnapshotError(f"The two histories cannot be combined automatically: {exc}") from exc
-    return merged, renumbered, conflicts
+    return merged, {old: new for old, new in renumbered.items() if isfinite(id_number(old))}, conflicts

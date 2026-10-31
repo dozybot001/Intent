@@ -3,15 +3,17 @@
 import json
 import os
 import re
+import secrets
 import subprocess
 import tempfile
 from pathlib import Path
 
-from intent_cli.store_errors import InvalidObjectIdError, StorageSecurityError, StoredObjectIntegrityError, StoredObjectParseError, StoredObjectSchemaError, StoredObjectWriteConflictError, UnsafeStoragePathError, WorkspaceBusyError  # noqa: F401
-from intent_cli.store_schema import CHECKPOINT_FIELDS, CHECKPOINT_FIELD_MAX_CHARS, INTENT_DIR, OBJECT_ID_PATTERNS, RELATION_FIELDS, REQUIRED_STRING_FIELDS, SUBDIRS, VALID_STATUSES, _validate_author, _validate_checkpoint, _validate_git, _validate_object_schema, _validate_relations, _validate_stored_object_id, validate_object_id  # noqa: F401
+from intent_cli.store_errors import AmbiguousObjectIdError, InvalidObjectIdError, StorageSecurityError, StoredObjectIntegrityError, StoredObjectParseError, StoredObjectSchemaError, StoredObjectWriteConflictError, UnsafeStoragePathError, WorkspaceBusyError  # noqa: F401
+from intent_cli.store_schema import CHECKPOINT_FIELDS, CHECKPOINT_FIELD_MAX_CHARS, HASH_ID_LENGTH, INTENT_DIR, OBJECT_ID_PATTERNS, RELATION_FIELDS, REQUIRED_STRING_FIELDS, SUBDIRS, VALID_STATUSES, _validate_author, _validate_checkpoint, _validate_git, _validate_object_schema, _validate_relations, _validate_stored_object_id, id_number, validate_object_id  # noqa: F401
 from intent_cli.store_paths import _safe_object_dir, _safe_object_path, _safe_storage_root  # noqa: F401
 from intent_cli.store_lock import _read_lock_owner, _write_lock_owner, workspace_write_lock  # noqa: F401
 from intent_cli.store_graph import validate_graph  # noqa: F401
+from intent_cli import repo
 
 HUB_CONFIG = "hub.json"
 
@@ -88,6 +90,7 @@ def init_workspace():
         return None, "ALREADY_EXISTS"
     for sub in SUBDIRS.values():
         (d / sub).mkdir()
+    repo.create_repository(d)
     return d, None
 
 
@@ -140,17 +143,11 @@ def _object_entry_groups(base, object_type):
 
 def _object_entry_identity(entry, object_type):
     """Return the canonical ID encoded by an object-looking filename."""
-    match = re.fullmatch(
-        rf"({object_type}-[0-9]+)\.json",
-        entry.name.casefold(),
-        re.ASCII,
-    )
-    if match is None:
+    obj_id = entry.name.casefold().removesuffix(".json")
+    if not entry.name.casefold().endswith(".json") or OBJECT_ID_PATTERNS[object_type].fullmatch(obj_id) is None:
         raise StoredObjectIntegrityError(
             entry, "filename is not a valid object ID",
         )
-    obj_id = match.group(1)
-    validate_object_id(object_type, obj_id)
     return obj_id, f"{obj_id}.json"
 
 
@@ -183,8 +180,18 @@ def _casefold_name_conflicts(directory, target_name):
     )
 
 
+def _hash_id(object_type):
+    """A new object's identity. Two copies recording in parallel cannot collide on it."""
+    while True:
+        suffix = secrets.token_hex(HASH_ID_LENGTH // 2)
+        if not suffix.isdecimal():
+            return f"{object_type}-{suffix}"
+
+
 def next_id(base, object_type):
-    """Generate next zero-padded ID for a given object type."""
+    """The ID for a new object. ITT_COUNTER_IDS keeps 7.x counters, for tests and reproducible demos."""
+    if not os.environ.get("ITT_COUNTER_IDS"):
+        return _hash_id(object_type)
     _subdir, _resolved_subdir, groups = _object_entry_groups(base, object_type)
     max_num = 0
     for entries in groups.values():
@@ -198,6 +205,23 @@ def next_id(base, object_type):
         num = int(obj_id.split("-", 1)[1])
         max_num = max(max_num, num)
     return f"{object_type}-{max_num + 1:03d}"
+
+
+def resolve_object_id(base, object_type, value):
+    """Accept a full ID or, like Git, a unique prefix of a hash ID with at least four digits."""
+    prefix = f"{object_type}-"
+    digits = value[len(prefix):] if isinstance(value, str) and value.startswith(prefix) else ""
+    if re.fullmatch(rf"[0-9a-f]{{4,{HASH_ID_LENGTH}}}", digits, re.ASCII):
+        subdir, _resolved_subdir = _safe_object_dir(base, object_type)
+        known = [entry.stem for entry in subdir.iterdir() if entry.suffix == ".json"]
+        if value in known:
+            return value
+        matches = [name for name in known if name.startswith(value) and len(name) == len(prefix) + HASH_ID_LENGTH]
+        if len(matches) > 1:
+            raise AmbiguousObjectIdError(object_type, value, matches)
+        if matches:
+            return matches[0]
+    return validate_object_id(object_type, value)
 
 
 def read_object(base, object_type, obj_id):
@@ -339,6 +363,11 @@ def _stored_object_issue(exc, object_type, obj_id=None):
     return issue
 
 
+def _creation_order(obj):
+    """Counters in their own order, as ever; hash IDs after them, oldest first."""
+    return (id_number(obj["id"]), obj.get("created_at", ""), obj["id"])
+
+
 def _scan_object_type(base, object_type, *, tolerant):
     """Load one object directory strictly or aggregate recoverable damage."""
     _subdir, resolved_subdir, groups = _object_entry_groups(base, object_type)
@@ -379,7 +408,7 @@ def _scan_object_type(base, object_type, *, tolerant):
                 raise
             issues.append(_stored_object_issue(exc, object_type, obj_id))
 
-    return objects, issues
+    return sorted(objects, key=_creation_order), issues
 
 
 def list_objects(base, object_type, status=None):

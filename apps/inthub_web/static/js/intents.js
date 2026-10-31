@@ -17,7 +17,7 @@ function intentEntry(intent) {
         ${rowByline(intent)}
       </span>
       <span class="row-meta">
-        <span class="row-id">${esc(intent.id)}</span>
+        <span class="row-id">${esc(shortId(intent.id))}</span>
         <span class="row-meta-line"><span>${esc(plural(snaps, "{count} snap", "{count} snaps"))}</span><span>${esc(plural(decisions, "{count} decision", "{count} decisions"))}</span></span>
         <span${latest ? ` data-latest-snap="${esc(latest)}"` : ""}>${esc(latestSnapCopy(intent))}</span>
       </span>

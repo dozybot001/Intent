@@ -1,6 +1,7 @@
 """Readable terminal output for people. Agents and pipes get JSON (see output.py)."""
 
 import os
+from intent_cli import render_history
 from intent_cli.render_text import _checkpoint_lines, _counts, _labelled, _one_line, _plural, _when, _width, _wrap, bold, checkpoint_of, dim, green, snap_title, yellow
 
 STATUS_WORDS = {"active": "active", "suspend": "suspended", "done": "done", "cancelled": "cancelled", "deprecated": "deprecated"}
@@ -69,6 +70,8 @@ def _intent_block(intent):
 
 
 def _log(result):
+    if "revisions" in result:
+        return render_history.revisions(result)
     lines = []
     for snap in result["snaps"]:
         intent = snap.get("intent") or {}
@@ -99,6 +102,8 @@ def _commit(obj):
 
 
 def _show(result):
+    if "revision" in result:
+        return render_history.show_revision(result)
     obj = result["object"]
     kind = obj.get("object", "")
     meta = [STATUS_WORDS.get(obj.get("status"), obj.get("status")) if obj.get("status") else None,
@@ -142,6 +147,10 @@ def _renamed(result):
 
 
 def _status(result):
+    return ([f"On branch {bold(result['branch'])}"] if result.get("branch") else []) + _remote_status(result)
+
+
+def _remote_status(result):
     if not result.get("remote_checked"):
         lines = [f"Project {bold(result['project_name'])} · {_counts(result.get('counts'))}"]
         if not result.get("remote_configured", True):
@@ -335,6 +344,8 @@ RENDERERS = {
     "remote.add": lambda result: [f"origin → {result['api_base_url']}  {dim('project ' + result['project_name'])}"],
     "init": _init,
     "doctor": _doctor,
+    "diff": render_history.diff,
+    "migrate": render_history.migrate,
     "intent.create": _created,
     "decision.create": _created,
     "snap.create": _snap_created,

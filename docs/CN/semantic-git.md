@@ -2,7 +2,7 @@
 
 中文 | [English](../EN/semantic-git.md)
 
-状态：方向已确定（2026-10-30），尚未开始实现。目标版本：Intent 8.0。
+状态：方向已确定（2026-10-30），实现中。目标版本：Intent 8.0。
 
 ## 目标
 
@@ -53,6 +53,8 @@ Git 要求人先暂存再提交。Intent 的写入者大多是正在做其他事
   HEAD                         "ref: refs/heads/main"
   config.json                  远端、上游、维护开关
 ```
+
+`intents/`、`snaps/`、`decisions/` 继续作为可读的工作副本，就像 Git 的工作区：每次写入先改工作副本，再把它记录成一个修订，所以中断时最多留下一次尚未记录的改动，下一次写入会补上。
 
 对象在创建时获得稳定身份。修改 Intent 状态会写入同一 ID 的新版本，就像在 Git 中修改文件。关系列表（`snap_ids`、`decision_ids`、`intent_ids`）以及 Intent `relations` 中的记录都变为只增集合。
 

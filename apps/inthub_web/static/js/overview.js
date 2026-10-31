@@ -13,7 +13,7 @@ function briefRelations(intent) {
       ${badge}
       <span class="brief-relation-label">${esc(relationLabel(row.type, row.direction))}</span>
       <button class="brief-relation-target" type="button" data-detail-type="intent" data-remote-id="${esc(relatedIntentId(intent, row))}">${esc(row.intent.what || row.intent.id)}</button>
-      <span class="brief-relation-id">${esc(row.intent.id)}</span>
+      <span class="brief-relation-id">${esc(shortId(row.intent.id))}</span>
     </li>`;
   return `<ul class="brief-relations" aria-label="${esc(t("Relations"))}">
     ${parent ? item(parent, ATTENTION_STATES.has(parent.state) ? relationBadge(parent.state, parent) : "") : ""}
@@ -45,7 +45,7 @@ function continuationCard(intent) {
       <footer class="brief-foot">
         <span class="brief-foot-meta">
           ${snap
-            ? `<span>${esc(t("Latest checkpoint"))} <span class="mono">${esc(snap.id)}</span></span><span>${esc(fmtDate(snap.created_at))}</span>${byline(snap) ? `<span>${esc(byline(snap))}</span>` : ""}${verifiedBadge(snap)}`
+            ? `<span>${esc(t("Latest checkpoint"))} <span class="mono">${esc(shortId(snap.id))}</span></span><span>${esc(fmtDate(snap.created_at))}</span>${byline(snap) ? `<span>${esc(byline(snap))}</span>` : ""}${verifiedBadge(snap)}`
             : `<span>${esc(t("No continuation checkpoint recorded."))}</span>`}
         </span>
         ${snap ? `<button class="link-button" type="button" data-detail-type="snap" data-remote-id="${esc(snapRemoteId)}">${esc(t("View checkpoint"))}${icon("arrow")}</button>` : ""}
@@ -70,7 +70,7 @@ function pausedRow(intent) {
         ${attention.length ? `<span class="row-relations">${attention.map((row) => `<span class="row-relation">${relationBadge(row.state, row)}<span>${esc(relationLabel(row.type, row.direction))} ${esc(row.intent.id)}</span></span>`).join("")}</span>` : ""}
       </span>
       <span class="row-meta">
-        <span class="row-id">${esc(intent.id)}</span>
+        <span class="row-id">${esc(shortId(intent.id))}</span>
         ${snap ? `<span>${esc(t("Updated {time}", {time: relativeDate(snap.created_at)}))}</span>` : ""}
       </span>
     </button>`;

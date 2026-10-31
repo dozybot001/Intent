@@ -107,7 +107,7 @@ function flowCard(intent, decisions) {
   const snaps = (intent.snap_ids || []).length;
   return `
     <button type="button" class="flow-card status-${status}" data-detail-type="intent" data-remote-id="${esc(intent.remote_id || remoteId(intent.project_id, intent.id))}">
-      <span class="flow-card-top">${statusBadge(intent.status)}<span class="flow-card-id">${esc(intent.id)}</span></span>
+      <span class="flow-card-top">${statusBadge(intent.status)}<span class="flow-card-id">${esc(shortId(intent.id))}</span></span>
       <strong class="flow-card-title">${esc(intent.what || intent.id)}</strong>
       <span class="flow-card-meta"><span>${esc(plural(snaps, "{count} snap", "{count} snaps"))}</span>${decisions ? `<span>${esc(plural(decisions, "{count} decision", "{count} decisions"))}</span>` : ""}</span>
     </button>`;

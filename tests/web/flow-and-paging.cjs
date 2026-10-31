@@ -57,6 +57,8 @@ async function flowAndPagingCases() {
     assert.ok(relationBadge('broken').includes('rel-danger') && relationBadge('broken').includes('依赖已失效'));
     assert.ok(relationBadge('blocked').includes('<span class="status-dot" aria-hidden="true"></span>被阻塞</span>'));
 
+    assert.equal(shortId('intent-3f9a2c1d5e6b'), 'intent-3f9a2c1');
+    assert.equal(shortId('intent-001'), 'intent-001');
     const layout = flowLayout(flowIntents, flowDecisions);
     const place = id => layout.nodes.find(node => node.id === id);
     const {nodeW, gapX} = layout.geometry;

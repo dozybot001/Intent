@@ -23,6 +23,7 @@ def _hermetic_environment(monkeypatch, tmp_path_factory):
         # The agent running the suite must not choose hosts or output formats for it.
         if name == "CLAUDECODE" or name.startswith("CODEX_"):
             monkeypatch.delenv(name)
+    monkeypatch.setenv("ITT_COUNTER_IDS", "1")
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     monkeypatch.setenv("HOME", str(tmp_path_factory.mktemp("home")))
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)

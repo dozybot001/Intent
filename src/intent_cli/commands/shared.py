@@ -3,8 +3,8 @@
 import re
 from urllib.parse import urlencode
 
-from intent_cli import identity
-from intent_cli.commands.common import require_init
+from intent_cli import identity, repo
+from intent_cli.commands.common import require_init, require_repository
 from intent_cli.hub.client import http_json
 from intent_cli.hub.credentials import normalize_api_base_url, GlobalHubConfigError
 from intent_cli.hub.rebase import rebase_snapshot
@@ -125,21 +125,27 @@ def _relation(config, snapshot, local_hash, remote):
     return "diverged"
 
 
+def _place(base):
+    """Where this copy stands in its own history: nothing to say for an unmigrated project."""
+    return {"branch": repo.current_branch(base), "head": repo.head_revision(base)} if repo.is_repository(base) else {}
+
+
 def cmd_status(args):
     base = require_init()
     with workspace_write_lock(base, operation="status"):
         config, name, snapshot, digest = _state(base, args)
+        place = _place(base)
     # Never contact a service the user has not chosen: without a configured
     # remote (or an explicit --api-base-url), status stays local.
     remote_configured = bool(config.get("api_base_url") or getattr(args, "api_base_url", None))
     if getattr(args, "local", False) or not remote_configured:
-        success("status", {"project_name": name, "remote_checked": False, "remote_configured": remote_configured,
+        success("status", {"project_name": name, **place, "remote_checked": False, "remote_configured": remote_configured,
             "local_changes": digest != config.get("baseline_sha256") and bool(config.get("baseline_sha256") or any(snapshot.values())),
             "revision": config.get("revision"), "counts": {k: len(v) for k, v in snapshot.items()}}, _identity_warning())
         return
     api, remote = _remote(base, args, config, name)
     name, followed = _followed(name, remote)
-    success("status", {"project_name": name, **followed, "api_base_url": api, "remote_checked": True,
+    success("status", {"project_name": name, **place, **followed, "api_base_url": api, "remote_checked": True,
         "state": _relation(config, snapshot, digest, remote), "revision": config.get("revision"),
         "remote_revision": remote["revision"], "counts": {k: len(v) for k, v in snapshot.items()}}, _identity_warning())
 
@@ -248,6 +254,7 @@ def cmd_push(args):
 
 def cmd_pull(args):
     base = require_init()
+    require_repository(base)
     with workspace_write_lock(base, operation="pull.preflight"):
         config, name, snapshot, digest = _state(base, args)
     api, remote = _remote(base, args, config, name)
@@ -282,6 +289,7 @@ def cmd_pull(args):
         if rebased:
             # The baseline is now the remote head, so what stays on top is an ordinary push.
             install_snapshot(base, rebased, updated)
+            repo.commit_worktree(base, "pull.rebase", summary=f"Rebased onto {name}")
             success("pull", {"project_name": name, **followed, "project_id": remote["project_id"],
                 "revision": remote["revision"], "changed": True, "state": "rebased",
                 "renumbered": renumbered, "conflicts": conflicts,
@@ -289,6 +297,7 @@ def cmd_pull(args):
             return
         if relation == "behind":
             install_snapshot(base, remote["snapshot"], updated)
+            repo.commit_worktree(base, "pull", summary=f"Pulled from {name}")
         elif relation == "up_to_date" and updated != config:
             write_hub_config(base, updated)
         success("pull", {"project_name": name, **followed, "project_id": remote["project_id"],

@@ -2,7 +2,7 @@
 
 [中文](../CN/semantic-git.md) | English
 
-Status: direction accepted (2026-10-30), implementation not started. Target: Intent 8.0.
+Status: direction accepted (2026-10-30), implementation in progress. Target: Intent 8.0.
 
 ## Goal
 
@@ -53,6 +53,8 @@ Git asks people to stage and commit. Intent's writers are mostly agents in the m
   HEAD                         "ref: refs/heads/main"
   config.json                  remotes, upstreams, maintenance flags
 ```
+
+`intents/`, `snaps/` and `decisions/` stay as the readable working copy, like Git's working tree. Each write changes the working copy and then records it as a revision, so an interruption leaves at most one unrecorded change, which the next write picks up.
 
 Objects keep a stable identity minted at creation. Changing an Intent's status writes a new version of the same ID, exactly like editing a file in Git. Relation lists (`snap_ids`, `decision_ids`, `intent_ids`) and the entries of an Intent's `relations` become grow-only sets.
 

@@ -3,13 +3,19 @@
 from datetime import datetime, timezone
 from functools import wraps
 
-from intent_cli.output import error
+from intent_cli import repo
+from intent_cli.output import error, hold_reports
 from intent_cli.store import (
+    SUBDIRS,
     VALID_STATUSES,
     WorkspaceBusyError,
     ensure_init,
+    resolve_object_id,
     workspace_write_lock,
 )
+
+ID_ARGUMENTS = ("id", "intent", "into", "other", "source", "part_of", "derived_from",
+                "succeeds", "depends_on", "conflicts_with")
 
 
 def now_utc():
@@ -28,15 +34,37 @@ def require_init():
     )
 
 
+def expand_ids(base, args):
+    """Let every ID argument be a unique prefix, the way Git takes short hashes."""
+    for name in ID_ARGUMENTS:
+        value = getattr(args, name, None)
+        kind = value.split("-", 1)[0] if isinstance(value, str) else ""
+        if kind in SUBDIRS:
+            setattr(args, name, resolve_object_id(base, kind, value))
+
+
+def require_repository(base):
+    """Stop a write to a 7.x workspace: its history has to move to a repository first."""
+    if not repo.is_repository(base):
+        error(
+            "REPOSITORY_NOT_MIGRATED",
+            "This project still uses the Intent 7 format, which this version can read but not write.",
+            suggested_fix="itt migrate",
+        )
+
+
 def workspace_mutation(command):
-    """Run a mutating command under the workspace's cross-process lock."""
+    """Run a mutating command under the workspace's lock, ending in one revision."""
     @wraps(command)
     def wrapped(args):
         base = require_init()
+        require_repository(base)
+        expand_ids(base, args)
         operation = command.__name__.removeprefix("cmd_").replace("_", ".", 1)
         try:
-            with workspace_write_lock(base, operation=operation):
-                return command(args)
+            with workspace_write_lock(base, operation=operation), hold_reports():
+                command(args)
+                repo.commit_worktree(base, operation)
         except WorkspaceBusyError as exc:
             error(
                 "WORKSPACE_BUSY",

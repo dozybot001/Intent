@@ -7,7 +7,9 @@ ITT_FORMAT=json is given. ITT_FORMAT=text forces the readable format.
 
 import json
 import os
+import re
 import sys
+from contextlib import contextmanager
 
 # Host environments whose shells run agents, not people (see origin.py).
 AGENT_ENVIRONMENT = (
@@ -19,6 +21,8 @@ AGENT_ENVIRONMENT = (
 )
 
 _forced_format = None
+_held_reports = None
+_LONG_HASH_ID = re.compile(r"\b((?:intent|snap|decision)-[0-9a-f]{7})[0-9a-f]{5}\b")
 
 
 def set_format(value):
@@ -40,17 +44,38 @@ def emit_json(payload):
     print(json.dumps(payload, indent=2, ensure_ascii=False))
 
 
+@contextmanager
+def hold_reports():
+    """Keep a command's success report back until the work behind it is recorded."""
+    global _held_reports
+    _held_reports = []
+    try:
+        yield
+        reports = _held_reports
+    finally:
+        _held_reports = None
+    for report in reports:
+        success(*report)
+
+
+def print_text(text):
+    """Print a report for people. Like Git, it shows short hash IDs; any unique prefix is accepted back."""
+    if text:
+        print(_LONG_HASH_ID.sub(r"\1", text))
+
+
 def success(action, result, warnings=None):
     """Report a successful command."""
     warnings = warnings or []
+    if _held_reports is not None:
+        _held_reports.append((action, result, warnings))
+        return
     if json_mode():
         emit_json({"ok": True, "action": action, "result": result, "warnings": warnings})
         return
     from intent_cli.render import render_success
 
-    text = render_success(action, result)
-    if text:
-        print(text)
+    print_text(render_success(action, result))
     for warning in warnings:
         print(f"warning: {warning}", file=sys.stderr)
 

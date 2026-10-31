@@ -23,7 +23,8 @@ from intent_cli.commands.maintenance import cmd_maintenance
 from intent_cli.maintenance import MaintenanceError
 from intent_cli.maintenance_hooks import HOSTS
 from intent_cli.hub.restore import PullApplyError
-from intent_cli.commands.core import cmd_doctor, cmd_init, cmd_inspect, cmd_log, cmd_show, cmd_version
+from intent_cli.commands.core import cmd_doctor, cmd_init, cmd_inspect, cmd_version
+from intent_cli.commands.history import cmd_diff, cmd_log, cmd_migrate, cmd_show
 from intent_cli.commands.intents import (
     cmd_intent_activate,
     cmd_intent_cancel,
@@ -183,12 +184,16 @@ def main():
     p = sub.add_parser("inspect", help="show open goals, their latest checkpoints and decisions")
     p.add_argument("--intent", default=None, metavar="ID", help="focus on one open intent")
     p.add_argument("--history", type=int, default=None, metavar="N", help="with --intent: include its last N snaps")
-    p = sub.add_parser("log", help="list snaps, newest first")
+    p = sub.add_parser("log", help="list revisions, newest first")
+    p.add_argument("--snaps", action="store_true", help="list checkpoints instead of revisions")
     p.add_argument("--intent", default=None, metavar="ID", help="only snaps of this intent")
-    p.add_argument("-n", "--max-count", type=int, default=20, metavar="N", help="show at most N snaps (default 20)")
-    p.add_argument("--all", action="store_true", help="show every snap")
-    p = sub.add_parser("show", help="show one intent, snap or decision")
-    p.add_argument("id", metavar="ID")
+    p.add_argument("-n", "--max-count", type=int, default=20, metavar="N", help="show at most N entries (default 20)")
+    p.add_argument("--all", action="store_true", help="show every entry")
+    p = sub.add_parser("show", help="show one intent, snap, decision or revision")
+    p.add_argument("id", metavar="ID|REV")
+    p = sub.add_parser("diff", help="compare two revisions in semantic terms")
+    p.add_argument("range", nargs="?", default=None, metavar="A..B")
+    sub.add_parser("migrate", help="turn an Intent 7 project into a repository")
     sub.add_parser("doctor", help="check the history for integrity problems")
     p = sub.add_parser("status", help="compare local history with its remote")
     p.add_argument("--local", action="store_true")
@@ -353,6 +358,8 @@ def main():
         "inspect": cmd_inspect,
         "log": cmd_log,
         "show": cmd_show,
+        "diff": cmd_diff,
+        "migrate": cmd_migrate,
         "doctor": cmd_doctor,
         "push": cmd_push,
         "pull": cmd_pull,

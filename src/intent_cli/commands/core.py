@@ -2,20 +2,19 @@
 
 from intent_cli import __version__
 from intent_cli import relations as relation_rules
-from intent_cli.commands.common import require_init
-from intent_cli.output import emit_json, error, json_mode, success
-from intent_cli import identity
+from intent_cli.commands.common import expand_ids, require_init
+from intent_cli.output import emit_json, error, json_mode, print_text, success
+from intent_cli import identity, repo
 from intent_cli.store import (
     ensure_local_git_exclude,
     git_root,
     init_workspace,
     load_graph_once,
-    validate_object_id,
     validate_graph,
+    validate_object_id,
     workspace_write_lock,
     StorageSecurityError,
 )
-from intent_cli.commands.intents import _number
 
 
 # ---- Commands ----
@@ -71,6 +70,7 @@ def cmd_inspect(args):
                 "--history must be a positive integer.",
                 suggested_fix="Use a value of 1 or greater.",
             )
+    expand_ids(base, args)
     if args.intent is not None:
         validate_object_id("intent", args.intent)
 
@@ -145,63 +145,21 @@ def cmd_inspect(args):
         emit_json(payload)
         return
     from intent_cli.render import render_success
-    print(render_success("inspect", payload))
-
-
-def cmd_log(args):
-    """List Snaps newest first, like `git log`."""
-    base = require_init()
-    if args.intent is not None:
-        validate_object_id("intent", args.intent)
-    if args.max_count < 1:
-        error("INVALID_INPUT", "-n must be a positive integer.")
-    with workspace_write_lock(base, operation="log"):
-        graph = load_graph_once(base)
-    intents = graph["intent"]
-    if args.intent is not None and args.intent not in intents:
-        error("OBJECT_NOT_FOUND", f"Intent {args.intent} not found.")
-    snaps = [snap for snap in graph["snap"].values() if args.intent in (None, snap.get("intent_id"))]
-    snaps.sort(key=lambda snap: (snap.get("created_at", ""), _number(snap["id"])), reverse=True)
-    shown = snaps if args.all else snaps[:args.max_count]
-    entries = []
-    for snap in shown:
-        intent = intents.get(snap.get("intent_id"))
-        entries.append({**snap, "intent": {key: intent.get(key) for key in ("id", "what", "status")} if intent else None})
-    success("log", {"snaps": entries, "total": len(snaps), "has_more": len(shown) < len(snaps)})
-
-
-def cmd_show(args):
-    """Show one Intent, Snap or Decision with its relations, like `git show`."""
-    kind = args.id.split("-", 1)[0] if "-" in args.id else ""
-    if kind not in {"intent", "snap", "decision"}:
-        error("INVALID_INPUT", f"{args.id!r} is not an object ID.", suggested_fix="Use an ID such as intent-001, snap-001 or decision-001.")
-    validate_object_id(kind, args.id)
-    base = require_init()
-    with workspace_write_lock(base, operation="show"):
-        graph = load_graph_once(base)
-    obj = graph[kind].get(args.id)
-    if obj is None:
-        error("OBJECT_NOT_FOUND", f"{args.id} not found.")
-    summary = lambda item, *keys: {key: item.get(key) for key in ("id", *keys)}
-    result = {"object": obj}
-    if kind == "intent":
-        result["snaps"] = [summary(graph["snap"][sid], "created_at", "what") for sid in obj.get("snap_ids", []) if sid in graph["snap"]]
-        result["decisions"] = [summary(graph["decision"][did], "what", "status") for did in obj.get("decision_ids", []) if did in graph["decision"]]
-        result["relations"] = relation_rules.view(graph["intent"], obj["id"])
-    elif kind == "snap":
-        intent = graph["intent"].get(obj.get("intent_id"))
-        result["intent"] = summary(intent, "what", "status") if intent else None
-    else:
-        result["intents"] = [summary(graph["intent"][iid], "what", "status") for iid in obj.get("intent_ids", []) if iid in graph["intent"]]
-        source = graph["intent"].get(obj.get("source_intent_id"))
-        result["source_intent"] = summary(source, "what", "status") if source else None
-    success("show", result)
+    print_text(render_success("inspect", payload))
 
 
 def cmd_doctor(_args):
     base = require_init()
+    warnings = [] if identity.author() else [identity.MISSING]
     with workspace_write_lock(base, operation="doctor"):
-        graph = load_graph_once(base, tolerant=True)
-    success("doctor", validate_graph(graph), [] if identity.author() else [identity.MISSING])
+        report = validate_graph(load_graph_once(base, tolerant=True))
+        if not repo.is_repository(base):
+            warnings.append("This project still uses the Intent 7 format. Run itt migrate.")
+        else:
+            issues = repo.verify(base)
+            report = {**report, "healthy": report["healthy"] and not issues, "issues": [*report["issues"], *issues]}
+            if not issues and repo.uncommitted(base):
+                warnings.append("The working copy differs from HEAD. The next write records it as a revision.")
+    success("doctor", report, warnings)
 
 

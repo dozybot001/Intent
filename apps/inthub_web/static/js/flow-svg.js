@@ -71,7 +71,7 @@ function flowNodeSvg(node, layout) {
       <rect class="flow-node-ring" x="-4" y="-4" width="${g.nodeW + 8}" height="${g.nodeH + 8}" rx="15"/>
       <rect class="flow-node-box" width="${g.nodeW}" height="${g.nodeH}" rx="12"/>
       <g class="flow-pill" data-fit="25"><rect class="flow-pill-box" x="12" y="12" width="${flowNumber(25 + flowTextWidth(label, 11, FLOW_REGULAR))}" height="20" rx="10" data-fit-box/><circle class="flow-node-dot" cx="21" cy="22" r="3"/><text class="flow-node-status" x="29" y="25.5" data-fit-text>${esc(label)}</text></g>
-      <text class="flow-node-id" x="${g.nodeW - 12}" y="25.5" text-anchor="end">${esc(intent.id)}</text>
+      <text class="flow-node-id" x="${g.nodeW - 12}" y="25.5" text-anchor="end">${esc(shortId(intent.id))}</text>
       ${title.map((line, index) => `<text class="flow-node-title" x="14" y="${50 + index * 17}">${esc(line)}</text>`).join("")}
       <text class="flow-node-meta" x="14" y="${g.nodeH - 12}">${esc(meta.join(" · "))}</text>
       <text class="flow-node-id" x="${g.nodeW - 12}" y="${g.nodeH - 12}" text-anchor="end">${esc(shortDay(intent.created_at))}</text>

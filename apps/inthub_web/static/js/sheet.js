@@ -13,7 +13,7 @@ function renderSheetHeader(payload = null) {
   const labels = { intent: t("Intent"), snap: t("Snap"), decision: t("Decision"), revision: t("Revision") };
   const raw = payload?.id || (entry ? entry.remoteId.split("__").slice(1).join("__") : "");
   const id = entry?.type === "revision" ? shortRevision(raw) : raw;
-  el.drawerTitle.innerHTML = entry ? `${esc(labels[entry.type] || "")} · <b class="mono">${esc(id)}</b>` : esc(t("Details"));
+  el.drawerTitle.innerHTML = entry ? `${esc(labels[entry.type] || "")} · <b class="mono">${esc(shortId(id))}</b>` : esc(t("Details"));
   el.drawerBack.classList.toggle("is-hidden", (state._sheetStack?.length || 0) < 2);
 }
 

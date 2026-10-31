@@ -15,8 +15,17 @@ class InvalidObjectIdError(StorageSecurityError):
         self.obj_id = obj_id
         super().__init__(
             f"Invalid {object_type} ID {obj_id!r}; expected "
-            f"'{object_type}-' followed by ASCII digits."
+            f"'{object_type}-' followed by digits or a hash."
         )
+
+
+class AmbiguousObjectIdError(InvalidObjectIdError):
+    """Raised when a short ID matches more than one object."""
+
+    def __init__(self, object_type, obj_id, matches):
+        self.matches = matches
+        super().__init__(object_type, obj_id)
+        self.args = (f"{obj_id} is ambiguous; it matches {', '.join(sorted(matches))}.",)
 
 
 class UnsafeStoragePathError(StorageSecurityError):

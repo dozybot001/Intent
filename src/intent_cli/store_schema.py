@@ -18,8 +18,10 @@ VALID_STATUSES = {
 }
 
 
+# Counter IDs from 7.x stay valid forever; new objects take random hexadecimal ones.
+HASH_ID_LENGTH = 12
 OBJECT_ID_PATTERNS = {
-    object_type: re.compile(rf"{object_type}-[0-9]+", re.ASCII)
+    object_type: re.compile(rf"{object_type}-(?:[0-9]+|[0-9a-f]{{{HASH_ID_LENGTH}}})", re.ASCII)
     for object_type in SUBDIRS
 }
 
@@ -34,6 +36,12 @@ def validate_object_id(object_type, obj_id):
     ):
         raise InvalidObjectIdError(object_type, obj_id)
     return obj_id
+
+
+def id_number(obj_id):
+    """The counter in a 7.x ID. A hash ID has none and sorts after every counter."""
+    suffix = obj_id.split("-", 1)[1]
+    return int(suffix) if suffix.isdecimal() else float("inf")
 
 
 def _validate_stored_object_id(obj, path, expected_id):

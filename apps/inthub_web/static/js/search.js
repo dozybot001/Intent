@@ -133,7 +133,7 @@ function renderSearchResults(result) {
             ${icon(type)}
             <span class="search-result-title">${highlight(title, query)}</span>
             <span class="search-result-meta">${esc(meta)}</span>
-            <span class="search-result-side">${esc(m.id)}</span>
+            <span class="search-result-side">${esc(shortId(m.id))}</span>
           </div>`;
       }).join(""));
     })

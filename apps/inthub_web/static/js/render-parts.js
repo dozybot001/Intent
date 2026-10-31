@@ -59,7 +59,7 @@ function relationItem(type, rId, id, title, meta, status, badge = "") {
     <span class="row-icon">${icon(type)}</span>
     <span class="relation-title">${esc(title)}</span>
     ${meta || badge ? `<span class="relation-meta">${badge}${esc(meta)}</span>` : ""}
-    <span class="relation-side"><span class="row-id">${esc(id)}</span>${status ? statusBadge(status, type) : ""}</span>
+    <span class="relation-side"><span class="row-id">${esc(shortId(id))}</span>${status ? statusBadge(status, type) : ""}</span>
   </button>`;
 }
 

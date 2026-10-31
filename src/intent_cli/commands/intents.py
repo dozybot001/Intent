@@ -4,7 +4,7 @@ from intent_cli import identity, relations as relation_rules
 from intent_cli.commands.common import now_utc, require_init, workspace_mutation
 from intent_cli.origin import detect_origin
 from intent_cli.output import error, json_mode, success
-from intent_cli.store import create_object, list_objects, next_id, read_object, update_object, validate_object_id
+from intent_cli.store import create_object, id_number, list_objects, next_id, read_object, update_object, validate_object_id
 
 
 def _attribute(obj):
@@ -12,10 +12,6 @@ def _attribute(obj):
     author = identity.author()
     if author:
         obj["author"] = author
-
-
-def _number(obj_id):
-    return int(obj_id.rsplit("-", 1)[1])
 
 
 def _intent_result_for_json(intent):
@@ -43,7 +39,7 @@ def _resolve_inferred_intent_id(
             {"id": obj["id"], "what": obj["what"]}
             for obj in list_objects(base, "intent", status=status)
         ),
-        key=lambda c: _number(c["id"]),
+        key=lambda c: id_number(c["id"]),
     )
     if not candidates:
         error(none_code, none_message, suggested_fix=suggested_fix)

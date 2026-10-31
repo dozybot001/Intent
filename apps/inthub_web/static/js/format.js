@@ -65,6 +65,11 @@ function plural(count, one, other, values = {}) {
   return t(count === 1 ? one : other, { count, ...values });
 }
 
+// Like Git, a hash ID reads short. Counter IDs from Intent 7 are already short.
+function shortId(id) {
+  return String(id ?? "").replace(/^((?:intent|snap|decision)-[0-9a-f]{7})[0-9a-f]{5}$/, "$1");
+}
+
 function shortRevision(v) {
   return v ? v.slice(0, 8) : "—";
 }
@@ -162,7 +167,7 @@ function identityMeta(object) {
 }
 
 function idChip(id) {
-  return `<span class="chip chip-id">${esc(id)}</span>`;
+  return `<span class="chip chip-id">${esc(shortId(id))}</span>`;
 }
 
 function remoteId(wksId, objId) {
