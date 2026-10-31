@@ -95,6 +95,8 @@ Push and fetch negotiate missing revisions and object versions, the way Git nego
 
 ## Phases
 
+Phases 1 to 3 are implemented on `main` and not yet released. Phase 4 has not started.
+
 1. Repository format 2: objects, revisions, refs, automatic revisions, hash IDs for new objects, `itt log`, `show`, `diff` and `itt migrate`.
 2. Branches and worktrees: `itt branch`, `itt switch` and Git-worktree discovery.
 3. Semantic merge with structured conflicts and duplicate-goal hints.

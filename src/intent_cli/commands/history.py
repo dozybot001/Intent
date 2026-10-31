@@ -54,7 +54,7 @@ def cmd_log(args):
         branch, head = repo.current_branch(base), repo.head_revision(base)
     shown = history if args.all else history[:args.max_count]
     success("log", {"branch": branch, "head": head, "revisions": [_revision_entry(*item) for item in shown],
-                    "total": len(history), "has_more": len(shown) < len(history)})
+                    "total": len(history), "has_more": len(shown) < len(history), "graph": args.graph})
 
 
 def _show_revision(base, spec):

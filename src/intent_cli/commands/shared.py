@@ -127,7 +127,11 @@ def _relation(config, snapshot, local_hash, remote):
 
 def _place(base):
     """Where this copy stands in its own history: nothing to say for an unmigrated project."""
-    return {"branch": repo.current_branch(base), "head": repo.head_revision(base)} if repo.is_repository(base) else {}
+    if not repo.is_repository(base):
+        return {}
+    state = repo.read_merge_state(base)
+    merging = {"merging": {"branch": state["branch"], "conflicts": state["conflicts"]}} if state else {}
+    return {"branch": repo.current_branch(base), "head": repo.head_revision(base), **merging}
 
 
 def cmd_status(args):

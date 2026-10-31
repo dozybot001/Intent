@@ -147,7 +147,7 @@ def _renamed(result):
 
 
 def _status(result):
-    return ([f"On branch {bold(result['branch'])}"] if result.get("branch") else []) + _remote_status(result)
+    return render_history.place(result) + _remote_status(result)
 
 
 def _remote_status(result):
@@ -346,6 +346,8 @@ RENDERERS = {
     "doctor": _doctor,
     "diff": render_history.diff,
     "branch": render_history.branch,
+    "merge": render_history.merge,
+    "resolve": lambda result: [f"Settled {result['id']}; {_plural(result['remaining'], 'conflict')} left."],
     "switch": lambda result: [f"On branch {bold(result['branch'])}"],
     "migrate": render_history.migrate,
     "intent.create": _created,

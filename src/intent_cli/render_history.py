@@ -16,7 +16,24 @@ def _heading(entry, marker=""):
     return f"{yellow(entry['revision'][:SHORT])}{marker}  {dim(' · '.join(part for part in meta if part))}"
 
 
+def _graph(entries):
+    """One line per revision with a lane per open line of history, like `git log --graph`."""
+    lanes, lines = [], []
+    for entry in entries:
+        digest = entry["revision"]
+        if digest not in lanes:
+            lanes.append(digest)
+        column = lanes.index(digest)
+        row = " ".join("*" if index == column else "|" for index in range(len(lanes)))
+        lines.append(f"{row}  {yellow(digest[:SHORT])}  {_one_line(entry.get('summary') or '', 72)}")
+        parents = [parent for parent in entry["parents"] if parent not in lanes]
+        lanes[column:column + 1] = parents
+    return lines
+
+
 def revisions(result):
+    if result.get("graph") and result["revisions"]:
+        return _graph(result["revisions"])
     lines = []
     for entry in result["revisions"]:
         marker = f" ({result['branch']})" if entry["revision"] == result.get("head") else ""
@@ -76,3 +93,25 @@ def branch(result):
         place = f"  {dim('open in ' + entry['open_in'])}" if entry.get("open_in") else ""
         lines.append(f"{marker}{bold(entry['name']) if entry['current'] else entry['name']}  {dim(revision)}{place}")
     return lines
+
+
+def place(result):
+    if not result.get("branch"):
+        return []
+    lines = [f"On branch {bold(result['branch'])}"]
+    merging = result.get("merging")
+    if merging:
+        lines.append(yellow(f"Merging {merging['branch']}: {_plural(len(merging['conflicts']), 'conflict')} left"))
+        lines += [f"  {item['id']}  {item['field']}: ours {item.get('ours')}, theirs {item.get('theirs')}" for item in merging["conflicts"]]
+    return lines
+
+
+def merge(result):
+    state = result["state"]
+    if state == "up_to_date":
+        return [f"Already up to date with {result['branch']}."]
+    if state == "fast_forward":
+        return [f"Fast-forwarded to {result['branch']} at {result['head'][:SHORT]}."]
+    if state == "aborted":
+        return [f"Gave up merging {result['branch']}."]
+    return [green(f"Merged {result['branch']} at {result['head'][:SHORT]}.")]

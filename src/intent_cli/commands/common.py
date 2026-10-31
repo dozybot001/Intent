@@ -51,6 +51,13 @@ def require_repository(base):
             "This project still uses the Intent 7 format, which this version can read but not write.",
             suggested_fix="itt migrate",
         )
+    state = repo.read_merge_state(base)
+    if state is not None:
+        error(
+            "MERGE_IN_PROGRESS",
+            f"A merge of {state['branch']} is in progress.",
+            suggested_fix="itt resolve ID ..., then itt merge --continue, or itt merge --abort.",
+        )
 
 
 def require_main(base):

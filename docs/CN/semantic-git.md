@@ -95,6 +95,8 @@ push 与 fetch 像 Git 协商 pack 一样协商缺失的修订和对象版本。
 
 ## 分阶段实施
 
+第 1 到 3 阶段已在 `main` 实现，尚未发布；第 4 阶段未开始。
+
 1. 仓库格式 2：对象、修订、refs、自动修订、新对象哈希 ID，`itt log`、`show`、`diff` 与 `itt migrate`。
 2. 分支与 worktree：`itt branch`、`itt switch` 与 Git worktree 识别。
 3. 带结构化冲突与重复目标提示的语义合并。

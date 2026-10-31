@@ -26,6 +26,7 @@ from intent_cli.hub.restore import PullApplyError
 from intent_cli.commands.core import cmd_doctor, cmd_init, cmd_inspect, cmd_version
 from intent_cli.commands.branches import cmd_branch, cmd_switch
 from intent_cli.commands.history import cmd_diff, cmd_log, cmd_migrate, cmd_show
+from intent_cli.commands.merging import cmd_merge, cmd_resolve
 from intent_cli.commands.intents import (
     cmd_intent_activate,
     cmd_intent_cancel,
@@ -187,6 +188,7 @@ def main():
     p.add_argument("--history", type=int, default=None, metavar="N", help="with --intent: include its last N snaps")
     p = sub.add_parser("log", help="list revisions, newest first")
     p.add_argument("--snaps", action="store_true", help="list checkpoints instead of revisions")
+    p.add_argument("--graph", action="store_true", help="draw branches and merges")
     p.add_argument("--intent", default=None, metavar="ID", help="only snaps of this intent")
     p.add_argument("-n", "--max-count", type=int, default=20, metavar="N", help="show at most N entries (default 20)")
     p.add_argument("--all", action="store_true", help="show every entry")
@@ -200,6 +202,15 @@ def main():
     p.add_argument("start", nargs="?", default=None, metavar="REV")
     p.add_argument("-d", dest="delete", default=None, metavar="NAME", help="delete a merged branch")
     p.add_argument("-D", dest="force_delete", default=None, metavar="NAME", help="delete a branch, merged or not")
+    p = sub.add_parser("merge", help="merge a branch into this one")
+    p.add_argument("branch", nargs="?", default=None, metavar="BRANCH")
+    p.add_argument("--continue", dest="continue_merge", action="store_true", help="finish a merge once conflicts are settled")
+    p.add_argument("--abort", action="store_true", help="give up a merge and restore this branch")
+    p = sub.add_parser("resolve", help="settle one object's conflicts during a merge")
+    p.add_argument("id", metavar="ID")
+    p.add_argument("--ours", action="store_true")
+    p.add_argument("--theirs", action="store_true")
+    p.add_argument("--status", default=None, metavar="STATUS")
     p = sub.add_parser("switch", help="move to another branch")
     p.add_argument("branch", metavar="BRANCH")
     p.add_argument("-c", dest="create", action="store_true", help="create the branch first")
@@ -372,6 +383,8 @@ def main():
         "migrate": cmd_migrate,
         "branch": cmd_branch,
         "switch": cmd_switch,
+        "merge": cmd_merge,
+        "resolve": cmd_resolve,
         "doctor": cmd_doctor,
         "push": cmd_push,
         "pull": cmd_pull,

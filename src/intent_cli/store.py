@@ -4,16 +4,16 @@ import json
 import os
 import re
 import secrets
-import subprocess
 import tempfile
 from pathlib import Path
 
 from intent_cli.store_errors import AmbiguousObjectIdError, InvalidObjectIdError, StorageSecurityError, StoredObjectIntegrityError, StoredObjectParseError, StoredObjectSchemaError, StoredObjectWriteConflictError, UnsafeStoragePathError, WorkspaceBusyError  # noqa: F401
 from intent_cli.store_schema import CHECKPOINT_FIELDS, CHECKPOINT_FIELD_MAX_CHARS, HASH_ID_LENGTH, INTENT_DIR, OBJECT_ID_PATTERNS, RELATION_FIELDS, REQUIRED_STRING_FIELDS, SUBDIRS, VALID_STATUSES, _validate_author, _validate_checkpoint, _validate_git, _validate_object_schema, _validate_relations, _validate_stored_object_id, id_number, validate_object_id  # noqa: F401
-from intent_cli.store_paths import WORKTREES, _safe_object_dir, _safe_object_path, _safe_storage_root, shared_root  # noqa: F401
+from intent_cli.store_paths import _safe_object_dir, _safe_object_path, _safe_storage_root, shared_root  # noqa: F401
 from intent_cli.store_lock import _read_lock_owner, _write_lock_owner, workspace_write_lock  # noqa: F401
 from intent_cli.store_graph import validate_graph  # noqa: F401
 from intent_cli import repo
+from intent_cli.store_location import _linked_worktree, ensure_local_git_exclude, git_root, intent_dir, project_root  # noqa: F401
 
 HUB_CONFIG = "hub.json"
 
@@ -33,57 +33,6 @@ def _load_and_validate_object(path, object_type, expected_id):
     except (ValueError, RecursionError) as exc:
         raise StoredObjectParseError(path, "JSON exceeds decoder limits") from exc
     return _validate_object_schema(obj, path, object_type, expected_id)
-
-
-def git_root():
-    """Return git repo root as Path, or None."""
-    try:
-        out = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, check=True,
-        )
-        return Path(out.stdout.strip())
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-
-
-def _linked_worktree():
-    """(main .intent/, worktree name, Git branch) inside a linked Git worktree, else None."""
-    try:
-        out = subprocess.run(
-            ["git", "rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"],
-            capture_output=True, text=True, check=True,
-        ).stdout.split("\n")
-        branch = subprocess.run(
-            ["git", "branch", "--show-current"], capture_output=True, text=True, check=True,
-        ).stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-    git_dir, common = Path(out[0]), Path(out[1])
-    if git_dir == common:
-        return None
-    return common.parent / INTENT_DIR, git_dir.name, branch
-
-
-def project_root(base):
-    """The folder a project's .intent/ serves: for a linked worktree, that worktree."""
-    return git_root() if Path(base).parent.name == WORKTREES else Path(base).parent
-
-
-def intent_dir():
-    """Find semantic storage independently; Git only supplies a default root."""
-    current = Path.cwd()
-    for parent in (current, *current.parents):
-        candidate = parent / INTENT_DIR
-        if candidate.exists() or candidate.is_symlink():
-            return candidate
-        if (parent / ".git").exists():
-            break
-    linked = _linked_worktree()
-    if linked is not None:
-        main, name, branch = linked
-        return repo.attach_worktree(main, name, branch) if repo.is_repository(main) else main
-    return (git_root() or current) / INTENT_DIR
 
 
 def ensure_init():
@@ -119,34 +68,6 @@ def init_workspace():
         (d / sub).mkdir()
     repo.create_repository(d)
     return d, None
-
-
-def ensure_local_git_exclude(root, patterns=(f"{INTENT_DIR}/",)):
-    """Exclude private local metadata through repository-local info/exclude."""
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--git-path", "info/exclude"],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        path = Path(result.stdout.strip())
-        if not path.is_absolute():
-            path = root / path
-        path.parent.mkdir(parents=True, exist_ok=True)
-        existing = path.read_text(encoding="utf-8") if path.exists() else ""
-        present = {line.strip().rstrip("/") for line in existing.splitlines()}
-        missing = [pattern for pattern in patterns if pattern.rstrip("/") not in present]
-        if not missing:
-            return True
-        with path.open("a", encoding="utf-8") as exclude_file:
-            if existing and not existing.endswith("\n"):
-                exclude_file.write("\n")
-            exclude_file.write("\n".join(missing) + "\n")
-        return True
-    except (OSError, subprocess.CalledProcessError):
-        return False
 
 
 def _entry_order(item):

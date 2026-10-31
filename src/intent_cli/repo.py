@@ -27,6 +27,7 @@ OBJECTS = "objects"
 REVISIONS = "revisions"
 REFS = "refs"
 BACKUPS = "backups"
+MERGE_STATE = "MERGE_STATE.json"
 SUMMARY_MAX_CHARS = 160
 DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 ABBREVIATION = re.compile(r"[0-9a-f]{4,64}\Z")
@@ -201,21 +202,21 @@ def _commit(base, branch, parents, tree, summary, changes):
     return digest
 
 
-def commit_worktree(base, operation, summary=None):
-    """Record the working copy as a revision on the current branch. No change, no revision."""
+def commit_worktree(base, operation, summary=None, merge_parent=None):
+    """Record the working copy as a revision on the current branch. No change, no revision, unless it ends a merge."""
     files = _working_copy(base)
     tree = {obj_id: _digest(raw) for obj_id, raw in files.items()}
     head = head_revision(base)
     before = read_revision(base, head)["tree"] if head else {}
     changes = _tree_changes(before, tree)
-    if not changes:
+    if not changes and merge_parent is None:
         return None
     _safe_directory(base, OBJECTS)
     for obj_id, digest in tree.items():
         if before.get(obj_id) != digest:
             _install(_content_path(base, OBJECTS, digest), files[obj_id])
-    return _commit(base, current_branch(base), [head] if head else [], tree,
-                   summary or _summary(operation, changes, files), changes)
+    parents = [*([head] if head else []), *([merge_parent] if merge_parent else [])]
+    return _commit(base, current_branch(base), parents, tree, summary or _summary(operation, changes, files), changes)
 
 
 def uncommitted(base):
@@ -307,6 +308,57 @@ def walk(base, start=None):
             seen[digest] = read_revision(base, digest)
             pending.extend(seen[digest]["parents"])
     return sorted(seen.items(), key=lambda item: (item[1]["time"], item[0]), reverse=True)
+
+
+def _ancestors(base, revision):
+    return {digest for digest, _data in walk(base, revision)}
+
+
+def is_ancestor(base, older, newer):
+    return older in _ancestors(base, newer)
+
+
+def merge_base(base, one, other):
+    """The newest revision both sides descend from, or None if they share no history."""
+    shared = _ancestors(base, one) & _ancestors(base, other)
+    return next((digest for digest, _data in walk(base, one) if digest in shared), None)
+
+
+def fast_forward(base, revision):
+    """Move the current branch up to a revision it is behind, the working copy with it."""
+    checkout(base, revision)
+    _set_branch(base, current_branch(base), revision)
+
+
+def objects_at(base, revision):
+    """{id: object} as they stood at a revision."""
+    tree = read_revision(base, revision)["tree"] if revision else {}
+    return {obj_id: json.loads(_content_path(base, OBJECTS, digest).read_text(encoding="utf-8"))
+            for obj_id, digest in tree.items()}
+
+
+def working_objects(base):
+    return {obj_id: json.loads(raw) for obj_id, raw in _working_copy(base).items()}
+
+
+def write_objects(base, objects):
+    """Write merged objects into the working copy, in the store's own JSON layout."""
+    for obj_id, obj in objects.items():
+        path = _safe_object_dir(base, obj_id.split("-", 1)[0])[0] / f"{obj_id}.json"
+        _replace(path, json.dumps(obj, indent=2, ensure_ascii=False).encode("utf-8"))
+
+
+def read_merge_state(base):
+    path = Path(base) / MERGE_STATE
+    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+
+
+def write_merge_state(base, state):
+    _replace(Path(base) / MERGE_STATE, json.dumps(state, indent=2, ensure_ascii=False).encode("utf-8"))
+
+
+def clear_merge_state(base):
+    (Path(base) / MERGE_STATE).unlink(missing_ok=True)
 
 
 def snapshot_at(base, revision):
