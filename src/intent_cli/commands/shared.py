@@ -3,7 +3,7 @@
 import re
 from urllib.parse import urlencode
 
-from intent_cli import identity, repo
+from intent_cli import identity, repo, repo_checkout
 from intent_cli.commands.common import require_init, require_main
 from intent_cli.hub.client import http_json
 from intent_cli.hub.credentials import normalize_api_base_url, GlobalHubConfigError
@@ -13,7 +13,7 @@ from intent_cli.hub.runtime import hub_api_base, hub_auth_token, hub_auth_config
 from intent_cli.hub.snapshots import SnapshotError, require_fast_forward, snapshot_sha256, validate_snapshot
 from intent_cli.hub.versions import revision_id, validate_project_ref, VERSION
 from intent_cli.output import error, success
-from intent_cli.store import SUBDIRS, load_graph_once, workspace_write_lock, write_hub_config
+from intent_cli.store import SUBDIRS, load_graph_once, shared_root, workspace_write_lock, write_hub_config
 
 
 def _project_id(value):
@@ -34,7 +34,7 @@ def _state(base, args):
             normalize_api_base_url(config["api_base_url"])
         except GlobalHubConfigError:
             error("HUB_STATE_INVALID", "Invalid configured endpoint.")
-    name = getattr(args, "project", None) or config.get("project_name") or base.parent.name
+    name = getattr(args, "project", None) or config.get("project_name") or shared_root(base).parent.name
     try:
         validate_project_ref(name)
     except ValueError as exc:
@@ -129,7 +129,7 @@ def _place(base):
     """Where this copy stands in its own history: nothing to say for an unmigrated project."""
     if not repo.is_repository(base):
         return {}
-    state = repo.read_merge_state(base)
+    state = repo_checkout.read_merge_state(base)
     merging = {"merging": {"branch": state["branch"], "conflicts": state["conflicts"]}} if state else {}
     return {"branch": repo.current_branch(base), "head": repo.head_revision(base), **merging}
 
@@ -137,8 +137,12 @@ def _place(base):
 def cmd_status(args):
     base = require_init()
     with workspace_write_lock(base, operation="status"):
-        config, name, snapshot, digest = _state(base, args)
         place = _place(base)
+        if "merging" in place:  # a half-merged working copy need not form a valid snapshot
+            success("status", {"project_name": shared_root(base).parent.name, **place,
+                               "remote_checked": False, "remote_configured": False, "counts": None})
+            return
+        config, name, snapshot, digest = _state(base, args)
     # Never contact a service the user has not chosen: without a configured
     # remote (or an explicit --api-base-url), status stays local.
     remote_configured = bool(config.get("api_base_url") or getattr(args, "api_base_url", None))
@@ -162,7 +166,7 @@ def cmd_remote(args):
             if args.name != "origin":
                 error("INVALID_INPUT", "The shared history supports one remote named origin.")
             api = normalize_api_base_url(args.url)
-            name = args.project or base.parent.name
+            name = args.project or shared_root(base).parent.name
             try:
                 validate_project_ref(name)
             except ValueError as exc:
@@ -176,7 +180,7 @@ def cmd_remote(args):
             # Unconfigured projects report the default push target, marked as such.
             success("remote", {"name": "origin", "configured": bool(config.get("api_base_url")),
                 "api_base_url": hub_api_base(base, args, config),
-                "project_name": config.get("project_name") or base.parent.name})
+                "project_name": config.get("project_name") or shared_root(base).parent.name})
 
 
 def cmd_link(args):
@@ -206,15 +210,15 @@ def cmd_hub_status(args):
         config = load_hub(base)
         api = hub_api_base(base, args, config)
         success("hub.status", {"linked": config.get("format_version") == 2 and bool(config.get("project_id")),
-            "api_base_url": api, "project_name": config.get("project_name") or base.parent.name,
+            "api_base_url": api, "project_name": config.get("project_name") or shared_root(base).parent.name,
             "project_id": config.get("project_id"), "revision": config.get("revision"),
             "credential_available": hub_auth_configured(api)})
 
 
 def cmd_push(args):
     base = require_init()
-    require_main(base)
     with workspace_write_lock(base, operation="push.preflight"):
+        require_main(base)
         config, name, snapshot, digest = _state(base, args)
     api, remote = _remote(base, args, config, name)
     name, followed = _followed(name, remote)
@@ -228,6 +232,7 @@ def cmd_push(args):
         success("push", {"dry_run": True, "state": relation, "changed": relation == "ahead", "project_name": name, **followed})
         return
     with workspace_write_lock(base, operation="push"):
+        require_main(base)
         current, _, _, current_hash = _state(base, args)
         if current != config or current_hash != digest:
             error("LOCAL_STATE_CHANGED", "Local history or remote configuration changed during preflight.")
@@ -259,8 +264,8 @@ def cmd_push(args):
 
 def cmd_pull(args):
     base = require_init()
-    require_main(base)
     with workspace_write_lock(base, operation="pull.preflight"):
+        require_main(base)
         config, name, snapshot, digest = _state(base, args)
     api, remote = _remote(base, args, config, name)
     name, followed = _followed(name, remote)
@@ -287,6 +292,7 @@ def cmd_pull(args):
                          **({"renumbered": renumbered, "conflicts": conflicts} if rebased else {})})
         return
     with workspace_write_lock(base, operation="pull.apply"):
+        require_main(base)
         current, _, _, current_hash = _state(base, args)
         if current != config or current_hash != digest:
             error("LOCAL_STATE_CHANGED", "Local history or configuration changed during download.")

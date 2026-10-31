@@ -10,6 +10,9 @@ from intent_cli.store import (
 )
 
 
+TERMINAL_STATUSES = {"done", "cancelled", "deprecated"}
+
+
 class SnapshotError(ValueError):
     pass
 
@@ -62,23 +65,27 @@ def snapshot_sha256(snapshot):
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def _relation_key(entry):
+    return json.dumps({key: value for key, value in entry.items() if key != "removed_at"}, sort_keys=True)
+
+
 def _relations_grow_only(old, new):
-    """Relation entries are only appended; an existing entry may only gain removed_at."""
-    before, after = old.get("relations") or [], new.get("relations") or []
-    if len(after) < len(before):
-        return False
-    for previous, current in zip(before, after):
-        if {k: v for k, v in previous.items() if k != "removed_at"} != {
-            k: v for k, v in current.items() if k != "removed_at"
-        }:
-            return False
-        if "removed_at" in previous and current.get("removed_at") != previous["removed_at"]:
+    """Relation entries are never dropped, and one withdrawn stays withdrawn. A merge may interleave them."""
+    after = {_relation_key(entry): entry for entry in new.get("relations") or []}
+    for entry in old.get("relations") or []:
+        current = after.get(_relation_key(entry))
+        if current is None or ("removed_at" in entry and "removed_at" not in current):
             return False
     return True
 
 
 def require_fast_forward(before, after):
-    """Reject deleted/replaced history and reverse terminal lifecycle transitions."""
+    """Reject deleted or replaced history and reopened objects.
+
+    Protocol 2 carries no revisions, so this compares content. A merge descends from what
+    was pushed yet may reorder links and settle a conflict either way, so only losing
+    something, or a finished object no longer being finished, counts as a rewrite.
+    """
     mutable = {
         "intents": {"status", "reason", "snap_ids", "decision_ids", "relations"},
         "decisions": {"status", "reason", "intent_ids"},
@@ -95,18 +102,9 @@ def require_fast_forward(before, after):
             }:
                 raise SnapshotError(f"Remote history rewrote {old['id']}.")
             for relation in ("snap_ids", "decision_ids", "intent_ids"):
-                if relation in old and new[relation][:len(old[relation])] != old[relation]:
+                if relation in old and not set(old[relation]) <= set(new[relation]):
                     raise SnapshotError(f"Remote history rewrote {old['id']}.{relation}.")
             if not _relations_grow_only(old, new):
                 raise SnapshotError(f"Remote history rewrote {old['id']}.relations.")
-            # A finished object may still gain relation records (a successor of a
-            # duplicate) and references (a Snap another copy recorded before it
-            # heard of the close); the checks above keep those append-only. Nothing
-            # else it says may change.
-            growing = {"relations", "snap_ids", "decision_ids", "intent_ids"}
-            if old.get("status") in {"done", "cancelled", "deprecated"} and {
-                k: v for k, v in old.items() if k not in growing
-            } != {k: v for k, v in new.items() if k not in growing}:
+            if old.get("status") in TERMINAL_STATUSES and new.get("status") not in TERMINAL_STATUSES:
                 raise SnapshotError(f"Remote history changed terminal object {old['id']}.")
-            if "reason" in old and new.get("reason") != old["reason"]:
-                raise SnapshotError(f"Remote history rewrote {old['id']}.reason.")

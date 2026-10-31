@@ -1,7 +1,7 @@
 """The revision history: log, show, diff and migrate, read the way Git's are."""
 
 from intent_cli import relations as relation_rules
-from intent_cli import repo
+from intent_cli import repo, repo_checkout
 from intent_cli.commands.common import expand_ids, require_init
 from intent_cli.hub.changes import semantic_changes, summarize
 from intent_cli.output import error, success
@@ -121,8 +121,8 @@ def cmd_diff(args):
     success("diff", {"from": before, "to": after, "changes": changes, "summary": summarize(changes)})
 
 
-def cmd_migrate(_args):
-    """Turn a 7.x workspace into a repository. Refuses a damaged one and keeps a backup."""
+def cmd_migrate(args):
+    """Turn a 7.x workspace into a repository and keep a backup. A damaged one needs --force."""
     base = require_init()
     with workspace_write_lock(base, operation="migrate"):
         if repo.is_repository(base):
@@ -130,10 +130,12 @@ def cmd_migrate(_args):
             return
         graph = load_graph_once(base, tolerant=True)
         report = validate_graph(graph)
-        if not report["healthy"]:
-            error("MIGRATION_BLOCKED", "Fix the problems in this history before migrating; nothing was changed.",
-                  details={"issues": report["issues"]}, suggested_fix="itt doctor")
-        revision, backup = repo.migrate(base)
+        if not report["healthy"] and not args.force:
+            error("MIGRATION_BLOCKED", "This history has problems; nothing was changed.",
+                  details={"issues": report["issues"]},
+                  suggested_fix="Fix them, or run itt migrate --force to carry them over as they are.")
+        revision, backup = repo_checkout.migrate(base)
         counts = {f"{kind}s": len(graph[kind]) for kind in OBJECT_KINDS}
         success("migrate", {"migrated": True, "branch": repo.current_branch(base), "head": revision,
-                            "backup": str(backup), "counts": counts})
+                            "backup": str(backup), "counts": counts},
+                [issue.get("message", "") for issue in report["issues"]])

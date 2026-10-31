@@ -67,7 +67,7 @@ def test_hash_ids_merge_into_one_history_with_two_parents(project):
     main_head = _head(root)
     merged = _run(root, "merge", "side")["result"]
     assert merged["state"] == "merged" and merged["parents"] == [main_head, side_head]
-    assert _intent(root, intent)["snap_ids"] == [theirs, ours]
+    assert _intent(root, intent)["snap_ids"] == [ours, theirs]
     log = _run(root, "log", "--all")["result"]["revisions"]
     assert log[0]["summary"] == "Merged side into main" and len(log[0]["parents"]) == 2 and len(log) == 4
     assert log[-1]["revision"] == before
@@ -97,7 +97,8 @@ def test_conflicting_status_stops_with_both_values_and_resolves(project):
     stopped = _run(root, "merge", "side")
     assert stopped["error"]["code"] == "MERGE_CONFLICT"
     conflicts = stopped["error"]["details"]["conflicts"]
-    assert {"id": intent, "field": "status", "ours": "done", "theirs": "cancelled", "base": "active"} in conflicts
+    assert {"id": intent, "field": "status", "ours": "done", "theirs": "cancelled", "base": "active",
+            "reasons": {"ours": None, "theirs": "dropped"}} in conflicts
     status = _run(root, "status", "--local")["result"]
     assert status["merging"]["branch"] == "side" and status["head"] == before
     assert _run(root, "snap", "create", "Blocked", "--intent", other)["error"]["code"] == "MERGE_IN_PROGRESS"
@@ -186,14 +187,6 @@ def test_a_withdrawal_on_either_side_wins():
     theirs = {**base, "intent-1": _object("intent-1", status="active", relations=[entry], why="changed")}
     merged, conflicts = merge_objects(base, ours, theirs)
     assert conflicts == [] and merged["intent-1"]["relations"][0]["removed_at"] == "t2" and merged["intent-1"]["why"] == "changed"
-
-
-def test_links_from_both_sides_read_oldest_first():
-    snap = lambda obj_id, when: {"id": obj_id, "object": "snap", "created_at": when, "intent_id": "intent-1"}
-    base = {"intent-1": _object("intent-1", status="active")}
-    ours = {"intent-1": _object("intent-1", status="active", snap_ids=["snap-b"]), "snap-b": snap("snap-b", "2")}
-    theirs = {"intent-1": _object("intent-1", status="active", snap_ids=["snap-a"]), "snap-a": snap("snap-a", "1")}
-    assert merge_objects(base, ours, theirs)[0]["intent-1"]["snap_ids"] == ["snap-a", "snap-b"]
 
 
 def test_same_goal_recorded_twice_is_flagged_only_while_open():

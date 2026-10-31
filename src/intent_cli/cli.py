@@ -5,7 +5,7 @@ import os
 import sys
 
 from intent_cli import __version__
-from intent_cli.output import error, set_format
+from intent_cli.output import error, json_mode, set_format
 from intent_cli.store import (
     CHECKPOINT_FIELDS,
     InvalidObjectIdError,
@@ -196,7 +196,8 @@ def main():
     p.add_argument("id", metavar="ID|REV")
     p = sub.add_parser("diff", help="compare two revisions in semantic terms")
     p.add_argument("range", nargs="?", default=None, metavar="A..B")
-    sub.add_parser("migrate", help="turn an Intent 7 project into a repository")
+    p = sub.add_parser("migrate", help="turn an Intent 7 project into a repository")
+    p.add_argument("--force", action="store_true", help="migrate a damaged history as it is")
     p = sub.add_parser("branch", help="list, create or delete branches")
     p.add_argument("name", nargs="?", default=None)
     p.add_argument("start", nargs="?", default=None, metavar="REV")
@@ -366,6 +367,9 @@ def main():
     if args.command == "maintenance" and getattr(args, "sub", None) == "hook":
         set_format("json")  # host protocol, never human text
 
+    if args.command is None and not json_mode():
+        parser.print_help()
+        return
     if args.command is None:
         error(
             "INVALID_INPUT",

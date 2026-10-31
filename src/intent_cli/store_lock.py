@@ -93,6 +93,9 @@ def workspace_write_lock(base, timeout=10.0, operation=None):
         # needs only the root and lock, not complete live object directories.
         from intent_cli.hub.restore import recover_pending_snapshot
         recover_pending_snapshot(base)
+        from intent_cli.repo_checkout import recover_write
+        if operation != "doctor":  # doctor must be able to report what recovery would trip over
+            recover_write(base)
         yield
     finally:
         if acquired:

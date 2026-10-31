@@ -3,11 +3,13 @@
 from datetime import datetime, timezone
 from functools import wraps
 
-from intent_cli import repo
+from intent_cli import repo, repo_checkout
 from intent_cli.output import error, hold_reports
+from intent_cli.store_paths import is_linked
 from intent_cli.store import (
     SUBDIRS,
     VALID_STATUSES,
+    StorageSecurityError,
     WorkspaceBusyError,
     ensure_init,
     resolve_object_id,
@@ -51,7 +53,11 @@ def require_repository(base):
             "This project still uses the Intent 7 format, which this version can read but not write.",
             suggested_fix="itt migrate",
         )
-    state = repo.read_merge_state(base)
+
+
+def require_no_merge(base):
+    """Stop a write while a merge is open. Call it holding the lock, or a merge can start behind it."""
+    state = repo_checkout.read_merge_state(base)
     if state is not None:
         error(
             "MERGE_IN_PROGRESS",
@@ -61,9 +67,16 @@ def require_repository(base):
 
 
 def require_main(base):
-    """Remote sync follows main until the next protocol carries branches."""
+    """Remote sync follows main, from the main worktree, until the next protocol carries branches. Call it holding the lock."""
     require_repository(base)
+    require_no_merge(base)
     branch = repo.current_branch(base)
+    if is_linked(base):
+        error(
+            "NOT_ON_MAIN",
+            f"Push and pull work from the main worktree; this is a linked worktree on {branch}.",
+            suggested_fix=f"Merge {branch} into {repo.DEFAULT_BRANCH} from the main worktree, then push from there.",
+        )
     if branch != repo.DEFAULT_BRANCH:
         error(
             "NOT_ON_MAIN",
@@ -82,8 +95,15 @@ def workspace_mutation(command):
         operation = command.__name__.removeprefix("cmd_").replace("_", ".", 1)
         try:
             with workspace_write_lock(base, operation=operation), hold_reports():
-                command(args)
+                require_no_merge(base)
+                repo_checkout.begin_command(base)
+                try:
+                    command(args)
+                except (SystemExit, StorageSecurityError):  # refused: take back whatever it wrote
+                    repo_checkout.recover_write(base)
+                    raise
                 repo.commit_worktree(base, operation)
+                repo_checkout.end_write(base)
         except WorkspaceBusyError as exc:
             error(
                 "WORKSPACE_BUSY",

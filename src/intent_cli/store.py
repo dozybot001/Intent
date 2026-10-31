@@ -9,9 +9,9 @@ from pathlib import Path
 
 from intent_cli.store_errors import AmbiguousObjectIdError, InvalidObjectIdError, StorageSecurityError, StoredObjectIntegrityError, StoredObjectParseError, StoredObjectSchemaError, StoredObjectWriteConflictError, UnsafeStoragePathError, WorkspaceBusyError  # noqa: F401
 from intent_cli.store_schema import CHECKPOINT_FIELDS, CHECKPOINT_FIELD_MAX_CHARS, HASH_ID_LENGTH, INTENT_DIR, OBJECT_ID_PATTERNS, RELATION_FIELDS, REQUIRED_STRING_FIELDS, SUBDIRS, VALID_STATUSES, _validate_author, _validate_checkpoint, _validate_git, _validate_object_schema, _validate_relations, _validate_stored_object_id, id_number, validate_object_id  # noqa: F401
-from intent_cli.store_paths import _safe_object_dir, _safe_object_path, _safe_storage_root, shared_root  # noqa: F401
+from intent_cli.store_paths import _safe_object_dir, _safe_object_path, _safe_storage_root, is_linked, shared_root  # noqa: F401
 from intent_cli.store_lock import _read_lock_owner, _write_lock_owner, workspace_write_lock  # noqa: F401
-from intent_cli.store_graph import validate_graph  # noqa: F401
+from intent_cli.store_graph import latest_snap_id, snaps_by_time, validate_graph  # noqa: F401
 from intent_cli import repo
 from intent_cli.store_location import _linked_worktree, ensure_local_git_exclude, git_root, intent_dir, project_root  # noqa: F401
 

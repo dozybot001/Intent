@@ -6,6 +6,7 @@ from apps.inthub_api.access import VISITOR, permission, role_level
 from apps.inthub_api.common import APIError, make_remote_object_id, split_remote_object_id
 from apps.inthub_api.db import connect
 from apps.inthub_api.history import _head
+from intent_cli.store_graph import latest_snap_id
 
 
 def _project_row(conn, project_id, account_id=None):
@@ -96,10 +97,10 @@ def _newest_first(project_id, snaps):
 def project_overview(db_path, project_id, account_id=None):
     project, head = _load_project(db_path, project_id, account_id)
     snapshot = _snapshot(head)
+    by_id = {obj["id"]: obj for obj in snapshot["snaps"]}
     intents = []
     for intent in snapshot["intents"]:
-        snap_ids = intent["snap_ids"]
-        intents.append({**_entry(project_id, intent), "latest_snap_id": snap_ids[-1] if snap_ids else None})
+        intents.append({**_entry(project_id, intent), "latest_snap_id": latest_snap_id(intent["snap_ids"], by_id)})
     decisions = [_entry(project_id, obj) for obj in snapshot["decisions"]]
     snaps = _newest_first(project_id, snapshot["snaps"])
     return {
@@ -168,7 +169,7 @@ def project_home(db_path, account_id=None):
         snaps = {snap["id"]: snap for snap in snapshot["snaps"]}
         active = [intent for intent in snapshot["intents"] if intent["status"] == "active"]
         project.update(active_intents=len(active), total_snaps=len(snaps),
-                       blocked_intents=sum(1 for intent in active if intent["snap_ids"] and _blocked(snaps.get(intent["snap_ids"][-1]))))
+                       blocked_intents=sum(1 for intent in active if intent["snap_ids"] and _blocked(snaps.get(latest_snap_id(intent["snap_ids"], snaps)))))
     return {"projects": projects}
 
 
@@ -180,7 +181,7 @@ def project_handoff(db_path, project_id, account_id=None):
     for intent in snapshot["intents"]:
         if intent["status"] not in {"active", "suspend"}:
             continue
-        latest = snaps.get(intent["snap_ids"][-1]) if intent["snap_ids"] else None
+        latest = snaps.get(latest_snap_id(intent["snap_ids"], snaps))
         intents.append({**_entry(project_id, intent), "latest_snap": latest, "synced_at": head["accepted_at"]})
     return {
         "project": _project_view(project),

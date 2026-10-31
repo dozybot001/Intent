@@ -22,14 +22,25 @@ def _relation_key(entry):
 
 
 def _merge_relations(ours, theirs):
-    """Every record from both sides, and a withdrawal on either side wins."""
-    merged = {}
-    for entry in (*(ours or []), *(theirs or [])):
-        key = _relation_key(entry)
-        known = merged.setdefault(key, dict(entry))
+    """Our records, then theirs. A withdrawal on either side wins. Order only grows, as a push requires."""
+    merged = {_relation_key(entry): dict(entry) for entry in ours or []}
+    for entry in theirs or []:
+        known = merged.setdefault(_relation_key(entry), dict(entry))
         if "removed_at" in entry:
             known["removed_at"] = min(known.get("removed_at", entry["removed_at"]), entry["removed_at"])
-    return sorted(merged.values(), key=lambda entry: (entry.get("created_at", ""), entry.get("intent", "")))
+    return list(merged.values())
+
+
+def _keep_reason_with_status(merged, ours, theirs, conflicts):
+    """A status conflict decides its reason too: resolve takes both from one side."""
+    status = next((item for item in conflicts if item["field"] == "status"), None)
+    if status is None:
+        return conflicts
+    status["reasons"] = {"ours": ours.get("reason"), "theirs": theirs.get("reason")}
+    merged.pop("reason", None)
+    if "reason" in ours:
+        merged["reason"] = ours["reason"]
+    return [item for item in conflicts if item["field"] != "reason"]
 
 
 def _merge_object(obj_id, ancestor, ours, theirs):
@@ -55,16 +66,7 @@ def _merge_object(obj_id, ancestor, ours, theirs):
         else:
             conflicts.append({"id": obj_id, "field": field, "ours": mine, "theirs": other,
                               "base": None if before is UNSET else before})
-    return merged, conflicts
-
-
-def _order_links(objects, merged_ids):
-    """Links from both sides read oldest first, whichever side recorded them."""
-    for obj_id in merged_ids:
-        for field in RELATION_FIELDS[_kind(obj_id)]:
-            links = objects[obj_id].get(field)
-            if links:
-                links.sort(key=lambda link: (objects.get(link, {}).get("created_at", ""), link))
+    return merged, _keep_reason_with_status(merged, ours, theirs, conflicts)
 
 
 def graph_conflicts(objects, ours, theirs):
@@ -81,7 +83,7 @@ def graph_conflicts(objects, ours, theirs):
 
 def merge_objects(ancestor, ours, theirs):
     """Three-way merge of {id: object} maps. Returns (merged, conflicts)."""
-    merged, combined, conflicts = {}, [], []
+    merged, conflicts = {}, []
     for obj_id in sorted({*ours, *theirs}):
         mine, other, before = ours.get(obj_id), theirs.get(obj_id), ancestor.get(obj_id)
         if mine == other or other is None or other == before:
@@ -90,9 +92,7 @@ def merge_objects(ancestor, ours, theirs):
             merged[obj_id] = other
         else:
             merged[obj_id], found = _merge_object(obj_id, before, mine, other)
-            combined.append(obj_id)
             conflicts += found
-    _order_links(merged, combined)
     known = {(item["id"], item["field"]) for item in conflicts}
     conflicts += [item for item in graph_conflicts(merged, ours, theirs) if (item["id"], item["field"]) not in known]
     return merged, conflicts

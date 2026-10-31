@@ -1,16 +1,23 @@
 """Branches and switching between them, like `git branch` and `git switch`."""
 
-from intent_cli import repo
-from intent_cli.commands.common import require_init, require_repository
+from intent_cli import repo, repo_checkout
+from intent_cli.commands.common import require_init, require_no_merge, require_repository
 from intent_cli.output import error, success
 from intent_cli.store import workspace_write_lock
 
 
-def _require_new(base, name):
+def _require_valid(name):
     if not repo.valid_branch_name(name):
         error("INVALID_INPUT", f"{name!r} is not a valid branch name.")
-    if repo.branch_revision(base, name):
+
+
+def _require_new(base, name):
+    _require_valid(name)
+    if repo.branch_revision(base, name) or name in repo_checkout.branches_in_use(base):
         error("BRANCH_EXISTS", f"Branch {name} already exists.", suggested_fix=f"itt switch {name}")
+    blocker = repo.branch_conflict(base, name)
+    if blocker:
+        error("BRANCH_EXISTS", f"Branch {blocker} already exists, so {name} cannot.")
 
 
 def _start_point(base, start):
@@ -21,9 +28,10 @@ def _start_point(base, start):
 
 
 def _delete(base, name, force):
+    _require_valid(name)
     if repo.branch_revision(base, name) is None:
         error("BRANCH_NOT_FOUND", f"Branch {name} does not exist.")
-    used = repo.branches_in_use(base)
+    used = repo_checkout.branches_in_use(base)
     if name in used:
         error("BRANCH_IN_USE", f"Branch {name} is open in {used[name]}.")
     reachable = {digest for digest, _revision in repo.walk(base)}
@@ -44,10 +52,10 @@ def cmd_branch(args):
         elif args.name:
             _require_new(base, args.name)
             start = _start_point(base, args.start)
-            repo._set_branch(base, args.name, start)
+            repo.set_branch(base, args.name, start)
             success("branch", {"created": args.name, "revision": start})
         else:
-            current, used = repo.current_branch(base), repo.branches_in_use(base)
+            current, used = repo.current_branch(base), repo_checkout.branches_in_use(base)
             names = sorted({*repo.list_branches(base), current})
             success("branch", {"current": current, "branches": [
                 {"name": name, "revision": repo.branch_revision(base, name), "current": name == current,
@@ -59,18 +67,19 @@ def cmd_switch(args):
     base = require_init()
     require_repository(base)
     with workspace_write_lock(base, operation="switch"):
+        require_no_merge(base)
+        _require_valid(args.branch)
         if args.create:
             _require_new(base, args.branch)
-            head = repo.head_revision(base)
-            if head:
-                repo._set_branch(base, args.branch, head)
-        elif repo.branch_revision(base, args.branch) is None:
+        elif repo.branch_revision(base, args.branch) is None and args.branch != repo.current_branch(base):
             error("BRANCH_NOT_FOUND", f"Branch {args.branch} does not exist.", suggested_fix=f"itt switch -c {args.branch}")
-        used = repo.branches_in_use(base)
+        used = repo_checkout.branches_in_use(base)
         if args.branch != repo.current_branch(base) and args.branch in used:
             error("BRANCH_IN_USE", f"Branch {args.branch} is open in {used[args.branch]}.")
         if repo.uncommitted(base) and not args.force:
             error("UNCOMMITTED_CHANGES", "The working copy has changes no revision holds.",
                   suggested_fix="Run a write to record them, or pass --force to discard them.")
-        repo.switch(base, args.branch)
+        if args.create and repo.head_revision(base):
+            repo.set_branch(base, args.branch, repo.head_revision(base))
+        repo_checkout.switch(base, args.branch)
         success("switch", {"branch": args.branch, "head": repo.head_revision(base)})

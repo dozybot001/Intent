@@ -40,7 +40,7 @@ def _make_legacy(project):
     """Reduce a repository to what Intent 7 leaves on disk."""
     base = project / ".intent"
     (base / repo.HEAD_FILE).unlink()
-    for name in (repo.OBJECTS, repo.REVISIONS, repo.REFS):
+    for name in (repo.OBJECTS, repo.TREES, repo.REVISIONS, repo.REFS):
         shutil.rmtree(base / name)
 
 
@@ -144,7 +144,7 @@ def test_doctor_finds_a_damaged_revision_or_object_version(project):
     _record(project)
     base = project / ".intent"
     head = repo.head_revision(base)
-    version = next(iter(repo.read_revision(base, head)["tree"].values()))
+    version = next(iter(repo.tree_at(base, head).values()))
     repo._content_path(base, repo.OBJECTS, version).write_text("{}")
     report = _run(project, "doctor")["result"]
     assert report["healthy"] is False and report["issues"][0]["code"] == "OBJECT_VERSION_CORRUPT"

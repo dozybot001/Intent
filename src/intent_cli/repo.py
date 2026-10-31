@@ -3,36 +3,36 @@
 intents/, snaps/ and decisions/ stay the plain JSON working copy. Every command that
 writes ends in commit_worktree, Intent's `git commit -a`, so there is no staging step
 and each revision records the whole state after one command.
+
+A revision names a tree, as a Git commit does, so walking history reads only small
+files and revisions share every part of the tree that did not change. Everything read
+back is checked: content must match the digest that named it.
 """
 
 import hashlib
+import heapq
 import json
-import os
 import re
-import tarfile
-import tempfile
 from datetime import datetime, timezone
-from pathlib import Path
 
 from intent_cli import identity
 from intent_cli.hub.changes import COLLECTIONS
 from intent_cli.origin import detect_origin
-from intent_cli.store_errors import StoredObjectIntegrityError, UnsafeStoragePathError
-from intent_cli.store_paths import WORKTREES, _safe_object_dir, _safe_storage_root, shared_root
+from intent_cli.repo_refs import (  # noqa: F401
+    DEFAULT_BRANCH, DIGEST, HEAD_FILE, REFS, branch_conflict, branch_revision, contained, current_branch,
+    delete_branch, head_revision, list_branches, replace_file, set_branch, set_head, storage_root, valid_branch_name,
+)
+from intent_cli.store_errors import StoredObjectIntegrityError
+from intent_cli.store_paths import _safe_object_dir, shared_root
 from intent_cli.store_schema import OBJECT_ID_PATTERNS, SUBDIRS
 
-DEFAULT_BRANCH = "main"
-HEAD_FILE = "HEAD"
 OBJECTS = "objects"
+TREES = "trees"
 REVISIONS = "revisions"
-REFS = "refs"
-BACKUPS = "backups"
-MERGE_STATE = "MERGE_STATE.json"
+TREE_DEPTH = 2
 SUMMARY_MAX_CHARS = 160
-DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 ABBREVIATION = re.compile(r"[0-9a-f]{4,64}\Z")
-BRANCH = re.compile(r"[\w-][\w.-]*(?:/[\w-][\w.-]*)*\Z")
-HEAD_RELATIVE = re.compile(r"(HEAD|[\w./-]+?)((?:~[0-9]*|\^)*)\Z")
+REVISION_NAME = re.compile(r"(.+?)((?:~[0-9]*|\^)*)\Z")
 
 
 class UnknownRevisionError(ValueError):
@@ -48,116 +48,108 @@ def _canonical(data):
 
 
 def _content_path(base, directory, digest):
-    return shared_root(base) / directory / digest[:2] / f"{digest[2:]}.json"
+    if not isinstance(digest, str) or DIGEST.fullmatch(digest) is None:
+        raise StoredObjectIntegrityError(storage_root(base) / directory, f"{digest!r} is not a digest")
+    return contained(storage_root(base), directory, digest[:2], f"{digest[2:]}.json")
 
 
-def _safe_directory(base, name):
-    """A shared part of the repository. HEAD is the one piece each worktree keeps for itself."""
-    base, _resolved = _safe_storage_root(base if name == HEAD_FILE else shared_root(base))
-    path = base / name
-    if path.is_symlink():
-        raise UnsafeStoragePathError(path, f"{name} must not be a symlink")
-    return path
-
-
-def _replace(path, raw):
-    descriptor, temporary = tempfile.mkstemp(dir=str(path.parent), prefix=".", suffix=".tmp")
+def _read_content(base, directory, digest):
+    """Bytes stored under a digest, checked against it."""
+    path = _content_path(base, directory, digest)
     try:
-        with os.fdopen(descriptor, "wb") as handle:
-            handle.write(raw)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary, path)
-    finally:
-        Path(temporary).unlink(missing_ok=True)
+        raw = path.read_bytes()
+    except OSError as exc:
+        raise StoredObjectIntegrityError(path, "stored content is missing") from exc
+    if _digest(raw) != digest:
+        raise StoredObjectIntegrityError(path, "stored content does not match its digest")
+    return raw
 
 
 def _install(path, raw):
     """Add a file named by its own digest. Its content can never change, so an existing one stands."""
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
-        _replace(path, raw)
+        replace_file(path, raw)
+
+
+def _store(base, directory, data):
+    raw = _canonical(data)
+    digest = _digest(raw)
+    _install(_content_path(base, directory, digest), raw)
+    return digest
 
 
 def is_repository(base):
-    return (Path(base) / HEAD_FILE).is_file()
+    return (shared_root(base) / HEAD_FILE).is_file()
 
 
 def create_repository(base):
     """Lay out an empty repository: HEAD names a branch that has no revision yet, as in Git."""
-    for name in (OBJECTS, REVISIONS, f"{REFS}/heads"):
-        (Path(base) / name).mkdir(parents=True, exist_ok=True)
-    _set_head(base, DEFAULT_BRANCH)
+    root = storage_root(base)
+    for name in (OBJECTS, TREES, REVISIONS, f"{REFS}/heads"):
+        (root / name).mkdir(parents=True, exist_ok=True)
+    set_head(base, DEFAULT_BRANCH)
 
 
-def current_branch(base):
-    """The branch HEAD names."""
-    text = _safe_directory(base, HEAD_FILE).read_text(encoding="ascii").strip()
-    return text.removeprefix(f"ref: {REFS}/heads/")
+def _is_object_id(obj_id):
+    pattern = OBJECT_ID_PATTERNS.get(obj_id.split("-", 1)[0]) if isinstance(obj_id, str) else None
+    return pattern is not None and pattern.fullmatch(obj_id) is not None
 
 
-def _set_head(base, branch):
-    _replace(_safe_directory(base, HEAD_FILE), f"ref: {REFS}/heads/{branch}\n".encode("ascii"))
-
-
-def valid_branch_name(name):
-    return bool(BRANCH.fullmatch(name or "")) and ".." not in name and name != "HEAD" and not name.endswith(".lock")
-
-
-def _branch_path(base, branch):
-    return _safe_directory(base, REFS) / "heads" / branch
-
-
-def branch_revision(base, branch):
-    path = _branch_path(base, branch)
-    return path.read_text(encoding="ascii").strip() if path.is_file() else None
-
-
-def _set_branch(base, branch, revision):
-    ref = _branch_path(base, branch)
-    ref.parent.mkdir(parents=True, exist_ok=True)
-    _replace(ref, f"{revision}\n".encode("ascii"))
-
-
-def list_branches(base):
-    heads = _safe_directory(base, REFS) / "heads"
-    return sorted(path.relative_to(heads).as_posix() for path in heads.rglob("*") if path.is_file())
-
-
-def delete_branch(base, branch):
-    _branch_path(base, branch).unlink()
-
-
-def _worktree_heads(base):
-    """Each linked worktree's private directory, leaving out worktrees Git has since removed."""
-    root = shared_root(base) / WORKTREES
-    known = shared_root(base).parent / ".git" / WORKTREES
-    if not root.is_dir():
-        return []
-    return [path for path in sorted(root.iterdir()) if (known / path.name).exists() and (path / HEAD_FILE).is_file()]
-
-
-def branches_in_use(base):
-    """Branch by the place that has it open. Like Git, one branch sits in one place at a time."""
-    used = {current_branch(shared_root(base)): "main worktree"}
-    used.update({current_branch(path): path.name for path in _worktree_heads(base)})
-    return used
-
-
-def head_revision(base):
-    """The revision HEAD points at, or None on a branch with no revision yet."""
-    return branch_revision(base, current_branch(base))
+def _json(raw, path):
+    try:
+        return json.loads(raw)
+    except ValueError as exc:
+        raise StoredObjectIntegrityError(path, "stored content is not JSON") from exc
 
 
 def read_revision(base, revision):
-    path = _content_path(base, REVISIONS, revision)
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        raise StoredObjectIntegrityError(path, "revision is missing or unreadable") from exc
+    data = _json(_read_content(base, REVISIONS, revision), _content_path(base, REVISIONS, revision))
+    parents = data.get("parents") if isinstance(data, dict) else None
+    tree = data.get("tree") if isinstance(data, dict) else None
+    if (not isinstance(parents, list) or not isinstance(tree, str) or DIGEST.fullmatch(tree) is None
+            or not all(isinstance(item, str) and DIGEST.fullmatch(item) for item in parents)):
+        raise StoredObjectIntegrityError(_content_path(base, REVISIONS, revision), "revision has an invalid shape")
+    return data
 
 
-def _working_copy(base):
+def _write_tree(base, entries, depth=0):
+    """Store {id: version digest} as TREE_DEPTH levels of buckets. One changed object rewrites only its path."""
+    if depth == TREE_DEPTH:
+        return _store(base, TREES, entries)
+    buckets = {}
+    for obj_id, version in entries.items():
+        buckets.setdefault(_digest(obj_id.encode("utf-8"))[depth], {})[obj_id] = version
+    return _store(base, TREES, {key: _write_tree(base, bucket, depth + 1) for key, bucket in buckets.items()})
+
+
+def _tree_node(base, digest, depth):
+    path = _content_path(base, TREES, digest)
+    node = _json(_read_content(base, TREES, digest), path)
+    if (not isinstance(node, dict) or not all(isinstance(item, str) and DIGEST.fullmatch(item) for item in node.values())
+            or (depth == TREE_DEPTH and not all(_is_object_id(obj_id) for obj_id in node))):
+        raise StoredObjectIntegrityError(path, "tree has an invalid shape")
+    return node
+
+
+def _read_tree(base, digest, depth=0):
+    node = _tree_node(base, digest, depth)
+    if depth == TREE_DEPTH:
+        return node
+    return {obj_id: version for child in node.values() for obj_id, version in _read_tree(base, child, depth + 1).items()}
+
+
+def tree_at(base, revision):
+    """{id: version digest} as they stood at a revision."""
+    return _read_tree(base, read_revision(base, revision)["tree"]) if revision else {}
+
+
+def read_version(base, digest):
+    """One object version's bytes."""
+    return _read_content(base, OBJECTS, digest)
+
+
+def working_copy(base):
     """Every object file's bytes by ID. Bytes, not parsed JSON, so one damaged file cannot stop a write."""
     files = {}
     for object_type in SUBDIRS:
@@ -167,6 +159,23 @@ def _working_copy(base):
                     and OBJECT_ID_PATTERNS[object_type].fullmatch(entry.stem)):
                 files[entry.stem] = entry.read_bytes()
     return files
+
+
+def _parsed(files):
+    """Objects from stored bytes. A file that is no object (itt migrate --force keeps them) counts as absent."""
+    objects = {}
+    for obj_id, raw in files.items():
+        try:
+            obj = json.loads(raw)
+        except ValueError:
+            continue
+        if isinstance(obj, dict) and obj.get("id") == obj_id:
+            objects[obj_id] = obj
+    return objects
+
+
+def working_objects(base):
+    return _parsed(working_copy(base))
 
 
 def _tree_changes(before, after):
@@ -189,80 +198,49 @@ def _summary(operation, changes, files):
     return text[:SUMMARY_MAX_CHARS]
 
 
-def _commit(base, branch, parents, tree, summary, changes):
-    revision = {
-        "parents": parents, "tree": tree, "author": identity.author(), "origin": detect_origin(),
-        "time": datetime.now(timezone.utc).isoformat(), "summary": summary, "changes": changes,
-    }
-    raw = _canonical(revision)
-    digest = _digest(raw)
-    _safe_directory(base, REVISIONS)
-    _install(_content_path(base, REVISIONS, digest), raw)
-    _set_branch(base, branch, digest)
-    return digest
+def save_worktree(base):
+    """Store the working copy's content without a revision, like a stash, and return its tree."""
+    files = working_copy(base)
+    for raw in files.values():
+        _install(_content_path(base, OBJECTS, _digest(raw)), raw)
+    return _write_tree(base, {obj_id: _digest(raw) for obj_id, raw in files.items()})
+
+
+def read_saved(base, tree):
+    """Bytes of every object in a saved tree."""
+    return {obj_id: read_version(base, digest) for obj_id, digest in _read_tree(base, tree).items()}
 
 
 def commit_worktree(base, operation, summary=None, merge_parent=None):
     """Record the working copy as a revision on the current branch. No change, no revision, unless it ends a merge."""
-    files = _working_copy(base)
+    files = working_copy(base)
     tree = {obj_id: _digest(raw) for obj_id, raw in files.items()}
     head = head_revision(base)
-    before = read_revision(base, head)["tree"] if head else {}
+    before = tree_at(base, head)
     changes = _tree_changes(before, tree)
     if not changes and merge_parent is None:
         return None
-    _safe_directory(base, OBJECTS)
     for obj_id, digest in tree.items():
         if before.get(obj_id) != digest:
             _install(_content_path(base, OBJECTS, digest), files[obj_id])
-    parents = [*([head] if head else []), *([merge_parent] if merge_parent else [])]
-    return _commit(base, current_branch(base), parents, tree, summary or _summary(operation, changes, files), changes)
+    digest = _store(base, REVISIONS, {
+        "parents": [*([head] if head else []), *([merge_parent] if merge_parent else [])],
+        "tree": _write_tree(base, tree), "author": identity.author(), "origin": detect_origin(),
+        "time": datetime.now(timezone.utc).isoformat(), "summary": summary or _summary(operation, changes, files),
+        "changes": changes,
+    })
+    set_branch(base, current_branch(base), digest)
+    return digest
 
 
 def uncommitted(base):
     """Changes in the working copy since HEAD: something wrote without recording, or was interrupted."""
-    head = head_revision(base)
-    before = read_revision(base, head)["tree"] if head else {}
-    return _tree_changes(before, {obj_id: _digest(raw) for obj_id, raw in _working_copy(base).items()})
-
-
-def checkout(base, revision):
-    """Make the working copy match a revision: rewrite what differs, remove what it lacks."""
-    tree = read_revision(base, revision)["tree"] if revision else {}
-    present = _working_copy(base)
-    for obj_id in present.keys() - tree.keys():
-        (_safe_object_dir(base, obj_id.split("-", 1)[0])[0] / f"{obj_id}.json").unlink()
-    for obj_id, digest in tree.items():
-        if obj_id not in present or _digest(present[obj_id]) != digest:
-            path = _safe_object_dir(base, obj_id.split("-", 1)[0])[0] / f"{obj_id}.json"
-            _replace(path, _content_path(base, OBJECTS, digest).read_bytes())
-
-
-def switch(base, branch):
-    """Move this worktree to a branch, working copy first so an interruption shows as uncommitted."""
-    checkout(base, branch_revision(base, branch))
-    _set_head(base, branch)
-
-
-def attach_worktree(main, name, git_branch):
-    """A linked Git worktree's private HEAD and working copy, made the first time it is used."""
-    private = Path(main) / WORKTREES / name
-    if (private / HEAD_FILE).is_file():
-        return private
-    for sub in SUBDIRS.values():
-        (private / sub).mkdir(parents=True, exist_ok=True)
-    used = branches_in_use(main)
-    wanted = git_branch if valid_branch_name(git_branch) else name
-    branch = wanted if wanted not in used else f"{wanted}-{name}"
-    if branch_revision(main, branch) is None and head_revision(main):
-        _set_branch(main, branch, head_revision(main))
-    switch(private, branch)
-    return private
+    return _tree_changes(tree_at(base, head_revision(base)), {obj_id: _digest(raw) for obj_id, raw in working_copy(base).items()})
 
 
 def _all_revisions(base):
-    root = _safe_directory(base, REVISIONS)
-    return sorted(f"{folder.name}{entry.stem}" for folder in root.iterdir() if folder.is_dir()
+    root = contained(storage_root(base), REVISIONS)
+    return sorted(f"{folder.name}{entry.stem}" for folder in root.iterdir() if folder.is_dir() and not folder.is_symlink()
                   for entry in folder.glob("*.json"))
 
 
@@ -272,6 +250,10 @@ def _named_revision(base, name):
         if revision is None:
             raise UnknownRevisionError("This repository has no revisions yet.")
         return revision
+    if DIGEST.fullmatch(name):
+        if _content_path(base, REVISIONS, name).is_file():
+            return name
+        raise UnknownRevisionError(f"Unknown revision {name!r}.")
     if valid_branch_name(name) and branch_revision(base, name):
         return branch_revision(base, name)
     if ABBREVIATION.fullmatch(name):
@@ -285,7 +267,7 @@ def _named_revision(base, name):
 
 def resolve_revision(base, spec):
     """Turn HEAD, HEAD~2, HEAD^, a branch name, or a unique digest prefix into a full digest."""
-    match = HEAD_RELATIVE.fullmatch(spec or "")
+    match = REVISION_NAME.fullmatch(spec or "")
     if match is None:
         raise UnknownRevisionError(f"Unknown revision {spec!r}.")
     revision = _named_revision(base, match.group(1))
@@ -298,119 +280,113 @@ def resolve_revision(base, spec):
     return revision
 
 
-def walk(base, start=None):
-    """Revisions reachable from start, newest first, as (digest, revision)."""
-    pending = [start or head_revision(base)] if (start or head_revision(base)) else []
-    seen = {}
+def _timestamp(revision):
+    try:
+        return datetime.fromisoformat(revision["time"]).timestamp()
+    except (KeyError, TypeError, ValueError):
+        return 0.0
+
+
+def _reachable(base, start):
+    revisions, pending = {}, [start] if start else []
     while pending:
         digest = pending.pop()
-        if digest not in seen:
-            seen[digest] = read_revision(base, digest)
-            pending.extend(seen[digest]["parents"])
-    return sorted(seen.items(), key=lambda item: (item[1]["time"], item[0]), reverse=True)
+        if digest not in revisions:
+            revisions[digest] = read_revision(base, digest)
+            pending.extend(revisions[digest]["parents"])
+    return revisions
 
 
-def _ancestors(base, revision):
-    return {digest for digest, _data in walk(base, revision)}
+def walk(base, start=None):
+    """Revisions reachable from start as (digest, revision): children first, then newest first."""
+    revisions = _reachable(base, start or head_revision(base))
+    waiting = dict.fromkeys(revisions, 0)
+    for revision in revisions.values():
+        for parent in set(revision["parents"]):
+            waiting[parent] += 1
+    entry = lambda digest: (-_timestamp(revisions[digest]), digest)
+    ready = [entry(digest) for digest, count in waiting.items() if count == 0]
+    heapq.heapify(ready)
+    ordered = []
+    while ready:
+        _when, digest = heapq.heappop(ready)
+        ordered.append((digest, revisions[digest]))
+        for parent in set(revisions[digest]["parents"]):
+            waiting[parent] -= 1
+            if waiting[parent] == 0:
+                heapq.heappush(ready, entry(parent))
+    return ordered
 
 
 def is_ancestor(base, older, newer):
-    return older in _ancestors(base, newer)
+    return older in _reachable(base, newer)
 
 
 def merge_base(base, one, other):
-    """The newest revision both sides descend from, or None if they share no history."""
-    shared = _ancestors(base, one) & _ancestors(base, other)
-    return next((digest for digest, _data in walk(base, one) if digest in shared), None)
-
-
-def fast_forward(base, revision):
-    """Move the current branch up to a revision it is behind, the working copy with it."""
-    checkout(base, revision)
-    _set_branch(base, current_branch(base), revision)
+    """The newest best common ancestor: shared by both, and no parent of another shared revision."""
+    mine, theirs = _reachable(base, one), _reachable(base, other)
+    shared = mine.keys() & theirs.keys()
+    behind = {parent for digest in shared for parent in mine[digest]["parents"]}
+    return max(shared - behind, key=lambda digest: (_timestamp(mine[digest]), digest), default=None)
 
 
 def objects_at(base, revision):
     """{id: object} as they stood at a revision."""
-    tree = read_revision(base, revision)["tree"] if revision else {}
-    return {obj_id: json.loads(_content_path(base, OBJECTS, digest).read_text(encoding="utf-8"))
-            for obj_id, digest in tree.items()}
-
-
-def working_objects(base):
-    return {obj_id: json.loads(raw) for obj_id, raw in _working_copy(base).items()}
-
-
-def write_objects(base, objects):
-    """Write merged objects into the working copy, in the store's own JSON layout."""
-    for obj_id, obj in objects.items():
-        path = _safe_object_dir(base, obj_id.split("-", 1)[0])[0] / f"{obj_id}.json"
-        _replace(path, json.dumps(obj, indent=2, ensure_ascii=False).encode("utf-8"))
-
-
-def read_merge_state(base):
-    path = Path(base) / MERGE_STATE
-    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
-
-
-def write_merge_state(base, state):
-    _replace(Path(base) / MERGE_STATE, json.dumps(state, indent=2, ensure_ascii=False).encode("utf-8"))
-
-
-def clear_merge_state(base):
-    (Path(base) / MERGE_STATE).unlink(missing_ok=True)
+    return _parsed({obj_id: read_version(base, digest) for obj_id, digest in tree_at(base, revision).items()})
 
 
 def snapshot_at(base, revision):
     """The objects as they stood at a revision, in the shape semantic_changes compares."""
     snapshot = {collection: [] for collection in COLLECTIONS}
-    tree = read_revision(base, revision)["tree"] if revision else {}
-    for obj_id, digest in sorted(tree.items()):
-        data = json.loads(_content_path(base, OBJECTS, digest).read_text(encoding="utf-8"))
-        snapshot[SUBDIRS[obj_id.split("-", 1)[0]]].append(data)
+    for obj_id, obj in sorted(objects_at(base, revision).items()):
+        snapshot[SUBDIRS[obj_id.split("-", 1)[0]]].append(obj)
     return snapshot
 
 
 def verify(base):
-    """Check every reachable revision and object version against its digest."""
+    """Check every revision, tree and object version reachable from any branch against its digest."""
     issues = []
     checked = set()
 
-    def check(kind, path, expected):
-        if not path.is_file():
-            issues.append({"code": f"{kind}_MISSING", "id": expected, "message": f"{path} is missing"})
-            return False
-        if _digest(path.read_bytes()) != expected:
-            issues.append({"code": f"{kind}_CORRUPT", "id": expected, "message": f"{path} does not match its digest"})
-            return False
-        return True
+    def problem(kind, digest, exc):
+        state = "MISSING" if not exc.path.exists() else "CORRUPT"
+        issues.append({"code": f"{kind}_{state}", "id": digest, "message": str(exc)})
 
-    pending = [head_revision(base)] if head_revision(base) else []
+    def check_tree(digest, depth=0):
+        if digest in checked:
+            return
+        checked.add(digest)
+        try:
+            node = _tree_node(base, digest, depth)
+        except StoredObjectIntegrityError as exc:
+            problem("TREE", digest, exc)
+            return
+        for child in node.values():
+            if depth < TREE_DEPTH:
+                check_tree(child, depth + 1)
+            elif child not in checked:
+                checked.add(child)
+                try:
+                    read_version(base, child)
+                except StoredObjectIntegrityError as exc:
+                    problem("OBJECT_VERSION", child, exc)
+
+    pending = []
+    for name in list_branches(base):
+        try:
+            pending.append(branch_revision(base, name))
+        except StoredObjectIntegrityError as exc:
+            problem("BRANCH", name, exc)
     while pending:
         digest = pending.pop()
         if digest in checked:
             continue
         checked.add(digest)
-        if not check("REVISION", _content_path(base, REVISIONS, digest), digest):
+        try:
+            revision = read_revision(base, digest)
+        except StoredObjectIntegrityError as exc:
+            problem("REVISION", digest, exc)
             continue
-        revision = read_revision(base, digest)
         pending.extend(revision["parents"])
-        for version in revision["tree"].values():
-            if version not in checked:
-                checked.add(version)
-                check("OBJECT_VERSION", _content_path(base, OBJECTS, version), version)
+        check_tree(revision["tree"])
     return issues
-
-
-def migrate(base):
-    """Turn a 7.x workspace into a repository, its objects forming the first revision."""
-    backups = _safe_directory(base, BACKUPS)
-    backups.mkdir(exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    backup = backups / f"intent-7-{stamp}.tar.gz"
-    with tarfile.open(backup, "w:gz") as archive:
-        for name in (*SUBDIRS.values(), "hub.json", "maintenance.json"):
-            if (Path(base) / name).exists():
-                archive.add(Path(base) / name, arcname=name)
-    create_repository(base)
-    return commit_worktree(base, "migrate", summary="Migrated from Intent 7"), backup

@@ -9,7 +9,9 @@ from intent_cli.store import (
     ensure_local_git_exclude,
     git_root,
     init_workspace,
+    latest_snap_id,
     load_graph_once,
+    snaps_by_time,
     validate_graph,
     validate_object_id,
     workspace_write_lock,
@@ -98,8 +100,8 @@ def cmd_inspect(args):
     suspended = []
     for obj in intents:
         snap_ids = obj.get("snap_ids") or []
-        latest_snap_id = snap_ids[-1] if snap_ids else None
-        latest_snap = snap_by_id.get(latest_snap_id) if latest_snap_id else None
+        newest_id = latest_snap_id(snap_ids, snap_by_id)
+        latest_snap = snap_by_id.get(newest_id) if newest_id else None
         entry = {
             "id": obj["id"],
             "what": obj["what"],
@@ -113,12 +115,12 @@ def cmd_inspect(args):
         if args.history is not None:
             entry["recent_snaps"] = [
                 snap_by_id.get(snap_id)
-                for snap_id in snap_ids[-history_limit:]
+                for snap_id in snaps_by_time(snap_ids, snap_by_id)[-history_limit:]
             ]
         if obj["status"] == "active":
             active_intents.append(entry)
         elif obj["status"] == "suspend":
-            entry["latest_snap_id"] = latest_snap_id
+            entry["latest_snap_id"] = newest_id
             suspended.append(entry)
 
     active_decisions = []

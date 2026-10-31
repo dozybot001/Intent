@@ -254,7 +254,7 @@ def _context(base, key, entry, graph, limit=MAX_CONTEXT_BYTES):
             item["what"], item["why"] = item["what"][:800], item["why"][:800]
             if kind == "intent":
                 ids = obj["snap_ids"]
-                snap = graph["snap"].get(ids[-1]) if ids else None
+                snap = graph["snap"].get(store.latest_snap_id(ids, graph["snap"])) if ids else None
                 if snap and any(len(snap.get(name, "")) > 1400 for name in ("what", "why")):
                     records["context_truncated"] = True
                 item["latest_snap"] = {name: snap.get(name, "")[:1400] for name in ("id", "what", "why")} if snap else None

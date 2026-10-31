@@ -4,6 +4,22 @@ from intent_cli import relations as relation_rules
 from intent_cli.store_schema import VALID_STATUSES
 
 
+def snaps_by_time(snap_ids, snaps):
+    """Linked Snap IDs, oldest first. A merge appends the other side's Snaps, so list order is not time order.
+
+    A missing Snap stays beside the one listed before it.
+    """
+    times, latest = {}, ""
+    for snap_id in snap_ids:
+        latest = snaps.get(snap_id, {}).get("created_at", latest)
+        times[snap_id] = latest
+    return sorted(snap_ids, key=times.__getitem__)
+
+
+def latest_snap_id(snap_ids, snaps):
+    return snaps_by_time(snap_ids, snaps)[-1] if snap_ids else None
+
+
 def validate_graph(graph):
     """Validate one in-memory graph without reading storage again."""
     intents = graph["intent"]

@@ -2,13 +2,13 @@
 
 中文 | [English](../EN/semantic-git.md)
 
-状态：方向已确定（2026-10-30），实现中。目标版本：Intent 8.0。
+状态：第 1 到 3 阶段已随 Intent 8.0 发布，第 4 阶段未开始。
 
 ## 目标
 
 让 `itt` 在语义历史上的行为与 Git 一致。熟悉 Git 的开发者应当能预判 Intent 如何处理并行工作、多台机器、worktree 和分叉，因为它的处理方式就是 Git 的方式。
 
-目前（7.x）还做不到：
+7.x 做不到这些，也是 Intent 8 要解决的问题：
 
 - 对象 ID 是每份副本各自递增的计数（`snap-003`），两份副本并行记录会产生相同 ID。
 - 每个项目只有一条线性历史。push 和 pull 只做快进；分叉后 `itt status` 报告 `diverged`，没有合并手段。
@@ -39,13 +39,14 @@ Git 要求人先暂存再提交。Intent 的写入者大多是正在做其他事
 | `git status` | 当前分支、上游、领先/落后数量 |
 | 远端、`fetch`、`pull`、`push`、`clone` | `itt remote`、`itt fetch` 到 `refs/remotes/origin/*`、`itt pull` = fetch + merge、`itt push`（落后时被拒绝，与 Git 相同）、`itt clone URL --project NAME` |
 | 三方合并 | **语义三方合并**，以合并基准为准（见下文） |
-| worktree | 通过 `git rev-parse --git-common-dir` 定位仓库，所有 worktree 共享一个语义仓库，各自有自己的 `HEAD` |
+| worktree | 通过 `git rev-parse --git-common-dir` 定位仓库，所有 worktree 共享一个语义仓库，各自有自己的 `HEAD`，push 和 pull 在主 worktree 执行。bare 仓库和 `--separate-git-dir` 找不到主 worktree，这时各 worktree 各用自己的 `.intent/` |
 | tag | `itt tag` 标记里程碑（后续） |
 
 ## 存储（仓库格式 2）
 
 ```text
 .intent/
+  trees/ab/cdef….json          {id: version}，分两层桶存放，修订之间共享未变的部分
   objects/ab/cdef….json        不可变的对象版本，按哈希寻址
   revisions/ab/cdef….json      {parents, tree, author, origin, time, summary, changes}
   refs/heads/main
@@ -54,7 +55,7 @@ Git 要求人先暂存再提交。Intent 的写入者大多是正在做其他事
   config.json                  远端、上游、维护开关
 ```
 
-`intents/`、`snaps/`、`decisions/` 继续作为可读的工作副本，就像 Git 的工作区：每次写入先改工作副本，再把它记录成一个修订，所以中断时最多留下一次尚未记录的改动，下一次写入会补上。
+`intents/`、`snaps/`、`decisions/` 继续作为可读的工作副本，就像 Git 的工作区：每次写入先改工作副本，再把它记录成一个修订，所以中断时最多留下一次尚未记录的改动，下一次写入会补上。命令被拒绝或中途被杀时都会撤销（被杀时由下一条命令完成），所以修订不会只记录半条命令。
 
 对象在创建时获得稳定身份。修改 Intent 状态会写入同一 ID 的新版本，就像在 Git 中修改文件。关系列表（`snap_ids`、`decision_ids`、`intent_ids`）以及 Intent `relations` 中的记录都变为只增集合。
 
@@ -62,7 +63,7 @@ Git 要求人先暂存再提交。Intent 的写入者大多是正在做其他事
 
 Snap 只追加，新 ID 不会冲突，所以大多数合并就是并集。对于合并基准之后两边都改过的对象：
 
-- 只增的关系集合：取并集，按 `created_at` 排序；
+- 只增的关系集合：取并集，我方在前、对方在后。位置没有含义：最新 Snap 按 `created_at` 选取，hub 也按集合比较这些列表；
 - `status`：两边相同，或只有一边改动，可以直接合并；两边改成不同的新状态（例如 `done` 与 `cancelled`）才是冲突；
 - `reason` 与一次性写入的描述字段：只有两边设置得不一样时才冲突；
 - Intent 的 `relations`：记录取并集，撤回优先；合并后若某个 Intent 出现两个上级或形成环，则视为冲突。
@@ -95,7 +96,7 @@ push 与 fetch 像 Git 协商 pack 一样协商缺失的修订和对象版本。
 
 ## 分阶段实施
 
-第 1 到 3 阶段已在 `main` 实现，尚未发布；第 4 阶段未开始。
+第 1 到 3 阶段已随 Intent 8.0 发布；第 4 阶段未开始，在此之前 push 和 pull 只在 `main` 上工作。
 
 1. 仓库格式 2：对象、修订、refs、自动修订、新对象哈希 ID，`itt log`、`show`、`diff` 与 `itt migrate`。
 2. 分支与 worktree：`itt branch`、`itt switch` 与 Git worktree 识别。

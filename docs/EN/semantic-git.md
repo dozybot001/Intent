@@ -2,7 +2,7 @@
 
 [中文](../CN/semantic-git.md) | English
 
-Status: direction accepted (2026-10-30), implementation in progress. Target: Intent 8.0.
+Status: phases 1 to 3 shipped in Intent 8.0; phase 4 has not started.
 
 ## Goal
 
@@ -39,7 +39,7 @@ Git asks people to stage and commit. Intent's writers are mostly agents in the m
 | `git status` | branch, upstream, ahead/behind counts |
 | remotes, `fetch`, `pull`, `push`, `clone` | `itt remote`, `itt fetch` into `refs/remotes/origin/*`, `itt pull` = fetch + merge, `itt push` (rejected when behind, as in Git), `itt clone URL --project NAME` |
 | three-way merge | **semantic three-way merge** against the merge base (below) |
-| worktrees | the repository is found through `git rev-parse --git-common-dir`, so all worktrees share one semantic repository; each worktree has its own `HEAD` |
+| worktrees | the repository is found through `git rev-parse --git-common-dir`, so all worktrees share one semantic repository; each worktree has its own `HEAD`, and push and pull run from the main worktree. A bare repository or `--separate-git-dir` names no main worktree, so there each worktree keeps its own `.intent/` |
 | tags | `itt tag` for milestones (later) |
 
 ## Storage (repository format 2)
@@ -47,6 +47,7 @@ Git asks people to stage and commit. Intent's writers are mostly agents in the m
 ```text
 .intent/
   objects/ab/cdef….json        immutable object versions, addressed by hash
+  trees/ab/cdef….json          {id: version} in two levels of buckets, shared between revisions
   revisions/ab/cdef….json      {parents, tree, author, origin, time, summary, changes}
   refs/heads/main
   refs/remotes/origin/main
@@ -54,7 +55,7 @@ Git asks people to stage and commit. Intent's writers are mostly agents in the m
   config.json                  remotes, upstreams, maintenance flags
 ```
 
-`intents/`, `snaps/` and `decisions/` stay as the readable working copy, like Git's working tree. Each write changes the working copy and then records it as a revision, so an interruption leaves at most one unrecorded change, which the next write picks up.
+`intents/`, `snaps/` and `decisions/` stay as the readable working copy, like Git's working tree. Each write changes the working copy and then records it as a revision, so an interruption leaves at most one unrecorded change, which the next write picks up. A command refused or killed part way is undone, by itself or by the next one, so a revision never holds half a command.
 
 Objects keep a stable identity minted at creation. Changing an Intent's status writes a new version of the same ID, exactly like editing a file in Git. Relation lists (`snap_ids`, `decision_ids`, `intent_ids`) and the entries of an Intent's `relations` become grow-only sets.
 
@@ -62,7 +63,7 @@ Objects keep a stable identity minted at creation. Changing an Intent's status w
 
 Because Snaps are append-only and new IDs never collide, most merges are a union. For each object changed on both sides since the merge base:
 
-- grow-only relation sets: union, ordered by `created_at`;
+- grow-only relation sets: union, our entries first and theirs after. Position carries no meaning: the latest Snap is chosen by `created_at`, and the hub compares these lists as sets;
 - `status`: identical on both sides, or changed on only one side, merges cleanly; two different new statuses (for example `done` and `cancelled`) are a conflict;
 - `reason` and the write-once descriptive fields: a conflict only if both sides set them differently;
 - Intent `relations`: entries are united and a withdrawal wins. A merge that leaves an Intent with two parents or a cycle is a conflict.
@@ -95,7 +96,7 @@ Push and fetch negotiate missing revisions and object versions, the way Git nego
 
 ## Phases
 
-Phases 1 to 3 are implemented on `main` and not yet released. Phase 4 has not started.
+Phases 1 to 3 shipped in Intent 8.0. Phase 4 has not started, and until then push and pull work on `main`.
 
 1. Repository format 2: objects, revisions, refs, automatic revisions, hash IDs for new objects, `itt log`, `show`, `diff` and `itt migrate`.
 2. Branches and worktrees: `itt branch`, `itt switch` and Git-worktree discovery.
