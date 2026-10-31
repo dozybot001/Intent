@@ -53,6 +53,6 @@ jobs:
       - name: Install package with server and test extras
         run: python -m pip install ".[server,release]"
       - name: Run tests
-        run: python -m pytest -q -ra -n auto
+        run: python -m pytest -q -ra -n auto --dist loadfile
       - name: Smoke-test the installed CLI
         run: itt version
