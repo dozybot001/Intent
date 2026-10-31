@@ -1,8 +1,5 @@
 /* ---- URL state ---- */
 
-// Intent's own history, published once per language.
-const SHOWCASE_PROJECTS = { en: "proj_4f7efd975d4a", "zh-CN": "proj_58cc87cb15eb" };
-
 function readRoute() {
   const p = new URLSearchParams(window.location.search);
   const requestedTab = p.get("tab") || "overview";
@@ -15,7 +12,7 @@ function readRoute() {
     pane: dialog?.pane || (team ? team[2] || "members" : ""),
     team: team ? team[1] : "",
     token: p.get("token") || "",
-    project: path === "/showcase" ? SHOWCASE_PROJECTS[window.IntHubI18n.language] : p.get("project"),
+    project: routedProject(path, p.get("project")),
     tab: TABS.includes(requestedTab) ? requestedTab : "overview",
     section: p.get("section") || "",
     intent: p.get("intent") || "",

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Daily encrypted IntHub backups, one copy on the production host and one elsewhere.
 #
-#   dump     production, daily: dump PostgreSQL, verify, encrypt, keep 14 days
+#   dump     production, daily: dump PostgreSQL, verify, encrypt, keep 14 days;
+#            copies taken before a release expire after 90
 #   serve    production: SSH forced command for the off-site host's key
 #   status   production, hourly: publish disk and backup state for the monitor
 #   pull     off-site host, daily: fetch the newest backup, verify, keep 30 days
@@ -21,6 +22,7 @@ OFFSITE_KEY="/root/.ssh/inthub_backup_pull"
 OFFSITE_ENV="/etc/inthub-backup.env"
 KEEP_SOURCE_DAYS=14
 KEEP_OFFSITE_DAYS=30
+KEEP_RELEASE_DAYS=90
 DISK_LIMIT_PERCENT=85
 STALE_MINUTES=1560
 NAME_PATTERN='^inthub-[0-9]{8}T[0-9]{6}Z\.dump\.gpg$'
@@ -56,6 +58,9 @@ cmd_dump() {
     mv "${work}/${name}.sha256" "${DAILY}/"
     mv "${work}/${name}" "${DAILY}/"
     find "${DAILY}" -maxdepth 1 -type f -name 'inthub-*.dump.gpg*' -mtime +"${KEEP_SOURCE_DAYS}" -delete
+    # Copies taken before a release hold the same data, so they expire too. Some belong to root.
+    find "${ROOT}/backups" -mindepth 1 -maxdepth 1 ! -name daily -mtime +"${KEEP_RELEASE_DAYS}" -print0 \
+        | sudo -n xargs -0 -r rm -rf --
 }
 
 cmd_serve() {

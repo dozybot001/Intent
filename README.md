@@ -45,7 +45,7 @@ Trust the project hooks once: in Claude Code, trust the folder and confirm both 
 > Resume this project through Intent.
 
 Windows (PowerShell): `irm https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.ps1 | iex`.
-With pipx or uv: `pipx install "intent-history @ git+https://github.com/dozybot001/Intent.git@v7.6.6"` (or `uv tool install …`). Requires Python 3.9+ and Git.
+With pipx or uv: `pipx install "intent-history @ git+https://github.com/dozybot001/Intent.git@v7.6.7"` (or `uv tool install …`). Requires Python 3.9+ and Git.
 
 The names, in one line: Intent is the project, `itt` is the command, `intent-history` is the package, and IntHub is the optional web app.
 

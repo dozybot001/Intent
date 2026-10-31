@@ -52,6 +52,7 @@ function bindShellEvents() {
   }
   for (const button of document.querySelectorAll("[data-language-select]")) button.addEventListener("click", () => window.IntHubI18n.setLanguage(button.dataset.languageSelect));
   window.addEventListener("inthub:language", localizeWorkspace);
+  window.addEventListener("inthub:language", followShowcaseLanguage);
   window.addEventListener("popstate", () => applyRoute(readRoute()));
   for (const trigger of document.querySelectorAll("[data-about-open]")) {
     trigger.addEventListener("click", () => {

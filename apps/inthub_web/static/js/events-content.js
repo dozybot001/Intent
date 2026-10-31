@@ -32,6 +32,7 @@ function bindProjectEvents() {
     const option = e.target.closest(".project-picker-option");
     if (!option || state._projectBusy) return;
     toggleProjectPicker(false);
+    if (option.dataset.language) window.IntHubI18n.setLanguage(option.dataset.language);
     const id = option.dataset.id;
     if (!id) return;
     if (id === state.currentProjectId && id === state._loadedProjectId) {

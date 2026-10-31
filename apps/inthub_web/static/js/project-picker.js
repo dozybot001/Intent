@@ -2,15 +2,16 @@
 
 function renderProjectSelector() {
   updateDocumentTitle();
-  el.projectPicker.classList.toggle("is-static", state.visitor);
+  const showcase = isShowcase(state.currentProjectId) && state.page !== "home";
+  el.projectPicker.classList.toggle("is-static", state.visitor && !showcase);
   if (!state.projects.length) {
     el.projectPickerTrigger.disabled = true;
     el.projectPickerLabel.textContent = t("No projects yet");
     el.projectPickerDropdown.innerHTML = "";
     return;
   }
-  // A visitor reads the one project the link named; there is nothing to pick from.
-  el.projectPickerTrigger.disabled = Boolean(state._projectBusy) || state.visitor;
+  // A visitor reads the one project the link named; only a showcase has anything to pick from.
+  el.projectPickerTrigger.disabled = Boolean(state._projectBusy) || (state.visitor && !showcase);
   const onHome = state.page === "home";
   const selected = onHome ? null : state.currentProjectId;
   const home = hasHomePage();
@@ -22,7 +23,8 @@ function renderProjectSelector() {
         ${icon("grid")}<span class="project-picker-option-name">${esc(t("All projects"))}</span>
       </a>`
     : "";
-  el.projectPickerDropdown.innerHTML = allProjects + state.projects
+  el.projectPickerDropdown.innerHTML = (showcase ? showcaseOptions() : "") + allProjects + state.projects
+    .filter((p) => !(showcase && isShowcase(p.id)))
     .map(
       (p) =>
         `<button type="button" role="option" aria-selected="${p.id === selected ? "true" : "false"}" class="project-picker-option${p.id === selected ? " is-selected" : ""}" data-id="${esc(p.id)}">

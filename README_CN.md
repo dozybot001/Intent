@@ -46,7 +46,7 @@ itt init
 
 访问 GitHub 顺畅时，也可以把上面两个地址换成 [GitHub 版本](README.md#quick-start)。
 Windows（PowerShell）：`irm https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.ps1 | iex`。
-使用 pipx 或 uv：`pipx install "intent-history @ git+https://github.com/dozybot001/Intent.git@v7.6.6"`（或 `uv tool install …`）。需要 Python 3.9+ 和 Git。
+使用 pipx 或 uv：`pipx install "intent-history @ git+https://github.com/dozybot001/Intent.git@v7.6.7"`（或 `uv tool install …`）。需要 Python 3.9+ 和 Git。
 
 几个名字一句话说清：Intent 是项目，`itt` 是命令，`intent-history` 是安装包，IntHub 是可选的网页应用。
 

@@ -32,6 +32,7 @@ project-settings.js
 confirm.js
 device.js
 project-picker.js
+showcase.js
 project-loading.js
 search.js
 workspace.js

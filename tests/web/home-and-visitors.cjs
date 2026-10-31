@@ -209,6 +209,37 @@ async function homeAndVisitorCases() {
     await loadProject('pub');
     assert.ok(el.detailContent.innerHTML.includes('setup-guide') && !el.detailContent.innerHTML.includes('tab=settings'), 'a member pushes; only an admin manages');
 
+    // A showcase follows the page's language on any tab, and its picker offers both versions.
+    reset();
+    const [enShowcase, zhShowcase] = [SHOWCASE_PROJECTS.en, SHOWCASE_PROJECTS['zh-CN']];
+    assert.equal(routedProject('/showcase', null), zhShowcase);
+    assert.equal(routedProject('', enShowcase), zhShowcase, 'a link to the other version opens the matching one');
+    assert.equal(routedProject('', 'pub'), 'pub');
+    const showcaseOverview = (url) => {
+      const id = url.includes(enShowcase) ? enShowcase : zhShowcase;
+      return {...publicOverview, project: {...publicOverview.project, id, name: id}, history: {...publicOverview.history, project_id: id}};
+    };
+    reply = (url) => url.endsWith('/overview') ? showcaseOverview(url) : url.endsWith('/handoff') ? handoff : {};
+    state.visitor = true;
+    state.page = 'project';
+    state.activeTab = 'flow';
+    state.projects = [row(zhShowcase)];
+    await loadProject(zhShowcase);
+    assert.equal(el.projectPickerTrigger.disabled, false);
+    assert.equal(el.projectPicker.classList.contains('is-static'), false);
+    assert.ok(el.projectPickerDropdown.innerHTML.includes('data-language="en"') && el.projectPickerDropdown.innerHTML.includes('data-language="zh-CN"'));
+    assert.ok(!el.projectPickerDropdown.innerHTML.includes('data-id='), 'the versions replace the project list');
+    window.IntHubI18n.setLanguage('en');
+    await followShowcaseLanguage();
+    assert.equal(state.currentProjectId, enShowcase);
+    assert.deepEqual(state.projects.map((project) => project.id), [enShowcase], 'a visitor holds one project at a time');
+    assert.equal(state.activeTab, 'flow');
+    window.IntHubI18n.setLanguage('zh-CN');
+    await followShowcaseLanguage();
+    assert.equal(state.currentProjectId, zhShowcase);
+    state.visitor = false;
+    state.activeTab = 'overview';
+
     // Without a public project the gate takes over, as it did.
     reset();
     window.location.search = '?project=secret';
