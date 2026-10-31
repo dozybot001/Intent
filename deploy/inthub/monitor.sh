@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Watches the hosted IntHub from the off-site backup host, every five minutes.
 # Two failed rounds in a row send one alert, a long outage sends a reminder,
-# and recovery sends one more. The webhook lives in /etc/inthub-monitor.env.
+# and recovery sends one more, through a Feishu app. Its credentials and the
+# group live in /etc/inthub-monitor.env.
 #
-#   check    run one round
-#   test     send a test message to the webhook
-#   install  write the systemd units
+#   check       run one round
+#   test        send a test message
+#   set-secret  ask for the app secret on a terminal, store it, send a test
+#   install     write the systemd units
 set -Eeuo pipefail
 umask 077
 
@@ -24,24 +26,61 @@ fail() {
 }
 
 notify() {
+    set -a
     # shellcheck disable=SC1090
     [[ -f "${ENV_FILE}" ]] && source "${ENV_FILE}"
-    if [[ -z "${INTHUB_ALERT_WEBHOOK:-}" ]]; then
-        printf 'inthub-monitor: no webhook, not sent: %s\n' "$1" >&2
+    set +a
+    if [[ -z "${INTHUB_FEISHU_APP_SECRET:-}" ]]; then
+        printf 'inthub-monitor: no Feishu credentials, not sent: %s\n' "$1" >&2
         return 0
     fi
-    # Feishu and Lark take one shape; WeCom and DingTalk take the other.
-    python3 - "$1" "${INTHUB_ALERT_WEBHOOK}" <<'PY' \
-        | curl --fail --silent --show-error --max-time 15 -H 'Content-Type: application/json' \
-            --data-binary @- "${INTHUB_ALERT_WEBHOOK}" > /dev/null
+    python3 - "$1" <<'PY'
 import json
+import os
 import sys
+import urllib.error
+import urllib.request
 
-text, url = sys.argv[1:3]
-feishu = "feishu" in url or "larksuite" in url
-print(json.dumps({"msg_type": "text", "content": {"text": text}} if feishu
-                 else {"msgtype": "text", "text": {"content": text}}, ensure_ascii=False))
+host =os.environ.get("INTHUB_FEISHU_HOST", "https://open.feishu.cn")
+
+
+def post(path, body, token=None):
+    headers = {"Content-Type": "application/json; charset=utf-8"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(host + path, json.dumps(body).encode("utf-8"), headers)
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            reply = json.load(response)
+    except urllib.error.HTTPError as exc:  # Feishu reports refusals as 400 with a JSON body
+        sys.exit(f"inthub-monitor: Feishu returned {exc.code}: {exc.read().decode('utf-8', 'replace')[:300]}")
+    if reply.get("code"):
+        sys.exit(f"inthub-monitor: Feishu refused: {reply.get('code')} {reply.get('msg')}")
+    return reply
+
+
+token = post("/open-apis/auth/v3/tenant_access_token/internal", {
+    "app_id": os.environ["INTHUB_FEISHU_APP_ID"],
+    "app_secret": os.environ["INTHUB_FEISHU_APP_SECRET"],
+})["tenant_access_token"]
+post("/open-apis/im/v1/messages?receive_id_type=chat_id", {
+    "receive_id": os.environ["INTHUB_FEISHU_CHAT_ID"],
+    "msg_type": "text",
+    "content": json.dumps({"text": sys.argv[1]}, ensure_ascii=False),
+}, token)
 PY
+}
+
+# Asks for the secret on a terminal, so it never passes through a command line or a chat.
+cmd_set_secret() {
+    local secret
+    read -rs -p "Feishu App Secret: " secret
+    echo
+    [[ -n "${secret}" ]] || fail "no secret entered"
+    sed -i '/^INTHUB_FEISHU_APP_SECRET=/d' "${ENV_FILE}"
+    printf 'INTHUB_FEISHU_APP_SECRET=%q\n' "${secret}" >> "${ENV_FILE}"
+    notify "IntHub 告警测试：能收到这条，说明告警通道正常"
+    echo "Sent. Check the Feishu group."
 }
 
 # Prints one line per problem, and nothing when all is well.
@@ -120,6 +159,7 @@ EOF
 case "${1:-}" in
     check) cmd_check ;;
     test) notify "IntHub 告警测试：能收到这条，说明告警通道正常" ;;
+    set-secret) cmd_set_secret ;;
     install) cmd_install ;;
-    *) fail "usage: monitor.sh check|test|install" ;;
+    *) fail "usage: monitor.sh check|test|set-secret|install" ;;
 esac
