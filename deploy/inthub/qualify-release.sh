@@ -133,7 +133,7 @@ TEST_DATABASE_PORT="$(
 [[ "${TEST_DATABASE_PORT}" =~ ^[1-9][0-9]*$ ]] \
     || fail "could not resolve the qualification PostgreSQL port"
 INTHUB_TEST_POSTGRES_URL="postgresql://inthub_test:inthub_test_password@127.0.0.1:${TEST_DATABASE_PORT}/inthub_test" \
-    "${QUALIFICATION_PYTHON}" -m pytest -q -n auto
+    "${QUALIFICATION_PYTHON}" -m pytest -q -n auto --dist loadfile
 docker rm --force "${TEST_DATABASE_CONTAINER}" >/dev/null
 TEST_DATABASE_CONTAINER=""
 fi

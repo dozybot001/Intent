@@ -3,6 +3,7 @@
 [中文](https://github.com/dozybot001/Intent/blob/main/README_CN.md) | English
 
 [![tests](https://github.com/dozybot001/Intent/actions/workflows/test.yml/badge.svg)](https://github.com/dozybot001/Intent/actions/workflows/test.yml)
+[![PyPI](https://img.shields.io/pypi/v/intent-history)](https://pypi.org/project/intent-history/)
 ![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)
 ![status: beta](https://img.shields.io/badge/status-beta-orange)
 ![license: MIT](https://img.shields.io/badge/license-MIT-green)
@@ -45,7 +46,7 @@ Trust the project hooks once: in Claude Code, trust the folder and confirm both 
 > Resume this project through Intent.
 
 Windows (PowerShell): `irm https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.ps1 | iex`.
-With pipx or uv: `pipx install "intent-history @ git+https://github.com/dozybot001/Intent.git@v7.6.7"` (or `uv tool install …`). Requires Python 3.9+ and Git.
+With pipx or uv: `pipx install intent-history` or `uv tool install intent-history`. Requires Python 3.9+.
 
 The names, in one line: Intent is the project, `itt` is the command, `intent-history` is the package, and IntHub is the optional web app.
 
@@ -134,7 +135,7 @@ Intent is **beta** (7.x). Within a major version the `.intent/` format and the J
 
 **What if the agent records noise?** Zero writes is a valid outcome. The skill records only verified milestones, never per command or per file. Objects are append-only, so corrections are new Snaps.
 
-**Is `pip install intent-cli` this project?** No, that PyPI name belongs to an unrelated tool.
+**Is `pip install intent-cli` this project?** No, that PyPI name belongs to an unrelated tool. Intent is `intent-history`.
 
 **Windows?** The CLI and installer support Windows. Claude Code hooks need Git Bash.
 

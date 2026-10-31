@@ -3,6 +3,7 @@
 中文 | [English](README.md)
 
 [![tests](https://github.com/dozybot001/Intent/actions/workflows/test.yml/badge.svg)](https://github.com/dozybot001/Intent/actions/workflows/test.yml)
+[![PyPI](https://img.shields.io/pypi/v/intent-history)](https://pypi.org/project/intent-history/)
 ![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)
 ![status: beta](https://img.shields.io/badge/status-beta-orange)
 ![license: MIT](https://img.shields.io/badge/license-MIT-green)
@@ -46,7 +47,7 @@ itt init
 
 访问 GitHub 顺畅时，也可以把上面两个地址换成 [GitHub 版本](README.md#quick-start)。
 Windows（PowerShell）：`irm https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.ps1 | iex`。
-使用 pipx 或 uv：`pipx install "intent-history @ git+https://github.com/dozybot001/Intent.git@v7.6.7"`（或 `uv tool install …`）。需要 Python 3.9+ 和 Git。
+使用 pipx 或 uv：`pipx install intent-history` 或 `uv tool install intent-history`。需要 Python 3.9+。
 
 几个名字一句话说清：Intent 是项目，`itt` 是命令，`intent-history` 是安装包，IntHub 是可选的网页应用。
 
@@ -135,7 +136,7 @@ Intent 处于 **Beta**（7.x）。同一主版本内，`.intent/` 格式与 JSON
 
 **Agent 记录了无用内容怎么办？** 零写入是正常结果。Skill 只记录经过验证的里程碑，从不按命令或文件逐条记录。对象只追加，更正以新的 Snap 表达。
 
-**`pip install intent-cli` 是这个项目吗？** 不是，PyPI 上的这个名字属于一个无关工具。
+**`pip install intent-cli` 是这个项目吗？** 不是，PyPI 上的这个名字属于一个无关工具。Intent 的安装包是 `intent-history`。
 
 **支持 Windows 吗？** CLI 与安装脚本支持 Windows。Claude Code hooks 需要 Git Bash。
 
