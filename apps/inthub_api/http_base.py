@@ -135,7 +135,7 @@ class HttpBase:
             self._send_file(self.hub.root / "privacy.html")
             return True
         if path == "/favicon.ico":
-            self._send_redirect("/tenon-mark.svg")
+            self._send_redirect("/favicon-32.png")
             return True
         if path == "/.well-known/security.txt":
             self._send_file(self.hub.root / "security.txt")

@@ -148,7 +148,7 @@ def test_api_server_can_serve_web_shell(tmp_path, monkeypatch):
         robots = urlopen(f"{base}/robots.txt").read().decode("utf-8")
         assert "Allow: /$" in robots and "Disallow: /\n" in robots
         assert "Contact: mailto:support@tenonai.cn" in urlopen(f"{base}/.well-known/security.txt").read().decode("utf-8")
-        assert urlopen(f"{base}/favicon.ico").url.endswith("/tenon-mark.svg")
+        assert urlopen(f"{base}/favicon.ico").url.endswith("/favicon-32.png")
         js = urlopen(f"{base}/app.js").read().decode("utf-8")
         assert "itt push" in js
     finally:

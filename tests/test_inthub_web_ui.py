@@ -378,3 +378,12 @@ def test_flow_relations_mirror_the_cli_rules():
     assert '!("removed_at" in entry)' in javascript.split("function activeRelationEntries", 1)[1].split("\n}\n", 1)[0]
     # A relation state is never shown by colour alone.
     assert '<span class="status-dot" aria-hidden="true"></span>${esc(relationStateLabel(key, row))}</span>' in javascript
+
+
+def test_the_favicon_is_our_own_mark_on_every_page():
+    for page in ("index.html", "404.html", "auth-redirect.html", "privacy.html"):
+        html = _static(page)
+        assert 'rel="icon" type="image/svg+xml" href="/favicon.svg"' in html and 'rel="apple-touch-icon"' in html
+    shapes = set(re.findall(r' d="([^"]+)"', _static("inthub-mark.svg")))
+    assert shapes and shapes == set(re.findall(r' d="([^"]+)"', _static("favicon.svg"))), "the favicon draws the IntHub mark"
+
