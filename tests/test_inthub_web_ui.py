@@ -386,4 +386,3 @@ def test_the_favicon_is_our_own_mark_on_every_page():
         assert 'rel="icon" type="image/svg+xml" href="/favicon.svg"' in html and 'rel="apple-touch-icon"' in html
     shapes = set(re.findall(r' d="([^"]+)"', _static("inthub-mark.svg")))
     assert shapes and shapes == set(re.findall(r' d="([^"]+)"', _static("favicon.svg"))), "the favicon draws the IntHub mark"
-
