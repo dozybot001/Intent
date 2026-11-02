@@ -235,6 +235,7 @@ install -m 0644 "${RELEASE_SOURCE_DIRECTORY}/compose.yaml" "${BUNDLE_DIRECTORY}/
 install -m 0644 "${RELEASE_SOURCE_DIRECTORY}/inthub.caddy" "${BUNDLE_DIRECTORY}/inthub.caddy"
 install -m 0755 "${RELEASE_SOURCE_DIRECTORY}/release_manifest.py" "${BUNDLE_DIRECTORY}/release_manifest.py"
 install -m 0755 "${RELEASE_SOURCE_DIRECTORY}/remote-release.sh" "${BUNDLE_DIRECTORY}/remote-release.sh"
+install -m 0755 "${RELEASE_SOURCE_DIRECTORY}/retain_releases.py" "${BUNDLE_DIRECTORY}/retain_releases.py"
 install -m 0644 "${RELEASE_SOURCE_DIRECTORY}/runtime-images.lock.json" "${BUNDLE_DIRECTORY}/runtime-images.lock.json"
 install -m 0755 "${RELEASE_SOURCE_DIRECTORY}/smoke.sh" "${BUNDLE_DIRECTORY}/smoke.sh"
 

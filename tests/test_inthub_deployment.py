@@ -363,6 +363,7 @@ def test_release_scripts_are_executable():
         "remote-release.sh",
         "smoke.sh",
         "release_manifest.py",
+        "retain_releases.py",
     ):
         assert os.access(REPOSITORY_ROOT / "deploy" / "inthub" / name, os.X_OK)
 

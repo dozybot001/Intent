@@ -37,6 +37,7 @@ EXPECTED_RELEASE_FILES = (
     "inthub.caddy",
     "release_manifest.py",
     "remote-release.sh",
+    "retain_releases.py",
     "runtime-images.lock.json",
     "smoke.sh",
 )

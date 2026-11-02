@@ -603,4 +603,9 @@ if [[ -n "${PREVIOUS_CONTAINER}" ]]; then
     docker_command stop "${PREVIOUS_CONTAINER}" >/dev/null \
         || echo "WARNING: the inactive previous IntHub container could not be stopped." >&2
 fi
+# Only now may older releases go: keep this one, the one it replaced and the
+# newest three. Retention reports problems but never fails an accepted release.
+python3 "${RELEASE_DIRECTORY}/retain_releases.py" \
+    --root "${REMOTE_ROOT}" --current "${RELEASE_DIRECTORY}" --previous "${PREVIOUS_DIRECTORY}" \
+    || echo "WARNING: IntHub release retention did not finish." >&2
 echo "IntHub release ${RELEASE_SHA} passed candidate, traffic-switch, and public acceptance."
