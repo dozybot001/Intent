@@ -9,7 +9,7 @@ import pytest
 
 from apps.inthub_api.repository import read_refs
 from apps.inthub_api.revisions import project_revisions
-from intent_cli import maintenance_hooks, repo
+from intent_cli import maintenance_hooks, render, repo
 from tests.protocol_support import ROOT, _base, _local_commit, hub, itt, pushed  # noqa: F401
 
 
@@ -165,3 +165,13 @@ def test_the_history_page_lists_branches_beside_main(pushed):
     assert itt(folder, "push")["ok"]
     assert project_revisions(db, project_id)["branches"] == [{"name": "feature", "revision": tip, "ahead": 1}]
     assert read_refs(db, "demo")["refs"]["feature"] == tip
+
+
+@pytest.mark.parametrize("intent_id", ["intent-001", "intent-6f1c0a2b3d4e"])
+def test_inspect_fields_line_up_with_the_goal_for_either_id_form(intent_id):
+    checkpoint = {"verified": "Sheet confirms payment", "next": "Handle shipping", "blocker": "none"}
+    with_snap = {"id": intent_id, "what": "Goal", "snap_count": 1, "latest_snap": {
+        "id": "snap-1", "what": "Done", "created_at": "2026-11-02T00:00:00+00:00", "checkpoint": checkpoint}}
+    for intent in (with_snap, {"id": intent_id, "what": "Goal", "snap_count": 0}):
+        [title, *fields] = render._intent_block(intent)
+        assert fields and {len(line) - len(line.lstrip()) for line in fields} == {title.index("Goal")}

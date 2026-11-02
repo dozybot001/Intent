@@ -58,17 +58,19 @@ def _relation_line(row, indent):
 
 
 def _intent_block(intent):
-    lines = [f"  {bold(intent['id'])}  {_one_line(intent['what'], _width() - 16)}"]
+    # Fields sit under the goal, whose column moves with the ID: hash IDs are longer than counter IDs.
+    indent = " " * (len(intent["id"]) + 4)
+    lines = [f"  {bold(intent['id'])}  {_one_line(intent['what'], _width() - len(indent) - 2)}"]
     snap = intent.get("latest_snap")
     # Where the goal sits, and only the relations someone has to act on.
     for row in intent.get("relations") or []:
         if (row["type"] in {"part_of", "derived_from"} and row["direction"] == "out") or row.get("state") in ATTENTION_STATES:
-            lines.append(_relation_line(row, "              "))
-    lines += _checkpoint_lines(snap, "              ")
+            lines.append(_relation_line(row, indent))
+    lines += _checkpoint_lines(snap, indent)
     if snap:
-        lines.append(dim(f"              {snap['id']} · {_when(snap.get('created_at'))} · {_plural(intent.get('snap_count', 0), 'snap')}"))
+        lines.append(dim(f"{indent}{snap['id']} · {_when(snap.get('created_at'))} · {_plural(intent.get('snap_count', 0), 'snap')}"))
     else:
-        lines.append(dim("              no snaps yet"))
+        lines.append(dim(f"{indent}no snaps yet"))
     return lines
 
 

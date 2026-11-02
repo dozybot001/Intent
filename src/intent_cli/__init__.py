@@ -1,4 +1,4 @@
-"""Intent CLI — semantic history for agent-driven development."""
+"""Intent CLI — Semantic Git for the vibe coding era."""
 
 from importlib.metadata import PackageNotFoundError, version
 

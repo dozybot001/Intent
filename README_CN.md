@@ -1,4 +1,8 @@
-# Intent
+<img src="docs/assets/intent-cli-mark.svg" alt="" width="56" height="56">
+
+# Intent CLI
+
+Vibe Coding 时代的语义版 Git
 
 中文 | [English](README.md)
 
@@ -49,7 +53,7 @@ itt init
 Windows（PowerShell）：`irm https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.ps1 | iex`。
 使用 pipx 或 uv：`pipx install intent-history` 或 `uv tool install intent-history`。需要 Python 3.9+。
 
-几个名字一句话说清：Intent 是项目，`itt` 是命令，`intent-history` 是安装包，IntHub 是可选的网页应用。
+几个名字一句话说清：Intent CLI 是产品，`itt` 是命令，`intent-history` 是安装包，IntHub 是可选的网页应用。
 
 ## 手动体验
 

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "intent-history"
 dynamic = ["version"]
-description = "Semantic history for agent-driven development. Records what you did and why."
+description = "Semantic Git for the vibe coding era"
 requires-python = ">=3.9"
 readme = "README.md"
 license = "MIT"

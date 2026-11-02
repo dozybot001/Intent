@@ -1,4 +1,8 @@
-# Intent
+<img src="https://raw.githubusercontent.com/dozybot001/Intent/main/docs/assets/intent-cli-mark.svg" alt="" width="56" height="56">
+
+# Intent CLI
+
+Semantic Git for the vibe coding era
 
 [中文](https://github.com/dozybot001/Intent/blob/main/README_CN.md) | English
 
@@ -48,7 +52,7 @@ Trust the project hooks once: in Claude Code, trust the folder and confirm both 
 Windows (PowerShell): `irm https://raw.githubusercontent.com/dozybot001/Intent/main/scripts/install.ps1 | iex`.
 With pipx or uv: `pipx install intent-history` or `uv tool install intent-history`. Requires Python 3.9+.
 
-The names, in one line: Intent is the project, `itt` is the command, `intent-history` is the package, and IntHub is the optional web app.
+The names, in one line: Intent CLI is the product, `itt` is the command, `intent-history` is the package, and IntHub is the optional web app.
 
 ## Try it by hand
 

@@ -187,7 +187,7 @@ def main():
         set_format("json")
     parser = JsonArgumentParser(
         prog="itt",
-        description="Intent: semantic history for agent-driven development. "
+        description="Intent CLI: Semantic Git for the vibe coding era. "
                     "Records goals (intents), verified checkpoints (snaps) and durable decisions.",
         epilog="Output is readable text in a terminal and JSON for agents and pipes; "
                "pass --json (or set ITT_FORMAT=json) to force JSON.",
