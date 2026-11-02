@@ -505,15 +505,26 @@ fi
 
 # Keep the database in the stable project and start the application in the
 # inactive slot. The current serving container remains untouched throughout
-# candidate health and public acceptance.
-if ! container_running inthub-postgres; then
-    compose_release \
-        inthub \
-        "${RELEASE_DIRECTORY}" "${RELEASE_SHA}" "${RELEASE_VERSION}" \
-        inthub-app-bootstrap 7259 \
-        up --detach --no-build --pull never database
+# candidate health and public acceptance. Compose recreates the database only
+# when its definition changed, on the same volume and after the backup above;
+# a definition that cannot start goes back to the previous release's.
+compose_release \
+    inthub \
+    "${RELEASE_DIRECTORY}" "${RELEASE_SHA}" "${RELEASE_VERSION}" \
+    inthub-app-bootstrap 7259 \
+    up --detach --no-build --pull never database
+if ! wait_for_database; then
+    if [[ -n "${PREVIOUS_DIRECTORY}" ]]; then
+        echo "PostgreSQL did not start with this release's definition; restoring the previous one." >&2
+        compose_release \
+            inthub \
+            "${PREVIOUS_DIRECTORY}" "${RELEASE_SHA}" "${RELEASE_VERSION}" \
+            inthub-app-bootstrap 7259 \
+            up --detach --no-build --pull never database || true
+        wait_for_database || echo "CRITICAL: PostgreSQL is not healthy with the previous definition either." >&2
+    fi
+    fail "PostgreSQL did not become healthy"
 fi
-wait_for_database || fail "PostgreSQL did not become healthy"
 [[ "$(docker_command inspect --format '{{if index .NetworkSettings.Networks "inthub-private"}}attached{{end}}' inthub-postgres)" \
     == attached ]] || fail "PostgreSQL is not attached to the IntHub private network"
 

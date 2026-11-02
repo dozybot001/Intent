@@ -212,6 +212,14 @@ def test_compose_uses_explicit_immutable_images_and_disables_auto_migration():
     )
     assert "external: true" in compose
     assert 'INTHUB_AUTO_MIGRATE: "0"' in compose
+    # Both services drop every capability and cannot gain privileges; PostgreSQL
+    # keeps only what its entrypoint needs to own its directories and switch user.
+    assert compose.count("read_only: true") == 2 and compose.count("no-new-privileges:true") == 2
+    assert compose.count("cap_drop:\n      - ALL") == 2 and compose.count("pids_limit:") == 2
+    database = compose.split("\n  app:\n")[0]
+    assert "cap_add:\n      - CHOWN\n      - DAC_OVERRIDE\n      - FOWNER\n      - SETGID\n      - SETUID\n" in database
+    assert "- /var/run/postgresql:size=8m" in database and "- /tmp:size=64m,mode=1777" in database
+    assert "ports:" not in database
 
 
 def test_release_entry_uses_the_gitee_exact_commit_path():
@@ -351,6 +359,11 @@ def test_remote_release_verifies_and_loads_but_never_builds_or_pulls():
         'chmod -R a-w "${RELEASE_DIRECTORY}"'
     )
     assert "restoring the previous traffic boundary" in remote
+    # Every release applies the database definition, so a changed one takes effect,
+    # but only after the backup, and falls back to the previous definition.
+    assert "if ! container_running inthub-postgres; then" not in remote
+    assert remote.index("pg_dump") < remote.index("up --detach --no-build --pull never database")
+    assert "restoring the previous one" in remote and '"${PREVIOUS_DIRECTORY}" "${RELEASE_SHA}"' in remote
     assert "git clone" not in remote
     assert "git pull" not in remote
     assert "docker build" not in remote
