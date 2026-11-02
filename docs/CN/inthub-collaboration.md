@@ -2,7 +2,7 @@
 
 中文 | [English](../EN/inthub-collaboration.md)
 
-IntHub 是云端的 Intent 托管与协作开发平台。它是可选的，用来浏览和共享 Intent 历史。本文介绍托管版 [inthub.tenon.asia](https://inthub.tenon.asia)。它的模型沿用 GitHub：每个项目有一个所有者，可以私有或公开，团队给成员分配角色。
+IntHub 是云端 Intent 托管与协作开发平台。它是可选的，用来浏览和共享 Intent 历史。本文介绍托管版 [inthub.tenon.asia](https://inthub.tenon.asia)。它的模型沿用 GitHub：每个项目有一个所有者，可以私有或公开，团队给成员分配角色。
 
 有两条规则贯穿始终：
 

@@ -394,5 +394,5 @@ def test_the_one_line_definition_is_the_agreed_sentence():
     assert f"<title>IntHub · {english}</title>" in html and html.count(f'content="{english}"') == 2
     assert f'id="auth-pitch-title">{english}<' in html and f"<p>{english}. It brings" in html
     translations = _static("i18n.js")
-    assert f'"{english}": "云端的 Intent 托管与协作开发平台"' in translations
+    assert f'"{english}": "云端 Intent 托管与协作开发平台"' in translations
     assert "接续工作台" not in translations and "continuity workspace" not in html
