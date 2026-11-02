@@ -59,8 +59,9 @@ def keep_set(releases_root, current, previous, keep=KEEP_NEWEST):
     return releases, kept
 
 
-def retain(root, current, previous, run=docker, keep=KEEP_NEWEST, dry_run=False):
+def retain(root, current, previous, run=None, keep=KEEP_NEWEST, dry_run=False):
     """Remove what the rule does not keep. Returns (report, warnings); never raises for one failed removal."""
+    run = run or docker
     root = Path(root)
     releases, kept = keep_set(root / "releases", current, previous, keep)
     containers = [line.split("\t") for line in run("ps", "--all", "--no-trunc", "--format",
