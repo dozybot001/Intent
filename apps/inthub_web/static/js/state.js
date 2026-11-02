@@ -1,4 +1,5 @@
 const { t } = window.IntHubI18n;
+window.IntHubI18n.bindStatic(document.head);
 window.IntHubI18n.bindStatic(document.body);
 
 /* ---- State ---- */

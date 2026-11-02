@@ -53,7 +53,7 @@ function showAuthGate(message = "", { keepPage = false } = {}) {
     link.querySelector(".last-used").classList.toggle("is-hidden", link.dataset.loginMethod !== lastMethod);
   }
   setTenonLoginLoading();
-  window.setTimeout(() => el.tenonLogin.querySelector("[data-login-method]").focus(), 0);
+  window.setTimeout(() => el.tenonLogin.querySelector("[data-login-method]").focus({ preventScroll: true }), 0);
 }
 
 function hideAuthGate() {

@@ -2,7 +2,7 @@
 
 [中文](../CN/inthub-collaboration.md) | English
 
-IntHub is the optional service for browsing and sharing Intent history. This guide covers the hosted service at [inthub.tenon.asia](https://inthub.tenon.asia). The model follows GitHub's: each project has an owner and is private or public, and a team gives its members roles.
+IntHub is a cloud platform for Intent hosting and collaborative development. It is optional, and you use it to browse and share Intent history. This guide covers the hosted service at [inthub.tenon.asia](https://inthub.tenon.asia). The model follows GitHub's: each project has an owner and is private or public, and a team gives its members roles.
 
 Two rules hold throughout:
 

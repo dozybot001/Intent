@@ -32,7 +32,7 @@ function node(id) {
   return nodes.get(id);
 }
 const document = {
-  body: {querySelectorAll() {return [];}}, documentElement: {style: {setProperty() {}}, dataset: {}},
+  head: {querySelectorAll() {return [];}}, body: {querySelectorAll() {return [];}}, documentElement: {style: {setProperty() {}}, dataset: {}},
   getElementById: node, querySelectorAll() {return [];},
   querySelector: node, createTreeWalker() {return {nextNode() {return null;}};},
   activeElement: node('focus'),

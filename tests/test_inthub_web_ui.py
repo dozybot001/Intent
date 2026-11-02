@@ -342,7 +342,7 @@ def test_visitors_see_what_this_is_and_every_page_names_its_operator():
     markup = _MarkupTags(html)
     # The sign-in page says what the product is, in the markup, and how to start.
     pitch = markup.by_id("auth-pitch")
-    assert pitch[0] == "section" and "Semantic history for agent-driven development" in html
+    assert pitch[0] == "section" and "A cloud platform for Intent hosting and collaborative development" in html
     assert 'el.authStart.innerHTML = commandSnippet([INSTALL_COMMAND, "itt init"]);' in javascript
     # Someone reading a public project who chose to sign in is not shown the pitch.
     assert 'el.authPitch.classList.toggle("is-hidden", keepPage);' in javascript
@@ -386,3 +386,13 @@ def test_the_favicon_is_our_own_mark_on_every_page():
         assert 'rel="icon" type="image/svg+xml" href="/favicon.svg"' in html and 'rel="apple-touch-icon"' in html
     shapes = set(re.findall(r' d="([^"]+)"', _static("inthub-mark.svg")))
     assert shapes and shapes == set(re.findall(r' d="([^"]+)"', _static("favicon.svg"))), "the favicon draws the IntHub mark"
+
+
+def test_the_one_line_definition_is_the_agreed_sentence():
+    english = "A cloud platform for Intent hosting and collaborative development"
+    html = _static("index.html")
+    assert f"<title>IntHub · {english}</title>" in html and html.count(f'content="{english}"') == 2
+    assert f'id="auth-pitch-title">{english}<' in html and f"<p>{english}. It brings" in html
+    translations = _static("i18n.js")
+    assert f'"{english}": "云端的 Intent 托管与协作开发平台"' in translations
+    assert "接续工作台" not in translations and "continuity workspace" not in html

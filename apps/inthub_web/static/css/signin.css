@@ -83,6 +83,7 @@
   font-weight: 650;
   line-height: 1.15;
   letter-spacing: -0.025em;
+  text-wrap: balance;
 }
 
 .auth-pitch > p {
