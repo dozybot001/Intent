@@ -29,6 +29,11 @@ fail() {
     exit 1
 }
 
+# Gitee's Intent repository is public: read it anonymously, never with a stored credential or a prompt.
+gitee() {
+    GIT_TERMINAL_PROMPT=0 git -c credential.helper= "$@"
+}
+
 cleanup() {
     if [[ "${BUILD_LOCK_OWNED}" == true \
         && -f "${BUILD_LOCK}/owner" \
@@ -86,7 +91,7 @@ BUILD_LOCK_OWNED=true
     } > "${BUILD_LOCK}/metadata"
 )
 
-REMOTE_SHA="$(git ls-remote "${GITEE_URL}" "${GITEE_REF}" | awk 'NR == 1 {print $1}')"
+REMOTE_SHA="$(gitee ls-remote "${GITEE_URL}" "${GITEE_REF}" | awk 'NR == 1 {print $1}')"
 [[ "${REMOTE_SHA}" == "${RELEASE_SHA}" ]] \
     || fail "Gitee main does not match the requested release SHA"
 
@@ -107,10 +112,10 @@ else
         git -C "${SOURCE_REPOSITORY}" reset --hard HEAD >/dev/null
         git -C "${SOURCE_REPOSITORY}" clean -fdx >/dev/null
     else
-        git clone --no-checkout "${GITEE_URL}" "${SOURCE_REPOSITORY}"
+        gitee clone --no-checkout "${GITEE_URL}" "${SOURCE_REPOSITORY}"
     fi
     git -C "${SOURCE_REPOSITORY}" remote set-url origin "${GITEE_URL}"
-    git -C "${SOURCE_REPOSITORY}" fetch --prune --tags origin "${GITEE_REF}"
+    gitee -C "${SOURCE_REPOSITORY}" fetch --prune --tags origin "${GITEE_REF}"
     [[ "$(git -C "${SOURCE_REPOSITORY}" rev-parse FETCH_HEAD)" == "${RELEASE_SHA}" ]] \
         || fail "the fetched Gitee Commit does not match the requested release SHA"
     git -C "${SOURCE_REPOSITORY}" checkout -B main "${RELEASE_SHA}" >/dev/null

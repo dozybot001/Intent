@@ -223,10 +223,11 @@ def test_release_entry_uses_the_gitee_exact_commit_path():
         encoding="utf-8"
     )
 
-    assert 'GITEE_READ_URL="https://gitee.com/dozybot/Intent.git"' in release
-    assert 'GITEE_PUSH_URL="git@inthub-gitee:dozybot/Intent.git"' in release
+    # Pushes go over HTTPS with the system's saved credential; no deploy key or SSH alias.
+    assert 'GITEE_URL="https://gitee.com/dozybot/Intent.git"' in release
     assert 'bash "${SCRIPT_DIR}/qualify-release.sh"' in release
-    assert 'git push "${GITEE_PUSH_URL}" "${RELEASE_SHA}:${GITEE_REF}"' in release
+    assert 'git push "${GITEE_URL}" "${RELEASE_SHA}:${GITEE_REF}"' in release
+    assert "git@" not in release
     assert release.count("git ls-remote") == 2
     assert "release-from-gitee.sh" in release
     assert "local-release.sh" not in release
@@ -235,7 +236,11 @@ def test_release_entry_uses_the_gitee_exact_commit_path():
     assert not (REPOSITORY_ROOT / "deploy" / "inthub" / "local-release.sh").exists()
 
     assert 'GITEE_URL="https://gitee.com/dozybot/Intent.git"' in server_release
-    assert "git ls-remote" in server_release
+    # The server reads the public repository anonymously, whatever credentials its user has.
+    assert 'GIT_TERMINAL_PROMPT=0 git -c credential.helper= "$@"' in server_release
+    assert "gitee ls-remote" in server_release and "gitee clone" in server_release
+    assert 'gitee -C "${SOURCE_REPOSITORY}" fetch' in server_release
+    assert "git ls-remote" not in server_release and "git clone" not in server_release
     assert "fetch --prune --tags" in server_release
     assert 'checkout -B main "${RELEASE_SHA}"' in server_release
     assert "INTHUB_BUILDER=default" in server_release
@@ -295,7 +300,7 @@ def test_gitee_bootstrap_only_installs_the_stable_launcher():
     assert 'rsync --archive "${LAUNCHER}"' in bootstrap
     assert "sha256sum" in bootstrap
     assert "release-from-gitee.sh" in bootstrap
-    assert "git ls-remote https://gitee.com/dozybot/Intent.git" in bootstrap
+    assert "git -c credential.helper= ls-remote https://gitee.com/dozybot/Intent.git" in bootstrap
     assert "import ensurepip, venv" in bootstrap
     assert "build-release.sh" not in bootstrap
     assert "remote-release.sh" not in bootstrap

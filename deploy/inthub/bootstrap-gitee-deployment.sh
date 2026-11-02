@@ -58,7 +58,7 @@ ssh -o BatchMode=yes "${DEPLOY_HOST}" "
     install -m 0755 '${STAGING_PATH}' '${REMOTE_ROOT}/deploy/release-from-gitee.sh'
     rm -f '${STAGING_PATH}'
     test \"\$(sha256sum '${REMOTE_ROOT}/deploy/release-from-gitee.sh' | awk '{print \$1}')\" = '${LOCAL_SHA}'
-    git ls-remote https://gitee.com/dozybot/Intent.git refs/heads/main >/dev/null
+    GIT_TERMINAL_PROMPT=0 git -c credential.helper= ls-remote https://gitee.com/dozybot/Intent.git refs/heads/main >/dev/null
     docker version >/dev/null
     docker buildx inspect default --bootstrap >/dev/null
 "

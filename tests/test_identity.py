@@ -113,7 +113,7 @@ def test_outside_git_a_snap_has_no_commit(plain):
     ("ssh://git@gitee.com/acme/app.git", "https://gitee.com/acme/app"),
     ("https://gitlab.com/acme/tools/app", "https://gitlab.com/acme/tools/app"),
     ("https://git.internal.example/acme/app.git", None),
-    ("git@inthub-gitee:acme/app.git", None),
+    ("git@my-gitee-alias:acme/app.git", None),
 ])
 def test_only_known_hosts_become_a_repository_link_and_credentials_never_do(repo, monkeypatch, remote, expected):
     git(repo, "remote", "add", "origin", remote)
