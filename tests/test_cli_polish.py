@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -9,7 +10,8 @@ import pytest
 
 from apps.inthub_api.repository import read_refs
 from apps.inthub_api.revisions import project_revisions
-from intent_cli import maintenance_hooks, render, repo
+from intent_cli import maintenance_hooks, repo
+from intent_cli.output import AGENT_ENVIRONMENT
 from tests.protocol_support import ROOT, _base, _local_commit, hub, itt, pushed  # noqa: F401
 
 
@@ -167,11 +169,42 @@ def test_the_history_page_lists_branches_beside_main(pushed):
     assert read_refs(db, "demo")["refs"]["feature"] == tip
 
 
-@pytest.mark.parametrize("intent_id", ["intent-001", "intent-6f1c0a2b3d4e"])
-def test_inspect_fields_line_up_with_the_goal_for_either_id_form(intent_id):
-    checkpoint = {"verified": "Sheet confirms payment", "next": "Handle shipping", "blocker": "none"}
-    with_snap = {"id": intent_id, "what": "Goal", "snap_count": 1, "latest_snap": {
-        "id": "snap-1", "what": "Done", "created_at": "2026-11-02T00:00:00+00:00", "checkpoint": checkpoint}}
-    for intent in (with_snap, {"id": intent_id, "what": "Goal", "snap_count": 0}):
-        [title, *fields] = render._intent_block(intent)
-        assert fields and {len(line) - len(line.lstrip()) for line in fields} == {title.index("Goal")}
+def _in_a_terminal(argv, root, environment):
+    """What a person sees, colours included: output is coloured only on a real terminal."""
+    pty = pytest.importorskip("pty")
+    screen, terminal = pty.openpty()
+    process = subprocess.Popen(argv, cwd=root, env=environment, stdout=terminal, stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    os.close(terminal)
+    output = b""
+    try:
+        while True:
+            chunk = os.read(screen, 65536)
+            if not chunk:
+                break
+            output += chunk
+    except OSError:  # Linux reports the closed terminal as an error rather than an empty read
+        pass
+    finally:
+        os.close(screen)
+    process.wait(timeout=10)
+    return output.decode("utf-8").replace("\r\n", "\n")
+
+
+@pytest.mark.parametrize("id_pattern, counters", [(r"intent-[0-9a-f]{7}", False), (r"intent-\d{3}", True)])
+def test_inspect_fields_line_up_under_the_goal_with_and_without_colour(tmp_path, id_pattern, counters):
+    environment = {name: value for name, value in os.environ.items()
+                   if name not in AGENT_ENVIRONMENT and name not in {"NO_COLOR", "ITT_COUNTER_IDS"}}
+    environment.update(PYTHONPATH=str(ROOT / "src"), TERM="xterm", INTENT_CONFIG_HOME=str(tmp_path / "config"),
+                       **({"ITT_COUNTER_IDS": "1"} if counters else {}))
+    itt_command = [sys.executable, "-m", "intent_cli"]
+    for argv in (["init", "--host", "codex"], ["intent", "create", "Goal", "--why", "Reason"],
+                 ["snap", "create", "Done", "--next", "Ship it", "--blocker", "none"]):
+        subprocess.run(itt_command + argv, cwd=tmp_path, env=environment, check=True, capture_output=True)
+    plain = subprocess.run(itt_command + ["inspect"], cwd=tmp_path, env={**environment, "NO_COLOR": "1", "ITT_FORMAT": "text"},
+                           check=True, capture_output=True, text=True).stdout
+    coloured = _in_a_terminal(itt_command + ["inspect"], tmp_path, environment)
+    assert "\x1b[" in coloured, "this must exercise the coloured path"
+    assert re.sub(r"\x1b\[\d+m", "", coloured) == plain, "both show the same ID"
+    [title, *fields] = plain.splitlines()[1:6]
+    assert re.fullmatch(rf"  {id_pattern}  Goal", title)
+    assert fields and {len(line) - len(line.lstrip()) for line in fields} == {title.index("Goal")}

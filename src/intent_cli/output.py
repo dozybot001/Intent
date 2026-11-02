@@ -22,7 +22,8 @@ AGENT_ENVIRONMENT = (
 
 _forced_format = None
 _held_reports = None
-_LONG_HASH_ID = re.compile(r"\b((?:intent|snap|decision)-[0-9a-f]{7})[0-9a-f]{5}\b")
+# A colour code ends in a letter, so a coloured ID has no word boundary in front of it.
+_LONG_HASH_ID = re.compile(r"(?:\b|(?<=\x1b\[\dm)|(?<=\x1b\[\d\dm))((?:intent|snap|decision)-[0-9a-f]{7})[0-9a-f]{5}\b")
 
 
 def set_format(value):
@@ -58,10 +59,15 @@ def hold_reports():
         success(*report)
 
 
+def short_ids(text):
+    """Hash IDs as people see them. Like Git they are short; any unique prefix is accepted back."""
+    return _LONG_HASH_ID.sub(r"\1", text)
+
+
 def print_text(text):
-    """Print a report for people. Like Git, it shows short hash IDs; any unique prefix is accepted back."""
+    """Print a report for people."""
     if text:
-        print(_LONG_HASH_ID.sub(r"\1", text))
+        print(short_ids(text))
 
 
 def success(action, result, warnings=None):

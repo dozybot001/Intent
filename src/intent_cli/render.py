@@ -2,6 +2,7 @@
 
 import os
 from intent_cli import render_history
+from intent_cli.output import short_ids
 from intent_cli.render_text import _checkpoint_lines, _counts, _labelled, _one_line, _plural, _when, _width, _wrap, bold, checkpoint_of, dim, green, snap_title, yellow
 
 STATUS_WORDS = {"active": "active", "suspend": "suspended", "done": "done", "cancelled": "cancelled", "deprecated": "deprecated"}
@@ -58,9 +59,10 @@ def _relation_line(row, indent):
 
 
 def _intent_block(intent):
-    # Fields sit under the goal, whose column moves with the ID: hash IDs are longer than counter IDs.
-    indent = " " * (len(intent["id"]) + 4)
-    lines = [f"  {bold(intent['id'])}  {_one_line(intent['what'], _width() - len(indent) - 2)}"]
+    # Fields sit under the goal, whose column moves with the ID as shown: hash IDs are longer than counter IDs.
+    shown = short_ids(intent["id"])
+    indent = " " * (len(shown) + 4)
+    lines = [f"  {bold(shown)}  {_one_line(intent['what'], _width() - len(indent) - 2)}"]
     snap = intent.get("latest_snap")
     # Where the goal sits, and only the relations someone has to act on.
     for row in intent.get("relations") or []:
