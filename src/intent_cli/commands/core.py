@@ -82,9 +82,12 @@ def cmd_inspect(args):
     if args.intent is not None:
         validate_object_id("intent", args.intent)
 
+    from intent_cli.commands.maintenance import recording_notice
+
     with workspace_write_lock(base, operation="inspect"):
         graph = load_graph_once(base)
         where = place(base)
+        notices = recording_notice(base)
 
     snap_by_id = graph["snap"]
     intents = list(graph["intent"].values())
@@ -149,6 +152,7 @@ def cmd_inspect(args):
         "active_decisions": active_decisions,
         "suspended": suspended,
         "warnings": warnings,
+        **({"notices": notices} if notices else {}),
     }
     if json_mode():
         # inspect keeps its original top-level JSON shape for agents and hooks.

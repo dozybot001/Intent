@@ -48,8 +48,9 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 
 | 命令 | 作用 |
 |---|---|
-| `itt maintenance status [--host H]` | 只读查询本项目开关与宿主的 hooks 配置；不指定 `--host` 时查看本项目已配置的宿主。不初始化，不假定宿主已经执行。 |
+| `itt maintenance status [--host H]` | 只读查询本项目开关与宿主的 hooks 配置；不指定 `--host` 时查看本项目已配置的宿主。不初始化，不假定宿主已经执行。没有 `.intent/` 时，`offer` 表示 Agent 是否应询问一次开启记录。 |
 | `itt maintenance on / off [--host H] [--remove-hooks]` | 本项目开启/关闭；旧版历史需开启一次，新 init 默认开启。`on` 安装所选宿主的 hooks，`off` 同时移除 Intent 的 Claude Code 条目；不改全局设置。 |
+| `itt maintenance decline` | 在用户配置目录记下所有者不想在此项目开启记录，`offer` 随之变为 false。不向项目写入任何内容，`itt init` 仍可使用。 |
 | `itt maintenance close recorded --turn TOKEN [--objects ID ...]` | Agent 提交当前轮已验证变化的回执，ID 可从开头快照差异推导。 |
 | `itt maintenance close no-op / failed --turn TOKEN --reason TEXT` | 零写入或失败如实收尾，不为回执制造 Snap。 |
 
@@ -331,6 +332,8 @@ stateDiagram-v2
 }
 ```
 
+记录已开启但钩子从未运行时，`status` 会增加一条警告，`inspect` 会增加顶层 `notices` 列表，都写明修复步骤。脚本和 Intent 没有钩子支持的 Agent 不会看到它们。
+
 `warnings` 包含对象图校验返回的全部结构化问题，不再只检查孤立 Snap。每项问题都含有 `code`、`object`、`id` 和 `message`；对象图健康时返回空列表。在接续已记录的工作或新增语义记录前运行 `itt inspect`。
 
 ### `doctor`
@@ -376,7 +379,7 @@ stateDiagram-v2
 | `TURN_NOT_ACTIVE` | token 不属于当前已开启项目的有效轮次 |
 | `HISTORY_UNHEALTHY` | 闭环校验发现对象图问题，需 doctor 诊断 |
 | `RECORDING_UNVERIFIED` | recorded 未引用本轮可验证的变化对象 |
-| `ALREADY_EXISTS` | 运行 `init` 或 `clone` 时 `.intent/` 已存在 |
+| `ALREADY_EXISTS` | 运行 `init`、`clone` 或 `maintenance decline` 时 `.intent/` 已存在 |
 | `STATE_CONFLICT` | 状态流转非法 |
 | `OBJECT_NOT_FOUND` | 找不到对应对象 ID |
 | `INVALID_INPUT` | 参数非法或缺少必填输入 |

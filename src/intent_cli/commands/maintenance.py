@@ -1,18 +1,21 @@
 """Small project-local maintenance command surface."""
 
+import json
 import os
 import sys
 from pathlib import Path
 
 from intent_cli import store
 from intent_cli.commands.common import require_init
+from intent_cli.hub.credentials import global_config_path
 from intent_cli.maintenance import MaintenanceError, close_turn, read_state, write_state
 from intent_cli.maintenance_hooks import host_status, install_host_hooks, remove_claude_hooks, remove_codex_hooks, run_hook
-from intent_cli.output import AGENT_ENVIRONMENT, json_mode, success
+from intent_cli.output import AGENT_ENVIRONMENT, error, json_mode, success
 
 HOST_FOLDERS = (("codex", ".codex"), ("claude-code", ".claude"))
 # Project-local hook files hold machine-specific paths; keep them out of Git like .intent/.
 HOOK_FILES = {"codex": ".codex/hooks.json", "claude-code": ".claude/settings.local.json"}
+DECLINED_LIMIT = 1000
 
 
 SETUP_ACTIONS = {
@@ -70,6 +73,58 @@ def setup_warning(host, field="hooks.setup"):
     return f"Hooks are configured, not verified running. Follow {field}: {SETUP_ACTIONS[host]}; verify actual host execution."
 
 
+def _expected_host(root):
+    """The host whose hooks should run here; none for a script or an agent Intent has no hooks for."""
+    if os.environ.get("CLAUDECODE"):
+        return "claude-code"
+    if any(os.environ.get(name) for name in AGENT_ENVIRONMENT):
+        return "codex"
+    return None if json_mode() else _configured_host(root) or "codex"
+
+
+def recording_notice(base):
+    """What to do when recording is on but its hooks have never run, so nothing is recorded by itself."""
+    try:
+        state = read_state(base)
+        root = store.project_root(base).resolve()
+        host = _expected_host(root)
+        if host is None or not state["enabled"] or state["turns"]:
+            return []
+        configured = host_status(root, host).get("configured")
+    except (MaintenanceError, store.StorageSecurityError, OSError):
+        return []
+    step = SETUP_ACTIONS[host] if configured else f"run itt maintenance on --host {host}"
+    return [f"Recording is on, but its hooks have not run here yet, so nothing is recorded automatically. To fix it: {step}."]
+
+
+def _declined_path():
+    return global_config_path().parent / "declined-projects.json"
+
+
+def _declined():
+    """Projects whose owner said no, kept in user config so a no leaves nothing in the project."""
+    try:
+        roots = json.loads(_declined_path().read_text(encoding="utf-8"))["roots"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return []
+    return [root for root in roots if isinstance(root, str)] if isinstance(roots, list) else []
+
+
+def _decline(root):
+    roots = [value for value in _declined() if value != str(root)] + [str(root)]
+    path = _declined_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        store._write_json_atomic(path, {"version": 1, "roots": roots[-DECLINED_LIMIT:]})
+    except OSError as exc:
+        raise MaintenanceError("MAINTENANCE_WRITE_FAILED", "Could not save this choice in the user config folder.") from exc
+
+
+def _offers_recording(root):
+    """Whether an agent should ask once. A home folder or a drive root is not a project."""
+    return root not in (Path.home().resolve(), Path(root.anchor)) and str(root) not in _declined()
+
+
 def configure(base, enabled, host="codex"):
     # Validate/merge hooks before enabling. A failed configuration must not
     # silently claim it installed a gate. Existing semantic objects are untouched.
@@ -107,7 +162,8 @@ def cmd_maintenance(args):
         base = store.intent_dir()
         args.host = _reported_host(args.host, store.project_root(base).resolve())
         if not base.exists():
-            success("maintenance.status", {"root": str(store.project_root(base).resolve()), "initialized": False, "enabled": False})
+            root = store.project_root(base).resolve()
+            success("maintenance.status", {"root": str(root), "initialized": False, "enabled": False, "offer": _offers_recording(root)})
             return
         with store.workspace_write_lock(base, operation="maintenance.status"):
             state = read_state(base)
@@ -125,6 +181,15 @@ def cmd_maintenance(args):
                     "stop_checked_receipt": any(entry.get("stop_checked", False) for entry in turns),
                     "note": "Local adapter observations, not attestation of this current desktop session or semantic quality.",
                 }}, warnings)
+        return
+    if args.sub == "decline":
+        base = store.intent_dir()
+        if base.exists():
+            error("ALREADY_EXISTS", "Intent is already set up in this project.",
+                  suggested_fix="Run `itt maintenance off` to stop recording here.")
+        root = store.project_root(base).resolve()
+        _decline(root)
+        success("maintenance.decline", {"root": str(root), "offer": False})
         return
     if args.sub == "off" and getattr(args, "remove_hooks", False):
         # Also for a project whose .intent/ is already gone: what is left of it is these files.

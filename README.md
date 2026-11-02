@@ -119,6 +119,8 @@ Agents in separate Git worktrees share one history, each on its own branch, and 
 
 Hooks open each turn with the current state and check at the end that the turn was closed. They are written to project-local files and never enable other projects. `itt maintenance off` turns recording off for one project.
 
+In a project without Intent, the agent asks once whether to turn recording on; a no is remembered. Until the hooks have run, `itt status` and `itt inspect` say what to do.
+
 ## What stays on your machine
 
 - `.intent/` holds plain JSON. `itt init` excludes it from Git in this clone only, because it may contain internal reasoning. Commit it deliberately if your team wants it in Git.

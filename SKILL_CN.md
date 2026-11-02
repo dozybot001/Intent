@@ -4,6 +4,7 @@ description: >-
   在已启用项目级维护的项目内持续维护已验证的 Intent 语义历史；itt init 默认启用。
   每轮开头读取、过程中保存关键变化、结束前以 recorded/no-op/failed 回执闭环。
   也处理明确的项目启用、Intent 一次性记录、接续、分支，以及 IntHub 的推送、拉取、抓取和克隆请求。
+  在没有 .intent/ 的项目开始开发时，检查一次是否询问用户开启实时记录。
   已关闭或旧版项目不自动启用；网络同步需要独立明确请求。
 ---
 
@@ -17,6 +18,8 @@ description: >-
 - 确定规范化的语义根目录；Git 可选。可信且对应本项目、当前轮的 hook 上下文就是开头快照，否则检查 `itt maintenance status`。执行命令前读 [execution.md](references/execution.md)。
 - 新历史的 `itt init` 默认开启维护并安装项目级 Codex hooks；已有历史只需一次 `itt maintenance on`。在 Claude Code 中，`init`、`maintenance on` 和 `maintenance status` 都加 `--host claude-code`。`itt maintenance off` 只关闭当前项目，并移除 Intent 的 Claude Code 条目。安装 Skill 或插件不会开启其他项目。
 - 用户要求开启实时记录时，Agent 完成项目配置后，明确告知用户审核并信任本项目的 `UserPromptSubmit`（开头读取）和 `Stop`（收尾检查）。Codex：进入**设置 → 钩子**或 `/hooks`；若看不到，先检查项目目录是否被信任，再按 [codex-hooks.md](references/codex-hooks.md) 处理。Claude Code：信任该目录，并按 [claude-code-hooks.md](references/claude-code-hooks.md) 在 `/hooks` 确认两个 hooks，看不到时才重启会话。不重复安装，不把已配置说成已实际执行。
+- 在没有 `.intent/` 的项目开始开发时，运行一次 `itt maintenance status`。返回 `offer: true` 时，用一句话问用户一次是否在这里开启实时记录，无论答案如何都继续当前任务。同意就运行 `itt init` 并告知上面的信任步骤；拒绝就运行 `itt maintenance decline`，这个项目不再询问。没有 `offer: true` 时不问。只读问答或用户说不用 Intent 时跳过。
+- `itt status` 的警告或 `itt inspect` 的 `notices` 说钩子还没运行时，表示现在不会自动记录。每个会话把其中的步骤告诉用户一次；在此之前由你自己判定并记录每一轮。
 - IntHub 可选。用户明确需要且认证缺失时，请用户在自己的终端运行 `itt auth login`，并在浏览器里批准显示的代码；不要求把 token 粘贴到聊天。完整路径见 [onboarding.md](references/onboarding.md)。
 - Intent 7 的项目写入时会返回 `REPOSITORY_NOT_MIGRATED`。需要写入时运行一次 `itt migrate`：它保留所有 ID，并先做备份。读取不受影响。
 - 已关闭或未初始化的项目不自动写语义。仍可明确要求一次性记录；仅请求的设置、记录或恢复确实需要时初始化。接续先只读。

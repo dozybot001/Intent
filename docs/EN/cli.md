@@ -48,8 +48,9 @@ A `REV` is `HEAD`, `HEAD~2`, `HEAD^`, a branch name, `origin/BRANCH`, or a uniqu
 
 | Command | Behavior |
 |---|---|
-| `itt maintenance status [--host H]` | Read this project's flag and the host's hook configuration without initializing; without `--host`, the host this project is configured for. Configuration does not attest execution. |
+| `itt maintenance status [--host H]` | Read this project's flag and the host's hook configuration without initializing; without `--host`, the host this project is configured for. Configuration does not attest execution. With no `.intent/`, `offer` says whether an agent should ask once about turning recording on. |
 | `itt maintenance on / off [--host H] [--remove-hooks]` | Enable/disable only this project. Legacy histories need on once; new init defaults on. `on` installs the chosen host's hooks; `off` also removes Intent's Claude Code entries. No global setting changes. |
+| `itt maintenance decline` | Record in the user config folder that the owner does not want recording in this project, so `offer` turns false. Nothing is written to the project, and `itt init` still works. |
 | `itt maintenance close recorded --turn TOKEN [--objects ID ...]` | Agent acknowledges verified changed objects; IDs may be derived from the entry baseline. |
 | `itt maintenance close no-op / failed --turn TOKEN --reason TEXT` | Acknowledge zero writes or failure without manufacturing a Snap. |
 
@@ -331,6 +332,8 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 }
 ```
 
+While recording is on but the hooks have never run, `status` adds a warning and `inspect` adds a top-level `notices` list, each naming the step that fixes it. Neither appears for a script or an agent Intent has no hooks for.
+
 `warnings` contains the complete structured issues returned by graph validation, not only orphaned Snaps. Each issue has `code`, `object`, `id`, and `message`; a healthy graph returns an empty list. Run `itt inspect` when resuming recorded work and before adding new semantic records.
 
 ### `doctor`
@@ -376,7 +379,7 @@ Use `itt inspect --intent intent-001` to focus the recovery view on one active o
 | `TURN_NOT_ACTIVE` | Token is not a valid turn in this enabled project |
 | `HISTORY_UNHEALTHY` | Closure found graph issues; diagnose with doctor |
 | `RECORDING_UNVERIFIED` | recorded did not reference verifiable objects changed this turn |
-| `ALREADY_EXISTS` | `.intent/` already exists when running `init` or `clone` |
+| `ALREADY_EXISTS` | `.intent/` already exists when running `init`, `clone` or `maintenance decline` |
 | `STATE_CONFLICT` | Illegal state transition |
 | `OBJECT_NOT_FOUND` | Object ID not found |
 | `INVALID_INPUT` | Invalid arguments or missing required input |

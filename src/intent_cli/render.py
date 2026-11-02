@@ -43,6 +43,8 @@ def _inspect(result):
             lines.append(f"  {decision['id']}  {_one_line(decision['what'], _width() - 18)}")
     if result.get("warnings"):
         lines += ["", yellow(f"{_plural(len(result['warnings']), 'warning')} — run `itt doctor` for details")]
+    for notice in result.get("notices", []):
+        lines += ["", yellow(notice)]
     return lines
 
 
@@ -276,6 +278,8 @@ def _maintenance(action):
         if action == "maintenance.close":
             objects = ", ".join(result.get("objects") or [])
             return [f"Turn closed: {result.get('outcome')}" + (f" ({objects})" if objects else "")]
+        if action == "maintenance.decline":
+            return [f"Recording stays off for {result['root']}. Agents will not ask here again.", dim("  To start anyway: itt init")]
         if action == "maintenance.status" and not result.get("initialized"):
             return [f"Intent is not initialized in {result['root']}.", dim("  Run: itt init")]
         enabled = "on" if result.get("enabled") else "off"
@@ -392,6 +396,7 @@ RENDERERS = {
     "maintenance.on": _maintenance("maintenance.on"),
     "maintenance.off": _maintenance("maintenance.off"),
     "maintenance.close": _maintenance("maintenance.close"),
+    "maintenance.decline": _maintenance("maintenance.decline"),
 }
 
 

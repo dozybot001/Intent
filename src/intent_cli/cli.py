@@ -254,6 +254,7 @@ def main():
         p = s_maintenance.add_parser(name)
         p.add_argument("--host", choices=HOSTS, default=None)
     p.add_argument("--remove-hooks", action="store_true", help="also remove Intent's hooks from this project's agent settings")
+    s_maintenance.add_parser("decline", help="tell agents not to ask about recording in this project again")
     p = s_maintenance.add_parser("close")
     p.add_argument("outcome", choices=("recorded", "no-op", "failed"))
     p.add_argument("--turn", required=True)

@@ -5,7 +5,8 @@ description: >-
   maintenance enabled; itt init enables it by default. Read context at turn start,
   preserve meaningful changes, and close hooked turns as recorded, no-op, or failed.
   Also handle requested project setup, Intent recording/recovery, branches, and IntHub
-  push, pull, fetch and clone.
+  push, pull, fetch and clone. When development work starts in a project with no
+  .intent/, check once whether to offer real-time recording.
   Disabled or legacy projects are not automatically enabled. Network sync needs
   a separate explicit request.
 ---
@@ -20,6 +21,8 @@ Preserve enough verified meaning for another agent to continue, not a conversati
 - Resolve the canonical semantic root; Git is optional. A trusted hook context for this root and turn supplies the opening snapshot. Otherwise check `itt maintenance status`. Read [execution.md](references/execution.md) before executing commands.
 - `itt init` enables maintenance and installs project-local Codex hooks for a new history. Existing histories need `itt maintenance on` once. In Claude Code, add `--host claude-code` to `init`, `maintenance on`, and `maintenance status`. `itt maintenance off` disables only this project and removes Intent's Claude Code entries. Skill or plugin installation does not enable other projects.
 - When asked to enable real-time recording, finish project configuration, then tell the user to review/trust this project's two hooks: `UserPromptSubmit` (opening context) and `Stop` (closure check). Codex: **Settings → Hooks** or `/hooks`; if absent, check project-directory trust first and follow [codex-hooks.md](references/codex-hooks.md). Claude Code: trust the folder and confirm both in `/hooks`, restarting the session only if they are missing, per [claude-code-hooks.md](references/claude-code-hooks.md). Do not repeat installation; configuration alone is not proof of execution.
+- When development work starts in a project with no `.intent/`, run `itt maintenance status` once. If it returns `offer: true`, ask the user once, in one line, whether to turn on real-time recording here, and carry on with the task either way. On yes, run `itt init` and give the trust step above. On no, run `itt maintenance decline`, which stops the question for this project. Without `offer: true` do not ask. Skip this for read-only questions or when the user said to leave Intent out.
+- A warning from `itt status` or a `notices` entry from `itt inspect` saying the hooks have not run means nothing is being recorded by itself. Tell the user the step it names, once per session, and until then assess and record each turn yourself.
 - IntHub is optional. When requested and authentication is missing, have the user run `itt auth login` in their own terminal and approve the code in the browser; never request a token in chat. Read [onboarding.md](references/onboarding.md) for the full path.
 - A project from Intent 7 answers writes with `REPOSITORY_NOT_MIGRATED`. Run `itt migrate` once when the work needs a write: it keeps every ID and backs up first. Reads work without it.
 - Disabled/uninitialized projects do not get automatic semantic writes. Explicit one-off recording remains available; initialize only when requested setup, recording, or restoration needs it. Recovery starts read-only.

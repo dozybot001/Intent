@@ -137,6 +137,8 @@ def _distance(base, head, tip, seen):
 
 
 def cmd_status(args):
+    from intent_cli.commands.maintenance import recording_notice
+
     base = require_init()
     with workspace_write_lock(base, operation="status"):
         where = place(base)
@@ -148,13 +150,14 @@ def cmd_status(args):
             return
         config, name, snapshot = _state(base, args)
         seen = repo.remote_revision(base, where["branch"]) if where else None
+        warnings = _identity_warning() + recording_notice(base)
     # Never contact a service the user has not chosen: without a configured
     # remote (or an explicit --api-base-url), status stays local.
     counts = {k: len(v) for k, v in snapshot.items()}
     remote_configured = bool(config.get("api_base_url") or getattr(args, "api_base_url", None))
     if getattr(args, "local", False) or not remote_configured:
         success("status", {"project_name": name, **where, "remote_checked": False, "remote_configured": remote_configured,
-            "local_changes": bool(where) and where["head"] != seen, "revision": seen, "counts": counts}, _identity_warning())
+            "local_changes": bool(where) and where["head"] != seen, "revision": seen, "counts": counts}, warnings)
         return
     require_repository(base)
     api, remote = _remote(base, args, config, name)
@@ -162,7 +165,7 @@ def cmd_status(args):
     tip = remote["refs"].get(where["branch"])
     success("status", {"project_name": name, **where, **followed, "api_base_url": api, "remote_checked": True,
         "state": _relation(base, where["branch"], where["head"], tip), "revision": seen,
-        **_distance(base, where["head"], tip, seen), "remote_revision": tip, "branches": remote["refs"], "counts": counts}, _identity_warning())
+        **_distance(base, where["head"], tip, seen), "remote_revision": tip, "branches": remote["refs"], "counts": counts}, warnings)
 
 
 def cmd_remote(args):

@@ -120,6 +120,8 @@ itt merge experiment          # 合并回来，只有真正的分歧才会停下
 
 Hooks 在每一轮开始时注入当前状态，并在结束时检查这一轮是否完成收尾。它们只写入项目内的文件，不会启用其他项目。`itt maintenance off` 可关闭单个项目的记录。
 
+在还没用 Intent 的项目里，Agent 会问一次是否开启记录，拒绝后不再询问。钩子运行之前，`itt status` 和 `itt inspect` 会提示该怎么做。
+
 ## 什么留在你的电脑上
 
 - `.intent/` 保存普通 JSON。由于可能包含内部推理，`itt init` 只在当前克隆中把它排除出 Git；如果团队希望放进 Git，请有意识地提交。
