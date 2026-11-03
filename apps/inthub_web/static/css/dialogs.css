@@ -269,9 +269,17 @@ html:has(.settings-dialog[open]) {
   background: transparent;
 }
 
-.help-trigger:hover,
-.help-trigger[aria-expanded="true"] {
+/* Only the character brightens (standard 5.13): no fill behind the larger hit area,
+   hover only where a pointer can hover, so a tap leaves nothing behind. */
+.help-trigger[aria-expanded="true"],
+:root:not([data-input="pointer"]) .help-trigger:focus-visible {
   color: var(--ink);
+}
+
+@media (hover: hover) {
+  .help-trigger:hover {
+    color: var(--ink);
+  }
 }
 
 .help-trigger span {

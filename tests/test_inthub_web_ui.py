@@ -396,3 +396,12 @@ def test_the_one_line_definition_is_the_agreed_sentence():
     translations = _static("i18n.js")
     assert f'"{english}": "云端 Intent 托管与协作开发平台"' in translations
     assert "接续工作台" not in translations and "continuity workspace" not in html
+
+
+def test_the_help_button_only_brightens_its_character():
+    css = _static("styles.css")
+    rules = [body for selector, body in re.findall(r"([^{}]*help-trigger[^{}]*)\{([^}]*)\}", css)]
+    # Standard 5.13: nothing paints the hit area; the character brightens instead.
+    assert rules and not any(re.search(r"\b(box-shadow|outline|background)\s*:\s*(?!transparent)\S", body) for body in rules)
+    assert re.search(r"@media \(hover: hover\)\s*\{\s*\.help-trigger:hover\s*\{\s*color: var\(--ink\)", css)
+    assert not re.search(r"(^|[,}\s])\.help-trigger:hover\s*,", css), "hover outside the media query sticks after a tap"
