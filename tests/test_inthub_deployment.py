@@ -225,8 +225,9 @@ def test_compose_uses_explicit_immutable_images_and_disables_auto_migration():
     assert compose.count("read_only: true") == 2 and compose.count("no-new-privileges:true") == 2
     assert compose.count("cap_drop:\n      - ALL") == 2 and compose.count("pids_limit:") == 2
     database = compose.split("\n  app:\n")[0]
-    assert "cap_add:\n      - CHOWN\n      - DAC_OVERRIDE\n      - FOWNER\n      - SETGID\n      - SETUID\n" in database
-    assert "- /var/run/postgresql:size=8m" in database and "- /tmp:size=64m,mode=1777" in database
+    # PostgreSQL runs as its registered UID (appendix A.3) with no capability at all.
+    assert 'user: "70979:70979"' in database and "cap_add" not in database
+    assert "- /var/run/postgresql:size=8m,mode=1777" in database and "- /tmp:size=64m,mode=1777" in database
     assert "ports:" not in database
 
 
@@ -372,6 +373,10 @@ def test_remote_release_verifies_and_loads_but_never_builds_or_pulls():
     assert "if ! container_running inthub-postgres; then" not in remote
     assert remote.index("pg_dump") < remote.index("up --detach --no-build --pull never database")
     assert "restoring the previous one" in remote and '"${PREVIOUS_DIRECTORY}" "${RELEASE_SHA}"' in remote
+    # A volume owned by another UID is handed over after the backup, before the database starts.
+    assert remote.index("pg_dump") < remote.index('-R "${DATABASE_UID}:${DATABASE_UID}"') \
+        < remote.index("up --detach --no-build --pull never database")
+    assert "DATABASE_UID=70979" in remote and 'docker_command start inthub-postgres' in remote
     assert "git clone" not in remote
     assert "git pull" not in remote
     assert "docker build" not in remote

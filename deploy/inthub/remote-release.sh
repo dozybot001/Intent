@@ -508,6 +508,21 @@ fi
 # candidate health and public acceptance. Compose recreates the database only
 # when its definition changed, on the same volume and after the backup above;
 # a definition that cannot start goes back to the previous release's.
+# PostgreSQL runs as its own UID (appendix A.3). A volume an earlier definition
+# owns is handed over while the database is stopped; going back, the previous
+# definition's root entrypoint takes its data directory back by itself.
+DATABASE_UID=70979
+database_volume() {
+    docker_command run --rm --network none --volume inthub-postgres-data:/var/lib/postgresql "$@"
+}
+if [[ "$(database_volume --entrypoint stat "${DATABASE_IMAGE_REFERENCE}" -c %u:%g /var/lib/postgresql/18/docker 2>/dev/null || true)" \
+    != "${DATABASE_UID}:${DATABASE_UID}" ]]; then
+    echo "Handing the PostgreSQL volume to UID ${DATABASE_UID}." >&2
+    ! container_running inthub-postgres || docker_command stop inthub-postgres >/dev/null
+    database_volume --user 0:0 --cap-drop ALL --cap-add CHOWN --cap-add DAC_READ_SEARCH --cap-add FOWNER \
+        --entrypoint chown "${DATABASE_IMAGE_REFERENCE}" -R "${DATABASE_UID}:${DATABASE_UID}" /var/lib/postgresql \
+        || { docker_command start inthub-postgres >/dev/null 2>&1 || true; fail "could not hand the PostgreSQL volume to UID ${DATABASE_UID}"; }
+fi
 compose_release \
     inthub \
     "${RELEASE_DIRECTORY}" "${RELEASE_SHA}" "${RELEASE_VERSION}" \

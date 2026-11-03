@@ -19,23 +19,19 @@ services:
       retries: 12
       start_period: 10s
     shm_size: 128mb
-    # Only the data volume, the socket directory and /tmp are writable. The
-    # entrypoint needs these capabilities to own its directories and drop to
-    # the postgres user; nothing else is granted.
+    # Its own UID (appendix A.3), not the image's 999, which is the host's caddy
+    # user. Running unprivileged from the start, it needs no capability; a
+    # release hands an existing volume to this UID first. Only the data volume,
+    # the socket directory and /tmp are writable.
+    user: "70979:70979"
     read_only: true
     tmpfs:
-      - /var/run/postgresql:size=8m
+      - /var/run/postgresql:size=8m,mode=1777
       - /tmp:size=64m,mode=1777
     mem_limit: 2g
     pids_limit: 256
     cap_drop:
       - ALL
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - FOWNER
-      - SETGID
-      - SETUID
     security_opt:
       - no-new-privileges:true
     networks:
