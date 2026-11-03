@@ -1,4 +1,6 @@
 inthub.tenon.asia {
+	# Shared access log from the root Caddyfile: no query strings or headers, kept 184 days.
+	import access_log
 	encode zstd gzip
 
 	header {

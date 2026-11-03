@@ -197,6 +197,14 @@ def test_production_entry_can_import_shared_history_from_container_pythonpath():
     )
 
 
+def test_the_site_uses_the_shared_access_log():
+    site = (REPOSITORY_ROOT / "deploy" / "inthub" / "inthub.caddy").read_text(encoding="utf-8")
+    # The root Caddyfile defines the redacted, six-month log; a site only imports it.
+    assert site.index("import access_log") < site.index("reverse_proxy") and "log {" not in site
+    privacy = (REPOSITORY_ROOT / "apps" / "inthub_web" / "static" / "privacy.html").read_text(encoding="utf-8")
+    assert "deleted automatically after 6 months" in privacy and "保存 6 个月后自动删除" in privacy
+
+
 def test_compose_uses_explicit_immutable_images_and_disables_auto_migration():
     compose = (REPOSITORY_ROOT / "deploy" / "inthub" / "compose.yaml").read_text(
         encoding="utf-8"
