@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OLD, NEW = "https://account.tenon.asia/api/auth", "https://account.tenonai.cn/api/auth"
 
 
-def tenon(answering, token_issuer=None, moved_reply=308):
+def tenon(answering, token_issuer=None, moved_reply=308, metadata_overrides=None):
     """A Tenon client whose discovery only `answering` serves; the other host fails or redirects."""
     key = JsonWebKey.generate_key("OKP", "Ed25519", {"kid": "k", "alg": "EdDSA", "use": "sig"}, is_private=True)
     attempt = {"state": "state", "nonce": "nonce", "code_verifier": "verifier" * 8}
@@ -40,7 +40,7 @@ def tenon(answering, token_issuer=None, moved_reply=308):
                 "issuer": answering, "authorization_endpoint": answering + "/oauth2/authorize",
                 "token_endpoint": answering + "/oauth2/token", "userinfo_endpoint": answering + "/oauth2/userinfo",
                 "jwks_uri": answering + "/jwks", "code_challenge_methods_supported": ["S256"],
-                "id_token_signing_alg_values_supported": ["EdDSA"]})
+                "id_token_signing_alg_values_supported": ["EdDSA"], **(metadata_overrides or {})})
         if path.endswith("/token"):
             signed = jwt.encode({"alg": "EdDSA", "kid": "k"}, claims, key).decode()
             return httpx.Response(200, json={"access_token": "a", "token_type": "Bearer", "expires_in": 600, "id_token": signed})
@@ -76,6 +76,22 @@ def test_a_token_from_the_issuer_not_in_use_is_rejected():
     with pytest.raises(Exception, match="could not be verified"):
         client.complete_login("code", "https://inthub.tenon.asia/api/v1/auth/tenon/callback", attempt)
     assert client.app.server_metadata == {}, "a failed sign-in discovers the issuer again"
+
+
+def test_a_redirect_is_never_followed_with_or_without_credentials(monkeypatch):
+    monkeypatch.setenv("INTHUB_TENON_ISSUERS", OLD)
+    client, attempt, asked = tenon(NEW)
+    with pytest.raises(Exception, match="temporarily unavailable"):
+        client.authorization_url("https://inthub.tenon.asia/api/v1/auth/tenon/callback", attempt)
+    assert asked == [OLD + "/.well-known/openid-configuration"], "the 308 to tenonai.cn is not followed"
+
+
+@pytest.mark.parametrize("field, endpoint", [
+    ("jwks_uri", "https://account.tenonai.cn/other/jwks"), ("token_endpoint", OLD + "/oauth2/token")])
+def test_endpoints_must_sit_under_the_issuer_that_answered(field, endpoint):
+    client, attempt, _ = tenon(NEW, metadata_overrides={field: endpoint})
+    with pytest.raises(Exception, match="temporarily unavailable"):
+        client.authorization_url("https://inthub.tenon.asia/api/v1/auth/tenon/callback", attempt)
 
 
 def test_an_operator_can_pin_the_issuer(monkeypatch):

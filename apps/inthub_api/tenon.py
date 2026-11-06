@@ -13,6 +13,8 @@ from apps.inthub_api.db import connect
 
 # Tenon's account service moves to tenonai.cn and keeps every sub and the role
 # claim. Discovery tries these in order and uses the first that names itself.
+# The old issuer only covers sign-ins under way at the switch: drop it once none
+# use it, and before tenon.asia turns into a redirect (S2).
 ISSUERS = ("https://account.tenonai.cn/api/auth", "https://account.tenon.asia/api/auth")
 # Identities stay stored under the issuer they were first bound with, so the
 # moved service still finds the same IntHub account.
@@ -190,9 +192,11 @@ class TenonOIDCClient:
         def checked(issuer, metadata):
             if metadata.get("issuer") != issuer:
                 raise ValueError("Unexpected OIDC issuer")
+            # Credentials only ever go to addresses under the configured issuer; no
+            # redirect is followed, so a moved issuer never receives them by Location.
             for field in ("authorization_endpoint", "token_endpoint", "userinfo_endpoint", "jwks_uri"):
-                url = urlsplit(metadata.get(field, ""))
-                if url.scheme != "https" or url.netloc != urlsplit(issuer).netloc or url.fragment:
+                endpoint = metadata.get(field, "")
+                if not isinstance(endpoint, str) or not endpoint.startswith(issuer + "/") or urlsplit(endpoint).fragment:
                     raise ValueError("Unexpected OIDC endpoint")
             if "S256" not in metadata.get("code_challenge_methods_supported", []):
                 raise ValueError("PKCE unavailable")
