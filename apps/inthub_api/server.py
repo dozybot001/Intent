@@ -51,10 +51,13 @@ def make_handler(
     if auth_required and not tenon_configured:
         raise ValueError("Authentication is required but no IntHub authentication is configured.")
     auth_mode = "tenon" if tenon_configured else "none"
+    # Several comma-separated origins serve one hub under more than one name; the first is canonical.
+    public_origins = tuple(url.strip().rstrip("/") for url in (public_api_base_url or "").split(",") if url.strip())
+    public_api_base_url = public_origins[0] if public_origins else None
     if tenon_configured and not public_api_base_url:
         raise ValueError("Tenon sign-in requires an explicit public API base URL.")
-    if tenon_configured:
-        callback_origin = urlparse(public_api_base_url)
+    for origin in public_origins if tenon_configured else ():
+        callback_origin = urlparse(origin)
         if (callback_origin.scheme != "https" or not callback_origin.netloc
                 or callback_origin.username or callback_origin.password
                 or callback_origin.path not in {"", "/"}
@@ -64,7 +67,7 @@ def make_handler(
     # Tenon mode is HTTPS-only, so its cookies are always Secure.
     secure_cookies = bool(secure_cookies or tenon_configured)
     allowed_hosts = set(LOOPBACK_HOSTS)
-    for url in [public_api_base_url, *(origin_allowlist or ())]:
+    for url in [*public_origins, *(origin_allowlist or ())]:
         if url and urlparse(url).hostname:
             allowed_hosts.add(urlparse(url).hostname)
     sign_in_limiter = _RateLimiter(limit=30, window_seconds=60)
@@ -80,7 +83,8 @@ def make_handler(
     deletion_limiter = _RateLimiter(limit=30, window_seconds=60)
     product_deletion = deletion_client
     if tenon_configured and product_deletion is None:
-        product_deletion = ProductDeletionClient(tenon_client_id, tenon_client_secret)
+        product_deletion = ProductDeletionClient(tenon_client_id, tenon_client_secret,
+                                                 issuer=getattr(provider_client, "issuer", None))
     settings = SimpleNamespace(
         account_session_ttl_seconds=account_session_ttl_seconds,
         allowed_hosts=allowed_hosts,
@@ -99,6 +103,7 @@ def make_handler(
         product_deletion=product_deletion,
         provider_client=provider_client,
         public_api_base_url=public_api_base_url,
+        public_origins=public_origins,
         root=root,
         secure_cookies=secure_cookies,
         serve_web=serve_web,

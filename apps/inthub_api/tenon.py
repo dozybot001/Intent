@@ -1,6 +1,7 @@
 """Tenon's sole OIDC entry and exact product identity mapping."""
 
 import hashlib
+import os
 import secrets
 import time
 from datetime import datetime
@@ -10,9 +11,31 @@ from apps.inthub_api.auth import _expires_at, _is_expired, _sha256, public_accou
 from apps.inthub_api.common import APIError, new_id, now_utc
 from apps.inthub_api.db import connect
 
+# Tenon's account service moves to tenonai.cn and keeps every sub and the role
+# claim. Discovery tries these in order and uses the first that names itself.
+ISSUERS = ("https://account.tenonai.cn/api/auth", "https://account.tenon.asia/api/auth")
+# Identities stay stored under the issuer they were first bound with, so the
+# moved service still finds the same IntHub account.
 ISSUER = "https://account.tenon.asia/api/auth"
 PLATFORM_ROLE = "https://tenon.asia/claims/platform_role"
 SESSION_MAX_SECONDS = 30 * 24 * 60 * 60
+METADATA_TTL_SECONDS = 600
+
+
+def configured_issuers():
+    """INTHUB_TENON_ISSUERS overrides the order or pins one issuer."""
+    issuers = tuple(os.getenv("INTHUB_TENON_ISSUERS", " ".join(ISSUERS)).replace(",", " ").split())
+    for issuer in issuers:
+        url = urlsplit(issuer)
+        if url.scheme != "https" or not url.hostname or url.query or url.fragment or url.username or url.password:
+            raise ValueError("Tenon issuers must be exact HTTPS URLs.")
+    if not issuers:
+        raise ValueError("At least one Tenon issuer is required.")
+    return issuers
+
+
+def issuer_hosts():
+    return {urlsplit(issuer).netloc for issuer in configured_issuers()}
 
 
 def create_attempt(db_target, return_to="/", ttl_seconds=600):
@@ -162,28 +185,54 @@ class TenonOIDCClient:
         from authlib.integrations.base_client import BaseApp, OAuth2Mixin, OpenIDMixin
         from authlib.integrations.httpx_client import OAuth2Client
 
+        issuers = configured_issuers()
+
+        def checked(issuer, metadata):
+            if metadata.get("issuer") != issuer:
+                raise ValueError("Unexpected OIDC issuer")
+            for field in ("authorization_endpoint", "token_endpoint", "userinfo_endpoint", "jwks_uri"):
+                url = urlsplit(metadata.get(field, ""))
+                if url.scheme != "https" or url.netloc != urlsplit(issuer).netloc or url.fragment:
+                    raise ValueError("Unexpected OIDC endpoint")
+            if "S256" not in metadata.get("code_challenge_methods_supported", []):
+                raise ValueError("PKCE unavailable")
+            algorithms = metadata.get("id_token_signing_alg_values_supported", [])
+            if not algorithms or any(alg not in {"EdDSA", "RS256", "ES256"} for alg in algorithms):
+                raise ValueError("Unexpected signing algorithm")
+            return metadata
+
         class OIDCApp(OAuth2Mixin, OpenIDMixin, BaseApp):
             client_cls = OAuth2Client
 
             def load_server_metadata(self):
-                metadata = super().load_server_metadata()
-                if metadata.get("issuer") != ISSUER:
-                    raise ValueError("Unexpected OIDC issuer")
-                for field in ("authorization_endpoint", "token_endpoint", "userinfo_endpoint", "jwks_uri"):
-                    url = urlsplit(metadata.get(field, ""))
-                    if url.scheme != "https" or url.netloc != "account.tenon.asia" or url.fragment:
-                        raise ValueError("Unexpected OIDC endpoint")
-                if "S256" not in metadata.get("code_challenge_methods_supported", []):
-                    raise ValueError("PKCE unavailable")
-                algorithms = metadata.get("id_token_signing_alg_values_supported", [])
-                if not algorithms or any(alg not in {"EdDSA", "RS256", "ES256"} for alg in algorithms):
-                    raise ValueError("Unexpected signing algorithm")
-                return metadata
+                # A fresh dict per discovery, so keys cached for one issuer never serve another.
+                if time.time() - self.server_metadata.get("_loaded_at", 0) < METADATA_TTL_SECONDS:
+                    return self.server_metadata
+                failure = None
+                for issuer in issuers:
+                    try:
+                        with self._get_session() as session:
+                            response = session.request("GET", issuer + "/.well-known/openid-configuration",
+                                                       withhold_token=True, timeout=5)
+                            response.raise_for_status()
+                            metadata = checked(issuer, response.json())
+                    except Exception as exc:
+                        failure = exc
+                        continue
+                    self.server_metadata = {**metadata, "_loaded_at": time.time()}
+                    return self.server_metadata
+                raise ValueError("No Tenon issuer answered") from failure
 
         self.app = OIDCApp(None, "tenon", client_id=client_id, client_secret=client_secret,
-                           server_metadata_url=ISSUER + "/.well-known/openid-configuration",
                            client_kwargs={"scope": "openid profile email", "code_challenge_method": "S256",
                                           "token_endpoint_auth_method": "client_secret_basic", "timeout": 10})
+
+    def issuer(self):
+        """The issuer in use now; the account service answers on one at a time."""
+        try:
+            return self.app.load_server_metadata()["issuer"]
+        except Exception as exc:
+            raise APIError("OAUTH_PROVIDER_ERROR", "Tenon sign-in is temporarily unavailable.", 502) from exc
 
     def authorization_url(self, redirect_uri, attempt):
         try:
@@ -199,7 +248,7 @@ class TenonOIDCClient:
                 raise ValueError("Missing token")
             claims = self.app.parse_id_token(token, nonce=attempt["nonce"], leeway=0)
             # Require nonce even if a provider advertises nonce_supported=false.
-            if claims.get("nonce") != attempt["nonce"] or claims.get("iss") != ISSUER:
+            if claims.get("nonce") != attempt["nonce"] or claims.get("iss") != self.app.server_metadata.get("issuer"):
                 raise ValueError("Invalid nonce or issuer")
             info = self.app.userinfo(token=token)
             role = info.get(PLATFORM_ROLE)
@@ -216,5 +265,7 @@ class TenonOIDCClient:
                     "name": name.strip()[:80] if isinstance(name, str) and name.strip() else None,
                     "email": email.strip()[:200] if isinstance(email, str) and email.strip() else None}
         except Exception as exc:
+            # The issuer may have moved mid sign-in; the next attempt discovers it again.
+            self.app.server_metadata = {}
             # Never include provider payloads, claims, tokens or secrets in the error.
             raise APIError("OAUTH_IDENTITY_INVALID", "Tenon sign-in could not be verified.", 502) from exc

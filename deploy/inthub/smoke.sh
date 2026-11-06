@@ -53,7 +53,7 @@ with open(sys.argv[1]) as source:
     payload = json.load(source)
 target = urlparse(payload["result"]["authorizationUrl"])
 assert payload["ok"] is True
-assert target.scheme == "https" and target.netloc == "account.tenon.asia"
+assert target.scheme == "https" and target.netloc in {"account.tenonai.cn", "account.tenon.asia"}
 assert target.path == "/api/auth/oauth2/authorize" and not target.fragment
 PY
     curl --fail --silent --show-error --max-time 10 "${base_url}/auth/redirect" \

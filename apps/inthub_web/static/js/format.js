@@ -7,7 +7,7 @@ function productDeletionDestination(result) {
   } catch {
     throw new Error(t("Tenon returned an invalid deletion destination."));
   }
-  if (target.origin !== "https://account.tenon.asia" || target.pathname !== "/account/delete/"
+  if (!TENON_ACCOUNT_ORIGINS.includes(target.origin) || target.pathname !== "/account/delete/"
       || target.username || target.password || target.hash
       || [...target.searchParams].length !== 1 || !/^[A-Za-z0-9_-]{43}$/.test(target.searchParams.get("request") || "")
       || !Number.isFinite(result?.expiresAt) || result.expiresAt <= Date.now()) {

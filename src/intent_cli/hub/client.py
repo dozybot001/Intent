@@ -7,6 +7,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from intent_cli.hub.credentials import OFFICIAL_INTHUB_ADDRESSES
 from intent_cli.output import error
 
 
@@ -135,8 +136,6 @@ def _decode_error_response(raw_bytes):
     return {"response_type": type(body).__name__}
 
 
-# The hosted IntHub needs no --api-base-url in login hints.
-OFFICIAL_ORIGIN = "https://inthub.tenon.asia"
 
 
 def http_json(
@@ -187,7 +186,8 @@ def http_json(
             response = _decode_error_response(raw_bytes) if raw_bytes else {}
             if exc.code == 401:
                 origin = "{0.scheme}://{0.netloc}".format(urllib.parse.urlsplit(url))
-                login = "itt auth login" + ("" if origin == OFFICIAL_ORIGIN else f" --api-base-url {origin}")
+                # The hosted IntHub needs no --api-base-url in login hints.
+                login = "itt auth login" + ("" if origin in OFFICIAL_INTHUB_ADDRESSES else f" --api-base-url {origin}")
                 error(
                     "AUTH_REQUIRED",
                     f"{origin} did not accept the access token." if token else f"Sign in to {origin} first.",

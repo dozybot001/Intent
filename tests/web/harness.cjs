@@ -86,6 +86,8 @@ vm.runInContext(`
   const deletionUrl = 'https://account.tenon.asia/account/delete/?request=' + 'f'.repeat(43);
   const deletionExpiry = Date.now() + 300000;
   assert.equal(productDeletionDestination({url: deletionUrl, expiresAt: deletionExpiry}), deletionUrl);
+  const movedUrl = deletionUrl.replace('account.tenon.asia', 'account.tenonai.cn');
+  assert.equal(productDeletionDestination({url: movedUrl, expiresAt: deletionExpiry}), movedUrl);
   for (const url of [deletionUrl + '&request=' + 'f'.repeat(43), deletionUrl + '&extra=yes', deletionUrl.replace('f'.repeat(43), 'short'), deletionUrl.replace('account.tenon.asia', 'fake.example')]) {
     assert.throws(() => productDeletionDestination({url, expiresAt: deletionExpiry}));
   }

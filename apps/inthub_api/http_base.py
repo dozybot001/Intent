@@ -68,8 +68,11 @@ class HttpBase:
             self.wfile.write(body)
 
     def _request_base_url(self):
-        if self.hub.public_api_base_url:
-            return self.hub.public_api_base_url.rstrip("/")
+        if self.hub.public_origins:
+            # Host is already one of the served names; each keeps its own callback and cookies.
+            host = (self.headers.get("Host") or "").lower()
+            return next((origin for origin in self.hub.public_origins if urlparse(origin).netloc == host),
+                        self.hub.public_origins[0])
         proto = self.headers.get("X-Forwarded-Proto", "http")
         host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host")
         if not host:

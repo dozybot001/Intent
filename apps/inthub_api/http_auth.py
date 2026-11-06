@@ -7,7 +7,7 @@ from apps.inthub_api.access import VISITOR
 from apps.inthub_api.auth import account_for_access_token, create_account_access_token, delete_web_session, list_account_access_tokens, revoke_account_access_token, safe_return_to
 from apps.inthub_api.common import APIError
 from apps.inthub_api.device import decide_device_login, describe_device_login, poll_device_login, start_device_login
-from apps.inthub_api.tenon import account_for_identity, account_for_session, consume_attempt, create_attempt, create_session
+from apps.inthub_api.tenon import account_for_identity, account_for_session, consume_attempt, create_attempt, create_session, issuer_hosts
 from apps.inthub_api.http_common import AUTH_BODY_LIMIT, LOGGER, OAUTH_STATE_COOKIE, SESSION_COOKIE, _json_success, _login_error_return
 
 
@@ -196,7 +196,7 @@ class HttpAuth:
             consume_attempt(self.hub.db_path, attempt["state"])
             raise
         target = urlparse(location)
-        if (target.scheme != "https" or target.netloc != "account.tenon.asia"
+        if (target.scheme != "https" or target.netloc not in issuer_hosts()
                 or target.path != "/api/auth/oauth2/authorize" or target.fragment):
             consume_attempt(self.hub.db_path, attempt["state"])
             raise APIError("AUTH_FLOW_UNAVAILABLE", "Tenon authorization is unavailable.", 503)

@@ -24,7 +24,7 @@ function renderSetupGuide(mode) {
   el.shell.classList.add("is-empty");
   const projectName = currentProject()?.full_name;
   const linkCmd = `itt remote add origin ${shellArg(state.config.apiBaseUrl)} --project ${projectName ? shellArg(projectName) : "PROJECT"}`;
-  const hosted = String(state.config.apiBaseUrl || "").replace(/\/+$/, "") === HOSTED_INTHUB;
+  const hosted = HOSTED_INTHUB_ORIGINS.includes(String(state.config.apiBaseUrl || "").replace(/\/+$/, ""));
   const steps = [];
   if (mode === "unlinked") {
     steps.push(

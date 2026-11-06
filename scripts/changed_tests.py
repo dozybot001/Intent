@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WEB = ["tests/test_inthub_web_ui.py"]
 SERVER = ["tests/test_inthub_api_server.py", "tests/test_inthub_auth.py", "tests/test_inthub_db.py", "tests/test_inthub_device_login.py",
           "tests/test_inthub_hosted_limits.py", "tests/test_inthub_product_deletion.py", "tests/test_inthub_projects.py",
-          "tests/test_inthub_queries.py", "tests/test_inthub_teams.py", "tests/test_inthub_tenon.py"]
+          "tests/test_inthub_queries.py", "tests/test_inthub_teams.py", "tests/test_inthub_tenon.py", "tests/test_tenonai_migration.py"]
 SYNC = ["tests/test_cli_polish.py", "tests/test_protocol3.py", "tests/test_protocol3_safety.py", "tests/test_hub_client.py", "tests/test_hub_credentials.py", "tests/test_hub_runtime.py", "tests/test_shared_history.py",
         "tests/test_snapshot_restore.py"]
 CLI = ["tests/test_cli_global.py", "tests/test_cli_hub.py", "tests/test_cli_inspect.py", "tests/test_cli_objects.py", "tests/test_cli_storage.py",
@@ -24,10 +24,10 @@ AREAS = (
     ("apps/inthub_web/", WEB),
     ("apps/inthub_local/", ["tests/test_inthub_local.py"]),
     ("apps/inthub_api/", SERVER),
-    ("src/intent_cli/hub/", SYNC + ["tests/test_inthub_device_login.py"]),
+    ("src/intent_cli/hub/", SYNC + ["tests/test_inthub_device_login.py", "tests/test_tenonai_migration.py"]),
     ("src/intent_cli/", CLI),
     ("scripts/itt_argv.py", ["tests/test_itt_argv.py"]),
-    ("deploy/", ["tests/test_inthub_deployment.py"]),
+    ("deploy/", ["tests/test_inthub_deployment.py", "tests/test_tenonai_migration.py"]),
     ("Dockerfile", ["tests/test_inthub_deployment.py"]),
     ("pyproject.toml", ["tests/test_inthub_deployment.py", "tests/test_inthub_local.py"]),
 )

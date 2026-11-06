@@ -10,6 +10,9 @@ from urllib.parse import urlsplit, urlunsplit
 
 
 OFFICIAL_INTHUB_API_BASE_URL = "https://inthub.tenon.asia"
+# The hosted IntHub answers on both names while it moves to tenonai.cn. Either
+# one means the official service, reached at the address above.
+OFFICIAL_INTHUB_ADDRESSES = frozenset({OFFICIAL_INTHUB_API_BASE_URL, "https://inthub.tenonai.cn"})
 CREDENTIAL_USERNAME = "intent-cli"
 
 
@@ -23,6 +26,11 @@ class CredentialStoreError(RuntimeError):
 
 def normalize_api_base_url(value):
     """Validate and normalize an IntHub HTTP(S) API base URL."""
+    url = _exact_api_base_url(value)
+    return OFFICIAL_INTHUB_API_BASE_URL if url in OFFICIAL_INTHUB_ADDRESSES else url
+
+
+def _exact_api_base_url(value):
     if not isinstance(value, str) or not value.strip():
         raise GlobalHubConfigError("IntHub API base URL must be a non-empty string.")
     raw = value.strip()
@@ -127,8 +135,16 @@ def global_api_base_url():
     return read_global_hub_config().get("api_base_url", OFFICIAL_INTHUB_API_BASE_URL)
 
 
+def _token_addresses(api_base_url):
+    """Where a token for this endpoint may be stored: the official service has several names."""
+    url = normalize_api_base_url(api_base_url)
+    if url != OFFICIAL_INTHUB_API_BASE_URL:
+        return [url]
+    return [url, *sorted(OFFICIAL_INTHUB_ADDRESSES - {url})]
+
+
 def _credential_request(api_base_url, token=None):
-    parsed = urlsplit(normalize_api_base_url(api_base_url))
+    parsed = urlsplit(_exact_api_base_url(api_base_url))
     fields = [
         f"protocol={parsed.scheme}",
         f"host={parsed.netloc}",
@@ -209,7 +225,12 @@ def _helper_token(api_base_url):
 
 def load_access_token(api_base_url):
     """Load an account token. The file holds one only when the helper could not, so it comes first."""
-    return _file_tokens().get(normalize_api_base_url(api_base_url)) or _helper_token(api_base_url)
+    tokens = _file_tokens()
+    for address in _token_addresses(api_base_url):
+        token = tokens.get(address) or _helper_token(address)
+        if token:
+            return token
+    return None
 
 
 def store_access_token(api_base_url, token):
@@ -218,12 +239,12 @@ def store_access_token(api_base_url, token):
         raise CredentialStoreError("An IntHub account token is required.")
     if any(ord(char) < 32 or ord(char) == 127 for char in token):
         raise CredentialStoreError("IntHub account token contains control characters.")
-    request = _credential_request(api_base_url, token)
+    key = normalize_api_base_url(api_base_url)
+    request = _credential_request(key, token)
     try:
-        stored = _run_git_credential("approve", request).returncode == 0 and _helper_token(api_base_url) == token
+        stored = _run_git_credential("approve", request).returncode == 0 and _helper_token(key) == token
     except (OSError, subprocess.SubprocessError):
         stored = False
-    key = normalize_api_base_url(api_base_url)
     tokens = _file_tokens()
     if stored:
         if tokens.pop(key, None) is not None:
@@ -234,11 +255,14 @@ def store_access_token(api_base_url, token):
 
 
 def erase_access_token(api_base_url):
-    """Remove the account token from wherever it was stored."""
+    """Remove the account token from wherever it was stored, under every name of its endpoint."""
     tokens = _file_tokens()
-    if tokens.pop(normalize_api_base_url(api_base_url), None) is not None:
+    addresses = _token_addresses(api_base_url)
+    removed = [address for address in addresses if tokens.pop(address, None) is not None]
+    if removed:
         _write_file_tokens(tokens)
-    try:
-        _run_git_credential("reject", _credential_request(api_base_url))
-    except (OSError, subprocess.SubprocessError):
-        pass
+    for address in addresses:
+        try:
+            _run_git_credential("reject", _credential_request(address))
+        except (OSError, subprocess.SubprocessError):
+            pass

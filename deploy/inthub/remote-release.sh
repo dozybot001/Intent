@@ -20,6 +20,8 @@ BACKUPS_ROOT="${REMOTE_ROOT}/backups"
 LOGS_ROOT="${REMOTE_ROOT}/logs"
 CADDY_SITE="/etc/caddy/sites-enabled/inthub.caddy"
 PUBLIC_URL="https://inthub.tenon.asia"
+NEW_DOMAIN="inthub.tenonai.cn"
+EXTRA_ORIGINS=""
 PRIVATE_NETWORK="inthub-private"
 PREVIOUS_DIRECTORY=""
 PREVIOUS_CONTAINER=""
@@ -68,6 +70,7 @@ compose_release() {
         "INTHUB_PACKAGE_VERSION=${release_version}" \
         "INTHUB_APP_CONTAINER=${app_container}" \
         "INTHUB_BIND_PORT=${bind_port}" \
+        "INTHUB_EXTRA_ORIGINS=${EXTRA_ORIGINS}" \
         docker compose \
             --project-name "${project_name}" \
             --env-file "${SHARED_ENV}" \
@@ -125,7 +128,8 @@ render_caddy() {
     local source_file="$1"
     local target_file="$2"
     local port="$3"
-    python3 - "${source_file}" "${target_file}" "${port}" <<'PY'
+    local extra_domain="$4"
+    python3 - "${source_file}" "${target_file}" "${port}" "${extra_domain}" <<'PY'
 import pathlib
 import sys
 
@@ -133,14 +137,33 @@ source = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
 needle = "reverse_proxy 127.0.0.1:7250"
 if source.count(needle) != 1:
     raise SystemExit("IntHub Caddy template must contain exactly one canonical upstream")
+site = "inthub.tenon.asia {\n"
+if not source.startswith(site) or source.count(site) != 1:
+    raise SystemExit("IntHub Caddy template must open with its one site address")
 port = sys.argv[3]
 if port not in {"7250", "7251"}:
     raise SystemExit("candidate port is outside the IntHub slot set")
+if sys.argv[4]:
+    # Both names share this block, so the new one keeps the access log and headers.
+    source = source.replace(site, f"inthub.tenon.asia, {sys.argv[4]} {{\n", 1)
 pathlib.Path(sys.argv[2]).write_text(
     source.replace(needle, f"reverse_proxy 127.0.0.1:{port}"),
     encoding="utf-8",
 )
 PY
+}
+
+# inthub.tenonai.cn joins once the security team has added its record after the
+# ICP filing: it must resolve to this server and no longer be held by Tencent
+# Cloud's block for unfiled sites. Any earlier, Caddy would only keep retrying
+# its certificate.
+new_domain_ready() {
+    local served wanted location
+    served="$(getent ahostsv4 "${PUBLIC_URL#https://}" | awk 'NR == 1 {print $1}' || true)"
+    wanted="$(getent ahostsv4 "${NEW_DOMAIN}" | awk 'NR == 1 {print $1}' || true)"
+    [[ -n "${wanted}" && "${wanted}" == "${served}" ]] || return 1
+    location="$(curl --silent --max-time 5 --output /dev/null --write-out '%{redirect_url}' "http://${NEW_DOMAIN}/" || true)"
+    [[ "${location}" != *webblock* ]]
 }
 
 restore_current() {
@@ -308,7 +331,7 @@ if sudo -n test -e "${CADDY_SITE}"; then
     ! sudo -n test -L "${CADDY_SITE}" || fail "IntHub Caddy site must not be a symlink"
 fi
 
-for command_name in curl gzip python3 sha256sum; do
+for command_name in curl getent gzip python3 sha256sum; do
     command -v "${command_name}" >/dev/null 2>&1 \
         || fail "required production command is unavailable: ${command_name}"
 done
@@ -316,6 +339,10 @@ sudo -n docker version >/dev/null
 sudo -n docker compose version >/dev/null
 sudo -n caddy version >/dev/null
 sudo -n systemctl is-active caddy >/dev/null
+if new_domain_ready; then
+    EXTRA_ORIGINS=",https://${NEW_DOMAIN}"
+    echo "IntHub serves https://${NEW_DOMAIN} too from this release; ask the security team to accept it."
+fi
 
 python3 "${SCRIPT_DIRECTORY}/release_manifest.py" verify \
     --bundle "${SCRIPT_DIRECTORY}" \
@@ -581,7 +608,8 @@ wait_for_app "${CANDIDATE_CONTAINER}" "${CANDIDATE_PORT}" \
     || fail "candidate application did not become healthy"
 
 CADDY_CANDIDATE="${BACKUP_DIRECTORY}/inthub.caddy.candidate"
-render_caddy "${RELEASE_DIRECTORY}/inthub.caddy" "${CADDY_CANDIDATE}" "${CANDIDATE_PORT}"
+render_caddy "${RELEASE_DIRECTORY}/inthub.caddy" "${CADDY_CANDIDATE}" "${CANDIDATE_PORT}" \
+    "${EXTRA_ORIGINS:+${NEW_DOMAIN}}"
 chmod 0600 "${CADDY_CANDIDATE}"
 if sudo -n test -f "${CADDY_SITE}"; then
     CADDY_BACKUP="${BACKUP_DIRECTORY}/inthub.caddy"
@@ -598,6 +626,15 @@ sudo -n systemctl reload caddy
 INTHUB_BASE_URL="${PUBLIC_URL}" \
 INTHUB_LOOPBACK_URL="http://127.0.0.1:${CANDIDATE_PORT}" \
     bash "${RELEASE_DIRECTORY}/smoke.sh"
+if [[ -n "${EXTRA_ORIGINS}" ]]; then
+    # Caddy obtains the new certificate in the background, normally within a minute.
+    for attempt in $(seq 1 18); do
+        curl --fail --silent --max-time 10 "https://${NEW_DOMAIN}/healthz" >/dev/null && break
+        [[ "${attempt}" -lt 18 ]] || fail "https://${NEW_DOMAIN} did not come up with a certificate"
+        sleep 10
+    done
+    INTHUB_BASE_URL="https://${NEW_DOMAIN}" bash "${RELEASE_DIRECTORY}/smoke.sh"
+fi
 write_release_state public_smoke_passed
 
 CURRENT_CANDIDATE="${REMOTE_ROOT}/.current.${LOCK_TOKEN}"

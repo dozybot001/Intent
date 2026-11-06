@@ -8,7 +8,7 @@ from urllib.parse import parse_qsl, quote, urlsplit
 from apps.inthub_api.common import APIError, now_utc
 from apps.inthub_api.db import connect
 from apps.inthub_api.teams import hand_over_teams
-from apps.inthub_api.tenon import ISSUER, _identity_lock
+from apps.inthub_api.tenon import ISSUER, _identity_lock, configured_issuers, issuer_hosts
 
 PRODUCT_ID = "inthub"
 OPERATION_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
@@ -23,7 +23,7 @@ def validate_operation(operation_id, grant):
 
 def validate_proof(proof, operation_id):
     if (not isinstance(operation_id, str) or not OPERATION_PATTERN.fullmatch(operation_id)
-            or not isinstance(proof, dict) or proof.get("issuer") != ISSUER
+            or not isinstance(proof, dict) or proof.get("issuer") not in configured_issuers()
             or set(proof) - {"issuer", "sub", "productId", "operationId", "completed"}
             or ("completed" in proof and not isinstance(proof["completed"], bool))
             or proof.get("productId") != PRODUCT_ID or proof.get("operationId") != operation_id
@@ -84,7 +84,7 @@ def delete_product_account(db_target, proof):
 
 
 class ProductDeletionClient:
-    def __init__(self, client_id, client_secret, request=None):
+    def __init__(self, client_id, client_secret, request=None, issuer=None):
         if not client_id or not client_secret:
             raise ValueError("Tenon product deletion requires confidential client credentials.")
         encoded = quote(client_id, safe="") + ":" + quote(client_secret, safe="")
@@ -94,10 +94,12 @@ class ProductDeletionClient:
             import httpx
             request = httpx.post
         self.request = request
+        # The sign-in client knows which issuer answers now; deletion calls go to the same one.
+        self.issuer = issuer or (lambda: configured_issuers()[0])
 
     def call(self, action, payload):
         try:
-            response = self.request(ISSUER + "/product-deletion/" + action, json=payload,
+            response = self.request(self.issuer() + "/product-deletion/" + action, json=payload,
                                     headers={"Authorization": self.authorization},
                                     timeout=2 if action == "finish" else 5, follow_redirects=False)
             if response.status_code != 200:
@@ -117,7 +119,7 @@ class ProductDeletionClient:
         result = self.call("start", {"sub": subject})
         target = urlsplit(result.get("url", ""))
         query = parse_qsl(target.query, keep_blank_values=True)
-        if (target.scheme != "https" or target.netloc != "account.tenon.asia"
+        if (target.scheme != "https" or target.netloc not in issuer_hosts()
                 or target.path != "/account/delete/" or target.username or target.password or target.fragment
                 or set(result) != {"url", "expiresAt"}
                 or len(query) != 1 or query[0][0] != "request" or not TOKEN_PATTERN.fullmatch(query[0][1])
