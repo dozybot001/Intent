@@ -211,7 +211,8 @@ class TenonOIDCClient:
                 failure = None
                 for issuer in issuers:
                     try:
-                        with self._get_session() as session:
+                        # Older Authlib releases, the newest Python 3.9 can install, have no _get_session.
+                        with self.client_cls(**self.client_kwargs) as session:
                             response = session.request("GET", issuer + "/.well-known/openid-configuration",
                                                        withhold_token=True, timeout=5)
                             response.raise_for_status()
