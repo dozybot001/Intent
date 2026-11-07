@@ -351,6 +351,11 @@ def test_visitors_see_what_this_is_and_every_page_names_its_operator():
     for target in ("https://tenon.asia/legal/terms/", "/privacy", "https://tenon.asia/legal/acceptable-use/",
                    "mailto:support@tenonai.cn", "https://beian.miit.gov.cn/"):
         assert html.count(f'href="{target}"') >= 2, target
+    # PIPL article 17: the policy names the handler, in both languages, beside its contact address.
+    privacy = (STATIC_DIR / "privacy.html").read_text(encoding="utf-8")
+    assert "Changsha Tenon Artificial Intelligence Technology Co., Ltd. (长沙榫卯人工智能科技有限公司)" in privacy
+    assert "IntHub 由长沙榫卯人工智能科技有限公司（品牌「榫卯 Tenon AI」，下称「我们」）提供。" in privacy
+    assert privacy.count("mailto:support@tenonai.cn") == 2
     # Public projects can be reported; a project's managers have no need to.
     assert 'id="report-link"' in html and 'project?.visibility === "public" && !canManageProject()' in javascript
     assert 'property="og:image"' in html and (STATIC_DIR / "og.png").is_file()
