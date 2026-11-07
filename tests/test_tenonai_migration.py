@@ -3,6 +3,7 @@
 import subprocess
 import threading
 import time
+from datetime import datetime, timedelta, timezone
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -11,9 +12,14 @@ import httpx
 import pytest
 from authlib.jose import JsonWebKey, jwt
 
+from apps.inthub_api import admin
+from apps.inthub_api.auth import account_for_access_token, create_account_access_token
+from apps.inthub_api.db import connect
 from apps.inthub_api.product_deletion import ProductDeletionClient, validate_proof
 from apps.inthub_api.server import make_handler
-from apps.inthub_api.tenon import ISSUER, PLATFORM_ROLE, TenonOIDCClient, account_for_identity, configured_issuers
+from apps.inthub_api.tenon import (
+    ISSUER, PLATFORM_ROLE, TenonOIDCClient, account_for_identity, account_for_session, configured_issuers, create_session,
+)
 from intent_cli.hub.credentials import erase_access_token, load_access_token, normalize_api_base_url, store_access_token
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -214,3 +220,39 @@ def test_compose_and_smoke_accept_the_second_name():
     assert remote.index("if new_domain_ready; then") < remote.index("up --detach --no-build --pull never database")
     assert 'INTHUB_BASE_URL="https://${NEW_DOMAIN}" bash "${RELEASE_DIRECTORY}/smoke.sh"' in remote
     assert '{"account.tenonai.cn", "account.tenon.asia"}' in (deploy / "smoke.sh").read_text(encoding="utf-8")
+
+
+def days_ago(days):
+    return (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+
+def test_s2_retires_every_cli_token_issued_before_it(tmp_path, capsys):
+    target = str(tmp_path / "db")
+    account = account_for_identity(target, {"sub": "central-1", "platform_role": "user", "expires_at": time.time() + 60})
+    old, older, revoked, fresh = (create_account_access_token(target, account["id"]) for _ in range(4))
+    with connect(target) as conn:
+        for token, age in ((old, 3), (older, 40), (revoked, 5)):
+            conn.execute("UPDATE account_access_tokens SET created_at = ? WHERE id = ?", (days_ago(age), token["id"]))
+        conn.execute("UPDATE account_access_tokens SET revoked_at = ? WHERE id = ?", (days_ago(1), revoked["id"]))
+    cutoff = days_ago(1)
+    admin.main(["retire-tokens", cutoff, "--dry-run", "--database-url", target])
+    assert '"would_retire": 2' in capsys.readouterr().out
+    assert account_for_access_token(target, old["token"]) is not None, "a dry run changes nothing"
+    assert admin.retire_tokens(target, cutoff)["retired"] == 2
+    assert account_for_access_token(target, old["token"]) is None and account_for_access_token(target, older["token"]) is None
+    assert account_for_access_token(target, fresh["token"])["id"] == account["id"], "tokens issued after S2 stay"
+    with pytest.raises(SystemExit):
+        admin.retire_tokens(target, "2027-01-15T00:00:00")
+
+
+def test_web_sessions_never_outlive_thirty_days_from_sign_in(tmp_path):
+    target = str(tmp_path / "db")
+    identity = {"sub": "central-1", "platform_role": "user", "expires_at": time.time() + 60}
+    account = account_for_identity(target, identity)
+    session = create_session(target, account["id"], identity, ttl_seconds=90 * 24 * 60 * 60)
+    assert session["ttl_seconds"] == 30 * 24 * 60 * 60
+    with connect(target) as conn:
+        # Even a session row pushed past 30 days ends 30 days after its sign-in: there is no renewal.
+        conn.execute("UPDATE web_sessions SET expires_at = ?", ((datetime.now(timezone.utc) + timedelta(days=60)).isoformat(),))
+        conn.execute("UPDATE tenon_session_grants SET verified_at = ?", (days_ago(31),))
+    assert account_for_session(target, session["token"]) is None
