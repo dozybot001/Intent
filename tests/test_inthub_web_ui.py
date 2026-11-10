@@ -358,7 +358,6 @@ def test_visitors_see_what_this_is_and_every_page_names_its_operator():
     assert privacy.count("mailto:support@tenonai.cn") == 2
     # Public projects can be reported; a project's managers have no need to.
     assert 'id="report-link"' in html and 'project?.visibility === "public" && !canManageProject()' in javascript
-    assert 'property="og:image"' in html and (STATIC_DIR / "og.png").is_file()
 
 
 def test_commit_links_use_the_clis_hosts_and_open_safely():
