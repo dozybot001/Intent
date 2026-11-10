@@ -75,4 +75,4 @@ When the goal is finished, close it with `itt intent done intent-001`.
 
 ## Where IntHub fits
 
-All of this works locally. After `itt remote add origin URL --project NAME` and `itt push`, IntHub shows the same history in a browser and the Overview page offers it as a brief you can copy to the next agent.
+All of this works locally. After `itt remote add origin URL --project NAME` and `itt push`, IntHub shows the same history in a browser, with a continuation brief on the Overview page for people to read. An agent on another machine pulls the history with `itt clone NAME` (or `itt pull` once cloned), reads the same goals, checkpoints and decisions with `itt inspect`, and carries on.

@@ -75,4 +75,4 @@ itt intent cancel intent-001 --reason "Provider-side idempotency removed the nee
 
 ## IntHub 的位置
 
-以上全部可以在本地完成。运行 `itt remote add origin URL --project NAME` 和 `itt push` 之后，IntHub 会在浏览器里展示同一份历史，概览页还能把它复制成一份简报，交给下一个 Agent。
+以上全部可以在本地完成。运行 `itt remote add origin URL --project NAME` 和 `itt push` 之后，IntHub 会在浏览器里展示同一份历史，概览页的接续简报给人看。另一台机器上的 Agent 用 `itt clone NAME` 拉取这份历史（已经克隆过的用 `itt pull`），再用 `itt inspect` 读出同样的目标、检查点和决策，直接接着做。
