@@ -34,7 +34,7 @@ async function settingsCases() {
     state.config = {authRequired: false, authMode: 'none', apiBaseUrl: 'http://127.0.0.1:7317'};
     assert.equal(isDialogRoute({page: 'account'}), false);
     assert.equal(isSiteRoute({page: 'team'}), false);
-    state.config = {authRequired: true, authMode: 'tenon', apiBaseUrl: 'https://inthub.tenon.asia'};
+    state.config = {authRequired: true, authMode: 'tenon', apiBaseUrl: 'https://inthub.tenonai.cn'};
     assert.equal(isDialogRoute({page: 'account'}), true);
     assert.equal(isDialogRoute({page: 'settings'}), true);
     assert.equal(isSiteRoute({page: 'team'}), true);
@@ -65,7 +65,7 @@ async function settingsCases() {
     assert.ok(page.includes('href="/account/danger" data-route><svg') && page.includes('<span>危险操作</span></a>'));
     assert.ok(!page.includes('访问令牌') && !page.includes('/settings'), 'tokens and teams are settings, not the account');
     assert.ok(page.includes('Dozy &lt;QA&gt;') && page.includes('@dozy') && !page.includes('<QA>'));
-    assert.ok(page.includes('href="https://account.tenon.asia/account/"') && page.includes('在 Tenon 中修改'));
+    assert.ok(page.includes('href="https://account.tenonai.cn/account/"') && page.includes('在 Tenon 中修改'));
     assert.ok(page.includes('class="monogram"') && !page.includes('data-delete-account'));
     routes.length = 0;
     openSettingsDialog('account', 'danger');
@@ -237,7 +237,7 @@ async function settingsCases() {
     renderView();
     assert.ok(!el.detailContent.innerHTML.includes('transfer-control') && el.detailContent.innerHTML.includes('data-delete-project'));
     state._settingsSection = '';
-    state.config = {authRequired: true, authMode: 'tenon', apiBaseUrl: 'https://inthub.tenon.asia'};
+    state.config = {authRequired: true, authMode: 'tenon', apiBaseUrl: 'https://inthub.tenonai.cn'};
     window.location.search = '';
 
     routes.length = 0;

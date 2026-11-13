@@ -28,11 +28,11 @@ After configuration, tell the desktop user: **“Open Settings → Hooks, review
 
 Only enter this branch when the user requests IntHub authentication or cloud synchronization. Local recording works offline without an IntHub account or token.
 
-1. Resolve the requested remote endpoint; the official hosted site is [IntHub](https://inthub.tenon.asia). For a custom/self-hosted endpoint, use its own website and credentials, not the official site's token. Check `itt auth status --api-base-url URL`; reuse working global credentials for that endpoint.
+1. Resolve the requested remote endpoint; the official hosted site is [IntHub](https://inthub.tenonai.cn). For a custom/self-hosted endpoint, use its own website and credentials, not the official site's token. Check `itt auth status --api-base-url URL`; reuse working global credentials for that endpoint.
 2. If authentication is missing or expired, have the user run this in their own interactive terminal:
 
 ```text
-itt auth login --api-base-url https://inthub.tenon.asia
+itt auth login --api-base-url https://inthub.tenonai.cn
 ```
 
 3. It prints a short code and opens `/device` when the machine has a browser. The user signs in there, enters the code and approves it; this works from any device, so it also covers SSH and containers. The CLI collects a 90-day access token, named after the machine and listed under **Settings / 设置**. An older hub has no `/device`: the command then asks for a token from Settings at a hidden prompt.

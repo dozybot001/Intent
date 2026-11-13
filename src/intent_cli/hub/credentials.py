@@ -9,10 +9,11 @@ from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 
-OFFICIAL_INTHUB_API_BASE_URL = "https://inthub.tenon.asia"
-# The hosted IntHub answers on both names while it moves to tenonai.cn. Either
-# one means the official service, reached at the address above.
-OFFICIAL_INTHUB_ADDRESSES = frozenset({OFFICIAL_INTHUB_API_BASE_URL, "https://inthub.tenonai.cn"})
+OFFICIAL_INTHUB_API_BASE_URL = "https://inthub.tenonai.cn"
+# inthub.tenon.asia is the hosted IntHub's name before its move to tenonai.cn. It
+# stays an alias, so configs and tokens saved under it carry over, but it is never
+# contacted: every request goes to the address above.
+OFFICIAL_INTHUB_ADDRESSES = frozenset({OFFICIAL_INTHUB_API_BASE_URL, "https://inthub.tenon.asia"})
 CREDENTIAL_USERNAME = "intent-cli"
 
 

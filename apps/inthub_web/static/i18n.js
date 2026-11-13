@@ -236,7 +236,7 @@ window.IntHubI18n = (() => {
     "This account is suspended. Contact support@tenonai.cn.": "这个账号已被停用。请联系 support@tenonai.cn。",
     "These may contain credentials: {list}. Check them first. Confirming again publishes anyway.": "这些对象可能含有凭据：{list}。请先检查。再次确认将仍然公开。",
     "private key": "私钥", "GitHub token": "GitHub 令牌", "API key": "API 密钥", "AWS access key": "AWS 访问密钥", "Slack token": "Slack 令牌", "IntHub token": "IntHub 令牌", "password in a URL": "URL 中的密码",
-    "Terms": "服务条款", "Privacy": "隐私政策", "Acceptable use": "可接受使用", "Contact": "联系我们", "Report this project": "举报此项目", "湘ICP备2026031578号-1": "湘ICP备2026031578号-1",
+    "Terms": "服务条款", "Privacy": "隐私政策", "Acceptable use": "可接受使用", "Contact": "联系我们", "Report this project": "举报此项目", "湘ICP备2026054319号-1": "湘ICP备2026054319号-1",
     "A cloud platform for Intent hosting and collaborative development": "云端 Intent 托管与协作开发平台",
     "Intent records what each session set out to do, what it verified and what it decided. IntHub keeps that history with your team, so the next session picks up where the last one stopped.": "Intent 记录每次会话要做什么、验证了什么、决定了什么。IntHub 替团队保存这份历史，下一次会话可以从上一次停下的地方继续。",
     "Goals, and how they relate.": "目标，以及它们之间的关系。", "Verified checkpoints, with the next step.": "验证过的检查点，以及下一步。", "Rules that stay binding across sessions.": "跨会话持续生效的规则。",

@@ -18,11 +18,11 @@ jobs:
       CURL: curl --fail --silent --show-error --max-time 20 --retry 3 --retry-delay 30 --retry-all-errors
     steps:
       - name: Service is ready
-        run: $CURL https://inthub.tenon.asia/readyz
+        run: $CURL https://inthub.tenonai.cn/readyz
 
       - name: Disk and backups are healthy
         run: |
-          status="$($CURL https://inthub.tenon.asia/status.json)"
+          status="$($CURL https://inthub.tenonai.cn/status.json)"
           echo "$status"
           oldest="$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ)"
           echo "$status" | jq -e --arg oldest "$oldest" \

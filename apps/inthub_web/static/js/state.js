@@ -19,7 +19,7 @@ const INSTALL_COMMAND = "curl -fsSL https://raw.githubusercontent.com/dozybot001
 // Two agents by default: --all would create dozens of agent folders in the home directory.
 const SKILL_COMMAND = "npx skills add dozybot001/Intent -g -a claude-code -a codex -y";
 // The CLI's default endpoint: there `itt auth login` needs no URL and a push names the project after its directory.
-const HOSTED_INTHUB = "https://inthub.tenon.asia";
+const HOSTED_INTHUB = "https://inthub.tenonai.cn";
 // The same hosted IntHub and Tenon account service while they move to tenonai.cn.
 const HOSTED_INTHUB_ORIGINS = [HOSTED_INTHUB, "https://inthub.tenonai.cn"];
 const TENON_ACCOUNT_ORIGINS = ["https://account.tenonai.cn", "https://account.tenon.asia"];
@@ -28,7 +28,7 @@ const TENON_ACCOUNT_ORIGINS = ["https://account.tenonai.cn", "https://account.te
 const ACCOUNT_PATHS = { profile: "/account", danger: "/account/danger" };
 const SETTINGS_PATHS = { tokens: "/settings", teams: "/settings/teams", usage: "/settings/usage" };
 const DIALOG_PATHS = { account: ACCOUNT_PATHS, settings: SETTINGS_PATHS };
-const TENON_ACCOUNT_URL = "https://account.tenon.asia/account/";
+const TENON_ACCOUNT_URL = "https://account.tenonai.cn/account/";
 const SUPPORT_EMAIL = "support@tenonai.cn";
 // Lifetimes the token form offers, in days.
 const TOKEN_LIFETIMES = [30, 90, 365];

@@ -74,7 +74,7 @@ for (const file of [...appFiles, 'help.js']) {
   }
 }
 const markup = fs.readFileSync(path.join(root, 'index.html'), 'utf8').replace(/<script[\s\S]*?<\/script>/g, '');
-const untranslated = new Set(['IntHub', '⌘K', 'English', '中文', 'i', 'Esc', '↑', '↓', '↵', '榫卯 Tenon AI', 'tenon.asia', 'itt auth login', 'System', 'Light', 'Dark']);
+const untranslated = new Set(['IntHub', '⌘K', 'English', '中文', 'i', 'Esc', '↑', '↓', '↵', '榫卯 Tenon AI', 'tenonai.cn', 'itt auth login', 'System', 'Light', 'Dark']);
 for (const match of markup.matchAll(/>([^<>]+)</g)) {
   const text = match[1].trim();
   if (text && /[A-Za-z]/.test(text) && !untranslated.has(text)) assert.ok(Object.hasOwn(zh, text), 'missing static translation: ' + text);
@@ -234,7 +234,7 @@ vm.runInContext(`
   // Any endpoint but the CLI default needs its URL at login and the remote before the push.
   assert.ok(guide.includes('data-copy="itt remote add origin &#39;https://inthub.example&#39; --project &#39;Team&#39;\\\\&#39;&#39;s checkout&#39;\\nitt push"'));
   assert.ok(!guide.includes('setup-step-note'));
-  state.config = {apiBaseUrl: 'https://inthub.tenon.asia/', authRequired: true};
+  state.config = {apiBaseUrl: 'https://inthub.tenonai.cn/', authRequired: true};
   renderSetupGuide('unlinked');
   const hostedGuide = el.detailContent.innerHTML;
   assert.ok(hostedGuide.includes('<pre class="command-snippet">itt auth login</pre>'));

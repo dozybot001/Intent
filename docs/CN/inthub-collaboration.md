@@ -2,7 +2,7 @@
 
 中文 | [English](../EN/inthub-collaboration.md)
 
-IntHub 是云端 Intent 托管与协作开发平台。它是可选的，用来浏览和共享 Intent 历史。本文介绍托管版 [inthub.tenon.asia](https://inthub.tenon.asia)。它的模型沿用 GitHub：每个项目有一个所有者，可以私有或公开，团队给成员分配角色。
+IntHub 是云端 Intent 托管与协作开发平台。它是可选的，用来浏览和共享 Intent 历史。本文介绍托管版 [inthub.tenonai.cn](https://inthub.tenonai.cn)。它的模型沿用 GitHub：每个项目有一个所有者，可以私有或公开，团队给成员分配角色。
 
 有两条规则贯穿始终：
 
@@ -41,7 +41,7 @@ IntHub 账号就是 Tenon 账号。在浏览器里可以用 GitHub、Apple 或�
 ```bash
 itt push    # 个人项目，以当前目录命名
 
-itt remote add origin https://inthub.tenon.asia --project acme/checkout    # 团队项目
+itt remote add origin https://inthub.tenonai.cn --project acme/checkout    # 团队项目
 itt push
 ```
 

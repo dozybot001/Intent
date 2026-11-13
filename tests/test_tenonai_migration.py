@@ -1,5 +1,6 @@
 """IntHub and the CLI work under tenon.asia and tenonai.cn at once while both move."""
 
+import json
 import subprocess
 import threading
 import time
@@ -20,7 +21,11 @@ from apps.inthub_api.server import make_handler
 from apps.inthub_api.tenon import (
     ISSUER, PLATFORM_ROLE, TenonOIDCClient, account_for_identity, account_for_session, configured_issuers, create_session,
 )
-from intent_cli.hub.credentials import erase_access_token, load_access_token, normalize_api_base_url, store_access_token
+from intent_cli import __version__
+from intent_cli.hub import client
+from intent_cli.hub.credentials import (
+    credentials_file, erase_access_token, global_api_base_url, load_access_token, normalize_api_base_url,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 OLD, NEW = "https://account.tenon.asia/api/auth", "https://account.tenonai.cn/api/auth"
@@ -160,10 +165,9 @@ def test_one_hub_serves_both_names_with_their_own_callbacks(tmp_path):
             assert response.status_code == 200 and response.headers["Access-Control-Allow-Origin"] == origin
             assert provider.redirect_uris[-1] == origin + "/api/v1/auth/tenon/callback"
             assert "Domain=" not in response.headers["Set-Cookie"], "cookies stay with the name that set them"
-            # Each name's pages carry the ICP filing of the domain they are served under.
+            # Only tenonai.cn serves pages now (Caddy moves the old name's), so they carry its ICP filing.
             page = httpx.get(base + "/", headers={"Host": name}).text
-            filing, other = FILINGS if name.endswith("tenonai.cn") else FILINGS[::-1]
-            assert page.count(filing) == 2 and other not in page
+            assert page.count(FILINGS[0]) == 2 and FILINGS[1] not in page
         assert httpx.get(base + "/config.json", headers={"Host": "inthub.example"}).status_code == 403
     finally:
         server.shutdown()
@@ -171,16 +175,38 @@ def test_one_hub_serves_both_names_with_their_own_callbacks(tmp_path):
         server.server_close()
 
 
-def test_the_cli_treats_both_hosted_names_as_one_endpoint(monkeypatch, tmp_path):
+def test_the_cli_uses_the_new_name_and_keeps_the_old_one_only_as_an_alias(monkeypatch, tmp_path):
     monkeypatch.setenv("INTENT_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(tmp_path / "missing-gitconfig"))
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
-    assert normalize_api_base_url("https://inthub.tenonai.cn/") == "https://inthub.tenon.asia"
+    assert global_api_base_url() == "https://inthub.tenonai.cn"
+    # A remote or global config written before the move is read as the new name, so the old one is never contacted.
+    assert normalize_api_base_url("https://inthub.tenon.asia/") == "https://inthub.tenonai.cn"
     assert normalize_api_base_url("https://inthub.example") == "https://inthub.example"
-    store_access_token("https://inthub.tenonai.cn", "ith_pat_hosted")
-    assert load_access_token("https://inthub.tenon.asia") == "ith_pat_hosted"
+    # A token saved under the old name before the move still signs requests, so nobody signs in again.
+    credentials_file().parent.mkdir(parents=True, exist_ok=True)
+    credentials_file().write_text(json.dumps({"https://inthub.tenon.asia": "ith_pat_before"}), encoding="utf-8")
+    assert load_access_token("https://inthub.tenonai.cn") == "ith_pat_before"
     erase_access_token("https://inthub.tenonai.cn")
     assert load_access_token("https://inthub.tenon.asia") is None
+
+
+def test_every_hub_request_names_the_cli_and_its_version(monkeypatch):
+    sent = []
+
+    class Reply:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def read(self, limit):
+            return b'{"ok": true, "result": {}}'
+
+    monkeypatch.setattr(client, "_open_request", lambda request, timeout: sent.append(request) or Reply())
+    client.http_json("GET", "https://inthub.tenonai.cn/api/v1/projects", token="ith_pat_x")
+    assert sent[0].get_header("User-agent") == f"intent-cli/{__version__}"
 
 
 def shell_function(name):
@@ -189,43 +215,43 @@ def shell_function(name):
     return script[start:script.index("\n}\n", start) + 3]
 
 
-def test_the_release_merges_the_new_name_into_the_one_site_block(tmp_path):
+def test_the_release_serves_both_names_from_the_candidate(tmp_path):
     out = tmp_path / "site.caddy"
-    for extra, address in (("", "inthub.tenon.asia {\n"), ("inthub.tenonai.cn", "inthub.tenon.asia, inthub.tenonai.cn {\n")):
-        subprocess.run(["bash", "-c", shell_function("render_caddy") + 'render_caddy "$@"', "-",
-                        str(ROOT / "deploy" / "inthub" / "inthub.caddy"), str(out), "7251", extra], check=True)
-        site = out.read_text(encoding="utf-8")
-        assert site.startswith(address) and "import access_log" in site and "reverse_proxy 127.0.0.1:7251" in site
+    subprocess.run(["bash", "-c", shell_function("render_caddy") + 'render_caddy "$@"', "-",
+                    str(ROOT / "deploy" / "inthub" / "inthub.caddy"), str(out), "7251"], check=True)
+    site = out.read_text(encoding="utf-8")
+    new, old = site.split("\ninthub.tenon.asia {\n")
+    assert new.startswith("inthub.tenonai.cn {\n") and "reverse_proxy 127.0.0.1:7251" in new
+    assert "7250" not in site and site.count("import access_log") == 2
+    # The old name answers older CLIs and moves everything else, so it never starts a web session.
+    route = old[old.index("route {"):]
+    steps = ["respond @trace 405", "redir @web_sign_in https://inthub.tenonai.cn{uri} 301",
+             "reverse_proxy @cli 127.0.0.1:7251", "redir https://inthub.tenonai.cn{uri} 301"]
+    assert [route.index(step) for step in steps] == sorted(route.index(step) for step in steps)
+    assert "@web_sign_in path /api/v1/auth/tenon/*" in old and "@cli path /api/* /healthz /readyz" in old
+    third = tmp_path / "third.caddy"
+    third.write_text(site.replace("7251", "7250") + "\nextra.example {\n\treverse_proxy 127.0.0.1:7250\n}\n")
+    refused = subprocess.run(["bash", "-c", shell_function("render_caddy") + 'render_caddy "$@"', "-",
+                              str(third), str(out), "7251"], capture_output=True, text=True)
+    assert refused.returncode != 0 and "one upstream in each site" in refused.stderr
 
 
-@pytest.mark.parametrize("new_address, redirect, ready", [
-    ("", "", False), ("10.0.0.9", "", False),
-    ("122.51.14.35", "https://dnspod.qcloud.com/static/webblock.html", False), ("122.51.14.35", "", True)])
-def test_the_new_name_joins_only_once_it_resolves_here_and_is_unblocked(tmp_path, new_address, redirect, ready):
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    (bin_dir / "getent").write_text(
-        '#!/bin/sh\ncase "$2" in inthub.tenon.asia) echo "122.51.14.35 STREAM";; '
-        f'inthub.tenonai.cn) [ -n "{new_address}" ] && echo "{new_address} STREAM" || exit 2;; esac\n')
-    (bin_dir / "curl").write_text(f'#!/bin/sh\nprintf %s "{redirect}"\n')
-    for tool in bin_dir.iterdir():
-        tool.chmod(0o755)
-    result = subprocess.run(["bash", "-c", 'PUBLIC_URL=https://inthub.tenon.asia NEW_DOMAIN=inthub.tenonai.cn; '
-                             + shell_function("new_domain_ready") + "new_domain_ready"],
-                            env={"PATH": f"{bin_dir}:/usr/bin:/bin"})
-    assert (result.returncode == 0) is ready
-
-
-def test_compose_and_smoke_accept_the_second_name():
+def test_the_new_name_is_canonical_everywhere_the_release_and_monitors_look():
     deploy = ROOT / "deploy" / "inthub"
     compose = (deploy / "compose.yaml").read_text(encoding="utf-8")
     assert "INTHUB_API_BASE_URL: https://${INTHUB_DOMAIN:?set INTHUB_DOMAIN}${INTHUB_EXTRA_ORIGINS:-}" in compose
-    assert "INTHUB_ALLOWED_ORIGINS: https://${INTHUB_DOMAIN}${INTHUB_EXTRA_ORIGINS:-}" in compose
     remote = (deploy / "remote-release.sh").read_text(encoding="utf-8")
-    assert '"INTHUB_EXTRA_ORIGINS=${EXTRA_ORIGINS}"' in remote
-    assert remote.index("if new_domain_ready; then") < remote.index("up --detach --no-build --pull never database")
-    assert 'INTHUB_BASE_URL="https://${NEW_DOMAIN}" bash "${RELEASE_DIRECTORY}/smoke.sh"' in remote
-    assert '{"account.tenonai.cn", "account.tenon.asia"}' in (deploy / "smoke.sh").read_text(encoding="utf-8")
+    assert 'PUBLIC_URL="https://inthub.tenonai.cn"' in remote and 'OLD_URL="https://inthub.tenon.asia"' in remote
+    assert '"INTHUB_DOMAIN=${PUBLIC_URL#https://}"' in remote and '"INTHUB_EXTRA_ORIGINS=,${OLD_URL}"' in remote
+    # Every public smoke run also checks what the old name still answers and what it moves.
+    assert remote.count('INTHUB_BASE_URL="${PUBLIC_URL}"') == remote.count('INTHUB_OLD_URL="${OLD_URL}"') == 3
+    smoke = (deploy / "smoke.sh").read_text(encoding="utf-8")
+    assert 'BASE_URL="${INTHUB_BASE_URL:-https://inthub.tenonai.cn}"' in smoke and "check_old_name" in smoke
+    assert 'target.netloc == "account.tenonai.cn"' in smoke
+    assert 'PUBLIC_URL="https://inthub.tenonai.cn"' in (deploy / "release.sh").read_text(encoding="utf-8")
+    assert 'BASE_URL="https://inthub.tenonai.cn"' in (deploy / "monitor.sh").read_text(encoding="utf-8")
+    workflow = (ROOT / ".github" / "workflows" / "monitor.yml").read_text(encoding="utf-8")
+    assert "inthub.tenonai.cn/readyz" in workflow and "tenon.asia" not in workflow
 
 
 def days_ago(days):

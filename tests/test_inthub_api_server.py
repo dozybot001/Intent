@@ -35,7 +35,7 @@ class FakeTenonOIDCClient:
         )
         assert query["redirect_uri"] == [redirect_uri]
         return (
-            "https://account.tenon.asia/api/auth/oauth2/authorize"
+            "https://account.tenonai.cn/api/auth/oauth2/authorize"
             f"?state={state}&code_challenge={code_challenge}"
         )
 
@@ -200,7 +200,7 @@ def test_fixed_login_prepare_is_same_origin_fresh_and_validates_destination(tmp_
             status, headers, body = _request_json(base + "/api/v1/auth/tenon/prepare", "POST", {"return_to": "/?tab=snaps"})
             assert status == 200 and body["ok"] is True
             url = body["result"]["authorizationUrl"]
-            assert url.startswith("https://account.tenon.asia/api/auth/oauth2/authorize?")
+            assert url.startswith("https://account.tenonai.cn/api/auth/oauth2/authorize?")
             states.append(parse_qs(urlparse(url).query)["state"][0])
             assert "HttpOnly" in headers["Set-Cookie"] and "Secure" in headers["Set-Cookie"]
             assert headers["Cache-Control"] == "no-store"

@@ -7,6 +7,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from intent_cli import __version__
 from intent_cli.hub.credentials import OFFICIAL_INTHUB_ADDRESSES
 from intent_cli.output import error
 
@@ -158,7 +159,8 @@ def http_json(
         raise ValueError("timeout must be positive")
 
     method = method.upper()
-    headers = {"Accept": "application/json"}
+    # The hub tells CLI versions apart by this, for instance to ask an old one to upgrade.
+    headers = {"Accept": "application/json", "User-Agent": f"intent-cli/{__version__}"}
     data = None
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")

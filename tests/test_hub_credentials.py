@@ -42,12 +42,13 @@ def _configure_test_credential_store(monkeypatch, tmp_path):
 def test_global_config_stores_only_normalized_endpoint(monkeypatch, tmp_path):
     monkeypatch.setenv("INTENT_CONFIG_HOME", str(tmp_path / "intent-config"))
 
+    # The hosted service's old name is stored as its current one.
     write_global_hub_config("HTTPS://INTHUB.TENON.ASIA/")
 
-    assert global_api_base_url() == "https://inthub.tenon.asia"
-    assert read_global_hub_config() == {"api_base_url": "https://inthub.tenon.asia"}
+    assert global_api_base_url() == "https://inthub.tenonai.cn"
+    assert read_global_hub_config() == {"api_base_url": "https://inthub.tenonai.cn"}
     assert json.loads(global_config_path().read_text(encoding="utf-8")) == {
-        "api_base_url": "https://inthub.tenon.asia"
+        "api_base_url": "https://inthub.tenonai.cn"
     }
     assert global_config_path().stat().st_mode & 0o777 == 0o600
 

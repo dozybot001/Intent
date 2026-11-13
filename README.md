@@ -18,7 +18,7 @@ Git records how code changed. Intent records why, what is verified, and what com
 
 ![Monday's session records a checkpoint. On Tuesday a new session is told to resume through Intent and picks up the goal, the verified state, the rule and the next step.](https://raw.githubusercontent.com/dozybot001/Intent/main/docs/assets/resume-demo.gif)
 
-**See it on a real project:** [browse Intent's own history on IntHub](https://inthub.tenon.asia/showcase). It holds the goals, checkpoints and decisions behind this repository, and it needs no sign-in.
+**See it on a real project:** [browse Intent's own history on IntHub](https://inthub.tenonai.cn/showcase). It holds the goals, checkpoints and decisions behind this repository, and it needs no sign-in.
 
 ## The idea
 
@@ -139,7 +139,7 @@ In a project without Intent, the agent asks once whether to turn recording on; a
 </picture>
 
 - **Locally:** `itt hub start`, then `itt remote add origin http://127.0.0.1:7210 --project NAME` and `itt push`. Another folder joins with `itt clone NAME --api-base-url http://127.0.0.1:7210`.
-- **Hosted:** [inthub.tenon.asia](https://inthub.tenon.asia), operated by 榫卯 Tenon AI. Run `itt auth login`, approve the code in the browser, then `itt push`. Each account and team can keep 100 projects and 1 GB of history. Projects are private by default, can be shared with a team (`--project TEAM/NAME`), and can be made public in their settings. See [teams and sharing](https://github.com/dozybot001/Intent/blob/main/docs/EN/inthub-collaboration.md) and the [privacy notice](https://inthub.tenon.asia/privacy).
+- **Hosted:** [inthub.tenonai.cn](https://inthub.tenonai.cn), operated by 榫卯 Tenon AI. Run `itt auth login`, approve the code in the browser, then `itt push`. Each account and team can keep 100 projects and 1 GB of history. Projects are private by default, can be shared with a team (`--project TEAM/NAME`), and can be made public in their settings. See [teams and sharing](https://github.com/dozybot001/Intent/blob/main/docs/EN/inthub-collaboration.md) and the [privacy notice](https://inthub.tenonai.cn/privacy).
 - **Restore elsewhere:** `itt clone NAME` in the project folder. Only members can clone.
 
 `itt push` sends the current branch and `itt pull` fetches and merges, as in Git. If two copies record in parallel, `itt status` reports `diverged`, and `itt pull` merges them, stopping only where both set the same field differently.

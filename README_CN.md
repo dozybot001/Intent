@@ -18,7 +18,7 @@ Git 记录代码怎么变；Intent 记录为什么这样做、哪些已经验证
 
 ![周一的会话记下检查点。周二新开的会话只收到一句“通过 Intent 恢复”，就拿回了目标、已验证状态、规则和下一步。](docs/assets/resume-demo-zh.gif)
 
-**看一个真实项目：**[在 IntHub 上浏览 Intent 自己的历史](https://inthub.tenon.asia/showcase?lang=zh)。这里记录着这个仓库背后的目标、检查点和决策，无需登录。
+**看一个真实项目：**[在 IntHub 上浏览 Intent 自己的历史](https://inthub.tenonai.cn/showcase?lang=zh)。这里记录着这个仓库背后的目标、检查点和决策，无需登录。
 
 ## 理念
 
@@ -140,7 +140,7 @@ Hooks 在每一轮开始时注入当前状态，并在结束时检查这一轮�
 </picture>
 
 - **本地：** `itt hub start`，然后 `itt remote add origin http://127.0.0.1:7210 --project NAME` 和 `itt push`。其他目录用 `itt clone NAME --api-base-url http://127.0.0.1:7210` 加入。
-- **托管：** [inthub.tenon.asia](https://inthub.tenon.asia)，由榫卯 Tenon AI 运营。运行 `itt auth login`，在浏览器里批准代码，再 `itt push`。每个账号和团队可以保存 100 个项目和 1 GB 历史。项目默认私有，可以共享给团队（`--project 团队/项目`），也可以在项目设置里公开。详见[团队与共享](docs/CN/inthub-collaboration.md)和[隐私说明](https://inthub.tenon.asia/privacy#zh)。
+- **托管：** [inthub.tenonai.cn](https://inthub.tenonai.cn)，由榫卯 Tenon AI 运营。运行 `itt auth login`，在浏览器里批准代码，再 `itt push`。每个账号和团队可以保存 100 个项目和 1 GB 历史。项目默认私有，可以共享给团队（`--project 团队/项目`），也可以在项目设置里公开。详见[团队与共享](docs/CN/inthub-collaboration.md)和[隐私说明](https://inthub.tenonai.cn/privacy#zh)。
 - **在另一处恢复：** 在项目目录运行 `itt clone NAME`，仅限成员。
 
 `itt push` 推送当前分支，`itt pull` 先 fetch 再合并，和 Git 一样。如果两份副本同时记录，`itt status` 会报告 `diverged`，`itt pull` 会合并它们，只有双方把同一字段改成不同值时才停下。

@@ -11,7 +11,7 @@ REMOTE_ROOT="${INTHUB_REMOTE_ROOT:-/opt/inthub}"
 # Pushes over HTTPS with the Gitee credential saved in the system (the macOS keychain).
 GITEE_URL="https://gitee.com/dozybot/Intent.git"
 GITEE_REF="refs/heads/main"
-PUBLIC_URL="https://inthub.tenon.asia"
+PUBLIC_URL="https://inthub.tenonai.cn"
 
 fail() {
     echo "IntHub Gitee release failed: $*" >&2

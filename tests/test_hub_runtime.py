@@ -40,7 +40,7 @@ def test_shared_link_never_persists_or_exposes_cli_token(monkeypatch, tmp_path, 
 def test_unscoped_tokens_only_go_where_the_user_pointed(monkeypatch, tmp_path, capsys):
     base = tmp_path / ".intent"
     base.mkdir()
-    monkeypatch.setattr(runtime, "global_api_base_url", lambda: "https://inthub.tenon.asia")
+    monkeypatch.setattr(runtime, "global_api_base_url", lambda: "https://inthub.tenonai.cn")
     monkeypatch.setattr(runtime, "load_access_token", lambda url: f"stored-for-{url}")
     monkeypatch.setenv("INTHUB_TOKEN", "env-token")
     no_flag = SimpleNamespace(token=None, api_base_url=None)
@@ -51,7 +51,7 @@ def test_unscoped_tokens_only_go_where_the_user_pointed(monkeypatch, tmp_path, c
     assert json.loads(capsys.readouterr().out)["error"]["code"] == "TOKEN_ENDPOINT_MISMATCH"
     explicit = SimpleNamespace(token=None, api_base_url="https://collector.example")
     assert runtime.hub_auth_token(base, explicit, "https://collector.example") == "env-token"
-    assert runtime.hub_auth_token(base, no_flag, "https://inthub.tenon.asia") == "env-token"
+    assert runtime.hub_auth_token(base, no_flag, "https://inthub.tenonai.cn") == "env-token"
     assert runtime.hub_auth_token(base, no_flag, "http://127.0.0.1:7210") == "env-token"
     monkeypatch.delenv("INTHUB_TOKEN")
     # Credential-helper tokens are stored per endpoint and need no extra scoping.

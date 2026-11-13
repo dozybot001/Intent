@@ -92,7 +92,7 @@ def test_header_keeps_preferences_settings_and_account_apart():
     assert {"account-label", "account-mode", "logout-btn"}.issubset(ids)
     assert not {"token-btn", "delete-account-btn", "settings-link"} & ids
     assert [attributes["href"] for tag, attributes in account if tag == "a" and "data-route" in attributes] == ["/account"]
-    assert any(attributes.get("href") == "https://account.tenon.asia/account/" for _, attributes in account)
+    assert any(attributes.get("href") == "https://account.tenonai.cn/account/" for _, attributes in account)
     assert not any("data-theme-setting" in attributes or "data-language-select" in attributes for _, attributes in account)
     assert 'id="auth-preferences-menu"' in html
 
@@ -348,7 +348,7 @@ def test_visitors_see_what_this_is_and_every_page_names_its_operator():
     assert 'el.authPitch.classList.toggle("is-hidden", keepPage);' in javascript
     # The operator's terms, privacy policy, contact and filing number, on the app and on the sign-in page.
     assert html.count('class="site-footer') == 2
-    for target in ("https://tenon.asia/legal/terms/", "/privacy", "https://tenon.asia/legal/acceptable-use/",
+    for target in ("https://tenonai.cn/legal/terms/", "/privacy", "https://tenonai.cn/legal/acceptable-use/",
                    "mailto:support@tenonai.cn", "https://beian.miit.gov.cn/"):
         assert html.count(f'href="{target}"') >= 2, target
     # PIPL article 17: the policy names the handler, in both languages, beside its contact address.

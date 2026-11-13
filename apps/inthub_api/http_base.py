@@ -9,17 +9,8 @@ from apps.inthub_api.common import APIError
 from apps.inthub_web import BUNDLES, bundle, product_version
 from apps.inthub_api.http_common import WEB_ROUTES
 
-# Pages ship with tenon.asia's ICP filing; a name under another filed domain shows that domain's own.
-PAGE_FILING = "湘ICP备2026031578号-1"
-DOMAIN_FILINGS = {"tenonai.cn": "湘ICP备2026054319号-1"}
-
 
 class HttpBase:
-    def _filing(self):
-        host = (self.headers.get("Host") or "").lower().rsplit(":", 1)[0]
-        return next((filing for domain, filing in DOMAIN_FILINGS.items()
-                     if host == domain or host.endswith("." + domain)), PAGE_FILING)
-
     def _send_json(self, status, payload, extra_headers=None, compact=False):
         options = (
             {"ensure_ascii": False, "separators": (",", ":")}
@@ -107,8 +98,6 @@ class HttpBase:
         # Asset URLs carry the release, so a new one reaches every browser at once.
         if path.suffix in {".html", ".css"}:
             body = body.replace(b"__REV__", quote(product_version()).encode("ascii"))
-        if path.suffix == ".html":
-            body = body.replace(PAGE_FILING.encode(), self._filing().encode())
         content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
         if content_type.startswith("text/") or content_type in {
             "application/javascript",

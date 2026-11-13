@@ -1,4 +1,4 @@
-inthub.tenon.asia {
+inthub.tenonai.cn {
 	# Shared access log from the root Caddyfile: no query strings or headers, kept 184 days.
 	import access_log
 	encode zstd gzip
@@ -28,4 +28,32 @@ inthub.tenon.asia {
 	}
 
 	reverse_proxy 127.0.0.1:7250
+}
+
+# The name IntHub had before tenonai.cn. CLIs older than 8.2 still call its API,
+# device login and health checks, so those are proxied; pages and web sign-in
+# move to the new name, so this one never issues a web session.
+inthub.tenon.asia {
+	import access_log
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	request_body {
+		max_size 16MB
+	}
+
+	@trace method TRACE
+	@web_sign_in path /api/v1/auth/tenon/*
+	@cli path /api/* /healthz /readyz
+	route {
+		respond @trace 405
+		redir @web_sign_in https://inthub.tenonai.cn{uri} 301
+		reverse_proxy @cli 127.0.0.1:7250
+		redir https://inthub.tenonai.cn{uri} 301
+	}
 }

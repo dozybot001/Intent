@@ -19,7 +19,7 @@ STATIC_DIR = Path(__file__).resolve().parents[1] / "inthub_web" / "static"
 DEFAULT_MAX_BODY_BYTES = 16 * 1024 * 1024
 # Small JSON bodies only: sign-in, token and deletion requests.
 AUTH_BODY_LIMIT = 16 * 1024
-# Host-only and HTTPS-only: no other *.tenon.asia site can plant this cookie.
+# Host-only and HTTPS-only: no sibling subdomain can plant this cookie.
 SESSION_COOKIE = "__Host-inthub_session"
 REVISION_PAGE_MAX = 100
 # What a signed-out visitor can ask for; the project itself must still be public.

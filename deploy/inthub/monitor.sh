@@ -11,7 +11,7 @@
 set -Eeuo pipefail
 umask 077
 
-BASE_URL="https://inthub.tenon.asia"
+BASE_URL="https://inthub.tenonai.cn"
 STATE_DIRECTORY="/var/lib/inthub-monitor"
 ENV_FILE="/etc/inthub-monitor.env"
 BACKUP_DIRECTORY="/var/backups/inthub"

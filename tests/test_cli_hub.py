@@ -16,7 +16,7 @@ class TestHub:
         assert r["action"] == "hub.status"
         assert r["result"]["linked"] is False
         assert r["result"]["credential_available"] is False
-        assert r["result"]["api_base_url"] == "https://inthub.tenon.asia"
+        assert r["result"]["api_base_url"] == "https://inthub.tenonai.cn"
         assert r["result"]["project_id"] is None
         assert r["result"]["revision"] is None
         assert not (workspace / ".intent" / "hub.json").exists()
