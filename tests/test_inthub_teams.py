@@ -19,7 +19,7 @@ from apps.inthub_api.db import connect
 from apps.inthub_api.history import push_history
 from apps.inthub_api.product_deletion import delete_product_account
 from apps.inthub_api.server import make_handler
-from apps.inthub_api.tenon import ISSUER, account_for_identity, create_session
+from apps.inthub_api.tenon import ISSUERS, account_for_identity, create_session
 from intent_cli.hub.versions import revision_id, validate_project_ref
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,7 +29,7 @@ SESSION = "__Host-inthub_session"
 
 class Tenon:
     def authorization_url(self, redirect_uri, attempt):
-        return "https://account.tenon.asia/api/auth/oauth2/authorize"
+        return "https://account.tenonai.cn/api/auth/oauth2/authorize"
 
 
 def request(url, method="GET", payload=None, headers=None):
@@ -398,7 +398,7 @@ def test_deleting_a_team_removes_its_projects_after_typing_its_url(hub, crew):
 
 
 def proof(subject):
-    return {"issuer": ISSUER, "sub": subject, "productId": "inthub", "operationId": "6f0f3b5a-8f1d-4b7e-9c3a-2d1e0f9a8b7c"}
+    return {"issuer": ISSUERS[0], "sub": subject, "productId": "inthub", "operationId": "6f0f3b5a-8f1d-4b7e-9c3a-2d1e0f9a8b7c"}
 
 
 def test_deleting_an_account_hands_its_teams_on(hub, crew):

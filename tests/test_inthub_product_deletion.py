@@ -12,7 +12,7 @@ from apps.inthub_api.db import connect
 from apps.inthub_api.history import link_history
 from apps.inthub_api.product_deletion import ProductDeletionClient, delete_product_account, subject_for_account
 from apps.inthub_api.server import make_handler
-from apps.inthub_api.tenon import ISSUER, account_for_identity, account_for_session, create_session
+from apps.inthub_api.tenon import ISSUERS, account_for_identity, account_for_session, create_session
 
 
 def identity(subject):
@@ -20,7 +20,7 @@ def identity(subject):
 
 
 def proof(subject="person-1", operation="f8132b30-0471-4a4b-95d7-a9f2fe6f4df7"):
-    return {"issuer": ISSUER, "sub": subject, "productId": "inthub", "operationId": operation}
+    return {"issuer": ISSUERS[0], "sub": subject, "productId": "inthub", "operationId": operation}
 
 
 def populate(target, subject="person-1"):
@@ -143,7 +143,7 @@ def test_rejects_nonstandard_input_and_nonunique_start_request(tmp_path):
         with pytest.raises(APIError):
             client.execute(target, value)
     assert calls == []
-    base = "https://account.tenon.asia/account/delete/?request=" + "x" * 43
+    base = "https://account.tenonai.cn/account/delete/?request=" + "x" * 43
     for url in (base + "&request=" + "x" * 43, base + "&extra=yes", base.replace("x" * 43, "short")):
         client.request = lambda *args, **kwargs: httpx.Response(200, json={"url": url, "expiresAt": time.time() * 1000 + 300000})
         with pytest.raises(APIError):
@@ -157,7 +157,7 @@ def test_http_start_requires_local_session_same_origin_and_execute_requires_cent
     def request(url, **kwargs):
         calls.append((url, kwargs["json"]))
         if url.endswith("start"):
-            return httpx.Response(200, json={"url": "https://account.tenon.asia/account/delete/?request=fffffffffffffffffffffffffffffffffffffffffff", "expiresAt": time.time() * 1000 + 300000})
+            return httpx.Response(200, json={"url": "https://account.tenonai.cn/account/delete/?request=fffffffffffffffffffffffffffffffffffffffffff", "expiresAt": time.time() * 1000 + 300000})
         return httpx.Response(200, json=proof())
     client = ProductDeletionClient("fixture-client", "fixture-secret", request=request)
     handler = make_handler(target, tenon_client_id="fixture-client", tenon_client_secret="fixture-secret",

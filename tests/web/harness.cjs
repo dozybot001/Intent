@@ -83,12 +83,11 @@ for (const match of markup.matchAll(/(?:aria-label|placeholder|title)="([^"]+)"/
   assert.ok(Object.hasOwn(zh, match[1]), 'missing attribute translation: ' + match[1]);
 }
 vm.runInContext(`
-  const deletionUrl = 'https://account.tenon.asia/account/delete/?request=' + 'f'.repeat(43);
+  const deletionUrl = 'https://account.tenonai.cn/account/delete/?request=' + 'f'.repeat(43);
   const deletionExpiry = Date.now() + 300000;
   assert.equal(productDeletionDestination({url: deletionUrl, expiresAt: deletionExpiry}), deletionUrl);
-  const movedUrl = deletionUrl.replace('account.tenon.asia', 'account.tenonai.cn');
-  assert.equal(productDeletionDestination({url: movedUrl, expiresAt: deletionExpiry}), movedUrl);
-  for (const url of [deletionUrl + '&request=' + 'f'.repeat(43), deletionUrl + '&extra=yes', deletionUrl.replace('f'.repeat(43), 'short'), deletionUrl.replace('account.tenon.asia', 'fake.example')]) {
+  // The account service only answers at tenonai.cn since its move; its old host is no longer trusted.
+  for (const url of [deletionUrl + '&request=' + 'f'.repeat(43), deletionUrl + '&extra=yes', deletionUrl.replace('f'.repeat(43), 'short'), deletionUrl.replace('account.tenonai.cn', 'fake.example'), deletionUrl.replace('account.tenonai.cn', 'account.tenon.asia')]) {
     assert.throws(() => productDeletionDestination({url, expiresAt: deletionExpiry}));
   }
   const deleteAccountButton = document.getElementById('delete-account-btn');

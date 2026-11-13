@@ -18,6 +18,7 @@ const redirectCase = require('./redirect.cjs');
   await homeAndVisitorCases();
   await inviteCases();
   await historyCases();
+  // The account service's old host is refused since it moved.
   await redirectCase('https://account.tenon.asia/api/auth/oauth2/authorize?state=fresh');
   await redirectCase('https://account.tenonai.cn/api/auth/oauth2/authorize?state=fresh');
   await redirectCase('https://evil.example/authorize');

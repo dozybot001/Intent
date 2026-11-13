@@ -13,7 +13,7 @@ from apps.inthub_api.auth import create_account_access_token, account_for_access
 from apps.inthub_api.common import APIError
 from apps.inthub_api.db import connect
 from apps.inthub_api.tenon import (
-    ISSUER, PLATFORM_ROLE, TenonOIDCClient, account_for_identity, account_for_session,
+    ISSUERS, PLATFORM_ROLE, TenonOIDCClient, account_for_identity, account_for_session,
     bind_existing_account, consume_attempt, create_attempt, create_session,
 )
 
@@ -122,12 +122,12 @@ def protocol_client(overrides=None, info_overrides=None, bad_signature=False):
     key = JsonWebKey.generate_key("OKP", "Ed25519", {"kid": "test", "alg": "EdDSA", "use": "sig"}, is_private=True)
     public = key.as_dict(is_private=False)
     attempt = {"state": "state", "nonce": "nonce", "code_verifier": "verifier" * 8}
-    claims = {"iss": ISSUER, "sub": "central-1", "aud": "client", "iat": int(time.time()),
+    claims = {"iss": ISSUERS[0], "sub": "central-1", "aud": "client", "iat": int(time.time()),
               "exp": int(time.time()) + 600, "nonce": "nonce", PLATFORM_ROLE: "admin"}
     claims.update(overrides or {})
-    metadata = {"issuer": ISSUER, "authorization_endpoint": ISSUER + "/oauth2/authorize",
-                "token_endpoint": ISSUER + "/oauth2/token", "userinfo_endpoint": ISSUER + "/oauth2/userinfo",
-                "jwks_uri": ISSUER + "/jwks", "code_challenge_methods_supported": ["S256"],
+    metadata = {"issuer": ISSUERS[0], "authorization_endpoint": ISSUERS[0] + "/oauth2/authorize",
+                "token_endpoint": ISSUERS[0] + "/oauth2/token", "userinfo_endpoint": ISSUERS[0] + "/oauth2/userinfo",
+                "jwks_uri": ISSUERS[0] + "/jwks", "code_challenge_methods_supported": ["S256"],
                 "id_token_signing_alg_values_supported": ["EdDSA"]}
     signed = jwt.encode({"alg": "EdDSA", "kid": "test"}, claims,
                         JsonWebKey.generate_key("OKP", "Ed25519", is_private=True) if bad_signature else key).decode()

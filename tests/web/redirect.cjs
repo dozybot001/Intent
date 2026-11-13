@@ -36,7 +36,7 @@ async function redirectCase(destination, failure = false) {
   vm.runInContext(fs.readFileSync(path.join(root, 'i18n.js'), 'utf8'), cx);
   vm.runInContext(fs.readFileSync(path.join(root, 'auth-redirect.js'), 'utf8'), cx);
   await new Promise(resolve => setImmediate(resolve));
-  if (failure || !/^https:\/\/account\.tenon(?:\.asia|ai\.cn)\//.test(destination)) {
+  if (failure || !/^https:\/\/account\.tenonai\.cn\//.test(destination)) {
     assert.equal(moved, '');
     assert.equal(get('transition-retry').disabled, false);
     assert.ok(get('transition-spinner').classList.contains('is-hidden'));

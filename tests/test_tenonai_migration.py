@@ -1,6 +1,7 @@
 """IntHub and the CLI work under tenon.asia and tenonai.cn at once while both move."""
 
 import json
+import re
 import subprocess
 import threading
 import time
@@ -29,8 +30,8 @@ from intent_cli.hub.credentials import (
 
 ROOT = Path(__file__).resolve().parents[1]
 OLD, NEW = "https://account.tenon.asia/api/auth", "https://account.tenonai.cn/api/auth"
-# The company's filing for tenonai.cn, then the one tenon.asia was filed under.
-FILINGS = ("湘ICP备2026054319号-1", "湘ICP备2026031578号-1")
+# The company's ICP filing for tenonai.cn.
+FILING = "湘ICP备2026054319号-1"
 
 
 def tenon(answering, token_issuer=None, moved_reply=308, metadata_overrides=None):
@@ -66,10 +67,14 @@ def tenon(answering, token_issuer=None, moved_reply=308, metadata_overrides=None
     return client, attempt, asked
 
 
+def test_only_the_moved_issuer_is_ever_asked():
+    assert configured_issuers() == (NEW,)
+
+
 @pytest.mark.parametrize("order, answering, moved_reply", [
-    # Before the move tenonai.cn has no account host; after it, tenon.asia only redirects.
-    (None, OLD, None), (None, NEW, 308), (f"{OLD} {NEW}", NEW, 308)])
-def test_sign_in_follows_whichever_issuer_answers_and_keeps_the_same_account(
+    # tenon.asia only redirects since the move; an operator's order naming it first still lands on tenonai.cn.
+    (None, NEW, 308), (f"{OLD} {NEW}", NEW, 308)])
+def test_sign_in_uses_the_issuer_that_answers_and_keeps_the_same_account(
         tmp_path, monkeypatch, order, answering, moved_reply):
     if order:
         monkeypatch.setenv("INTHUB_TENON_ISSUERS", order)
@@ -117,7 +122,7 @@ def test_an_operator_can_pin_the_issuer(monkeypatch):
         configured_issuers()
 
 
-def test_deletion_goes_to_the_issuer_in_use_and_accepts_its_proofs():
+def test_deletion_goes_to_the_issuer_in_use_and_accepts_only_its_proofs():
     calls = []
 
     def request(url, **kwargs):
@@ -128,11 +133,10 @@ def test_deletion_goes_to_the_issuer_in_use_and_accepts_its_proofs():
     client.start("central-1")
     assert calls == [NEW + "/product-deletion/start"]
     operation = "f8132b30-0471-4a4b-95d7-a9f2fe6f4df7"
-    for issuer in (OLD, NEW):
-        validate_proof({"issuer": issuer, "sub": "s", "productId": "inthub", "operationId": operation}, operation)
-    with pytest.raises(Exception):
-        validate_proof({"issuer": "https://account.example", "sub": "s", "productId": "inthub",
-                        "operationId": operation}, operation)
+    validate_proof({"issuer": NEW, "sub": "s", "productId": "inthub", "operationId": operation}, operation)
+    for issuer in (OLD, "https://account.example"):
+        with pytest.raises(Exception):
+            validate_proof({"issuer": issuer, "sub": "s", "productId": "inthub", "operationId": operation}, operation)
     assert ISSUER == OLD, "receipts and identities stay under the issuer they were stored with"
 
 
@@ -165,9 +169,9 @@ def test_one_hub_serves_both_names_with_their_own_callbacks(tmp_path):
             assert response.status_code == 200 and response.headers["Access-Control-Allow-Origin"] == origin
             assert provider.redirect_uris[-1] == origin + "/api/v1/auth/tenon/callback"
             assert "Domain=" not in response.headers["Set-Cookie"], "cookies stay with the name that set them"
-            # Only tenonai.cn serves pages now (Caddy moves the old name's), so they carry its ICP filing.
+            # Only tenonai.cn serves pages now (Caddy moves the old name's), so they carry its ICP filing alone.
             page = httpx.get(base + "/", headers={"Host": name}).text
-            assert page.count(FILINGS[0]) == 2 and FILINGS[1] not in page
+            assert re.findall(r"湘ICP备\d+号-\d+", page) == [FILING, FILING]
         assert httpx.get(base + "/config.json", headers={"Host": "inthub.example"}).status_code == 403
     finally:
         server.shutdown()

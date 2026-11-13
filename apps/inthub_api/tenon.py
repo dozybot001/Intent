@@ -11,13 +11,12 @@ from apps.inthub_api.auth import _expires_at, _is_expired, _sha256, public_accou
 from apps.inthub_api.common import APIError, new_id, now_utc
 from apps.inthub_api.db import connect
 
-# Tenon's account service moves to tenonai.cn and keeps every sub and the role
-# claim. Discovery tries these in order and uses the first that names itself.
-# The old issuer only covers sign-ins under way at the switch: drop it once none
-# use it, and before tenon.asia turns into a redirect (S2).
-ISSUERS = ("https://account.tenonai.cn/api/auth", "https://account.tenon.asia/api/auth")
-# Identities stay stored under the issuer they were first bound with, so the
-# moved service still finds the same IntHub account.
+# Tenon's account service answers at tenonai.cn and kept every sub and the role
+# claim when it moved. Discovery tries these in order and uses the first that names itself.
+ISSUERS = ("https://account.tenonai.cn/api/auth",)
+# The key identities are stored under: the issuer they were first bound with, from
+# before the move. It is an identifier and never contacted, so every IntHub account
+# keeps its identity.
 ISSUER = "https://account.tenon.asia/api/auth"
 PLATFORM_ROLE = "https://tenon.asia/claims/platform_role"
 SESSION_MAX_SECONDS = 30 * 24 * 60 * 60

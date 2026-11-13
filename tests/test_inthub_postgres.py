@@ -31,7 +31,7 @@ import json
 import time
 from uuid import uuid4
 from apps.inthub_api.product_deletion import delete_product_account
-from apps.inthub_api.tenon import ISSUER
+from apps.inthub_api.tenon import ISSUERS
 
 
 POSTGRES_URL = os.getenv("INTHUB_TEST_POSTGRES_URL")
@@ -45,7 +45,7 @@ def test_postgresql_product_deletion_receipt_and_subject_lock():
     session = create_session(POSTGRES_URL, account["id"], info)
     pat = create_account_access_token(POSTGRES_URL, account["id"])
     project = link_history(POSTGRES_URL, subject, account["id"])
-    proof = {"issuer": ISSUER, "sub": subject, "productId": "inthub", "operationId": str(uuid4())}
+    proof = {"issuer": ISSUERS[0], "sub": subject, "productId": "inthub", "operationId": str(uuid4())}
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(lambda _: delete_product_account(POSTGRES_URL, proof), range(2)))
     assert results[0] == results[1] == {"operationId": proof["operationId"], "status": "completed", "deleted": True}

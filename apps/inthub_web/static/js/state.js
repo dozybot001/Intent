@@ -22,7 +22,7 @@ const SKILL_COMMAND = "npx skills add dozybot001/Intent -g -a claude-code -a cod
 const HOSTED_INTHUB = "https://inthub.tenonai.cn";
 // The same hosted IntHub and Tenon account service while they move to tenonai.cn.
 const HOSTED_INTHUB_ORIGINS = [HOSTED_INTHUB, "https://inthub.tenonai.cn"];
-const TENON_ACCOUNT_ORIGINS = ["https://account.tenonai.cn", "https://account.tenon.asia"];
+const TENON_ACCOUNT_ORIGINS = ["https://account.tenonai.cn"];
 // Account and Settings open in a dialog over the current page, and team pages have paths of their own;
 // project views stay on / with query parameters.
 const ACCOUNT_PATHS = { profile: "/account", danger: "/account/danger" };

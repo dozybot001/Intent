@@ -39,8 +39,7 @@
       const body = await response.json();
       if (!response.ok || body.ok !== true) throw new Error("prepare failed");
       const url = new URL(body.result.authorizationUrl);
-      // Tenon's account service answers on one of these while it moves to tenonai.cn.
-      if (!["https://account.tenonai.cn", "https://account.tenon.asia"].includes(url.origin)
+      if (url.origin !== "https://account.tenonai.cn"
           || url.pathname !== "/api/auth/oauth2/authorize"
           || url.username || url.password || url.hash) throw new Error("invalid destination");
       if (method) url.searchParams.set("tenon_method", method);
