@@ -24,6 +24,8 @@ from intent_cli.hub.credentials import erase_access_token, load_access_token, no
 
 ROOT = Path(__file__).resolve().parents[1]
 OLD, NEW = "https://account.tenon.asia/api/auth", "https://account.tenonai.cn/api/auth"
+# The company's filing for tenonai.cn, then the one tenon.asia was filed under.
+FILINGS = ("湘ICP备2026054319号-1", "湘ICP备2026031578号-1")
 
 
 def tenon(answering, token_issuer=None, moved_reply=308, metadata_overrides=None):
@@ -158,6 +160,10 @@ def test_one_hub_serves_both_names_with_their_own_callbacks(tmp_path):
             assert response.status_code == 200 and response.headers["Access-Control-Allow-Origin"] == origin
             assert provider.redirect_uris[-1] == origin + "/api/v1/auth/tenon/callback"
             assert "Domain=" not in response.headers["Set-Cookie"], "cookies stay with the name that set them"
+            # Each name's pages carry the ICP filing of the domain they are served under.
+            page = httpx.get(base + "/", headers={"Host": name}).text
+            filing, other = FILINGS if name.endswith("tenonai.cn") else FILINGS[::-1]
+            assert page.count(filing) == 2 and other not in page
         assert httpx.get(base + "/config.json", headers={"Host": "inthub.example"}).status_code == 403
     finally:
         server.shutdown()
