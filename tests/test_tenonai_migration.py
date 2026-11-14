@@ -195,6 +195,24 @@ def test_the_cli_uses_the_new_name_and_keeps_the_old_one_only_as_an_alias(monkey
     assert load_access_token("https://inthub.tenon.asia") is None
 
 
+
+def test_a_project_linked_under_the_old_name_keeps_its_remote(monkeypatch, tmp_path):
+    from argparse import Namespace
+    from intent_cli.commands import shared
+    from intent_cli.hub.runtime import load_hub
+    base = tmp_path / ".intent"
+    base.mkdir()
+    linked = {"format_version": 2, "api_base_url": "https://inthub.tenon.asia", "project_name": "app",
+              "project_id": "proj_05ec97c9f569"}
+    (base / "hub.json").write_text(json.dumps(linked), encoding="utf-8")
+    asked = []
+    monkeypatch.setattr(shared, "hub_auth_token", lambda *args: None)
+    monkeypatch.setattr(shared, "http_json", lambda method, url, token=None: asked.append(url) or {
+        "format_version": shared.FORMAT, "project_name": "app", "project_id": linked["project_id"], "refs": {}})
+    # Before 8.2.2 the old name in hub.json failed every status, push and pull with REMOTE_CHANGED.
+    api, _ = shared._remote(base, Namespace(), load_hub(base), "app")
+    assert api == "https://inthub.tenonai.cn" and asked[0].startswith(api + "/api/v3/refs?")
+
 def test_every_hub_request_names_the_cli_and_its_version(monkeypatch):
     sent = []
 

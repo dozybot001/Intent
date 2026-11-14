@@ -16,7 +16,15 @@ LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 
 def load_hub(base):
-    return read_hub_config(base) or {}
+    hub = read_hub_config(base) or {}
+    # A project linked under IntHub's old name reads as linked to the same hub at its
+    # new one, so its project and revision still match; the next write saves the new name.
+    try:
+        if hub.get("api_base_url") is not None:
+            hub["api_base_url"] = normalize_api_base_url(hub["api_base_url"])
+    except GlobalHubConfigError:
+        pass  # left as stored; commands report it as invalid remote state
+    return hub
 
 
 def hub_api_base(base, args, hub=None):
