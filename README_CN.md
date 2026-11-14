@@ -169,5 +169,6 @@ Intent 处于 **Beta**（8.x）。从 Intent 7 升级时，在每个项目运行
 - [意图流转](docs/CN/intent-flow.md)：Intent 之间的关系与「流转」页
 - [团队与共享](docs/CN/inthub-collaboration.md)：IntHub 的账号、可见性和角色
 - [语义版 Git](docs/CN/semantic-git.md)：修订、分支与合并如何工作
+- [更新记录](docs/releases/)：每个版本的改动（英文）
 
 [贡献指南](.github/CONTRIBUTING.md) · [行为准则](.github/CODE_OF_CONDUCT.md) · [安全策略](.github/SECURITY.md) · MIT 许可

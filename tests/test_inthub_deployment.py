@@ -388,6 +388,7 @@ def test_release_scripts_are_executable():
         "bootstrap-gitee-deployment.sh",
         "build-release.sh",
         "prepare-release-env.sh",
+        "prune-release-envs.sh",
         "qualify-release.sh",
         "release.sh",
         "release-from-gitee.sh",
@@ -543,3 +544,18 @@ def test_manifest_verifier_rejects_unsafe_source_archive_entry(tmp_path):
 
     with pytest.raises(manifest_module.ManifestError, match="non-regular"):
         manifest_module.verify_manifest(str(tmp_path))
+
+
+def test_an_accepted_release_keeps_the_three_newest_release_environments(tmp_path):
+    deploy = REPOSITORY_ROOT / "deploy" / "inthub"
+    release = (deploy / "release.sh").read_text(encoding="utf-8")
+    assert release.index("/healthz") < release.index('bash "${SCRIPT_DIR}/prune-release-envs.sh"'), "only after the release is live"
+    for age, name in enumerate(["cpython-3.14-e", "cpython-3.14-d", "cpython-3.14-c", "cpython-3.9-b", "cpython-3.9-a"]):
+        (tmp_path / name / "bin").mkdir(parents=True)
+        os.utime(tmp_path / name, (1_700_000_000 - age * 60,) * 2)
+    (tmp_path / "notes").mkdir()
+    run = lambda root: subprocess.run(["bash", str(deploy / "prune-release-envs.sh")], check=True,
+                                      env=dict(os.environ, INTHUB_RELEASE_TOOL_ROOT=str(root)))
+    run(tmp_path)
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["cpython-3.14-c", "cpython-3.14-d", "cpython-3.14-e", "notes"]
+    run(tmp_path / "missing")

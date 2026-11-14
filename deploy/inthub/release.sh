@@ -65,4 +65,5 @@ ACTIVE_RELEASE="$(ssh -o BatchMode=yes "${DEPLOY_HOST}" "readlink -f '${REMOTE_R
 [[ "${ACTIVE_RELEASE}" == "${REMOTE_ROOT}/releases/${RELEASE_SHA}" ]] \
     || fail "server release returned success but current points elsewhere"
 curl --fail --silent --show-error --max-time 10 "${PUBLIC_URL}/healthz" >/dev/null
+bash "${SCRIPT_DIR}/prune-release-envs.sh"
 echo "Released IntHub ${RELEASE_SHA} from the verified Gitee exact Commit."

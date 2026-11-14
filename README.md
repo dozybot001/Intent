@@ -168,5 +168,6 @@ Intent is **beta** (8.x). Coming from Intent 7? Run `itt migrate` once in each p
 - [Intent flow](https://github.com/dozybot001/Intent/blob/main/docs/EN/intent-flow.md): relations between Intents and the Flow page
 - [Teams and sharing](https://github.com/dozybot001/Intent/blob/main/docs/EN/inthub-collaboration.md): accounts, visibility and roles on IntHub
 - [Semantic Git](https://github.com/dozybot001/Intent/blob/main/docs/EN/semantic-git.md): how revisions, branches and merges work
+- [Release notes](https://github.com/dozybot001/Intent/tree/main/docs/releases): what changed in each version
 
 [Contributing](https://github.com/dozybot001/Intent/blob/main/.github/CONTRIBUTING.md) · [Code of conduct](https://github.com/dozybot001/Intent/blob/main/.github/CODE_OF_CONDUCT.md) · [Security](https://github.com/dozybot001/Intent/blob/main/.github/SECURITY.md) · MIT License
