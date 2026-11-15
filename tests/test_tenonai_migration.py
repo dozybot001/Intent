@@ -274,6 +274,11 @@ def test_the_new_name_is_canonical_everywhere_the_release_and_monitors_look():
     assert 'BASE_URL="https://inthub.tenonai.cn"' in (deploy / "monitor.sh").read_text(encoding="utf-8")
     workflow = (ROOT / ".github" / "workflows" / "monitor.yml").read_text(encoding="utf-8")
     assert "inthub.tenonai.cn/readyz" in workflow and "tenon.asia" not in workflow
+    # The old name only redirects to this file, so it is not listed as a place the file lives.
+    security = (ROOT / "apps" / "inthub_web" / "static" / "security.txt").read_text(encoding="utf-8")
+    assert [line for line in security.splitlines() if line.startswith("Canonical:")] == [
+        "Canonical: https://inthub.tenonai.cn/.well-known/security.txt"]
+    assert "tenon.asia" not in security
 
 
 def days_ago(days):
