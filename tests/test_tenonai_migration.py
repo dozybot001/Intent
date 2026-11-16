@@ -32,6 +32,8 @@ ROOT = Path(__file__).resolve().parents[1]
 OLD, NEW = "https://account.tenon.asia/api/auth", "https://account.tenonai.cn/api/auth"
 # The company's ICP filing for tenonai.cn.
 FILING = "湘ICP备2026054319号-1"
+# Its public-security filing, shown right after the ICP one and linked to the ministry's lookup.
+PSB_FILING = "湘公网安备43010202002408号"
 
 
 def tenon(answering, token_issuer=None, moved_reply=308, metadata_overrides=None):
@@ -172,6 +174,8 @@ def test_one_hub_serves_both_names_with_their_own_callbacks(tmp_path):
             # Only tenonai.cn serves pages now (Caddy moves the old name's), so they carry its ICP filing alone.
             page = httpx.get(base + "/", headers={"Host": name}).text
             assert re.findall(r"湘ICP备\d+号-\d+", page) == [FILING, FILING]
+            footers = re.findall(r'>(湘ICP备[^<]+)</a>\s*<a href="([^"]+)" target="_blank" rel="noopener noreferrer">(湘公网安备[^<]+)</a>', page)
+            assert footers == [(FILING, "https://beian.mps.gov.cn/#/query/webSearch?code=43010202002408", PSB_FILING)] * 2
         assert httpx.get(base + "/config.json", headers={"Host": "inthub.example"}).status_code == 403
     finally:
         server.shutdown()
