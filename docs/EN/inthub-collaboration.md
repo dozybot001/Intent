@@ -18,6 +18,14 @@ A local hub (`itt hub start`) runs on your own machine and has no accounts, team
 | Team page, `/teams/TEAM` | Members, Projects, Settings (admins only) |
 | A project's **Settings** tab (admins only) | General, Members (team projects), Danger zone |
 
+## Get started
+
+- **Hosted:** run `itt auth login`, approve the code in the browser, then `itt push`. A push alone creates the project, private, named after the folder. To push to a team's project, run `itt remote add origin https://inthub.tenonai.cn --project TEAM/NAME` first.
+- **Local:** `itt hub start`, then `itt remote add origin http://127.0.0.1:7210 --project NAME` and `itt push`. Another folder joins with `itt clone NAME --api-base-url http://127.0.0.1:7210`.
+- **Restore elsewhere:** `itt clone NAME` in the project folder. Only members can clone.
+
+`itt push` sends the current branch and `itt pull` fetches and merges, as in Git. If two copies record in parallel, `itt status` reports `diverged`, and `itt pull` merges them, stopping only where both set the same field differently.
+
 ## Accounts and sign-in
 
 An IntHub account is a Tenon account. In the browser, sign in with GitHub, Apple or email. IntHub requests no access to your repositories, and a browser session lasts up to 30 days. Your name and email come from Tenon. **Account** shows them and links to Tenon to change them.

@@ -446,3 +446,13 @@ stateDiagram-v2
 - 对象 ID 在路径 I/O 前校验，对象路径必须留在对应类型目录内，`.intent/` 对象存储拒绝符号链接重定向
 - 描述性字段写一次；状态与自动维护的关系字段会随着后续命令推进
 - 新 ID 是随机哈希，所以多份副本并行记录也不会冲突。文本输出显示 7 位，参数接受至少 4 位的唯一前缀
+
+## 卸载
+
+在每个项目里运行 `itt maintenance off --remove-hooks`，如果也想删除历史，再运行 `rm -rf .intent`。然后卸载 CLI：
+
+- 在 macOS 或 Linux 上用安装脚本装的：`rm -rf ~/.local/share/intent ~/.local/bin/itt`。
+- 在 Windows 上用安装脚本装的：删除 `%LOCALAPPDATA%\Intent`，并从用户 `PATH` 里去掉它的 `venv\Scripts` 目录。
+- 用 pipx 或 uv 装的：`pipx uninstall intent-history` 或 `uv tool uninstall intent-history`。
+
+用 `npx skills remove intent-cli -g` 卸载 Skill。IntHub 访问令牌在过期前一直有效，可以在 IntHub 的设置里作废。

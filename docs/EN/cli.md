@@ -446,3 +446,13 @@ While recording is on but the hooks have never run, `status` adds a warning and 
 - Object IDs are validated before path I/O, object paths must remain under their type directory, and `.intent/` object storage refuses symlink redirection
 - Descriptive fields are write-once; status and auto-maintained relationship fields evolve through later commands
 - New IDs are random hashes, so copies recording in parallel cannot collide. Text output shows seven digits, and any unique prefix of at least four works as an argument
+
+## Uninstall
+
+In each project, run `itt maintenance off --remove-hooks`, and `rm -rf .intent` if you also want its history gone. Then remove the CLI:
+
+- Installed with the script on macOS or Linux: `rm -rf ~/.local/share/intent ~/.local/bin/itt`.
+- Installed with the script on Windows: delete `%LOCALAPPDATA%\Intent` and remove its `venv\Scripts` folder from your user `PATH`.
+- Installed with pipx or uv: `pipx uninstall intent-history` or `uv tool uninstall intent-history`.
+
+Remove the Skill with `npx skills remove intent-cli -g`. An IntHub access token stays valid until it expires; revoke it under Settings on IntHub.

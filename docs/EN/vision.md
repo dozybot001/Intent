@@ -50,6 +50,13 @@ You can see how the code changed, yet these questions stay hard to answer:
 
 Intent turns these answers into objects you can reference: an Intent for each goal, a Snap for each verified checkpoint, and a Decision for each long-term rule.
 
+| You may already use | It holds | Intent adds |
+|---|---|---|
+| `AGENTS.md`, `CLAUDE.md`, Cursor rules | How to work in this repository | Where the work stands: current goal, verified state, next step, blocker |
+| Built-in agent memory | Per-tool, opaque notes | Plain JSON in your project that any agent (and you) can read |
+| Issues, PRs, ADRs | Team plans and reviews | Checkpoints captured during the work, plus decisions that attach to new goals automatically |
+| Git history | What changed in the code | The reasoning, and the boundary of what is actually done |
+
 ## Where Intent sits
 
 | Layer | What it keeps | Typical content |

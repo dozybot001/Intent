@@ -18,6 +18,14 @@ IntHub 是云端 Intent 托管与协作开发平台。它是可选的，用来�
 | 团队页 `/teams/团队` | 成员、项目、设置（仅管理员） |
 | 项目的**设置**标签（仅管理员） | 常规、成员（团队项目）、危险操作 |
 
+## 上手
+
+- **托管：** 运行 `itt auth login`，在浏览器里批准代码，再 `itt push`。第一次推送会自动建项目，默认私有，以目录名命名。要推到团队的项目，先运行 `itt remote add origin https://inthub.tenonai.cn --project 团队/项目`。
+- **本地：** `itt hub start`，然后 `itt remote add origin http://127.0.0.1:7210 --project NAME` 和 `itt push`。其他目录用 `itt clone NAME --api-base-url http://127.0.0.1:7210` 加入。
+- **在另一处恢复：** 在项目目录运行 `itt clone NAME`，仅限成员。
+
+`itt push` 推送当前分支，`itt pull` 先 fetch 再合并，和 Git 一样。如果两份副本同时记录，`itt status` 会报告 `diverged`，`itt pull` 会合并它们，只有双方把同一字段改成不同值时才停下。
+
 ## 账号与登录
 
 IntHub 账号就是 Tenon 账号。在浏览器里可以用 GitHub、Apple 或邮箱登录。IntHub 不申请访问你的代码仓库，浏览器会话最长保持 30 天。名称和邮箱来自 Tenon，**账号**里只做展示，并提供修改入口的链接。
