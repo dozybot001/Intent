@@ -9,8 +9,7 @@
 /* --- Tokens --------------------------------------------------------------
    Surfaces, text and borders stay neutral. Hue is reserved for the small set
    of status tokens (blue/green/amber/red) and is always paired with text or an
-   icon, never used as the only signal. The official Tenon mark keeps its own
-   brand color. */
+   icon, never used as the only signal. */
 
 :root {
   color-scheme: light;

@@ -119,8 +119,8 @@ def test_api_server_can_serve_web_shell(tmp_path, monkeypatch):
         assert config["authRequired"] is False
         assert config["productVersion"] == "6.0.1.dev36+gtest123"
 
-        mark = urlopen(f"{base}/tenon-mark.svg").read().decode("utf-8")
-        assert 'fill="#f06b32"' in mark
+        mark = urlopen(f"{base}/inthub-mark.svg").read().decode("utf-8")
+        assert 'id="fold-a"' in mark
         with urlopen(f"{base}/auth/redirect") as response:
             assert response.headers["Cache-Control"] == "no-cache"
             transition = response.read().decode("utf-8")

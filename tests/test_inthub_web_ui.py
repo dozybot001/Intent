@@ -135,7 +135,7 @@ def test_focus_rings_are_for_keyboards_and_nav_items_keep_their_distance():
     assert "gap: 6px" in phone.split(".settings-nav {", 1)[1].split("}", 1)[0]
 
 
-def test_hue_is_reserved_for_status_tokens_and_tenon_mark_keeps_its_color():
+def test_hue_is_reserved_for_status_tokens():
     css = _static("styles.css")
     declarations = dict(re.findall(r"(--[\w-]+):\s*([^;]+);", css))
     colored_tokens = set()
@@ -152,7 +152,7 @@ def test_hue_is_reserved_for_status_tokens_and_tenon_mark_keeps_its_color():
             assert match and STATUS_TOKEN.match(match.group(1)), line.strip()
             colored_tokens.add(match.group(1))
     assert colored_tokens == {f"--{hue}{suffix}" for hue in ("blue", "green", "amber", "red") for suffix in ("", "-soft", "-line", "-dot")}
-    assert declarations and 'fill="#f06b32"' in _static("tenon-mark.svg")
+    assert declarations
     # Status is never conveyed by color alone: every status pill carries its label text.
     javascript = _static("app.js")
     assert '<span class="status-dot" aria-hidden="true"></span>${esc(label)}</span>' in javascript
@@ -390,6 +390,18 @@ def test_the_favicon_is_our_own_mark_on_every_page():
         assert 'rel="icon" type="image/svg+xml" href="/favicon.svg"' in html and 'rel="apple-touch-icon"' in html
     shapes = set(re.findall(r' d="([^"]+)"', _static("inthub-mark.svg")))
     assert shapes and shapes == set(re.findall(r' d="([^"]+)"', _static("favicon.svg"))), "the favicon draws the IntHub mark"
+
+
+def test_only_the_inthub_mark_is_shown_and_the_publisher_is_a_line_of_text():
+    # Since 2026-11-18 products carry no Tenon mark; where the publisher is named it is one line of text.
+    html = _static("index.html")
+    assert not (STATIC_DIR / "tenon-mark.svg").exists() and "tenon-mark" not in html
+    assert html.count('<span class="brand-wordmark">IntHub</span>') == 3
+    publisher = html.split('<div class="about-publisher">', 1)[1].split("</div>", 1)[0]
+    assert "<p>Made by Tenon AI</p>" in publisher and "<img" not in publisher
+    footers = re.findall(r'<footer class="site-footer[^>]*>\s*(<a [^>]*>[^<]*</a>)', html)
+    assert footers == ['<a href="https://tenonai.cn/" target="_blank" rel="noopener noreferrer">Made by Tenon AI</a>'] * 2
+    assert '"Made by Tenon AI": "榫卯 Tenon AI 出品"' in _static("i18n.js")
 
 
 def test_the_one_line_definition_is_the_agreed_sentence():

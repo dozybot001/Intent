@@ -18,22 +18,12 @@
 }
 
 .brand-wordmark {
-  display: inline-flex;
-  align-items: flex-start;
-  gap: max(4px, 0.18em);
   padding: max(7px, 0.29em) max(7px, 0.29em) max(7px, 0.29em) 0;
   white-space: nowrap;
   font-family: "Avenir Next", Avenir, "PingFang SC", "Hiragino Sans GB", sans-serif;
   font-size: 1.06rem;
   font-weight: 720;
   letter-spacing: -0.055em;
-}
-
-.product-publisher-mark {
-  width: max(14px, 0.58em);
-  height: max(14px, 0.58em);
-  flex: 0 0 auto;
-  margin-top: -0.04em;
 }
 
 /* --- Header -------------------------------------------------------------- */

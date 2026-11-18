@@ -161,22 +161,9 @@ html:has(.settings-dialog[open]) {
   border-top: 1px solid var(--border);
 }
 
-.about-publisher-label {
-  color: var(--muted);
-  font-size: 12.5px;
-}
-
-.about-publisher-name {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.about-publisher p {
+  margin: 0;
   font-weight: 600;
-}
-
-.about-publisher-name img {
-  width: 22px;
-  height: 22px;
-  flex: 0 0 auto;
 }
 
 .about-publisher a {
