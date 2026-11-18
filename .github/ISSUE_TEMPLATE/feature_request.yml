@@ -1,0 +1,33 @@
+name: Feature request / 功能建议
+description: Suggest a change to Intent CLI or IntHub. / 建议 Intent CLI 或 IntHub 增加或改进一项功能。
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / 要解决的问题
+      description: What are you trying to do, and what gets in the way? / 你想做什么，卡在哪里？
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal / 建议的做法
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where / 涉及哪里
+      multiple: true
+      options:
+        - Intent CLI (itt)
+        - Agent Skill or hooks / Agent Skill 或钩子
+        - IntHub (inthub.tenonai.cn)
+        - IntHub Local (itt hub start)
+        - Docs / 文档
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered / 考虑过的其他做法

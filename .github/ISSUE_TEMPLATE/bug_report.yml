@@ -1,0 +1,57 @@
+name: Bug report / 缺陷报告
+description: Intent CLI or IntHub does not work as documented. / Intent CLI 或 IntHub 的行为和文档不符。
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a security problem, do not open an issue: see [SECURITY.md](https://github.com/dozybot001/Intent/blob/main/SECURITY.md). Remove access tokens and private `.intent/` content from anything you paste.
+
+        安全问题请不要开 issue，见 [SECURITY.md](https://github.com/dozybot001/Intent/blob/main/SECURITY.md)。贴出的内容里请去掉访问令牌和 `.intent/` 里的私有内容。
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where / 出在哪里
+      options:
+        - Intent CLI (itt)
+        - Agent Skill or hooks / Agent Skill 或钩子
+        - IntHub (inthub.tenonai.cn)
+        - IntHub Local (itt hub start)
+        - Docs / 文档
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened / 发生了什么
+      description: The command or page, and what it printed or showed. / 用的命令或页面，以及它输出或显示了什么。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / 复现步骤
+      placeholder: |
+        1. itt init
+        2.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected / 期望的结果
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Intent version / Intent 版本
+      description: Output of `itt version`. / `itt version` 的输出。
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS, Python and agent / 系统、Python 和 Agent
+      placeholder: macOS 15, Python 3.12, Claude Code

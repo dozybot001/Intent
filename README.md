@@ -4,7 +4,7 @@
 
 Semantic Git for the vibe coding era
 
-[中文](https://github.com/dozybot001/Intent/blob/main/README_CN.md) | English
+English | [简体中文](https://github.com/dozybot001/Intent/blob/main/README.zh-CN.md)
 
 [![tests](https://github.com/dozybot001/Intent/actions/workflows/test.yml/badge.svg)](https://github.com/dozybot001/Intent/actions/workflows/test.yml)
 [![PyPI](https://img.shields.io/pypi/v/intent-history)](https://pypi.org/project/intent-history/)
@@ -170,4 +170,8 @@ Intent is **beta** (8.x). Coming from Intent 7? Run `itt migrate` once in each p
 - [Semantic Git](https://github.com/dozybot001/Intent/blob/main/docs/EN/semantic-git.md): how revisions, branches and merges work
 - [Release notes](https://github.com/dozybot001/Intent/tree/main/docs/releases): what changed in each version
 
-[Contributing](https://github.com/dozybot001/Intent/blob/main/.github/CONTRIBUTING.md) · [Code of conduct](https://github.com/dozybot001/Intent/blob/main/.github/CODE_OF_CONDUCT.md) · [Security](https://github.com/dozybot001/Intent/blob/main/.github/SECURITY.md) · MIT License
+[Contributing](https://github.com/dozybot001/Intent/blob/main/CONTRIBUTING.md) · [Code of conduct](https://github.com/dozybot001/Intent/blob/main/CODE_OF_CONDUCT.md) · [Security](https://github.com/dozybot001/Intent/blob/main/SECURITY.md) · [MIT License](https://github.com/dozybot001/Intent/blob/main/LICENSE)
+
+---
+
+<p>Publisher&emsp;<img src="https://raw.githubusercontent.com/dozybot001/Intent/main/apps/inthub_web/static/tenon-mark.svg" width="20" height="20" alt="" align="absmiddle">&nbsp;<b>Tenon AI</b> · <a href="https://tenonai.cn/products/intent/">tenonai.cn</a></p>

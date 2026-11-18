@@ -33,12 +33,7 @@ If you want to try it, `itt inspect` shows the current state.
 
 ## Reporting Bugs
 
-Open a [GitHub issue](https://github.com/dozybot001/Intent/issues/new?template=bug_report.md) with:
-
-- What you expected to happen
-- What actually happened
-- The `itt` command and its JSON output
-- Your Python version and OS
+Open a [bug report](https://github.com/dozybot001/Intent/issues/new?template=bug_report.yml) in English or Chinese. It asks what happened, how to reproduce it, what you expected, `itt version`, and your OS and Python version. Report security problems privately as described in [SECURITY.md](SECURITY.md), not in an issue.
 
 ## Submitting Changes
 

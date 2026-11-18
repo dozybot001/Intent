@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security issue / 报告安全问题
+    url: https://github.com/dozybot001/Intent/security/advisories/new
+    about: Report it privately, not in a public issue. / 请私下报告，不要开公开的 issue。

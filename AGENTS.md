@@ -8,7 +8,8 @@ Intent CLI (`itt`, package `intent-history`) is semantic Git for agent-driven wo
 - `apps/inthub_api/`: the IntHub server. `apps/inthub_web/`: its web app (plain JS, no build step).
 - `SKILL.md`, `SKILL_CN.md`, `references/`, `agents/`, `scripts/itt_argv.py`: the agent Skill shipped with each release.
 - `deploy/inthub/`: production release scripts and Caddy and Compose files.
-- `docs/EN/`, `docs/CN/`: public docs, kept in both languages. `docs/releases/vX.Y.Z.md`: release notes, one file per version.
+- `docs/EN/`, `docs/CN/`: public docs, kept in both languages. `docs/releases/vX.Y.Z.md`: release notes, one file per version, in English and then Chinese.
+- `README.md` (English) and `README.zh-CN.md` (Chinese) change in the same commit. `README.md` is also the PyPI page, so its links and images are absolute GitHub URLs. `CHANGELOG.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` and `SECURITY.md` sit at the root; the issue forms and PR template are in `.github/`.
 - `tests/`: pytest. `tests/web/`: web tests, run with `node tests/web/run.cjs`.
 - `dist/`, `build/`: build output, ignored by Git.
 
