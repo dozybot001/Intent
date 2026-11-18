@@ -9,7 +9,7 @@ Two rules hold throughout:
 - **The browser manages, the CLI writes history.** Renames, visibility, teams and deletion happen in the browser. History changes only through `itt push` with an access token. A browser session cannot write history, and a token cannot manage anything.
 - **Private by default.** Every new project starts private. Going public takes an explicit confirmation, and a push never changes visibility.
 
-A local hub (`itt hub start`) runs on your own machine and has no accounts, teams, visibility or quotas. You can still rename, export and delete projects there.
+A local hub (`itt hub start`) runs on your own machine and has no accounts, teams, visibility or quotas. You can still rename, export and delete projects there. Without accounts, anything that can reach it can read and write its history, so it listens only on 127.0.0.1 and keeps that history unencrypted in `~/.inthub/inthub.db`. Do not expose it to a network or put it behind a reverse proxy.
 
 | Where | What is there |
 |---|---|

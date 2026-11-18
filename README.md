@@ -170,7 +170,13 @@ Intent is **beta** (8.x). Coming from Intent 7? Run `itt migrate` once in each p
 - [Semantic Git](https://github.com/dozybot001/Intent/blob/main/docs/EN/semantic-git.md): how revisions, branches and merges work
 - [Release notes](https://github.com/dozybot001/Intent/tree/main/docs/releases): what changed in each version
 
-[Contributing](https://github.com/dozybot001/Intent/blob/main/CONTRIBUTING.md) · [Code of conduct](https://github.com/dozybot001/Intent/blob/main/CODE_OF_CONDUCT.md) · [Security](https://github.com/dozybot001/Intent/blob/main/SECURITY.md) · [MIT License](https://github.com/dozybot001/Intent/blob/main/LICENSE)
+## Contributing
+
+Bug reports, feature requests and pull requests are welcome in English or Chinese: see [CONTRIBUTING.md](https://github.com/dozybot001/Intent/blob/main/CONTRIBUTING.md) and the [Code of Conduct](https://github.com/dozybot001/Intent/blob/main/CODE_OF_CONDUCT.md). Report security problems privately, as [SECURITY.md](https://github.com/dozybot001/Intent/blob/main/SECURITY.md) describes.
+
+## License
+
+[MIT](https://github.com/dozybot001/Intent/blob/main/LICENSE). Copyright (c) 2026 Changsha Tenon Artificial Intelligence Technology Co., Ltd.
 
 ---
 

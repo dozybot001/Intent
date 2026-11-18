@@ -10,7 +10,7 @@ requires-python = ">=3.9"
 readme = "README.md"
 license = "MIT"
 authors = [
-    { name = "Zeng Deyang" },
+    { name = "Changsha Tenon Artificial Intelligence Technology Co., Ltd." },
 ]
 keywords = ["agent", "git", "semantic-history", "intent", "developer-tools"]
 classifiers = [

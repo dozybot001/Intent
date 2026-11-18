@@ -171,7 +171,13 @@ Intent 处于 **Beta**（8.x）。从 Intent 7 升级时，在每个项目运行
 - [语义版 Git](docs/CN/semantic-git.md)：修订、分支与合并如何工作
 - [更新记录](docs/releases/)：每个版本的改动（8.2.7 起附中文）
 
-[贡献指南](CONTRIBUTING.md) · [行为准则](CODE_OF_CONDUCT.md) · [安全策略](SECURITY.md) · [MIT 许可](LICENSE)
+## 参与贡献
+
+欢迎用中文或英文提交缺陷报告、功能建议和 Pull Request，见[贡献指南](CONTRIBUTING.md)和[行为准则](CODE_OF_CONDUCT.md)。安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
+
+## 许可证
+
+[MIT](LICENSE)。Copyright (c) 2026 Changsha Tenon Artificial Intelligence Technology Co., Ltd.（长沙榫卯人工智能科技有限公司）
 
 ---
 
