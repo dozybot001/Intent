@@ -18,7 +18,7 @@ Scope: the Intent CLI (`itt`), the agent Skill, the install scripts and IntHub (
 
 - 邮件：<support@tenonai.cn>，标题注明「Intent CLI 安全」，我们会在 1 个工作日内回复。
 - 或者用本仓库 GitHub 的「Report a vulnerability」（私下报告）。
-- 报告和答复的做法见榫卯 Tenon AI 的[安全政策](https://tenonai.cn/security/#report)。
+- 报告和答复的做法见榫卯 Tenon AI 的[安全政策](https://tenonai.cn/zh/security/#report)。
 
 请写明：受影响的版本或提交、复现步骤、你认为的影响。请不要在报告里放真实的密码、密钥、令牌或个人数据，以及你的 IntHub 访问令牌和私有的 `.intent/` 历史。
 
