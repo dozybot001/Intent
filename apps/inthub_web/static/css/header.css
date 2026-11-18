@@ -26,6 +26,44 @@
   letter-spacing: -0.055em;
 }
 
+/* Where IntHub names its publisher (About and the footers): the label, then the Tenon mark and
+   name as one small lockup (brand standard 1.4). The mark never appears without the name. */
+.publisher {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.publisher-label {
+  color: var(--muted);
+}
+
+.publisher-lockup {
+  --mark: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--mark) * 0.3);
+  color: var(--ink);
+  font-size: max(12px, calc(var(--mark) * 0.75));
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.publisher-lockup img {
+  width: var(--mark);
+  height: var(--mark);
+  flex: 0 0 auto;
+}
+
+.site-footer .publisher-lockup {
+  --mark: 16px;
+}
+
+.site-footer a.publisher:hover {
+  text-decoration: none;
+}
+
 /* --- Header -------------------------------------------------------------- */
 
 /* The footer sits after the content and, on a short page, at the bottom of the window. */

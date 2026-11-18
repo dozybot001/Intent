@@ -392,16 +392,25 @@ def test_the_favicon_is_our_own_mark_on_every_page():
     assert shapes and shapes == set(re.findall(r' d="([^"]+)"', _static("favicon.svg"))), "the favicon draws the IntHub mark"
 
 
-def test_only_the_inthub_mark_is_shown_and_the_publisher_is_a_line_of_text():
-    # Since 2026-11-18 products carry no Tenon mark; where the publisher is named it is one line of text.
+def test_the_tenon_mark_appears_only_in_the_publisher_lockup():
+    # Brand standard 2.35: the IntHub wordmark carries no Tenon mark; About and the footers name the
+    # publisher as "Publisher [T] Tenon AI", the official mark always beside the name.
     html = _static("index.html")
-    assert not (STATIC_DIR / "tenon-mark.svg").exists() and "tenon-mark" not in html
     assert html.count('<span class="brand-wordmark">IntHub</span>') == 3
-    publisher = html.split('<div class="about-publisher">', 1)[1].split("</div>", 1)[0]
-    assert "<p>Made by Tenon AI</p>" in publisher and "<img" not in publisher
-    footers = re.findall(r'<footer class="site-footer[^>]*>\s*(<a [^>]*>[^<]*</a>)', html)
-    assert footers == ['<a href="https://tenonai.cn/" target="_blank" rel="noopener noreferrer">Made by Tenon AI</a>'] * 2
-    assert '"Made by Tenon AI": "榫卯 Tenon AI 出品"' in _static("i18n.js")
+    lockup = '<span class="publisher-label">Publisher</span><span class="publisher-lockup"><img src="/tenon-mark.svg" alt="" width="{0}" height="{0}">Tenon AI</span>'
+    assert html.count("tenon-mark.svg") == html.count('class="publisher-lockup"') == 3
+    about = html.split('<div class="about-publisher">', 1)[1].split("</div>", 1)[0]
+    assert f'<p class="publisher">{lockup.format(20)}</p>' in about and 'href="https://tenonai.cn/"' in about
+    footers = re.findall(r'<footer class="site-footer[^>]*>\s*(<a [^>]*>.*?</a>)', html)
+    assert footers == ['<a class="publisher" href="https://tenonai.cn/" target="_blank" rel="noopener noreferrer" '
+                       f'aria-label="Publisher: Tenon AI">{lockup.format(16)}</a>'] * 2
+    assert 'fill="#f06b32"' in _static("tenon-mark.svg") and 'fill="#fff"' in _static("tenon-mark.svg")
+    css = _static("styles.css")
+    assert "--mark: 20px" in _rule(css, ".publisher-lockup") and "--mark: 16px" in _rule(css, ".site-footer .publisher-lockup")
+    assert "font-size: max(12px, calc(var(--mark) * 0.75))" in _rule(css, ".publisher-lockup")
+    i18n = _static("i18n.js")
+    assert '"Publisher": "出品方"' in i18n and '"Tenon AI": "榫卯 Tenon AI"' in i18n
+    assert '"Publisher: Tenon AI": "出品方：榫卯 Tenon AI"' in i18n
 
 
 def test_the_one_line_definition_is_the_agreed_sentence():

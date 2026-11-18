@@ -161,11 +161,6 @@ html:has(.settings-dialog[open]) {
   border-top: 1px solid var(--border);
 }
 
-.about-publisher p {
-  margin: 0;
-  font-weight: 600;
-}
-
 .about-publisher a {
   color: var(--ink);
   font-size: 13.5px;
