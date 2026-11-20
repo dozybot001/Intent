@@ -10,14 +10,13 @@ from urllib.parse import urlsplit
 from apps.inthub_api.auth import _expires_at, _is_expired, _sha256, public_account, safe_return_to
 from apps.inthub_api.common import APIError, new_id, now_utc
 from apps.inthub_api.db import connect
+from apps.inthub_api.db_schema import IDENTITY_ISSUER
 
 # Tenon's account service answers at tenonai.cn and kept every sub and the role
 # claim when it moved. Discovery tries these in order and uses the first that names itself.
 ISSUERS = ("https://account.tenonai.cn/api/auth",)
-# The key identities are stored under: the issuer they were first bound with, from
-# before the move. It is an identifier and never contacted, so every IntHub account
-# keeps its identity.
-ISSUER = "https://account.tenon.asia/api/auth"
+# The key identities, session grants and deletion receipts are stored under.
+ISSUER = IDENTITY_ISSUER
 PLATFORM_ROLE = "https://tenonai.cn/claims/platform_role"
 SESSION_MAX_SECONDS = 30 * 24 * 60 * 60
 METADATA_TTL_SECONDS = 600

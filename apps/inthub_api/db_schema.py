@@ -1,7 +1,12 @@
 """The database's tables: what each migration creates, and the columns a current schema must have."""
 import hashlib
 
-LATEST_SCHEMA_VERSION = 9
+LATEST_SCHEMA_VERSION = 10
+_ISSUER_SCHEMA_NAME = "tenonai-identity-issuer"
+_ISSUER_SCHEMA_CHECKSUM = hashlib.sha256(b"0010:identities-copied:grants-receipts-moved:account.tenonai.cn").hexdigest()
+# The key Tenon identities were stored under before migration 10, and the one after.
+PREVIOUS_IDENTITY_ISSUER = "https://account.tenon.asia/api/auth"
+IDENTITY_ISSUER = "https://account.tenonai.cn/api/auth"
 _REPOSITORY_SCHEMA_NAME = "revision-graph"
 _REPOSITORY_SCHEMA_CHECKSUM = hashlib.sha256(b"0009:repo-blobs:repo-refs:version-tip").hexdigest()
 _HOSTED_SCHEMA_NAME = "device-logins-limits-suspension"
