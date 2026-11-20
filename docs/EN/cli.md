@@ -20,7 +20,7 @@ The CLI is intentionally small:
 
 | Command | What it does |
 |---|---|
-| `itt version` | Print CLI version |
+| `itt version` | Print the CLI version, publisher (Tenon AI) and website; `itt --version` prints the same |
 | `itt init [--host codex\|claude-code]` | Initialize `.intent/`, enable project-local continuous maintenance, and install local hooks for the host. Without `--host` it uses the agent running the command, else the only agent installed (`~/.codex` or `~/.claude`), else asks at a terminal, else Codex. Git is optional; the hook file is kept out of Git in this clone. |
 | `itt inspect [--intent ID] [--history N]` | Recovery view with each goal's rationale, latest snap, optional bounded history, active decisions, and full graph warnings |
 | `itt doctor` | Return the same full object-graph diagnosis with an explicit `healthy` result |

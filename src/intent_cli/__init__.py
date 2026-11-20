@@ -12,3 +12,10 @@ def _resolve_version():
 
 
 __version__ = _resolve_version()
+PUBLISHER = "Tenon AI"
+WEBSITE = "https://tenonai.cn/"
+
+
+def version_lines(number=__version__):
+    """What `itt --version` and `itt version` print in a terminal."""
+    return [f"itt {number}", f"Publisher: {PUBLISHER} ({WEBSITE})"]

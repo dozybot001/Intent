@@ -20,7 +20,7 @@ Intent CLI 是 Intent 的本地 semantic-history CLI。它只管理三类对象�
 
 | 命令 | 作用 |
 |---|---|
-| `itt version` | 输出 CLI 版本 |
+| `itt version` | 输出 CLI 版本、出品方（Tenon AI）和官网；`itt --version` 输出相同内容 |
 | `itt init [--host codex\|claude-code]` | 初始化 `.intent/`，默认开启项目级持续维护并为宿主安装本地 hooks。不指定 `--host` 时，依次使用：正在运行命令的 Agent、本机唯一安装的 Agent（`~/.codex` 或 `~/.claude`）、在终端中询问、默认 Codex。Git 可选；hooks 文件会从当前克隆的 Git 中排除。 |
 | `itt inspect [--intent ID] [--history N]` | 恢复视图，返回目标原因、最新 Snap、可选的受限历史、有效 Decision 和完整图诊断 |
 | `itt doctor` | 返回同一套完整对象图诊断，并显式给出 `healthy` 结果 |

@@ -28,6 +28,59 @@ inthub.tenonai.cn {
 	}
 
 	reverse_proxy 127.0.0.1:7250
+
+	# The app is down or restarting: people get a maintenance page, the CLI gets JSON.
+	# Self-contained, because nothing behind the proxy can serve assets now.
+	handle_errors {
+		@down expression `{err.status_code} in [502, 503, 504]`
+		@cli path /api/* /healthz /readyz
+		# Error routes skip the site's header block, so repeat it here.
+		header {
+			Strict-Transport-Security "max-age=31536000; includeSubDomains"
+			X-Content-Type-Options "nosniff"
+			X-Frame-Options "DENY"
+			Referrer-Policy "no-referrer"
+			Cache-Control "no-store"
+			Retry-After "60"
+			-Server
+		}
+		handle @down {
+			handle @cli {
+				header Content-Type "application/json; charset=utf-8"
+				respond `{"ok":false,"error":{"code":"SERVICE_UNAVAILABLE","message":"IntHub is down for maintenance. Try again in a minute.","details":{}}}` 503
+			}
+			handle {
+				header Content-Type "text/html; charset=utf-8"
+				header Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+				respond `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Down for maintenance · IntHub</title>
+<style>
+:root { color-scheme: light dark; --canvas: #fafafa; --ink: #171717; --muted: #666666; }
+@media (prefers-color-scheme: dark) { :root { --canvas: #0a0a0a; --ink: #ededed; --muted: #8f8f8f; } }
+* { margin: 0; }
+body { display: grid; justify-items: center; align-content: center; gap: 12px; min-height: 100dvh; padding: 24px 16px; box-sizing: border-box; text-align: center; background: var(--canvas); color: var(--ink); font-family: Inter, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+h1 { font-size: 22px; font-weight: 650; letter-spacing: -0.02em; }
+p { color: var(--muted); font-size: 14px; }
+.a { fill: #181818; }
+.b { fill: #858585; }
+@media (prefers-color-scheme: dark) { .a { fill: #f3f3f3; } }
+</style>
+</head>
+<body>
+<svg width="44" height="44" viewBox="0 0 32 32" aria-hidden="true"><path d="M5 22V7a2 2 0 0 1 2-2h16v5H10v12H5Z" class="a"/><path d="M27 10v15a2 2 0 0 1-2 2H9v-5h13V10h5Z" class="b"/></svg>
+<h1>Down for maintenance</h1>
+<p>IntHub will be back in a few minutes. Reload this page to try again.</p>
+<p lang="zh-CN">IntHub 正在维护，几分钟后恢复，请稍后刷新本页。</p>
+</body>
+</html>` 503
+			}
+		}
+	}
 }
 
 # The name IntHub had before tenonai.cn. CLIs older than 8.2 still call its API,

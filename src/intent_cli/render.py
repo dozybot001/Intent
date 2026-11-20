@@ -1,7 +1,7 @@
 """Readable terminal output for people. Agents and pipes get JSON (see output.py)."""
 
 import os
-from intent_cli import render_history
+from intent_cli import render_history, version_lines
 from intent_cli.output import short_ids
 from intent_cli.render_text import _checkpoint_lines, _counts, _labelled, _one_line, _plural, _when, _width, _wrap, bold, checkpoint_of, dim, green, snap_title, yellow
 
@@ -362,7 +362,7 @@ def _hub_status(result):
 
 
 RENDERERS = {
-    "version": lambda result: [f"itt {result['version']}"],
+    "version": lambda result: version_lines(result["version"]),
     "inspect": _inspect,
     "log": _log,
     "show": _show,

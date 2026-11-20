@@ -6,7 +6,7 @@ import re
 import os
 import sys
 
-from intent_cli import __version__
+from intent_cli import __version__, version_lines
 from intent_cli.output import error, json_mode, set_format
 from intent_cli.store import (
     CHECKPOINT_FIELDS,
@@ -179,6 +179,17 @@ class JsonArgumentParser(argparse.ArgumentParser):
         error("INVALID_INPUT", message, details=details)
 
 
+class _VersionAction(argparse.Action):
+    """Like argparse's version action, but keeps the line breaks."""
+
+    def __init__(self, option_strings, dest=argparse.SUPPRESS, default=argparse.SUPPRESS, help=None):
+        super().__init__(option_strings, dest=dest, default=default, nargs=0, help=help)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        print("\n".join(version_lines()))
+        parser.exit()
+
+
 def main():
     _ensure_utf8_stdio()
     argv = sys.argv[1:]
@@ -192,7 +203,7 @@ def main():
         epilog="Output is readable text in a terminal and JSON for agents and pipes; "
                "pass --json (or set ITT_FORMAT=json) to force JSON.",
     )
-    parser.add_argument("--version", action="version", version=f"itt {__version__}")
+    parser.add_argument("--version", action=_VersionAction, help="print version, publisher and website, then exit")
     sub = parser.add_subparsers(dest="command", metavar="COMMAND")
 
     # version / init / inspect / doctor

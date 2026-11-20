@@ -6,7 +6,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPOSITORY_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 TOOL_ROOT="${INTHUB_RELEASE_TOOL_ROOT:-${REPOSITORY_ROOT}/dist/inthub-tools}"
-REQUIRED_PYTEST_VERSION="8.4.2"
+REQUIRED_PYTEST_VERSION="9.0.3"
 STAGING_DIRECTORY=""
 LOCK_DIRECTORY=""
 

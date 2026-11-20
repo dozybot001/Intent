@@ -8,7 +8,7 @@ Intent CLI (`itt`, package `intent-history`) is semantic Git for agent-driven wo
 - `apps/inthub_api/`: the IntHub server. `apps/inthub_web/`: its web app (plain JS, no build step).
 - `SKILL.md`, `SKILL_CN.md`, `references/`, `agents/`, `scripts/itt_argv.py`: the agent Skill shipped with each release.
 - `deploy/inthub/`: production release scripts and Caddy and Compose files.
-- `docs/EN/`, `docs/CN/`: public docs, kept in both languages. `docs/releases/vX.Y.Z.md`: release notes, one file per version, in English and then Chinese.
+- `docs/EN/`, `docs/CN/`: public docs, kept in both languages. `docs/releases/vX.Y.Z.md`: release notes, one file per version, in English and then Chinese; each entry starts with its Keep a Changelog kind (Added, Changed, Deprecated, Removed, Fixed, Security).
 - `README.md` (English) and `README.zh-CN.md` (Chinese) change in the same commit. `README.md` is also the PyPI page, so its links and images are absolute GitHub URLs. Keep it near 1,000 words: one hero image, Quick start first, features as one-line bullets; longer explanations belong in `docs/`. `CHANGELOG.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` and `SECURITY.md` sit at the root; the issue forms and PR template are in `.github/`.
 - `tests/`: pytest. `tests/web/`: web tests, run with `node tests/web/run.cjs`.
 - `dist/`, `build/`: build output, ignored by Git.
@@ -21,5 +21,5 @@ Intent CLI (`itt`, package `intent-history`) is semantic Git for agent-driven wo
 - The CLI supports Python 3.9 to 3.14 and prints JSON. Within a major version the `.intent/` format and the JSON output stay compatible.
 - User-facing text exists in English and Chinese. Change both.
 - IntHub's web app uses color only for status, icon plus text for every option, and no browser-styled controls.
-- One request per release. A release bumps `scripts/install.sh` and `scripts/install.ps1`, adds `docs/releases/vX.Y.Z.md`, tags `vX.Y.Z`, then runs `bash deploy/inthub/release.sh`. Publishing the GitHub release publishes to PyPI.
+- One request per release. The release gate runs pip-audit; only build and test tools with no fixed version may go in `deploy/inthub/audit-exemptions.json`, for a month at most. A release bumps `scripts/install.sh` and `scripts/install.ps1`, adds `docs/releases/vX.Y.Z.md`, tags `vX.Y.Z`, then runs `bash deploy/inthub/release.sh`. Publishing the GitHub release publishes to PyPI.
 - This project records its own history with Intent. Use the `intent-cli` Skill, and do not `itt push`, `pull` or `auth login` unless asked.

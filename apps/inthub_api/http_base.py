@@ -7,7 +7,7 @@ from urllib.parse import quote, urlparse
 
 from apps.inthub_api.common import APIError
 from apps.inthub_web import BUNDLES, bundle, product_version
-from apps.inthub_api.http_common import WEB_ROUTES
+from apps.inthub_api.http_common import WEB_ROUTES, _json_error
 
 
 class HttpBase:
@@ -106,6 +106,14 @@ class HttpBase:
             content_type = f"{content_type}; charset=utf-8"
         cache_control = "no-cache" if path.suffix == ".html" else "public, max-age=3600"
         self._send_bytes(status, body, content_type, cache_control=cache_control)
+
+    def _send_internal_error(self, path):
+        # Pages get the branded 500 page; API callers keep the JSON error.
+        page = self.hub.root / "500.html"
+        if self.hub.serve_web and not path.startswith("/api/") and page.is_file():
+            self._send_file(page, status=500)
+            return
+        self._send_json(500, _json_error("INTERNAL_ERROR", "Unhandled server error."))
 
     def _serve_index(self):
         self._send_file(self.hub.root / "index.html")

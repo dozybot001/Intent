@@ -9,7 +9,7 @@ REPOSITORY_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 TARGET_PLATFORM="linux/amd64"
 EXPECTED_SHA="${1:-}"
 QUALIFICATION_ROOT="${INTHUB_QUALIFICATION_ROOT:-${REPOSITORY_ROOT}/dist/inthub-qualification}"
-REQUIRED_PYTEST_VERSION="8.4.2"
+REQUIRED_PYTEST_VERSION="9.0.3"
 TEST_DATABASE_CONTAINER=""
 SOURCE_DIRECTORY=""
 
@@ -98,6 +98,8 @@ PYTEST_VERSION="$(
 )" || fail "the prepared release environment does not contain pytest"
 [[ "${PYTEST_VERSION}" == "${REQUIRED_PYTEST_VERSION}" ]] \
     || fail "pytest ${REQUIRED_PYTEST_VERSION} is required, found ${PYTEST_VERSION}"
+python3 "${SCRIPT_DIR}/audit_dependencies.py" "${QUALIFICATION_PYTHON}" \
+    || fail "dependency audit refused this release"
 
 if [[ -z "${EXPECTED_SHA}" ]]; then
 TEST_DATABASE_CONTAINER="inthub-qualification-postgres-${RELEASE_SHA:0:12}-$$"

@@ -1,6 +1,6 @@
 """Core object command handlers for the Intent CLI."""
 
-from intent_cli import __version__
+from intent_cli import PUBLISHER, WEBSITE, __version__
 from intent_cli import relations as relation_rules
 from intent_cli.commands.common import expand_ids, place, require_init
 from intent_cli.output import emit_json, error, json_mode, print_text, success
@@ -22,7 +22,7 @@ from intent_cli.store import (
 # ---- Commands ----
 
 def cmd_version(_args):
-    success("version", {"version": __version__})
+    success("version", {"version": __version__, "publisher": PUBLISHER, "website": WEBSITE})
 
 
 def initialize(host):

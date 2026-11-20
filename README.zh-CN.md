@@ -40,7 +40,7 @@ itt init
 - **Claude Code 插件：** `/plugin marketplace add dozybot001/Intent`，然后 `/plugin install intent-cli@intent`。
 - **从 Intent 7 升级：** 在每个项目运行一次 `itt migrate`，它保留所有 ID，并先做备份。
 
-几个名字一句话说清：Intent CLI 是产品，`itt` 是命令，`intent-history` 是安装包，IntHub 是可选的网页应用。
+几个名字一句话说清：Intent CLI 是产品，`itt` 是命令，`intent-history` 是安装包，IntHub 是云端 Intent 托管与协作开发平台，不用它也能使用 `itt`。
 
 ### 手动体验
 
@@ -80,7 +80,7 @@ Decisions
 
 ## IntHub
 
-IntHub 是这份历史的可选网页应用。用 `itt hub start` 在自己的电脑上运行，或者用 `itt auth login` 登录 [inthub.tenonai.cn](https://inthub.tenonai.cn)，再用 `itt push` 推送历史。它的「流转」页会画出目标如何分出、接续与汇合。
+IntHub 是云端 Intent 托管与协作开发平台，不用它也能使用 `itt`。用 `itt hub start` 在自己的电脑上运行，或者用 `itt auth login` 登录 [inthub.tenonai.cn](https://inthub.tenonai.cn)，再用 `itt push` 推送历史。它的「流转」页会画出目标如何分出、接续与汇合。
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/inthub-flow-zh-dark.png">
@@ -102,6 +102,7 @@ IntHub 是这份历史的可选网页应用。用 `itt hub start` 在自己的�
 
 - `.intent/` 保存普通 JSON。由于可能包含内部推理，`itt init` 只在当前克隆中把它排除出 Git；如果团队希望放进 Git，请有意识地提交。
 - 每个启用 hook 的轮次会注入一段有硬上限的开局上下文，并调用一次 `itt maintenance close`。
+- `itt` 不收集任何遥测或使用数据。
 - `itt` 只有在你运行 `push`、`pull`、`fetch`、`clone`、`auth`，或在配置了远端时运行 `status`，才访问网络。托管的 IntHub 适用它的[隐私说明](https://inthub.tenonai.cn/privacy#zh)。
 
 ## 参与贡献

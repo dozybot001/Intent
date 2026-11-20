@@ -205,6 +205,17 @@ def test_the_site_uses_the_shared_access_log():
     assert "deleted automatically after 6 months" in privacy and "保存 6 个月后自动删除" in privacy
 
 
+def test_a_down_app_gets_a_maintenance_page_and_cli_json():
+    site = (REPOSITORY_ROOT / "deploy" / "inthub" / "inthub.caddy").read_text(encoding="utf-8")
+    canonical = site.split("\ninthub.tenon.asia {", 1)[0]
+    errors = canonical.split("handle_errors {", 1)[1]
+    assert "{err.status_code} in [502, 503, 504]" in errors
+    assert '"code":"SERVICE_UNAVAILABLE"' in errors and "Down for maintenance" in errors and "IntHub 正在维护" in errors
+    assert "prefers-color-scheme: dark" in errors and "Strict-Transport-Security" in errors and "-Server" in errors
+    # Caddy 2.6 on the server: no heredocs, so the page sits in one backtick string with no backticks inside.
+    assert "<<" not in errors and errors.count("`") == 6
+
+
 def test_compose_uses_explicit_immutable_images_and_disables_auto_migration():
     compose = (REPOSITORY_ROOT / "deploy" / "inthub" / "compose.yaml").read_text(
         encoding="utf-8"

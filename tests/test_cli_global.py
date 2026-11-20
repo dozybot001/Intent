@@ -11,6 +11,19 @@ class TestGlobal:
         r = _run(workspace, "version")
         assert r["ok"] is True
         assert r["result"]["version"] == _expected_cli_version()
+        assert r["result"]["publisher"] == "Tenon AI"
+        assert r["result"]["website"] == "https://tenonai.cn/"
+
+    def test_version_flag_names_publisher_and_website(self):
+        import os
+        import sys
+        src = str(Path(__file__).resolve().parents[1] / "src")
+        env = {**os.environ, "PYTHONPATH": src}
+        out = subprocess.run([sys.executable, "-m", "intent_cli", "--version"], capture_output=True, text=True, env=env)
+        assert out.returncode == 0
+        lines = out.stdout.splitlines()
+        assert lines[0].startswith("itt ")
+        assert lines[1] == "Publisher: Tenon AI (https://tenonai.cn/)"
 
     def test_init_already_exists(self, workspace):
         r = _run(workspace, "init")

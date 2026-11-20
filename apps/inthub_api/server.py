@@ -256,7 +256,7 @@ def make_handler(
                 self._handle_api_error(exc)
             except Exception:  # pragma: no cover - defensive fallback
                 LOGGER.exception("Unhandled IntHub GET error")
-                self._send_json(500, _json_error("INTERNAL_ERROR", "Unhandled server error."))
+                self._send_internal_error(parsed.path)
 
         def do_HEAD(self):
             self.do_GET()

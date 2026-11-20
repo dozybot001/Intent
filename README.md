@@ -77,7 +77,7 @@ This is what a new session reads. In a terminal `itt` prints text; agents and sc
 
 ## IntHub
 
-IntHub is the optional web app for this history. Run it on your machine with `itt hub start`, or sign in to [inthub.tenonai.cn](https://inthub.tenonai.cn) with `itt auth login` and send history with `itt push`. Its Flow page draws how goals branch, continue and converge.
+IntHub is a cloud platform for Intent hosting and collaborative development. You don't need it to use `itt`. Run it on your machine with `itt hub start`, or sign in to [inthub.tenonai.cn](https://inthub.tenonai.cn) with `itt auth login` and send history with `itt push`. Its Flow page draws how goals branch, continue and converge.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/dozybot001/Intent/main/docs/assets/inthub-flow-dark.png">
@@ -99,6 +99,7 @@ IntHub is the optional web app for this history. Run it on your machine with `it
 
 - `.intent/` holds plain JSON. `itt init` excludes it from Git in this clone only, because it may contain internal reasoning. Commit it deliberately if your team wants it in Git.
 - Each hooked turn adds a compact opening context with a hard size cap, and one `itt maintenance close` call.
+- `itt` collects no telemetry or usage data.
 - `itt` touches the network only when you run `push`, `pull`, `fetch`, `clone` or `auth`, or `status` with a remote set. The hosted IntHub follows its [privacy notice](https://inthub.tenonai.cn/privacy).
 
 ## Contributing
