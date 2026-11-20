@@ -257,7 +257,7 @@ def signed_in_hub(db):
 
     class Tenon:
         def authorization_url(self, redirect_uri, attempt):
-            return "https://account.tenon.asia/api/auth/oauth2/authorize"
+            return "https://account.tenonai.cn/api/auth/oauth2/authorize"
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(
         db, tenon_client_id="id", tenon_client_secret="secret", oauth_client=Tenon(), public_api_base_url="https://inthub.example"))

@@ -1,26 +1,10 @@
-# Semantic Git: design for Intent 8
+# Semantic Git
 
 [中文](../CN/semantic-git.md) | English
 
-Status: shipped. Phases 1 to 3 in Intent 8.0, phase 4 in 8.1.
-
-## Goal
+## Why
 
 `itt` should behave like Git for semantic history. A developer who knows Git should be able to predict how Intent handles parallel work, several machines, worktrees and divergence, because Intent handles them the way Git does.
-
-Before Intent 8 this was not true:
-
-- Object IDs were per-copy counters (`snap-003`), so two copies that recorded in parallel minted the same IDs.
-- A project had one linear history. Push and pull only fast-forwarded; when two copies diverged, there was no way to merge.
-- Every pushed revision stored a full snapshot, and the local repository kept no revision history at all. Status changes carried no timestamp.
-- In a Git worktree, Intent did not find the main checkout's `.intent/`.
-
-## Decisions (2026-10-30)
-
-- New objects get hash IDs. Legacy counter IDs stay valid forever.
-- Every write creates a revision. There is no `itt commit`.
-- At launch, IntHub shows `main` and its merge history, with no branch graph.
-- Intent flow is modelled as relations between Intents, not as branches (see [Intent flow](intent-flow.md)). It ships in 7.2, before this work.
 
 ## One deliberate difference: no staging area
 
@@ -28,19 +12,18 @@ Git asks people to stage and commit. Intent's writers are mostly agents in the m
 
 ## Concept mapping
 
-| Git | Intent 8 |
+| Git | Intent |
 |---|---|
 | blob | an object version: the JSON content of one Intent, Snap or Decision at one point |
 | tree | the project state: object ID → object version |
 | commit | a **revision**: tree, parent revisions, author/origin, time, a generated summary and the list of changed objects |
-| object hash | hash IDs for new objects (`snap-3f9a2c1…`, shown shortened like Git, unique prefixes accepted). Legacy counter IDs stay valid |
+| object hash | hash IDs for new objects (`snap-3f9a2c1…`, shown shortened like Git, unique prefixes accepted). Older counter IDs (`snap-003`) stay valid |
 | `HEAD`, branches, refs | `.intent/HEAD`, `refs/heads/*`; `itt branch`, `itt switch` |
 | `git log` / `show` / `diff` | `itt log` (revisions; `--graph` draws branches), `itt show ID|REV`, `itt diff A..B` (semantic: added Snaps, status changes, new or retired Decisions) |
 | `git status` | branch, upstream, ahead/behind counts |
 | remotes, `fetch`, `pull`, `push`, `clone` | `itt remote`, `itt fetch` into `refs/remotes/origin/*`, `itt pull` = fetch + merge, `itt push` (rejected when behind, as in Git), `itt clone PROJECT` |
 | three-way merge | **semantic three-way merge** against the merge base (below) |
 | worktrees | the repository is found through `git rev-parse --git-common-dir`, so all worktrees share one semantic repository; each worktree has its own `HEAD` and pushes its own branch. A bare repository or `--separate-git-dir` names no main worktree, so there each worktree keeps its own `.intent/` |
-| tags | `itt tag` for milestones (later) |
 
 ## Storage (repository format 2)
 
@@ -89,21 +72,4 @@ So intent flow is recorded as relations between Intents (see [Intent flow](inten
 
 ## Remote protocol 3 and IntHub
 
-`itt push` uploads what the remote lacks, then moves one ref. As on a Git remote, the ref moves only from where the pusher saw it, only forward, and only once everything it reaches has arrived. `itt fetch` downloads what the local tips lack, in pages. IntHub stores the revision DAG as content-addressed blobs with branch refs per project, and its history page shows `main` with its merges. `main` is also kept as a snapshot per push, which the web views and protocol 2 read.
-
-A project's protocol 2 pushes become revisions the first time the graph is used, each keeping its old ID in `legacy`, so a copy from before the graph can find a merge base from the last push it saw. Older clients can keep reading and pushing `main` during the migration window, and their pushes join the graph.
-
-## Migration from 7.x
-
-`itt` 8 converts a 7.x repository losslessly on an explicit `itt migrate`, and refuses to write before it. Current objects become the first revision, legacy IDs are kept, and the IntHub remote is relinked to the same project. Downgrading after migration is not supported, so the command makes a backup first.
-
-## Phases
-
-Phases 1 to 3 shipped in Intent 8.0, and phase 4 in 8.1.
-
-1. Repository format 2: objects, revisions, refs, automatic revisions, hash IDs for new objects, `itt log`, `show`, `diff` and `itt migrate`.
-2. Branches and worktrees: `itt branch`, `itt switch` and Git-worktree discovery.
-3. Semantic merge with structured conflicts and duplicate-goal hints.
-4. Remote protocol 3: `fetch`, `pull` = fetch + merge, `push`, `clone`. IntHub stores the revision DAG and shows `main` with its merge history.
-
-Each phase ships with migration and compatibility tests and with Skill and hook guidance for what it adds. Phases 1 to 3 are local-only and can be released before the server changes. Intent relations ship separately in 7.2, and the migration carries them over.
+`itt push` uploads what the remote lacks, then moves one ref. As on a Git remote, the ref moves only from where the pusher saw it, only forward, and only once everything it reaches has arrived. `itt fetch` downloads what the local tips lack, in pages. IntHub stores the revision DAG as content-addressed blobs with branch refs per project, and its history page shows `main` with its merges. `main` is also kept as a snapshot per push for the web views.

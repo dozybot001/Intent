@@ -20,7 +20,7 @@ BACKUPS_ROOT="${REMOTE_ROOT}/backups"
 LOGS_ROOT="${REMOTE_ROOT}/logs"
 CADDY_SITE="/etc/caddy/sites-enabled/inthub.caddy"
 PUBLIC_URL="https://inthub.tenonai.cn"
-# The name before tenonai.cn: older CLIs still use its API (see inthub.caddy).
+# The name before tenonai.cn, kept only to answer 410 and redirect (see inthub.caddy).
 OLD_URL="https://inthub.tenon.asia"
 PRIVATE_NETWORK="inthub-private"
 PREVIOUS_DIRECTORY=""
@@ -71,7 +71,6 @@ compose_release() {
         "INTHUB_APP_CONTAINER=${app_container}" \
         "INTHUB_BIND_PORT=${bind_port}" \
         "INTHUB_DOMAIN=${PUBLIC_URL#https://}" \
-        "INTHUB_EXTRA_ORIGINS=,${OLD_URL}" \
         docker compose \
             --project-name "${project_name}" \
             --env-file "${SHARED_ENV}" \
@@ -135,9 +134,9 @@ import sys
 
 source = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
 upstream = "127.0.0.1:7250"
-# One upstream per site: the new name serves everything, the old one only what CLIs call.
-if source.count(upstream) != 2 or source.count("reverse_proxy") != 2:
-    raise SystemExit("IntHub Caddy template must proxy exactly one upstream in each site")
+# Only the new name proxies; the old one answers 410 and redirects.
+if source.count(upstream) != 1 or source.count("reverse_proxy") != 1:
+    raise SystemExit("IntHub Caddy template must proxy exactly one upstream")
 for site in ("inthub.tenonai.cn {\n", "inthub.tenon.asia {\n"):
     if source.count(site) != 1:
         raise SystemExit(f"IntHub Caddy template must define {site.split()[0]} once")

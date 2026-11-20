@@ -160,8 +160,6 @@ def make_handler(
                     location, cookie = self._prepare_tenon_login(body.get("return_to", "/"))
                     self._send_json(200, _json_success({"authorizationUrl": location}), {"Set-Cookie": cookie})
                     return
-                if parsed.path.startswith("/api/v1/auth/github/"):
-                    raise APIError("ACCOUNT_MANAGED_BY_TENON", "Sign in with Tenon.", 410)
                 if parsed.path == "/api/v1/auth/logout":
                     self._handle_logout()
                     return
@@ -201,10 +199,6 @@ def make_handler(
             parsed = urlparse(self.path)
             try:
                 self._check_host()
-                if parsed.path.startswith(("/showcase/", "/api/v1/public-profiles/")):
-                    raise APIError("FEATURE_RETIRED", "Public showcase has been removed.", status=410)
-                if parsed.path.startswith("/api/v1/auth/github/"):
-                    raise APIError("ACCOUNT_MANAGED_BY_TENON", "Sign in with Tenon.", 410)
 
                 if parsed.path == "/api/v1/auth/tenon/callback":
                     self._handle_tenon_callback(parse_qs(parsed.query))

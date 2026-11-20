@@ -83,9 +83,8 @@ p { color: var(--muted); font-size: 14px; }
 	}
 }
 
-# The name IntHub had before tenonai.cn. CLIs older than 8.2 still call its API,
-# device login and health checks, so those are proxied; pages and web sign-in
-# move to the new name, so this one never issues a web session.
+# The name IntHub had before tenonai.cn, until its DNS record moves away:
+# the API is gone and every page moves to the new name.
 inthub.tenon.asia {
 	import access_log
 
@@ -96,17 +95,11 @@ inthub.tenon.asia {
 		-Server
 	}
 
-	request_body {
-		max_size 16MB
-	}
-
 	@trace method TRACE
-	@web_sign_in path /api/v1/auth/tenon/*
-	@cli path /api/* /healthz /readyz
+	@api path /api/*
 	route {
 		respond @trace 405
-		redir @web_sign_in https://inthub.tenonai.cn{uri} 301
-		reverse_proxy @cli 127.0.0.1:7250
+		respond @api "IntHub moved to https://inthub.tenonai.cn. Run itt auth login, then itt remote add origin https://inthub.tenonai.cn" 410
 		redir https://inthub.tenonai.cn{uri} 301
 	}
 }

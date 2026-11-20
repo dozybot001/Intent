@@ -1,6 +1,5 @@
-"""IntHub and the CLI work under tenon.asia and tenonai.cn at once while both move."""
+"""IntHub answers at inthub.tenonai.cn and trusts only the Tenon issuer that answers discovery."""
 
-import json
 import re
 import subprocess
 import threading
@@ -20,16 +19,14 @@ from apps.inthub_api.db import connect
 from apps.inthub_api.product_deletion import ProductDeletionClient, validate_proof
 from apps.inthub_api.server import make_handler
 from apps.inthub_api.tenon import (
-    ISSUER, PLATFORM_ROLE, TenonOIDCClient, account_for_identity, account_for_session, configured_issuers, create_session,
+    PLATFORM_ROLE, TenonOIDCClient, account_for_identity, account_for_session, configured_issuers, create_session,
 )
 from intent_cli import __version__
 from intent_cli.hub import client
-from intent_cli.hub.credentials import (
-    credentials_file, erase_access_token, global_api_base_url, load_access_token, normalize_api_base_url,
-)
+from intent_cli.hub.credentials import global_api_base_url, normalize_api_base_url
 
 ROOT = Path(__file__).resolve().parents[1]
-OLD, NEW = "https://account.tenon.asia/api/auth", "https://account.tenonai.cn/api/auth"
+OTHER, NEW = "https://account.example/api/auth", "https://account.tenonai.cn/api/auth"
 # The company's ICP filing for tenonai.cn.
 FILING = "湘ICP备2026054319号-1"
 # Its public-security filing, shown right after the ICP one and linked to the ministry's lookup.
@@ -73,16 +70,11 @@ def test_only_the_moved_issuer_is_ever_asked():
     assert configured_issuers() == (NEW,)
 
 
-@pytest.mark.parametrize("order, answering, moved_reply", [
-    # tenon.asia only redirects since the move; an operator's order naming it first still lands on tenonai.cn.
-    (None, NEW, 308), (f"{OLD} {NEW}", NEW, 308)])
-def test_sign_in_uses_the_issuer_that_answers_and_keeps_the_same_account(
-        tmp_path, monkeypatch, order, answering, moved_reply):
-    if order:
-        monkeypatch.setenv("INTHUB_TENON_ISSUERS", order)
+def test_sign_in_uses_the_issuer_that_answers_and_keeps_the_same_account(tmp_path):
+    answering = NEW
     target = str(tmp_path / "db")
     before = account_for_identity(target, {"sub": "central-1", "platform_role": "user", "expires_at": time.time() + 60})
-    client, attempt, asked = tenon(answering, moved_reply=moved_reply)
+    client, attempt, asked = tenon(answering)
     url = urlsplit(client.authorization_url("https://inthub.tenonai.cn/api/v1/auth/tenon/callback", attempt))
     assert f"{url.scheme}://{url.netloc}{url.path}" == answering + "/oauth2/authorize"
     assert client.issuer() == answering
@@ -92,32 +84,32 @@ def test_sign_in_uses_the_issuer_that_answers_and_keeps_the_same_account(
 
 
 def test_a_token_from_the_issuer_not_in_use_is_rejected():
-    client, attempt, _ = tenon(NEW, token_issuer=OLD)
+    client, attempt, _ = tenon(NEW, token_issuer=OTHER)
     with pytest.raises(Exception, match="could not be verified"):
-        client.complete_login("code", "https://inthub.tenon.asia/api/v1/auth/tenon/callback", attempt)
+        client.complete_login("code", "https://inthub.tenonai.cn/api/v1/auth/tenon/callback", attempt)
     assert client.app.server_metadata == {}, "a failed sign-in discovers the issuer again"
 
 
 def test_a_redirect_is_never_followed_with_or_without_credentials(monkeypatch):
-    monkeypatch.setenv("INTHUB_TENON_ISSUERS", OLD)
+    monkeypatch.setenv("INTHUB_TENON_ISSUERS", OTHER)
     client, attempt, asked = tenon(NEW)
     with pytest.raises(Exception, match="temporarily unavailable"):
-        client.authorization_url("https://inthub.tenon.asia/api/v1/auth/tenon/callback", attempt)
-    assert asked == [OLD + "/.well-known/openid-configuration"], "the 308 to tenonai.cn is not followed"
+        client.authorization_url("https://inthub.tenonai.cn/api/v1/auth/tenon/callback", attempt)
+    assert asked == [OTHER + "/.well-known/openid-configuration"], "the 308 to tenonai.cn is not followed"
 
 
 @pytest.mark.parametrize("field, endpoint", [
-    ("jwks_uri", "https://account.tenonai.cn/other/jwks"), ("token_endpoint", OLD + "/oauth2/token")])
+    ("jwks_uri", "https://account.tenonai.cn/other/jwks"), ("token_endpoint", OTHER + "/oauth2/token")])
 def test_endpoints_must_sit_under_the_issuer_that_answered(field, endpoint):
     client, attempt, _ = tenon(NEW, metadata_overrides={field: endpoint})
     with pytest.raises(Exception, match="temporarily unavailable"):
-        client.authorization_url("https://inthub.tenon.asia/api/v1/auth/tenon/callback", attempt)
+        client.authorization_url("https://inthub.tenonai.cn/api/v1/auth/tenon/callback", attempt)
 
 
 def test_an_operator_can_pin_the_issuer(monkeypatch):
-    monkeypatch.setenv("INTHUB_TENON_ISSUERS", OLD)
-    client, attempt, asked = tenon(OLD)
-    client.authorization_url("https://inthub.tenon.asia/api/v1/auth/tenon/callback", attempt)
+    monkeypatch.setenv("INTHUB_TENON_ISSUERS", OTHER)
+    client, attempt, asked = tenon(OTHER)
+    client.authorization_url("https://inthub.tenonai.cn/api/v1/auth/tenon/callback", attempt)
     assert not any(request.startswith(NEW) for request in asked)
     monkeypatch.setenv("INTHUB_TENON_ISSUERS", "http://account.example/api/auth")
     with pytest.raises(ValueError):
@@ -136,10 +128,9 @@ def test_deletion_goes_to_the_issuer_in_use_and_accepts_only_its_proofs():
     assert calls == [NEW + "/product-deletion/start"]
     operation = "f8132b30-0471-4a4b-95d7-a9f2fe6f4df7"
     validate_proof({"issuer": NEW, "sub": "s", "productId": "inthub", "operationId": operation}, operation)
-    for issuer in (OLD, "https://account.example"):
+    for issuer in (OTHER, "https://account.tenon.example"):
         with pytest.raises(Exception):
             validate_proof({"issuer": issuer, "sub": "s", "productId": "inthub", "operationId": operation}, operation)
-    assert ISSUER == OLD, "receipts and identities stay under the issuer they were stored with"
 
 
 class CallbackRecorder:
@@ -151,9 +142,9 @@ class CallbackRecorder:
         return NEW + "/oauth2/authorize?state=" + attempt["state"]
 
 
-def test_one_hub_serves_both_names_with_their_own_callbacks(tmp_path):
+def test_the_hub_serves_its_name_with_its_callback_and_filings(tmp_path):
     provider = CallbackRecorder()
-    origins = "https://inthub.tenon.asia,https://inthub.tenonai.cn"
+    origins = "https://inthub.tenonai.cn"
     handler = make_handler(str(tmp_path / "db"), serve_web=True, tenon_client_id="c", tenon_client_secret="s",
                            oauth_client=provider, deletion_client=object(), public_api_base_url=origins,
                            allowed_origins=origins)
@@ -162,7 +153,7 @@ def test_one_hub_serves_both_names_with_their_own_callbacks(tmp_path):
     thread.start()
     base = f"http://127.0.0.1:{server.server_port}"
     try:
-        for name in ("inthub.tenon.asia", "inthub.tenonai.cn"):
+        for name in ("inthub.tenonai.cn",):
             origin = "https://" + name
             config = httpx.get(base + "/config.json", headers={"Host": name}).json()
             assert config["apiBaseUrl"] == origin
@@ -171,7 +162,6 @@ def test_one_hub_serves_both_names_with_their_own_callbacks(tmp_path):
             assert response.status_code == 200 and response.headers["Access-Control-Allow-Origin"] == origin
             assert provider.redirect_uris[-1] == origin + "/api/v1/auth/tenon/callback"
             assert "Domain=" not in response.headers["Set-Cookie"], "cookies stay with the name that set them"
-            # Only tenonai.cn serves pages now (Caddy moves the old name's), so they carry its ICP filing alone.
             page = httpx.get(base + "/", headers={"Host": name}).text
             assert re.findall(r"湘ICP备\d+号-\d+", page) == [FILING, FILING]
             footers = re.findall(r'>(湘ICP备[^<]+)</a>\s*<a href="([^"]+)" target="_blank" rel="noopener noreferrer">(湘公网安备[^<]+)</a>', page)
@@ -183,39 +173,15 @@ def test_one_hub_serves_both_names_with_their_own_callbacks(tmp_path):
         server.server_close()
 
 
-def test_the_cli_uses_the_new_name_and_keeps_the_old_one_only_as_an_alias(monkeypatch, tmp_path):
+def test_the_cli_defaults_to_the_hosted_hub(monkeypatch, tmp_path):
     monkeypatch.setenv("INTENT_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(tmp_path / "missing-gitconfig"))
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
     assert global_api_base_url() == "https://inthub.tenonai.cn"
-    # A remote or global config written before the move is read as the new name, so the old one is never contacted.
+    assert normalize_api_base_url("https://inthub.example/") == "https://inthub.example"
+    # A remote saved under the old name reads as the new one, so the old host is never contacted.
     assert normalize_api_base_url("https://inthub.tenon.asia/") == "https://inthub.tenonai.cn"
-    assert normalize_api_base_url("https://inthub.example") == "https://inthub.example"
-    # A token saved under the old name before the move still signs requests, so nobody signs in again.
-    credentials_file().parent.mkdir(parents=True, exist_ok=True)
-    credentials_file().write_text(json.dumps({"https://inthub.tenon.asia": "ith_pat_before"}), encoding="utf-8")
-    assert load_access_token("https://inthub.tenonai.cn") == "ith_pat_before"
-    erase_access_token("https://inthub.tenonai.cn")
-    assert load_access_token("https://inthub.tenon.asia") is None
 
-
-
-def test_a_project_linked_under_the_old_name_keeps_its_remote(monkeypatch, tmp_path):
-    from argparse import Namespace
-    from intent_cli.commands import shared
-    from intent_cli.hub.runtime import load_hub
-    base = tmp_path / ".intent"
-    base.mkdir()
-    linked = {"format_version": 2, "api_base_url": "https://inthub.tenon.asia", "project_name": "app",
-              "project_id": "proj_05ec97c9f569"}
-    (base / "hub.json").write_text(json.dumps(linked), encoding="utf-8")
-    asked = []
-    monkeypatch.setattr(shared, "hub_auth_token", lambda *args: None)
-    monkeypatch.setattr(shared, "http_json", lambda method, url, token=None: asked.append(url) or {
-        "format_version": shared.FORMAT, "project_name": "app", "project_id": linked["project_id"], "refs": {}})
-    # Before 8.2.2 the old name in hub.json failed every status, push and pull with REMOTE_CHANGED.
-    api, _ = shared._remote(base, Namespace(), load_hub(base), "app")
-    assert api == "https://inthub.tenonai.cn" and asked[0].startswith(api + "/api/v3/refs?")
 
 def test_every_hub_request_names_the_cli_and_its_version(monkeypatch):
     sent = []
@@ -241,7 +207,7 @@ def shell_function(name):
     return script[start:script.index("\n}\n", start) + 3]
 
 
-def test_the_release_serves_both_names_from_the_candidate(tmp_path):
+def test_the_release_proxies_only_the_new_name_to_the_candidate(tmp_path):
     out = tmp_path / "site.caddy"
     subprocess.run(["bash", "-c", shell_function("render_caddy") + 'render_caddy "$@"', "-",
                     str(ROOT / "deploy" / "inthub" / "inthub.caddy"), str(out), "7251"], check=True)
@@ -249,27 +215,26 @@ def test_the_release_serves_both_names_from_the_candidate(tmp_path):
     new, old = site.split("\ninthub.tenon.asia {\n")
     assert new.startswith("inthub.tenonai.cn {\n") and "reverse_proxy 127.0.0.1:7251" in new
     assert "7250" not in site and site.count("import access_log") == 2
-    # The old name answers older CLIs and moves everything else, so it never starts a web session.
+    # The old name serves no API and moves every page, so it never reaches the app.
     route = old[old.index("route {"):]
-    steps = ["respond @trace 405", "redir @web_sign_in https://inthub.tenonai.cn{uri} 301",
-             "reverse_proxy @cli 127.0.0.1:7251", "redir https://inthub.tenonai.cn{uri} 301"]
+    steps = ["respond @trace 405", "respond @api ", "redir https://inthub.tenonai.cn{uri} 301"]
     assert [route.index(step) for step in steps] == sorted(route.index(step) for step in steps)
-    assert "@web_sign_in path /api/v1/auth/tenon/*" in old and "@cli path /api/* /healthz /readyz" in old
+    assert "@api path /api/*" in old and "reverse_proxy" not in old and '" 410' in old
     third = tmp_path / "third.caddy"
     third.write_text(site.replace("7251", "7250") + "\nextra.example {\n\treverse_proxy 127.0.0.1:7250\n}\n")
     refused = subprocess.run(["bash", "-c", shell_function("render_caddy") + 'render_caddy "$@"', "-",
                               str(third), str(out), "7251"], capture_output=True, text=True)
-    assert refused.returncode != 0 and "one upstream in each site" in refused.stderr
+    assert refused.returncode != 0 and "exactly one upstream" in refused.stderr
 
 
 def test_the_new_name_is_canonical_everywhere_the_release_and_monitors_look():
     deploy = ROOT / "deploy" / "inthub"
     compose = (deploy / "compose.yaml").read_text(encoding="utf-8")
-    assert "INTHUB_API_BASE_URL: https://${INTHUB_DOMAIN:?set INTHUB_DOMAIN}${INTHUB_EXTRA_ORIGINS:-}" in compose
+    assert "INTHUB_API_BASE_URL: https://${INTHUB_DOMAIN:?set INTHUB_DOMAIN}\n" in compose and "EXTRA_ORIGINS" not in compose
     remote = (deploy / "remote-release.sh").read_text(encoding="utf-8")
     assert 'PUBLIC_URL="https://inthub.tenonai.cn"' in remote and 'OLD_URL="https://inthub.tenon.asia"' in remote
-    assert '"INTHUB_DOMAIN=${PUBLIC_URL#https://}"' in remote and '"INTHUB_EXTRA_ORIGINS=,${OLD_URL}"' in remote
-    # Every public smoke run also checks what the old name still answers and what it moves.
+    assert '"INTHUB_DOMAIN=${PUBLIC_URL#https://}"' in remote and "EXTRA_ORIGINS" not in remote
+    # Every public smoke run also checks that the old name serves no API and moves every page.
     assert remote.count('INTHUB_BASE_URL="${PUBLIC_URL}"') == remote.count('INTHUB_OLD_URL="${OLD_URL}"') == 3
     smoke = (deploy / "smoke.sh").read_text(encoding="utf-8")
     assert 'BASE_URL="${INTHUB_BASE_URL:-https://inthub.tenonai.cn}"' in smoke and "check_old_name" in smoke

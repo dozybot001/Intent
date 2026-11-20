@@ -1,26 +1,10 @@
-# 语义版 Git：Intent 8 设计
+# 语义版 Git
 
 中文 | [English](../EN/semantic-git.md)
 
-状态：已发布。第 1 到 3 阶段随 Intent 8.0 发布，第 4 阶段随 8.1 发布。
-
-## 目标
+## 为什么
 
 让 `itt` 在语义历史上的行为与 Git 一致。熟悉 Git 的开发者应当能预判 Intent 如何处理并行工作、多台机器、worktree 和分叉，因为它的处理方式就是 Git 的方式。
-
-7.x 做不到这些，也是 Intent 8 要解决的问题：
-
-- 对象 ID 是每份副本各自递增的计数（`snap-003`），两份副本并行记录会产生相同 ID。
-- 每个项目只有一条线性历史。push 和 pull 只做快进；分叉后 `itt status` 报告 `diverged`，没有合并手段。
-- 每次推送的修订都保存一份完整快照，而本地仓库完全不保留修订历史。状态变化没有时间戳。
-- 在 Git worktree 中，Intent 找不到主工作区的 `.intent/`。
-
-## 已确定的决策（2026-10-30）
-
-- 新对象使用哈希 ID，旧的计数 ID 永久有效。
-- 每次写入都生成一个修订，没有 `itt commit`。
-- IntHub 首发展示 `main` 及其合并历史，不提供分支图。
-- 意图流转用 Intent 之间的关系表达，而不是分支（见[意图流转](intent-flow.md)），在 7.2 先行发布。
 
 ## 唯一的有意差异：没有暂存区
 
@@ -28,19 +12,18 @@ Git 要求人先暂存再提交。Intent 的写入者大多是正在做其他事
 
 ## 概念对照
 
-| Git | Intent 8 |
+| Git | Intent |
 |---|---|
 | blob | 对象版本：某个 Intent、Snap 或 Decision 在某一时刻的 JSON 内容 |
 | tree | 项目状态：对象 ID → 对象版本 |
 | commit | **修订**：tree、父修订、作者/来源、时间、自动生成的摘要和变更对象列表 |
-| 对象哈希 | 新对象使用哈希 ID（`snap-3f9a2c1…`，像 Git 一样缩写显示、接受唯一前缀）。旧的计数 ID 继续有效 |
+| 对象哈希 | 新对象使用哈希 ID（`snap-3f9a2c1…`，像 Git 一样缩写显示、接受唯一前缀）。早期的计数 ID（`snap-003`）继续有效 |
 | `HEAD`、分支、refs | `.intent/HEAD`、`refs/heads/*`；`itt branch`、`itt switch` |
 | `git log` / `show` / `diff` | `itt log`（修订；`--graph` 画出分支）、`itt show ID|REV`、`itt diff A..B`（语义差异：新增 Snap、状态变化、新增或废弃的 Decision） |
 | `git status` | 当前分支、上游、领先/落后数量 |
 | 远端、`fetch`、`pull`、`push`、`clone` | `itt remote`、`itt fetch` 到 `refs/remotes/origin/*`、`itt pull` = fetch + merge、`itt push`（落后时被拒绝，与 Git 相同）、`itt clone PROJECT` |
 | 三方合并 | **语义三方合并**，以合并基准为准（见下文） |
 | worktree | 通过 `git rev-parse --git-common-dir` 定位仓库，所有 worktree 共享一个语义仓库，各自有自己的 `HEAD`，并推送自己的分支。bare 仓库和 `--separate-git-dir` 找不到主 worktree，这时各 worktree 各用自己的 `.intent/` |
-| tag | `itt tag` 标记里程碑（后续） |
 
 ## 存储（仓库格式 2）
 
@@ -89,21 +72,4 @@ Git 本身也有这个缺口。提交图展示的是并行工作，团队靠「�
 
 ## 远端协议 3 与 IntHub
 
-`itt push` 先上传远端缺少的内容，再移动一个 ref。和 Git 远端一样，ref 只从推送者看到的位置出发、只向前移动，并且只在它能到达的内容全部到齐后才移动。`itt fetch` 分页下载本地缺少的内容。IntHub 用内容寻址的 blob 保存修订图，每个项目有自己的分支 ref，历史页展示 `main` 及其合并。`main` 同时按推送保留快照，供网页和协议 2 读取。
-
-项目的协议 2 推送在首次使用修订图时转换成修订，并在 `legacy` 中保留旧 ID，所以修订图出现之前的副本能用最后看到的那次推送找到合并基点。迁移窗口内，旧客户端仍可读取和推送 `main`，它们的推送会并入修订图。
-
-## 从 7.x 迁移
-
-`itt` 8 通过显式的 `itt migrate` 无损转换 7.x 仓库，迁移前拒绝写入。现有对象成为第一个修订，保留旧 ID，IntHub 远端重新关联到同一项目。迁移后不支持降级，因此命令会先做备份。
-
-## 分阶段实施
-
-阶段 1 到 3 已在 Intent 8.0 发布，阶段 4 在 8.1 发布。
-
-1. 仓库格式 2：对象、修订、refs、自动修订、新对象哈希 ID，`itt log`、`show`、`diff` 与 `itt migrate`。
-2. 分支与 worktree：`itt branch`、`itt switch` 与 Git worktree 识别。
-3. 带结构化冲突与重复目标提示的语义合并。
-4. 远端协议 3：`fetch`、`pull` = fetch + merge、`push`、`clone`；IntHub 保存修订 DAG，展示 `main` 及其合并历史。
-
-每个阶段都附带迁移与兼容测试，以及新增功能对应的 Skill 与 hook 指引。第 1 到 3 阶段只涉及本地，可以先于服务端改动发布。Intent 之间的关系在 7.2 单独发布，迁移时原样保留。
+`itt push` 先上传远端缺少的内容，再移动一个 ref。和 Git 远端一样，ref 只从推送者看到的位置出发、只向前移动，并且只在它能到达的内容全部到齐后才移动。`itt fetch` 分页下载本地缺少的内容。IntHub 用内容寻址的 blob 保存修订图，每个项目有自己的分支 ref，历史页展示 `main` 及其合并。`main` 同时按推送保留快照，供网页读取。

@@ -161,13 +161,13 @@ def test_http_start_requires_local_session_same_origin_and_execute_requires_cent
         return httpx.Response(200, json=proof())
     client = ProductDeletionClient("fixture-client", "fixture-secret", request=request)
     handler = make_handler(target, tenon_client_id="fixture-client", tenon_client_secret="fixture-secret",
-                           oauth_client=object(), public_api_base_url="https://inthub.tenon.asia", deletion_client=client)
+                           oauth_client=object(), public_api_base_url="https://inthub.tenonai.cn", deletion_client=client)
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     base = f"http://127.0.0.1:{server.server_port}"
     start = "/api/auth/tenon/delete/start"
-    headers = {"Origin": "https://inthub.tenon.asia", "Cookie": "__Host-inthub_session=" + session["token"]}
+    headers = {"Origin": "https://inthub.tenonai.cn", "Cookie": "__Host-inthub_session=" + session["token"]}
     try:
         assert httpx.post(base + start, json={}, headers={"Origin": "https://evil.example"}).status_code == 403
         assert httpx.post(base + start, json={}, headers={"Origin": headers["Origin"]}).status_code == 401

@@ -10,10 +10,9 @@ from urllib.parse import urlsplit, urlunsplit
 
 
 OFFICIAL_INTHUB_API_BASE_URL = "https://inthub.tenonai.cn"
-# inthub.tenon.asia is the hosted IntHub's name before its move to tenonai.cn. It
-# stays an alias, so configs and tokens saved under it carry over, but it is never
-# contacted: every request goes to the address above.
-OFFICIAL_INTHUB_ADDRESSES = frozenset({OFFICIAL_INTHUB_API_BASE_URL, "https://inthub.tenon.asia"})
+# Data migration: remotes and configs saved before the hosted IntHub moved name
+# read as the new one, and the next push or pull saves it. Tokens are not carried over.
+MOVED_INTHUB_API_BASE_URL = "https://inthub.tenon.asia"
 CREDENTIAL_USERNAME = "intent-cli"
 
 
@@ -28,7 +27,7 @@ class CredentialStoreError(RuntimeError):
 def normalize_api_base_url(value):
     """Validate and normalize an IntHub HTTP(S) API base URL."""
     url = _exact_api_base_url(value)
-    return OFFICIAL_INTHUB_API_BASE_URL if url in OFFICIAL_INTHUB_ADDRESSES else url
+    return OFFICIAL_INTHUB_API_BASE_URL if url == MOVED_INTHUB_API_BASE_URL else url
 
 
 def _exact_api_base_url(value):
@@ -136,14 +135,6 @@ def global_api_base_url():
     return read_global_hub_config().get("api_base_url", OFFICIAL_INTHUB_API_BASE_URL)
 
 
-def _token_addresses(api_base_url):
-    """Where a token for this endpoint may be stored: the official service has several names."""
-    url = normalize_api_base_url(api_base_url)
-    if url != OFFICIAL_INTHUB_API_BASE_URL:
-        return [url]
-    return [url, *sorted(OFFICIAL_INTHUB_ADDRESSES - {url})]
-
-
 def _credential_request(api_base_url, token=None):
     parsed = urlsplit(_exact_api_base_url(api_base_url))
     fields = [
@@ -226,12 +217,8 @@ def _helper_token(api_base_url):
 
 def load_access_token(api_base_url):
     """Load an account token. The file holds one only when the helper could not, so it comes first."""
-    tokens = _file_tokens()
-    for address in _token_addresses(api_base_url):
-        token = tokens.get(address) or _helper_token(address)
-        if token:
-            return token
-    return None
+    address = normalize_api_base_url(api_base_url)
+    return _file_tokens().get(address) or _helper_token(address)
 
 
 def store_access_token(api_base_url, token):
@@ -256,14 +243,12 @@ def store_access_token(api_base_url, token):
 
 
 def erase_access_token(api_base_url):
-    """Remove the account token from wherever it was stored, under every name of its endpoint."""
+    """Remove the account token from wherever it was stored."""
+    address = normalize_api_base_url(api_base_url)
     tokens = _file_tokens()
-    addresses = _token_addresses(api_base_url)
-    removed = [address for address in addresses if tokens.pop(address, None) is not None]
-    if removed:
+    if tokens.pop(address, None) is not None:
         _write_file_tokens(tokens)
-    for address in addresses:
-        try:
-            _run_git_credential("reject", _credential_request(address))
-        except (OSError, subprocess.SubprocessError):
-            pass
+    try:
+        _run_git_credential("reject", _credential_request(address))
+    except (OSError, subprocess.SubprocessError):
+        pass

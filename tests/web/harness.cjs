@@ -86,8 +86,7 @@ vm.runInContext(`
   const deletionUrl = 'https://account.tenonai.cn/account/delete/?request=' + 'f'.repeat(43);
   const deletionExpiry = Date.now() + 300000;
   assert.equal(productDeletionDestination({url: deletionUrl, expiresAt: deletionExpiry}), deletionUrl);
-  // The account service only answers at tenonai.cn since its move; its old host is no longer trusted.
-  for (const url of [deletionUrl + '&request=' + 'f'.repeat(43), deletionUrl + '&extra=yes', deletionUrl.replace('f'.repeat(43), 'short'), deletionUrl.replace('account.tenonai.cn', 'fake.example'), deletionUrl.replace('account.tenonai.cn', 'account.tenon.asia')]) {
+  for (const url of [deletionUrl + '&request=' + 'f'.repeat(43), deletionUrl + '&extra=yes', deletionUrl.replace('f'.repeat(43), 'short'), deletionUrl.replace('account.tenonai.cn', 'fake.example')]) {
     assert.throws(() => productDeletionDestination({url, expiresAt: deletionExpiry}));
   }
   const deleteAccountButton = document.getElementById('delete-account-btn');

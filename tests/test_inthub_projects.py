@@ -193,7 +193,7 @@ def test_on_a_tenon_hub_only_the_owners_browser_session_manages_a_project(tmp_pa
 
     class Tenon:
         def authorization_url(self, redirect_uri, attempt):
-            return "https://account.tenon.asia/api/auth/oauth2/authorize"
+            return "https://account.tenonai.cn/api/auth/oauth2/authorize"
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(
         db, tenon_client_id="id", tenon_client_secret="secret", oauth_client=Tenon(), public_api_base_url=site))

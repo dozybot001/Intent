@@ -42,8 +42,7 @@ def _configure_test_credential_store(monkeypatch, tmp_path):
 def test_global_config_stores_only_normalized_endpoint(monkeypatch, tmp_path):
     monkeypatch.setenv("INTENT_CONFIG_HOME", str(tmp_path / "intent-config"))
 
-    # The hosted service's old name is stored as its current one.
-    write_global_hub_config("HTTPS://INTHUB.TENON.ASIA/")
+    write_global_hub_config("HTTPS://INTHUB.TENONAI.CN/")
 
     assert global_api_base_url() == "https://inthub.tenonai.cn"
     assert read_global_hub_config() == {"api_base_url": "https://inthub.tenonai.cn"}
@@ -57,12 +56,12 @@ def test_global_config_stores_only_normalized_endpoint(monkeypatch, tmp_path):
     "value",
     [
         "",
-        "inthub.tenon.asia",
-        "ftp://inthub.tenon.asia",
-        "https://user:secret@inthub.tenon.asia",
-        "https://inthub.tenon.asia?q=secret",
-        "https://inthub.tenon.asia/#fragment",
-        "https://inthub.tenon.asia\npassword=injected",
+        "inthub.tenonai.cn",
+        "ftp://inthub.tenonai.cn",
+        "https://user:secret@inthub.tenonai.cn",
+        "https://inthub.tenonai.cn?q=secret",
+        "https://inthub.tenonai.cn/#fragment",
+        "https://inthub.tenonai.cn\npassword=injected",
     ],
 )
 def test_api_base_url_rejects_unsafe_values(value):
@@ -72,7 +71,7 @@ def test_api_base_url_rejects_unsafe_values(value):
 
 def test_git_credential_helper_round_trip(monkeypatch, tmp_path):
     credential_file = _configure_test_credential_store(monkeypatch, tmp_path)
-    api_base_url = "https://inthub.tenon.asia"
+    api_base_url = "https://inthub.tenonai.cn"
     token = "ith_pat_test-secret"
 
     store_access_token(api_base_url, token)
@@ -88,7 +87,7 @@ def test_git_credential_helper_round_trip(monkeypatch, tmp_path):
 def test_a_machine_without_a_helper_keeps_the_token_in_a_private_file(monkeypatch, tmp_path):
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(tmp_path / "missing-gitconfig"))
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
-    url = "https://inthub.tenon.asia"
+    url = "https://inthub.tenonai.cn"
 
     assert store_access_token(url, "ith_pat_filed") == "file"
     path = credentials_file()
@@ -111,13 +110,13 @@ def test_a_symlinked_credentials_file_is_refused(monkeypatch, tmp_path):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.symlink_to(tmp_path / "elsewhere")
     with pytest.raises(CredentialStoreError):
-        store_access_token("https://inthub.tenon.asia", "ith_pat_filed")
-    assert load_access_token("https://inthub.tenon.asia") is None
+        store_access_token("https://inthub.tenonai.cn", "ith_pat_filed")
+    assert load_access_token("https://inthub.tenonai.cn") is None
 
 
 def test_store_rejects_credential_protocol_injection():
     with pytest.raises(CredentialStoreError):
         store_access_token(
-            "https://inthub.tenon.asia",
+            "https://inthub.tenonai.cn",
             "ith_pat_safe\nusername=attacker",
         )

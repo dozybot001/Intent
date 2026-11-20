@@ -8,7 +8,7 @@ import urllib.parse
 import urllib.request
 
 from intent_cli import __version__
-from intent_cli.hub.credentials import OFFICIAL_INTHUB_ADDRESSES
+from intent_cli.hub.credentials import OFFICIAL_INTHUB_API_BASE_URL
 from intent_cli.output import error
 
 
@@ -189,7 +189,7 @@ def http_json(
             if exc.code == 401:
                 origin = "{0.scheme}://{0.netloc}".format(urllib.parse.urlsplit(url))
                 # The hosted IntHub needs no --api-base-url in login hints.
-                login = "itt auth login" + ("" if origin in OFFICIAL_INTHUB_ADDRESSES else f" --api-base-url {origin}")
+                login = "itt auth login" + ("" if origin == OFFICIAL_INTHUB_API_BASE_URL else f" --api-base-url {origin}")
                 error(
                     "AUTH_REQUIRED",
                     f"{origin} did not accept the access token." if token else f"Sign in to {origin} first.",

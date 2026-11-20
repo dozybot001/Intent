@@ -61,13 +61,6 @@ PY
         > "${TMP_DIRECTORY}/${label}.transition.html"
     grep -q 'id="transition-title"' "${TMP_DIRECTORY}/${label}.transition.html" \
         || { echo "Fixed login transition page was not served." >&2; return 1; }
-    [[ "$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${base_url}/api/v1/auth/github/start")" == 410 ]] \
-        || { echo "Legacy GitHub login must be retired." >&2; return 1; }
-
-    for retired_path in /showcase/config.json /api/v1/public-profiles/showcase/projects; do
-        [[ "$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${base_url}${retired_path}")" == 410 ]] \
-            || { echo "Retired public route ${retired_path} remains available." >&2; return 1; }
-    done
 
     trace_status="$(
         curl --silent --show-error --max-time 10 \
@@ -84,23 +77,17 @@ PY
         || { echo "The ${label} response is missing the required CSP." >&2; return 1; }
 }
 
-# The name before tenonai.cn keeps only what older CLIs call; pages and web sign-in move.
+# The name before tenonai.cn answers 410 for the API and moves every page.
 check_old_name() {
     local old_url="$1"
     local reply
-    curl --fail --silent --show-error --max-time 10 "${old_url}/healthz" >/dev/null
-    curl --fail --silent --show-error --max-time 10 "${old_url}/readyz" >/dev/null
-    [[ "$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${old_url}/api/v1/projects")" == 401 ]] \
-        || { echo "The old name must keep serving the CLI API." >&2; return 1; }
-    for path in "/" "/device?code=SMOKE" "/privacy" "/config.json"; do
+    [[ "$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${old_url}/api/v1/projects")" == 410 ]] \
+        || { echo "The old name must not serve the API." >&2; return 1; }
+    for path in "/" "/healthz" "/device?code=SMOKE" "/privacy" "/config.json"; do
         reply="$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code} %{redirect_url}' "${old_url}${path}")"
         [[ "${reply}" == "301 ${BASE_URL}${path}" ]] \
             || { echo "The old name must move ${path} to ${BASE_URL}, got ${reply}." >&2; return 1; }
     done
-    reply="$(curl --silent --show-error --max-time 10 --request POST --header 'Content-Type: application/json' --data '{"return_to":"/"}' \
-        --output /dev/null --write-out '%{http_code} %{redirect_url}' "${old_url}/api/v1/auth/tenon/prepare")"
-    [[ "${reply}" == "301 ${BASE_URL}/api/v1/auth/tenon/prepare" ]] \
-        || { echo "Web sign-in must not start on the old name, got ${reply}." >&2; return 1; }
     [[ "$(curl --silent --show-error --max-time 10 --request TRACE --output /dev/null --write-out '%{http_code}' "${old_url}/")" == 405 ]] \
         || { echo "Expected TRACE on the old name to return 405." >&2; return 1; }
 }
@@ -113,4 +100,4 @@ if [[ -n "${OLD_URL}" ]]; then
     check_old_name "${OLD_URL}"
 fi
 
-echo "IntHub health, authentication boundary, retired public routes, OAuth entry, TRACE, and CSP checks passed."
+echo "IntHub health, authentication boundary, OAuth entry, TRACE, and CSP checks passed."
