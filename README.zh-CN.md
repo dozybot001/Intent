@@ -114,7 +114,7 @@ IntHub 是这份历史的可选网页应用。用 `itt hub start` 在自己的�
 
 ## 许可证
 
-[MIT](LICENSE)。Copyright (c) 2026 Changsha Tenon Artificial Intelligence Technology Co., Ltd.（长沙榫卯人工智能科技有限公司）
+[MIT](LICENSE)。Copyright (c) 2026 Tenon Artificial Intelligence Technology Co., Ltd. (长沙榫卯人工智能科技有限公司)
 
 ---
 

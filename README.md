@@ -111,7 +111,7 @@ Report security problems privately, as [SECURITY.md](https://github.com/dozybot0
 
 ## License
 
-[MIT](https://github.com/dozybot001/Intent/blob/main/LICENSE). Copyright (c) 2026 Changsha Tenon Artificial Intelligence Technology Co., Ltd.
+[MIT](https://github.com/dozybot001/Intent/blob/main/LICENSE). Copyright (c) 2026 Tenon Artificial Intelligence Technology Co., Ltd. (长沙榫卯人工智能科技有限公司)
 
 ---
 
