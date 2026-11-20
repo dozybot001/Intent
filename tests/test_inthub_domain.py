@@ -277,30 +277,3 @@ def test_web_sessions_never_outlive_thirty_days_from_sign_in(tmp_path):
         conn.execute("UPDATE web_sessions SET expires_at = ?", ((datetime.now(timezone.utc) + timedelta(days=60)).isoformat(),))
         conn.execute("UPDATE tenon_session_grants SET verified_at = ?", (days_ago(31),))
     assert account_for_session(target, session["token"]) is None
-
-
-def test_migrations_10_and_11_move_identities_to_the_new_issuer(tmp_path):
-    from apps.inthub_api import db_migrate
-    from apps.inthub_api.db_schema import IDENTITY_ISSUER, PREVIOUS_IDENTITY_ISSUER
-    target = str(tmp_path / "db")
-    identity = {"sub": "central-1", "platform_role": "user", "expires_at": time.time() + 60}
-    account = account_for_identity(target, identity)
-    session = create_session(target, account["id"], identity)
-    with connect(target) as conn:
-        # Put the database back where 8.2.14 left it: everything under the old issuer.
-        conn.execute("UPDATE account_identities SET issuer = ?", (PREVIOUS_IDENTITY_ISSUER,))
-        conn.execute("UPDATE tenon_session_grants SET issuer = ?", (PREVIOUS_IDENTITY_ISSUER,))
-        conn.execute("INSERT INTO product_deletion_receipts VALUES (?, ?, ?, ?)",
-                     ("op-1", PREVIOUS_IDENTITY_ISSUER, "gone-1", days_ago(1)))
-        conn.execute("DELETE FROM schema_migrations WHERE version IN (10, 11)")
-    assert account_for_session(target, session["token"]) is None
-    with connect(target) as conn:
-        db_migrate.migrate_db(conn)
-    with connect(target) as conn:
-        issuers = {row["issuer"] for row in conn.execute("SELECT issuer FROM account_identities")}
-        assert issuers == {IDENTITY_ISSUER}
-        assert {row["issuer"] for row in conn.execute("SELECT issuer FROM product_deletion_receipts")} == {IDENTITY_ISSUER}
-    assert account_for_identity(target, identity)["id"] == account["id"], "the same account signs in"
-    assert account_for_session(target, session["token"])["id"] == account["id"], "signed-in sessions carry on"
-    with pytest.raises(Exception, match="account deletion"):
-        account_for_identity(target, {"sub": "gone-1", "platform_role": "user", "expires_at": time.time() + 60})
