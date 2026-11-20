@@ -70,6 +70,10 @@ def test_only_the_moved_issuer_is_ever_asked():
     assert configured_issuers() == (NEW,)
 
 
+def test_the_role_claim_has_the_account_services_name():
+    assert PLATFORM_ROLE == "https://tenonai.cn/claims/platform_role"
+
+
 def test_sign_in_uses_the_issuer_that_answers_and_keeps_the_same_account(tmp_path):
     answering = NEW
     target = str(tmp_path / "db")

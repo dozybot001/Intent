@@ -18,7 +18,7 @@ ISSUERS = ("https://account.tenonai.cn/api/auth",)
 # before the move. It is an identifier and never contacted, so every IntHub account
 # keeps its identity.
 ISSUER = "https://account.tenon.asia/api/auth"
-PLATFORM_ROLE = "https://tenon.asia/claims/platform_role"
+PLATFORM_ROLE = "https://tenonai.cn/claims/platform_role"
 SESSION_MAX_SECONDS = 30 * 24 * 60 * 60
 METADATA_TTL_SECONDS = 600
 
