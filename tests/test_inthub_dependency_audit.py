@@ -26,7 +26,9 @@ def _entry(**changes):
 def test_the_checked_in_list_is_valid_and_the_gate_runs_it():
     assert isinstance(audit.load_exemptions(), list)
     qualify = (SCRIPT.parent / "qualify-release.sh").read_text(encoding="utf-8")
-    assert 'audit_dependencies.py" "${QUALIFICATION_PYTHON}"' in qualify
+    local_only = qualify.split('if [[ -z "${EXPECTED_SHA}" ]]; then', 1)[1]
+    assert 'audit_dependencies.py" "${QUALIFICATION_PYTHON}"' in local_only
+    assert qualify.count("audit_dependencies.py") == 1
 
 
 def test_a_current_exemption_is_ignored_by_id(tmp_path):

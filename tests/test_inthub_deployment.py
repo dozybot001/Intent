@@ -317,7 +317,8 @@ def test_local_qualification_does_not_build_the_application_image():
     assert "git diff --check" in qualify
     assert "docker buildx build" not in qualify
     # One full test run per release: the Builder names the Commit and skips it.
-    assert 'if [[ -z "${EXPECTED_SHA}" ]]; then\nTEST_DATABASE_CONTAINER=' in qualify
+    local_only = qualify.split('if [[ -z "${EXPECTED_SHA}" ]]; then\n', 1)[1].split("\nfi\n", 1)[0]
+    assert "TEST_DATABASE_CONTAINER=" in local_only and "audit_dependencies.py" in local_only
 
 
 def test_gitee_bootstrap_only_installs_the_stable_launcher():

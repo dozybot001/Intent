@@ -98,10 +98,12 @@ PYTEST_VERSION="$(
 )" || fail "the prepared release environment does not contain pytest"
 [[ "${PYTEST_VERSION}" == "${REQUIRED_PYTEST_VERSION}" ]] \
     || fail "pytest ${REQUIRED_PYTEST_VERSION} is required, found ${PYTEST_VERSION}"
-python3 "${SCRIPT_DIR}/audit_dependencies.py" "${QUALIFICATION_PYTHON}" \
-    || fail "dependency audit refused this release"
 
 if [[ -z "${EXPECTED_SHA}" ]]; then
+# Local qualification only, like the tests: the server cannot reach PyPI's
+# advisory service, and it builds the same Commit that already passed here.
+python3 "${SCRIPT_DIR}/audit_dependencies.py" "${QUALIFICATION_PYTHON}" \
+    || fail "dependency audit refused this release"
 TEST_DATABASE_CONTAINER="inthub-qualification-postgres-${RELEASE_SHA:0:12}-$$"
 docker run \
     --detach \
