@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from apps.inthub_api.db_connection import DatabaseConnection
 from apps.inthub_api.db_schema import _create_postgresql_public_profiles_schema, _create_postgresql_schema, _create_sqlite_public_profiles_schema, _create_sqlite_schema, _create_tenon_schema
-from apps.inthub_api.db_schema import IDENTITY_ISSUER, PREVIOUS_IDENTITY_ISSUER, _ISSUER_SCHEMA_CHECKSUM, _ISSUER_SCHEMA_NAME
+from apps.inthub_api.db_schema import IDENTITY_ISSUER, PREVIOUS_IDENTITY_ISSUER, _ISSUER_CLEANUP_SCHEMA_CHECKSUM, _ISSUER_CLEANUP_SCHEMA_NAME, _ISSUER_SCHEMA_CHECKSUM, _ISSUER_SCHEMA_NAME
 from apps.inthub_api.db_schema import LATEST_SCHEMA_VERSION, _REPOSITORY_SCHEMA_CHECKSUM, _REPOSITORY_SCHEMA_NAME, _DELETION_SCHEMA_CHECKSUM, _DELETION_SCHEMA_NAME, _EXPECTED_SCHEMA_COLUMNS, _EXPECTED_SCHEMA_COLUMNS_V1, _EXPECTED_SCHEMA_COLUMNS_V2, _EXPECTED_SCHEMA_COLUMNS_V3, _HISTORY_SCHEMA_CHECKSUM, _HISTORY_SCHEMA_NAME, _HOSTED_SCHEMA_CHECKSUM, _HOSTED_SCHEMA_NAME, _IDENTITY_COLUMNS, _IDENTITY_SCHEMA_CHECKSUM, _IDENTITY_SCHEMA_NAME, _INITIAL_SCHEMA_CHECKSUM, _INITIAL_SCHEMA_NAME, _PUBLIC_PROFILES_SCHEMA_CHECKSUM, _PUBLIC_PROFILES_SCHEMA_NAME, _TEAMS_SCHEMA_CHECKSUM, _TEAMS_SCHEMA_NAME, _TENON_SCHEMA_CHECKSUM, _TENON_SCHEMA_NAME
 
 
@@ -116,6 +116,8 @@ def _validate_migration_ledger(rows):
         9: {"name": _REPOSITORY_SCHEMA_NAME, "checksum": _REPOSITORY_SCHEMA_CHECKSUM,
             "backward_compatible": 1},
         10: {"name": _ISSUER_SCHEMA_NAME, "checksum": _ISSUER_SCHEMA_CHECKSUM,
+             "backward_compatible": 1},
+        11: {"name": _ISSUER_CLEANUP_SCHEMA_NAME, "checksum": _ISSUER_CLEANUP_SCHEMA_CHECKSUM,
              "backward_compatible": 1},
     }
     observed_versions = set()
@@ -337,6 +339,21 @@ def migrate_db(conn, *, require_backward_compatible=True):
             (version, name, checksum, backward_compatible, applied_at)
             VALUES (?, ?, ?, ?, ?)""",
             (10, _ISSUER_SCHEMA_NAME, _ISSUER_SCHEMA_CHECKSUM, 1,
+             datetime.now(timezone.utc).isoformat()))
+
+    if 11 not in applied_versions:
+        # The previous release already reads only the current issuer, so the old identity rows
+        # go. Rows the release before it wrote while both ran are carried over first.
+        conn.execute("""INSERT INTO account_identities (issuer, subject, account_id, created_at)
+            SELECT ?, subject, account_id, created_at FROM account_identities WHERE issuer = ?
+            ON CONFLICT DO NOTHING""", (IDENTITY_ISSUER, PREVIOUS_IDENTITY_ISSUER))
+        for table in ("tenon_session_grants", "product_deletion_receipts"):
+            conn.execute(f"UPDATE {table} SET issuer = ? WHERE issuer = ?", (IDENTITY_ISSUER, PREVIOUS_IDENTITY_ISSUER))
+        conn.execute("DELETE FROM account_identities WHERE issuer = ?", (PREVIOUS_IDENTITY_ISSUER,))
+        conn.execute("""INSERT INTO schema_migrations
+            (version, name, checksum, backward_compatible, applied_at)
+            VALUES (?, ?, ?, ?, ?)""",
+            (11, _ISSUER_CLEANUP_SCHEMA_NAME, _ISSUER_CLEANUP_SCHEMA_CHECKSUM, 1,
              datetime.now(timezone.utc).isoformat()))
 
     rows = _migration_rows(conn)
