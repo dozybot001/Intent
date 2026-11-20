@@ -50,7 +50,18 @@ def test_http_json_retries_timeout_with_the_same_request(monkeypatch):
     assert result == {"linked": True}
     assert len(calls) == 2
     assert calls[0][0] is calls[1][0]
-    assert [timeout for _request, timeout in calls] == [0.1, 0.1]
+    allowance = len(calls[0][0].data) / client.SLOWEST_UPLOAD_BYTES_PER_SECOND
+    assert [timeout for _request, timeout in calls] == [0.1 + allowance] * 2
+
+
+def test_a_large_body_gets_time_for_a_slow_uplink(monkeypatch):
+    seen = []
+    monkeypatch.setattr(client, "_open_request", lambda request, timeout: seen.append(timeout) or FakeResponse(b'{"ok":true,"result":{}}'))
+    client.http_json("POST", "https://inthub.example/api/v3/upload", {"blobs": "x" * 1024 * 1024})
+    # One upload batch at 16 KB/s, plus the usual 15 seconds for the reply.
+    assert seen[0] >= client.DEFAULT_TIMEOUT_SECONDS + 64
+    client.http_json("GET", "https://inthub.example/api/v3/refs")
+    assert seen[1] == client.DEFAULT_TIMEOUT_SECONDS
 
 
 def test_http_json_timeout_is_structured_and_marks_post_unknown(
@@ -75,7 +86,7 @@ def test_http_json_timeout_is_structured_and_marks_post_unknown(
         "url": "https://inthub.example/api/v2/link",
         "reason": "TimeoutError",
         "attempts": 2,
-        "timeout_seconds": 0.01,
+        "timeout_seconds": pytest.approx(0.01 + len(b'{"project_name": "stable"}') / client.SLOWEST_UPLOAD_BYTES_PER_SECOND),
         "completion_unknown": True,
     }
 

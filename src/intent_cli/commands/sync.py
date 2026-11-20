@@ -17,7 +17,8 @@ from intent_cli.hub.versions import validate_project_ref
 from intent_cli.output import error, success
 from intent_cli.store import ensure_init, workspace_write_lock, write_hub_config
 
-BATCH_BYTES = 6 * 1024 * 1024
+# Small enough that one batch finishes in about a minute on a slow uplink.
+BATCH_BYTES = 1024 * 1024
 
 
 def _complete_tips(base):

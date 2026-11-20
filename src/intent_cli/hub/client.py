@@ -13,6 +13,8 @@ from intent_cli.output import error
 
 
 DEFAULT_TIMEOUT_SECONDS = 15.0
+# The timeout also covers sending the body, so a large one gets time for a slow uplink.
+SLOWEST_UPLOAD_BYTES_PER_SECOND = 16 * 1024
 DEFAULT_ATTEMPTS = 2
 # A complete accepted 16 MiB sync snapshot plus its compact export envelope.
 MAX_RESPONSE_BYTES = 16 * 1024 * 1024 + 64 * 1024
@@ -165,6 +167,7 @@ def http_json(
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
         headers["Content-Type"] = "application/json"
+        timeout += len(data) / SLOWEST_UPLOAD_BYTES_PER_SECOND
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
