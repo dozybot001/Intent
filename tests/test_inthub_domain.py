@@ -179,8 +179,6 @@ def test_the_cli_defaults_to_the_hosted_hub(monkeypatch, tmp_path):
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
     assert global_api_base_url() == "https://inthub.tenonai.cn"
     assert normalize_api_base_url("https://inthub.example/") == "https://inthub.example"
-    # A remote saved under the old name reads as the new one, so the old host is never contacted.
-    assert normalize_api_base_url("https://inthub.tenon.asia/") == "https://inthub.tenonai.cn"
 
 
 def test_every_hub_request_names_the_cli_and_its_version(monkeypatch):
@@ -207,19 +205,13 @@ def shell_function(name):
     return script[start:script.index("\n}\n", start) + 3]
 
 
-def test_the_release_proxies_only_the_new_name_to_the_candidate(tmp_path):
+def test_the_release_proxies_its_one_site_to_the_candidate(tmp_path):
     out = tmp_path / "site.caddy"
     subprocess.run(["bash", "-c", shell_function("render_caddy") + 'render_caddy "$@"', "-",
                     str(ROOT / "deploy" / "inthub" / "inthub.caddy"), str(out), "7251"], check=True)
     site = out.read_text(encoding="utf-8")
-    new, old = site.split("\ninthub.tenon.asia {\n")
-    assert new.startswith("inthub.tenonai.cn {\n") and "reverse_proxy 127.0.0.1:7251" in new
-    assert "7250" not in site and site.count("import access_log") == 2
-    # The old name serves no API and moves every page, so it never reaches the app.
-    route = old[old.index("route {"):]
-    steps = ["respond @trace 405", "respond @api ", "redir https://inthub.tenonai.cn{uri} 301"]
-    assert [route.index(step) for step in steps] == sorted(route.index(step) for step in steps)
-    assert "@api path /api/*" in old and "reverse_proxy" not in old and '" 410' in old
+    assert site.startswith("inthub.tenonai.cn {\n") and "reverse_proxy 127.0.0.1:7251" in site
+    assert "7250" not in site and site.count("import access_log") == 1
     third = tmp_path / "third.caddy"
     third.write_text(site.replace("7251", "7250") + "\nextra.example {\n\treverse_proxy 127.0.0.1:7250\n}\n")
     refused = subprocess.run(["bash", "-c", shell_function("render_caddy") + 'render_caddy "$@"', "-",
@@ -232,22 +224,19 @@ def test_the_new_name_is_canonical_everywhere_the_release_and_monitors_look():
     compose = (deploy / "compose.yaml").read_text(encoding="utf-8")
     assert "INTHUB_API_BASE_URL: https://${INTHUB_DOMAIN:?set INTHUB_DOMAIN}\n" in compose and "EXTRA_ORIGINS" not in compose
     remote = (deploy / "remote-release.sh").read_text(encoding="utf-8")
-    assert 'PUBLIC_URL="https://inthub.tenonai.cn"' in remote and 'OLD_URL="https://inthub.tenon.asia"' in remote
+    assert 'PUBLIC_URL="https://inthub.tenonai.cn"' in remote
     assert '"INTHUB_DOMAIN=${PUBLIC_URL#https://}"' in remote and "EXTRA_ORIGINS" not in remote
-    # Every public smoke run also checks that the old name serves no API and moves every page.
-    assert remote.count('INTHUB_BASE_URL="${PUBLIC_URL}"') == remote.count('INTHUB_OLD_URL="${OLD_URL}"') == 3
+    assert remote.count('INTHUB_BASE_URL="${PUBLIC_URL}"') == 3
     smoke = (deploy / "smoke.sh").read_text(encoding="utf-8")
-    assert 'BASE_URL="${INTHUB_BASE_URL:-https://inthub.tenonai.cn}"' in smoke and "check_old_name" in smoke
+    assert 'BASE_URL="${INTHUB_BASE_URL:-https://inthub.tenonai.cn}"' in smoke
     assert 'target.netloc == "account.tenonai.cn"' in smoke
     assert 'PUBLIC_URL="https://inthub.tenonai.cn"' in (deploy / "release.sh").read_text(encoding="utf-8")
     assert 'BASE_URL="https://inthub.tenonai.cn"' in (deploy / "monitor.sh").read_text(encoding="utf-8")
     workflow = (ROOT / ".github" / "workflows" / "monitor.yml").read_text(encoding="utf-8")
-    assert "inthub.tenonai.cn/readyz" in workflow and "tenon.asia" not in workflow
-    # The old name only redirects to this file, so it is not listed as a place the file lives.
+    assert "inthub.tenonai.cn/readyz" in workflow
     security = (ROOT / "apps" / "inthub_web" / "static" / "security.txt").read_text(encoding="utf-8")
     assert [line for line in security.splitlines() if line.startswith("Canonical:")] == [
         "Canonical: https://inthub.tenonai.cn/.well-known/security.txt"]
-    assert "tenon.asia" not in security
 
 
 def days_ago(days):

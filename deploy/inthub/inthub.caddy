@@ -82,24 +82,3 @@ p { color: var(--muted); font-size: 14px; }
 		}
 	}
 }
-
-# The name IntHub had before tenonai.cn, until its DNS record moves away:
-# the API is gone and every page moves to the new name.
-inthub.tenon.asia {
-	import access_log
-
-	header {
-		Strict-Transport-Security "max-age=31536000; includeSubDomains"
-		X-Content-Type-Options "nosniff"
-		Referrer-Policy "no-referrer"
-		-Server
-	}
-
-	@trace method TRACE
-	@api path /api/*
-	route {
-		respond @trace 405
-		respond @api "IntHub moved to https://inthub.tenonai.cn. Run itt auth login, then itt remote add origin https://inthub.tenonai.cn" 410
-		redir https://inthub.tenonai.cn{uri} 301
-	}
-}

@@ -6,7 +6,7 @@
 set -euo pipefail
 
 REPO="${INTENT_REPO:-https://github.com/dozybot001/Intent.git}"
-RELEASE_TAG="${INTENT_VERSION:-v8.2.12}"
+RELEASE_TAG="${INTENT_VERSION:-v8.2.13}"
 SPEC="intent-history @ git+${REPO}@${RELEASE_TAG}"
 VENV_DIR="${INTENT_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/intent}/venv"
 BIN_DIR="${INTENT_BIN_DIR:-$HOME/.local/bin}"

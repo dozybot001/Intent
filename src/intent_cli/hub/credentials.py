@@ -10,9 +10,6 @@ from urllib.parse import urlsplit, urlunsplit
 
 
 OFFICIAL_INTHUB_API_BASE_URL = "https://inthub.tenonai.cn"
-# Data migration: remotes and configs saved before the hosted IntHub moved name
-# read as the new one, and the next push or pull saves it. Tokens are not carried over.
-MOVED_INTHUB_API_BASE_URL = "https://inthub.tenon.asia"
 CREDENTIAL_USERNAME = "intent-cli"
 
 
@@ -26,8 +23,7 @@ class CredentialStoreError(RuntimeError):
 
 def normalize_api_base_url(value):
     """Validate and normalize an IntHub HTTP(S) API base URL."""
-    url = _exact_api_base_url(value)
-    return OFFICIAL_INTHUB_API_BASE_URL if url == MOVED_INTHUB_API_BASE_URL else url
+    return _exact_api_base_url(value)
 
 
 def _exact_api_base_url(value):

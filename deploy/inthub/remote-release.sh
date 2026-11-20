@@ -20,8 +20,6 @@ BACKUPS_ROOT="${REMOTE_ROOT}/backups"
 LOGS_ROOT="${REMOTE_ROOT}/logs"
 CADDY_SITE="/etc/caddy/sites-enabled/inthub.caddy"
 PUBLIC_URL="https://inthub.tenonai.cn"
-# The name before tenonai.cn, kept only to answer 410 and redirect (see inthub.caddy).
-OLD_URL="https://inthub.tenon.asia"
 PRIVATE_NETWORK="inthub-private"
 PREVIOUS_DIRECTORY=""
 PREVIOUS_CONTAINER=""
@@ -134,12 +132,10 @@ import sys
 
 source = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
 upstream = "127.0.0.1:7250"
-# Only the new name proxies; the old one answers 410 and redirects.
 if source.count(upstream) != 1 or source.count("reverse_proxy") != 1:
     raise SystemExit("IntHub Caddy template must proxy exactly one upstream")
-for site in ("inthub.tenonai.cn {\n", "inthub.tenon.asia {\n"):
-    if source.count(site) != 1:
-        raise SystemExit(f"IntHub Caddy template must define {site.split()[0]} once")
+if source.count("inthub.tenonai.cn {\n") != 1:
+    raise SystemExit("IntHub Caddy template must define inthub.tenonai.cn once")
 if not source.startswith("inthub.tenonai.cn {\n"):
     raise SystemExit("IntHub Caddy template must open with its canonical site")
 port = sys.argv[3]
@@ -441,7 +437,6 @@ if [[ "${PREVIOUS_DIRECTORY}" == "${RELEASE_DIRECTORY}" ]]; then
     wait_for_app "${PREVIOUS_CONTAINER}" "${PREVIOUS_PORT}" \
         || fail "the active release is not healthy"
     INTHUB_BASE_URL="${PUBLIC_URL}" \
-    INTHUB_OLD_URL="${OLD_URL}" \
     INTHUB_LOOPBACK_URL="http://127.0.0.1:${PREVIOUS_PORT}" \
         bash "${RELEASE_DIRECTORY}/smoke.sh"
     write_release_state already_active
@@ -603,7 +598,6 @@ sudo -n caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/n
 sudo -n systemctl reload caddy
 
 INTHUB_BASE_URL="${PUBLIC_URL}" \
-INTHUB_OLD_URL="${OLD_URL}" \
 INTHUB_LOOPBACK_URL="http://127.0.0.1:${CANDIDATE_PORT}" \
     bash "${RELEASE_DIRECTORY}/smoke.sh"
 write_release_state public_smoke_passed
@@ -627,7 +621,6 @@ for _ in $(seq 1 "${BAKE_SECONDS}"); do
     sleep 1
 done
 INTHUB_BASE_URL="${PUBLIC_URL}" \
-INTHUB_OLD_URL="${OLD_URL}" \
 INTHUB_LOOPBACK_URL="http://127.0.0.1:${CANDIDATE_PORT}" \
     bash "${RELEASE_DIRECTORY}/smoke.sh"
 

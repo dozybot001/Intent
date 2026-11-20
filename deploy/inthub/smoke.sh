@@ -2,7 +2,6 @@
 set -Eeuo pipefail
 
 BASE_URL="${INTHUB_BASE_URL:-https://inthub.tenonai.cn}"
-OLD_URL="${INTHUB_OLD_URL:-}"
 LOOPBACK_URL="${INTHUB_LOOPBACK_URL:-}"
 TMP_DIRECTORY="$(mktemp -d)"
 
@@ -77,27 +76,9 @@ PY
         || { echo "The ${label} response is missing the required CSP." >&2; return 1; }
 }
 
-# The name before tenonai.cn answers 410 for the API and moves every page.
-check_old_name() {
-    local old_url="$1"
-    local reply
-    [[ "$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${old_url}/api/v1/projects")" == 410 ]] \
-        || { echo "The old name must not serve the API." >&2; return 1; }
-    for path in "/" "/healthz" "/device?code=SMOKE" "/privacy" "/config.json"; do
-        reply="$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code} %{redirect_url}' "${old_url}${path}")"
-        [[ "${reply}" == "301 ${BASE_URL}${path}" ]] \
-            || { echo "The old name must move ${path} to ${BASE_URL}, got ${reply}." >&2; return 1; }
-    done
-    [[ "$(curl --silent --show-error --max-time 10 --request TRACE --output /dev/null --write-out '%{http_code}' "${old_url}/")" == 405 ]] \
-        || { echo "Expected TRACE on the old name to return 405." >&2; return 1; }
-}
-
 if [[ -n "${LOOPBACK_URL}" ]]; then
     check_surface "${LOOPBACK_URL}" loopback
 fi
 check_surface "${BASE_URL}" public
-if [[ -n "${OLD_URL}" ]]; then
-    check_old_name "${OLD_URL}"
-fi
 
 echo "IntHub health, authentication boundary, OAuth entry, TRACE, and CSP checks passed."

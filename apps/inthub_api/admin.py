@@ -6,9 +6,8 @@ Suspending an account ends its sessions and refuses its tokens and sign-ins, and
 down its public personal projects. A takedown makes a project private and keeps it
 that way; its members can still read and export it.
 
-retire-tokens revokes every CLI token issued before a time, for the day tenon.asia
-becomes a redirect (S2): a token an old CLI still sends there could be replayed here.
-Run it with --dry-run first. Web sessions need no step: they last 30 days at most.
+retire-tokens revokes every CLI token issued before a time, so their holders sign in
+again. Run it with --dry-run first. Web sessions need no step: they last 30 days at most.
 """
 
 import argparse
