@@ -510,7 +510,7 @@ fi
 # candidate health and public acceptance. Compose recreates the database only
 # when its definition changed, on the same volume and after the backup above;
 # a definition that cannot start goes back to the previous release's.
-# PostgreSQL runs as its own UID (appendix A.3). A volume an earlier definition
+# PostgreSQL runs as its own fixed UID. A volume an earlier definition
 # owns is handed over while the database is stopped; going back, the previous
 # definition's root entrypoint takes its data directory back by itself.
 DATABASE_UID=70979

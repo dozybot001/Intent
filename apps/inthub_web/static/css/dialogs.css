@@ -251,7 +251,7 @@ html:has(.settings-dialog[open]) {
   background: transparent;
 }
 
-/* Only the character brightens (standard 5.13): no fill behind the larger hit area,
+/* Only the character brightens: no fill behind the larger hit area,
    hover only where a pointer can hover, so a tap leaves nothing behind. */
 .help-trigger[aria-expanded="true"],
 :root:not([data-input="pointer"]) .help-trigger:focus-visible {

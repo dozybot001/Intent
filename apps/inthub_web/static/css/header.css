@@ -27,7 +27,7 @@
 }
 
 /* Where IntHub names its publisher (About and the footers): the label, then the Tenon mark and
-   name as one small lockup (brand standard 1.4). The mark never appears without the name. */
+   name as one small lockup. The mark never appears without the name. */
 .publisher {
   display: inline-flex;
   align-items: center;

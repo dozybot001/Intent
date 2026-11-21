@@ -235,7 +235,7 @@ def test_compose_uses_explicit_immutable_images_and_disables_auto_migration():
     assert compose.count("read_only: true") == 2 and compose.count("no-new-privileges:true") == 2
     assert compose.count("cap_drop:\n      - ALL") == 2 and compose.count("pids_limit:") == 2
     database = compose.split("\n  app:\n")[0]
-    # PostgreSQL runs as its registered UID (appendix A.3) with no capability at all.
+    # PostgreSQL runs as its own fixed UID with no capability at all.
     assert 'user: "70979:70979"' in database and "cap_add" not in database
     assert "- /var/run/postgresql:size=8m,mode=1777" in database and "- /tmp:size=64m,mode=1777" in database
     assert "ports:" not in database

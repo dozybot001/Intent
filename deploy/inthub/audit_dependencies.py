@@ -1,4 +1,4 @@
-"""Release gate for product standard 15.1.2: no known vulnerability ships.
+"""Release gate: no dependency with a known vulnerability ships.
 
 Runs pip-audit on the qualification environment, which holds the production
 dependencies (the `server` extra, pinned like the Dockerfile) and the release

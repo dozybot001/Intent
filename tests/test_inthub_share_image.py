@@ -1,4 +1,4 @@
-"""Product standard 1.9: link previews and home-screen icons show IntHub's own mark, as opaque PNGs."""
+"""Link previews and home-screen icons show IntHub's own mark, as opaque PNGs."""
 
 from pathlib import Path
 import re

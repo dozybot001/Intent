@@ -393,7 +393,7 @@ def test_the_favicon_is_our_own_mark_on_every_page():
 
 
 def test_the_tenon_mark_appears_only_in_the_publisher_lockup():
-    # Brand standard 2.35: the IntHub wordmark carries no Tenon mark; About and the footers name the
+    # The IntHub wordmark carries no Tenon mark; About and the footers name the
     # publisher as "Publisher [T] Tenon AI", the official mark always beside the name.
     html = _static("index.html")
     assert html.count('<span class="brand-wordmark">IntHub</span>') == 3
@@ -426,7 +426,7 @@ def test_the_one_line_definition_is_the_agreed_sentence():
 def test_the_help_button_only_brightens_its_character():
     css = _static("styles.css")
     rules = [body for selector, body in re.findall(r"([^{}]*help-trigger[^{}]*)\{([^}]*)\}", css)]
-    # Standard 5.13: nothing paints the hit area; the character brightens instead.
+    # Nothing paints the hit area; the character brightens instead.
     assert rules and not any(re.search(r"\b(box-shadow|outline|background)\s*:\s*(?!transparent)\S", body) for body in rules)
     assert re.search(r"@media \(hover: hover\)\s*\{\s*\.help-trigger:hover\s*\{\s*color: var\(--ink\)", css)
     assert not re.search(r"(^|[,}\s])\.help-trigger:hover\s*,", css), "hover outside the media query sticks after a tap"

@@ -19,7 +19,7 @@ services:
       retries: 12
       start_period: 10s
     shm_size: 128mb
-    # Its own UID (appendix A.3), not the image's 999, which is the host's caddy
+    # Its own fixed UID, 70979, not the image's 999, which is the host's caddy
     # user. Running unprivileged from the start, it needs no capability; a
     # release hands an existing volume to this UID first. Only the data volume,
     # the socket directory and /tmp are writable.

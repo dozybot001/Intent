@@ -34,7 +34,7 @@ codex --cd <ABSOLUTE_PROJECT_PATH>
 Replace the placeholder with the verified root and quote it safely for the user's shell. Send only the filled command, for example:
 
 ```sh
-codex --cd /Users/deyang/PassBy
+codex --cd /Users/alex/projects/checkout
 ```
 
 Then say: “Click **Trust** (or the equivalent trust-directory confirmation), enter `/hooks`, review and trust **all Intent hooks for this project**—currently `UserPromptSubmit` and `Stop`—then reopen the desktop session.” This does not mean trusting unrelated hooks from other projects, plugins, or global sources. Already trusted definitions need no repeat confirmation. If CLI installation is declined, retain configured state and report the unverified host limitation without blocking unrelated work.
