@@ -17,7 +17,7 @@ Intent CLI (`itt`, package `intent-history`) is semantic Git for agent-driven wo
 
 - Work on `main`. `origin` pushes to Gitee and GitHub at once.
 - While developing, run the tests a change affects: `python scripts/changed_tests.py`. Run the full suite once, at release: `python -m pytest -q -n auto --dist loadfile` and `node tests/web/run.cjs`. The PostgreSQL tests need `INTHUB_TEST_POSTGRES_URL` and otherwise only run inside `deploy/inthub/release.sh`.
-- Keep source files near 400 lines and split by responsibility.
+- Keep source files near 400 lines and split by responsibility. Split a file over 800 lines by function before its next change, then run its tests. Generated files, vendored code, data and migrations don't count.
 - The CLI supports Python 3.9 to 3.14 and prints JSON. Within a major version the `.intent/` format and the JSON output stay compatible.
 - User-facing text exists in English and Chinese. Change both.
 - IntHub's web app uses color only for status, icon plus text for every option, and no browser-styled controls.
